@@ -21,10 +21,14 @@ yks-kocluk/
 2. **Firebase Authentication → Sign-in method:** **Anonymous** (Anonim) girişi **etkin** yapın. Panel, `index.html` ile girdikten sonra Firestore’a erişmek için arka planda anonim oturum açar; kurallarınız `request.auth != null` ise veriler yüklenir.
 3. **Firestore:** Koleksiyonlar `students`, `exams`, `appointments`. Sayfayı **HTTP** ile açın (`file://` ile modüller çalışmaz → sürekli “Yükleniyor” kalır).
 
-### Örnek alanlar
+### Koleksiyonlar
 
-- **appointments:** `studentName`, `scheduledAt` (Timestamp) veya `date` + `time`, isteğe bağlı `title`
-- **exams:** `studentName`, `examType` veya `tur` (`TYT`/`AYT`), `net`, `examDate` veya `date`, `status`
-- **students:** `name`, isteğe bağlı `track`, `avatarSeed`
+- **students** — Paneldeki detaylı öğrenci formu: kimlik, iletişim, okul/YKS hedefi, program, veli, sağlık, koç notları vb.
+- **appointments** — Randevu formu: `scheduledAt`, `studentId`, `studentName`, süre, tip, konu…
+- **exams** — Deneme kayıt formu + tablo
+- **tests** — TestMaker taslağı (`tests`)
+- **payments** — Tahsilat formu (`payments`)
+
+Firestore Rules bu koleksiyonlara yazmayı da açmalıdır.
 
 Panel listeleri **Firestore**’dan gelir; giriş bilgisi `localStorage` ile tutulur.

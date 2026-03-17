@@ -9,6 +9,8 @@ import {
   collection,
   onSnapshot,
   addDoc,
+  doc,
+  updateDoc,
   serverTimestamp,
   Timestamp,
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
@@ -433,6 +435,297 @@ function onStudentsSnap(snap) {
   });
   renderStudentsList(snap.docs);
   renderStudentsPage();
+  fillStudentSelects();
+}
+
+var STUDENT_FORM_FIELDS = [
+  "name",
+  "tcKimlik",
+  "birthDate",
+  "gender",
+  "phone",
+  "email",
+  "address",
+  "schoolName",
+  "gradeLevel",
+  "yksAlan",
+  "targetDepartment",
+  "targetRank",
+  "targetScore",
+  "track",
+  "weeklyHours",
+  "status",
+  "coachingStartDate",
+  "parentName",
+  "parentRelation",
+  "parentPhone",
+  "parentEmail",
+  "emergencyContactName",
+  "emergencyContactPhone",
+  "allergies",
+  "healthNotes",
+  "coachNotes",
+  "avatarSeed",
+];
+
+function fillStudentSelects() {
+  ["ap_student", "pay_student", "ex_student"].forEach(function (sid) {
+    var sel = document.getElementById(sid);
+    if (!sel) return;
+    var keep = sel.value;
+    sel.innerHTML =
+      sid === "ap_student"
+        ? '<option value="">— Öğrenci seçin —</option>'
+        : '<option value="">— Seçin —</option>';
+    cachedStudents.forEach(function (s) {
+      var o = document.createElement("option");
+      o.value = s.id;
+      o.textContent = s.name || s.studentName || "Öğrenci (" + s.id.slice(0, 6) + ")";
+      sel.appendChild(o);
+    });
+    if (keep) sel.value = keep;
+  });
+}
+
+function closeAllModals() {
+  var o = document.getElementById("modalOverlay");
+  if (!o) return;
+  o.classList.remove("is-open");
+  o.setAttribute("aria-hidden", "true");
+  document.querySelectorAll("#modalOverlay .modal").forEach(function (m) {
+    m.hidden = true;
+  });
+  document.body.style.overflow = "";
+}
+
+function openModalPanel(modalId) {
+  closeAllModals();
+  var o = document.getElementById("modalOverlay");
+  var m = document.getElementById(modalId);
+  if (!o || !m) return;
+  m.hidden = false;
+  o.classList.add("is-open");
+  o.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+}
+
+function openStudentModal(editId) {
+  var form = document.getElementById("formStudent");
+  if (!form) return;
+  form.reset();
+  document.getElementById("studentEditId").value = editId || "";
+  var sub = document.getElementById("modalStudentSubtitle");
+  var title = document.getElementById("modalStudentTitle");
+  if (editId) {
+    var s = cachedStudents.find(function (x) {
+      return x.id === editId;
+    });
+    if (sub) sub.textContent = "Kayıt güncelleniyor. Öğrenci ID: " + editId.slice(0, 8) + "…";
+    if (title) title.innerHTML = '<i class="fa-solid fa-user-pen"></i> Öğrenci düzenle';
+    if (s) {
+      STUDENT_FORM_FIELDS.forEach(function (key) {
+        var el = form.elements[key];
+        if (el && s[key] != null && s[key] !== "") el.value = String(s[key]);
+      });
+    }
+  } else {
+    if (sub) sub.textContent = "Yeni öğrenci — tüm alanlar isteğe bağlıdır (ad & telefon önerilir).";
+    if (title) title.innerHTML = '<i class="fa-solid fa-user-plus"></i> Yeni öğrenci kaydı';
+    var t = document.getElementById("st_track");
+    if (t) t.value = "TYT + AYT";
+    var st = document.getElementById("st_status");
+    if (st) st.value = "Aktif";
+  }
+  openModalPanel("modalStudent");
+}
+
+async function submitStudentForm(e) {
+  e.preventDefault();
+  var form = e.target;
+  var editId = document.getElementById("studentEditId").value;
+  var fd = new FormData(form);
+  var data = {};
+  fd.forEach(function (val, key) {
+    if (key === "editId") return;
+    if (val !== "" && val != null) data[key] = typeof val === "string" ? val.trim() : val;
+  });
+  if (!data.name) {
+    showToast("Ad Soyad zorunludur.");
+    return;
+  }
+  if (!data.phone) {
+    showToast("Öğrenci telefonu zorunludur.");
+    return;
+  }
+  try {
+    if (editId) {
+      data.updatedAt = serverTimestamp();
+      await updateDoc(doc(db, "students", editId), data);
+      showToast("Öğrenci güncellendi.");
+    } else {
+      data.createdAt = serverTimestamp();
+      await addDoc(collection(db, "students"), data);
+      showToast("Yeni öğrenci kaydedildi.");
+    }
+    closeAllModals();
+  } catch (err) {
+    console.error(err);
+    alert("Kayıt hatası: " + (err.message || err));
+  }
+}
+
+async function submitAppointmentForm(e) {
+  e.preventDefault();
+  var fd = new FormData(e.target);
+  var sid = fd.get("studentId");
+  var st = cachedStudents.find(function (x) {
+    return x.id === sid;
+  });
+  if (!st) {
+    showToast("Öğrenci seçin.");
+    return;
+  }
+  var d = fd.get("appointmentDate");
+  var t = fd.get("appointmentTime");
+  try {
+    var combined = new Date(d + "T" + t);
+    await addDoc(collection(db, "appointments"), {
+      studentId: sid,
+      studentName: st.name || st.studentName || "",
+      scheduledAt: Timestamp.fromDate(combined),
+      date: d,
+      time: t,
+      durationMin: parseInt(fd.get("durationMin"), 10) || 45,
+      meetingType: fd.get("meetingType") || "",
+      topic: fd.get("topic") || "",
+      internalNotes: fd.get("internalNotes") || "",
+      locationOrLink: fd.get("locationOrLink") || "",
+      createdAt: serverTimestamp(),
+    });
+    showToast("Randevu kaydedildi.");
+    closeAllModals();
+    e.target.reset();
+  } catch (err) {
+    console.error(err);
+    alert(err.message || err);
+  }
+}
+
+async function submitTestForm(e) {
+  e.preventDefault();
+  var fd = new FormData(e.target);
+  try {
+    await addDoc(collection(db, "tests"), {
+      title: fd.get("title"),
+      subject: fd.get("subject"),
+      difficulty: fd.get("difficulty"),
+      questionCount: parseInt(fd.get("questionCount"), 10) || 40,
+      durationMin: parseInt(fd.get("durationMin"), 10) || 50,
+      description: fd.get("description") || "",
+      targetStudentNote: fd.get("targetStudentNote") || "",
+      status: "Taslak",
+      createdAt: serverTimestamp(),
+    });
+    showToast("Test taslağı kaydedildi (tests).");
+    closeAllModals();
+    e.target.reset();
+  } catch (err) {
+    console.error(err);
+    alert(err.message || err);
+  }
+}
+
+async function submitPaymentForm(e) {
+  e.preventDefault();
+  var fd = new FormData(e.target);
+  var sid = fd.get("studentId");
+  var st = cachedStudents.find(function (x) {
+    return x.id === sid;
+  });
+  if (!st) {
+    showToast("Öğrenci seçin.");
+    return;
+  }
+  try {
+    await addDoc(collection(db, "payments"), {
+      studentId: sid,
+      studentName: st.name || st.studentName || "",
+      amount: parseFloat(fd.get("amount")) || 0,
+      paymentDate: fd.get("paymentDate") || new Date().toISOString().slice(0, 10),
+      paymentMethod: fd.get("paymentMethod") || "",
+      description: fd.get("description") || "",
+      invoiceNote: fd.get("invoiceNote") || "",
+      createdAt: serverTimestamp(),
+    });
+    showToast("Tahsilat kaydedildi (payments).");
+    closeAllModals();
+    e.target.reset();
+  } catch (err) {
+    console.error(err);
+    alert(err.message || err);
+  }
+}
+
+async function submitExamForm(e) {
+  e.preventDefault();
+  var fd = new FormData(e.target);
+  var sid = fd.get("studentId");
+  var st = cachedStudents.find(function (x) {
+    return x.id === sid;
+  });
+  if (!st) {
+    showToast("Öğrenci seçin.");
+    return;
+  }
+  var exD = fd.get("examDate");
+  var examDateTs = null;
+  if (exD) examDateTs = Timestamp.fromDate(new Date(exD));
+  try {
+    await addDoc(collection(db, "exams"), {
+      studentId: sid,
+      studentName: st.name || st.studentName || "",
+      examType: fd.get("examType"),
+      tur: fd.get("examType"),
+      net: fd.get("net"),
+      examDate: examDateTs,
+      date: exD || "",
+      examName: fd.get("examName") || "",
+      subjectBreakdown: fd.get("subjectBreakdown") || "",
+      status: fd.get("status") || "Kayıt girildi",
+      coachExamNote: fd.get("coachExamNote") || "",
+      createdAt: serverTimestamp(),
+    });
+    showToast("Deneme kaydı eklendi.");
+    closeAllModals();
+    e.target.reset();
+  } catch (err) {
+    console.error(err);
+    alert(err.message || err);
+  }
+}
+
+function initModals() {
+  var overlay = document.getElementById("modalOverlay");
+  if (!overlay) return;
+  overlay.addEventListener("click", function (ev) {
+    if (ev.target === overlay) closeAllModals();
+  });
+  document.querySelectorAll("[data-close-modal]").forEach(function (btn) {
+    btn.addEventListener("click", closeAllModals);
+  });
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key === "Escape") closeAllModals();
+  });
+  var fs = document.getElementById("formStudent");
+  if (fs) fs.addEventListener("submit", submitStudentForm);
+  var fa = document.getElementById("formAppointment");
+  if (fa) fa.addEventListener("submit", submitAppointmentForm);
+  var ft = document.getElementById("formTest");
+  if (ft) ft.addEventListener("submit", submitTestForm);
+  var fp = document.getElementById("formPayment");
+  if (fp) fp.addEventListener("submit", submitPaymentForm);
+  var fe = document.getElementById("formExam");
+  if (fe) fe.addEventListener("submit", submitExamForm);
 }
 
 function subscribeFirestore() {
@@ -582,29 +875,32 @@ function cycleExamsPageFilter() {
   showToast("Sayfa filtresi: " + labels[examsPageFilter]);
 }
 
-async function handleNewStudent() {
-  const name = window.prompt("Yeni öğrenci adı:");
-  if (!name || !String(name).trim()) return;
-  try {
-    await addDoc(collection(db, "students"), {
-      name: String(name).trim(),
-      createdAt: serverTimestamp(),
-      track: "TYT + AYT",
-    });
-    showToast("Öğrenci eklendi.");
-  } catch (err) {
-    console.error(err);
-    alert("Eklenemedi: " + (err.message || err));
-  }
-}
-
 function initAllButtons() {
+  function openApptModal() {
+    fillStudentSelects();
+    var d = document.getElementById("ap_date");
+    if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
+    openModalPanel("modalAppointment");
+  }
+  function openPayModal() {
+    fillStudentSelects();
+    var d = document.getElementById("pay_date");
+    if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
+    openModalPanel("modalPayment");
+  }
+
   document.getElementById("btnNewStudent") &&
-    document.getElementById("btnNewStudent").addEventListener("click", handleNewStudent);
+    document.getElementById("btnNewStudent").addEventListener("click", function () {
+      openStudentModal(null);
+    });
   document.getElementById("quickAddStudent") &&
-    document.getElementById("quickAddStudent").addEventListener("click", handleNewStudent);
+    document.getElementById("quickAddStudent").addEventListener("click", function () {
+      openStudentModal(null);
+    });
   document.getElementById("btnPageAddStudent") &&
-    document.getElementById("btnPageAddStudent").addEventListener("click", handleNewStudent);
+    document.getElementById("btnPageAddStudent").addEventListener("click", function () {
+      openStudentModal(null);
+    });
 
   document.getElementById("btnApptPrev") &&
     document.getElementById("btnApptPrev").addEventListener("click", function () {
@@ -639,15 +935,21 @@ function initAllButtons() {
     });
   document.getElementById("btnExamsFilter") &&
     document.getElementById("btnExamsFilter").addEventListener("click", cycleExamsPageFilter);
+  document.getElementById("btnAddExamRecord") &&
+    document.getElementById("btnAddExamRecord").addEventListener("click", function () {
+      fillStudentSelects();
+      var ed = document.getElementById("ex_date");
+      if (ed && !ed.value) ed.value = new Date().toISOString().slice(0, 10);
+      openModalPanel("modalExam");
+    });
 
   document.getElementById("quickRandevu") &&
     document.getElementById("quickRandevu").addEventListener("click", function () {
-      navigateTo("randevu");
-      showToast("Randevu sayfası — form sonraki adımda.");
+      openApptModal();
     });
   document.getElementById("quickTest") &&
     document.getElementById("quickTest").addEventListener("click", function () {
-      navigateTo("testmaker");
+      openModalPanel("modalTest");
     });
   document.getElementById("btnAllStudents") &&
     document.getElementById("btnAllStudents").addEventListener("click", function () {
@@ -655,26 +957,23 @@ function initAllButtons() {
     });
 
   document.getElementById("btnNewAppointment") &&
-    document.getElementById("btnNewAppointment").addEventListener("click", function () {
-      showToast("Randevu oluşturma formu yakında.");
-    });
+    document.getElementById("btnNewAppointment").addEventListener("click", openApptModal);
   document.getElementById("btnCreateTest") &&
     document.getElementById("btnCreateTest").addEventListener("click", function () {
-      showToast("Yeni test sihirbazı yakında.");
+      openModalPanel("modalTest");
     });
   document.getElementById("btnTestBank") &&
     document.getElementById("btnTestBank").addEventListener("click", function () {
-      showToast("Soru bankası modülü yakında.");
+      showToast("Soru bankası: sorular Firestore’da ayrı koleksiyonda tutulacak (sonraki adım).");
     });
   document.getElementById("btnTestPublish") &&
     document.getElementById("btnTestPublish").addEventListener("click", function () {
-      showToast("Yayınlanan testler listesi yakında.");
+      navigateTo("testmaker");
+      showToast("Yayınlı testler — tests koleksiyonunda status ≠ Taslak kayıtlar listelenecek.");
     });
 
   document.getElementById("btnNewPayment") &&
-    document.getElementById("btnNewPayment").addEventListener("click", function () {
-      showToast("Tahsilat kaydı formu yakında.");
-    });
+    document.getElementById("btnNewPayment").addEventListener("click", openPayModal);
   document.getElementById("btnStatIncome") &&
     document.getElementById("btnStatIncome").addEventListener("click", function () {
       showToast("Aylık tahsilat raporu yakında.");
@@ -722,11 +1021,8 @@ function initAllButtons() {
     }
     const st = e.target.closest(".student-open-btn");
     if (st && st.dataset.studentId) {
-      var sid = st.dataset.studentId;
-      var found = cachedStudents.find(function (x) {
-        return x.id === sid;
-      });
-      showToast(found ? "Öğrenci: " + (found.name || found.studentName || sid) : "Öğrenci kartı");
+      e.preventDefault();
+      openStudentModal(st.dataset.studentId);
     }
   });
 }
@@ -740,6 +1036,12 @@ window.YKSPanel = {
     if (typeof fn === "function") navigateCallbacks.push(fn);
   },
   toast: showToast,
+  openStudentForm: openStudentModal,
+  openAppointmentForm: function () {
+    fillStudentSelects();
+    openModalPanel("modalAppointment");
+  },
+  closeModals: closeAllModals,
 };
 
 function showLoadTimeoutWarning() {
@@ -757,6 +1059,7 @@ function showLoadTimeoutWarning() {
 
 initSidebar();
 initNavigation();
+initModals();
 initAllButtons();
 updateCoachProfile();
 subscribeFirestore();

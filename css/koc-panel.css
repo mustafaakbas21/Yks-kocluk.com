@@ -1073,6 +1073,13 @@ button.sidebar__link {
   color: var(--gray-900);
 }
 
+.page-head__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
 .page-desc {
   color: var(--gray-500);
   font-size: 0.92rem;
