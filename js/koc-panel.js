@@ -6,6 +6,11 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import {
+  getAuth,
+  signInAnonymously,
+  signOut,
+} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+import {
   getFirestore,
   collection,
   onSnapshot,
@@ -37,6 +42,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 const db = getFirestore(app);
 
 const LOGIN_PATH = "index.html";
@@ -351,7 +357,9 @@ function subscribeFirestore() {
       const row = document.getElementById("appointmentsRow");
       if (row)
         row.innerHTML =
-          '<p class="empty-hint empty-hint--error">Randevular yüklenemedi. Firestore kuralları ve koleksiyon adını kontrol edin.</p>';
+          '<p class="empty-hint empty-hint--error">' +
+          firestoreErrorHtml(err, "appointments") +
+          "</p>";
     }
   );
   firestoreUnsubs.push(unsubAppt);
@@ -367,7 +375,9 @@ function subscribeFirestore() {
       const tbody = document.getElementById("denemeTableBody");
       if (tbody)
         tbody.innerHTML =
-          '<tr><td colspan="5" class="table-empty table-empty--error">Denemeler yüklenemedi.</td></tr>';
+          '<tr><td colspan="5" class="table-empty table-empty--error">' +
+          firestoreErrorHtml(err, "exams") +
+          "</td></tr>";
     }
   );
   firestoreUnsubs.push(unsubExams);
@@ -380,9 +390,29 @@ function subscribeFirestore() {
     },
     function (err) {
       console.error("students", err);
+      const list = document.getElementById("activeStudentsList");
+      if (list)
+        list.innerHTML =
+          '<li class="mini-list__empty mini-list__empty--err">' +
+          firestoreErrorHtml(err, "students") +
+          "</li>";
     }
   );
   firestoreUnsubs.push(unsubStudents);
+}
+
+function firestoreErrorHtml(err, _col) {
+  const code = err && err.code ? String(err.code) : "";
+  if (code === "permission-denied")
+    return (
+      "<strong>Erişim reddedildi.</strong> Firebase Console → Firestore Rules içinde okumaya izin verin " +
+      "veya Authentication → Sign-in method → <strong>Anonymous</strong> açık olsun (panel arka planda anonim oturum açar)."
+    );
+  return (
+    "Veri alınamadı: " +
+    escapeHtml((err && err.message) || code || "Bilinmeyen hata") +
+    ". Konsolu (F12) kontrol edin."
+  );
 }
 
 function initSidebar() {
@@ -417,6 +447,7 @@ function handleLogout(e) {
   clearFirestoreListeners();
   localStorage.removeItem("isLoggedIn");
   localStorage.removeItem("role");
+  signOut(auth).catch(function () {});
   window.location.href = LOGIN_PATH;
 }
 
@@ -459,8 +490,35 @@ bindNewStudentButtons();
 const btnLogout = document.getElementById("btnLogout");
 if (btnLogout) btnLogout.addEventListener("click", handleLogout);
 
+function showLoadTimeoutWarning() {
+  const row = document.getElementById("appointmentsRow");
+  const tbody = document.getElementById("denemeTableBody");
+  if (row && row.querySelector(".empty-hint--loading")) {
+    row.innerHTML =
+      '<p class="empty-hint empty-hint--error"><strong>Sayfa tam yüklenmedi.</strong> ' +
+      "Projeyi <strong>Live Server</strong> veya <code>http://localhost</code> ile açın; " +
+      "<code>file://</code> ile açılırsa JavaScript modülleri çalışmaz. Tarayıcıda F12 → Console hatalarına bakın.</p>";
+  }
+  if (tbody && /Yükleniyor/i.test(tbody.textContent || "")) {
+    tbody.innerHTML =
+      '<tr><td colspan="5" class="table-empty table-empty--error">Yukarıdaki gibi sayfayı HTTP üzerinden açın veya konsolu kontrol edin.</td></tr>';
+  }
+}
+
 initSidebar();
 updateCoachProfile();
-subscribeFirestore();
+
+var _loadTimer = setTimeout(showLoadTimeoutWarning, 8000);
+
+signInAnonymously(auth)
+  .then(function () {
+    subscribeFirestore();
+    clearTimeout(_loadTimer);
+  })
+  .catch(function (e) {
+    console.warn("Anonim giriş başarısız (isteğe bağlı):", e);
+    subscribeFirestore();
+    clearTimeout(_loadTimer);
+  });
 
 } /* isLoggedIn */
