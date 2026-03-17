@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YKS Koçluk — Koç Paneli</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="css/koc-panel.css" />
+</head>
+<body>
+  <div class="app">
+    <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
+
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar__brand">
+        <div class="sidebar__logo">
+          <i class="fa-solid fa-graduation-cap"></i>
+        </div>
+        <span class="sidebar__title">YKS Koçluk</span>
+        <button type="button" class="sidebar__close" id="sidebarClose" aria-label="Menüyü kapat">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <nav class="sidebar__nav">
+        <p class="sidebar__section-label">Menü</p>
+        <ul class="sidebar__menu">
+          <li>
+            <a href="koc-panel.html" class="sidebar__link sidebar__link--active">
+              <i class="fa-solid fa-chart-pie"></i>
+              <span>Dashboard</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="sidebar__link">
+              <i class="fa-solid fa-user-graduate"></i>
+              <span>Öğrencilerim</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="sidebar__link">
+              <i class="fa-solid fa-chart-line"></i>
+              <span>Deneme Analizleri</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="sidebar__link">
+              <i class="fa-solid fa-calendar-days"></i>
+              <span>Randevu &amp; Takvim</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="sidebar__link">
+              <i class="fa-solid fa-file-circle-check"></i>
+              <span>TestMaker</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="sidebar__link">
+              <i class="fa-solid fa-wallet"></i>
+              <span>Muhasebe</span>
+            </a>
+          </li>
+        </ul>
+        <ul class="sidebar__menu sidebar__menu--footer">
+          <li>
+            <button type="button" class="sidebar__link sidebar__link--logout" id="btnLogout">
+              <i class="fa-solid fa-right-from-bracket"></i>
+              <span>Çıkış Yap</span>
+            </button>
+          </li>
+        </ul>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="main__header">
+        <button type="button" class="main__menu-btn" id="menuToggle" aria-label="Menüyü aç">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <div class="search-bar">
+          <i class="fa-solid fa-magnifying-glass search-bar__icon"></i>
+          <input type="search" class="search-bar__input" id="searchInput" placeholder="Öğrenci, deneme veya randevu ara..." autocomplete="off" />
+          <button type="button" class="search-bar__filter" aria-label="Filtrele">
+            <i class="fa-solid fa-sliders"></i>
+          </button>
+        </div>
+      </header>
+
+      <section class="banner">
+        <div class="banner__content">
+          <span class="banner__tag">YKS KOÇLUK</span>
+          <h1 class="banner__title">YKS 2026 Sürecini Yönetin</h1>
+          <button type="button" class="btn btn--banner" id="btnNewStudent">
+            <span class="btn__play"><i class="fa-solid fa-user-plus"></i></span>
+            Yeni Öğrenci Ekle
+          </button>
+        </div>
+        <div class="banner__decor" aria-hidden="true">
+          <i class="fa-solid fa-star"></i>
+          <i class="fa-solid fa-star"></i>
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section__head">
+          <h2 class="section__title">Yaklaşan Randevular</h2>
+          <div class="section__arrows">
+            <button type="button" class="icon-btn" aria-label="Önceki"><i class="fa-solid fa-chevron-left"></i></button>
+            <button type="button" class="icon-btn" aria-label="Sonraki"><i class="fa-solid fa-chevron-right"></i></button>
+          </div>
+        </div>
+        <div class="cards-row" id="appointmentsRow">
+          <p class="empty-hint empty-hint--loading"><i class="fa-solid fa-spinner fa-spin"></i> Veriler yükleniyor…</p>
+        </div>
+      </section>
+
+      <section class="section section--table">
+        <div class="section__head">
+          <h2 class="section__title">Son Deneme Analizleri</h2>
+          <a href="#" class="link-see-all">Tümünü Gör</a>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Öğrenci Adı</th>
+                <th>Deneme Türü</th>
+                <th>Net</th>
+                <th>Tarih</th>
+                <th>Durum / Aksiyon</th>
+              </tr>
+            </thead>
+            <tbody id="denemeTableBody">
+              <tr>
+                <td colspan="5" class="table-empty">Yükleniyor…</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <aside class="panel">
+      <div class="panel__card profile-card">
+        <div class="profile-card__head">
+          <h2 class="profile-card__title">Koç Profili</h2>
+          <button type="button" class="icon-btn icon-btn--ghost" aria-label="Menü"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+        </div>
+        <div class="profile-card__avatar-wrap">
+          <div class="profile-card__avatar">
+            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=coachYKS" alt="Koç" width="96" height="96" />
+          </div>
+        </div>
+        <p class="profile-card__greet">Yükleniyor…</p>
+        <p class="profile-card__sub"><span id="activeStudentCount">0</span> kayıtlı öğrenci</p>
+        <div class="profile-card__actions">
+          <button type="button" class="round-icon-btn" aria-label="Bildirimler"><i class="fa-regular fa-bell"></i></button>
+          <button type="button" class="round-icon-btn" aria-label="Ayarlar"><i class="fa-solid fa-gear"></i></button>
+          <button type="button" class="round-icon-btn" aria-label="Mesajlar"><i class="fa-regular fa-envelope"></i></button>
+        </div>
+      </div>
+
+      <div class="panel__card chart-card">
+        <h3 class="chart-card__title">Randevu Yoğunluğu</h3>
+        <p class="chart-card__subtitle">Bu hafta günlük randevu sayısı (Firestore)</p>
+        <div class="bar-chart" id="barChart" role="img" aria-label="Randevu yoğunluğu"></div>
+        <div class="chart-card__legend">
+          <span><i class="fa-solid fa-circle" style="color: var(--purple-500)"></i> Randevu adedi</span>
+        </div>
+      </div>
+
+      <div class="panel__card actions-card">
+        <div class="actions-card__head">
+          <h3 class="actions-card__title">Hızlı Aksiyonlar</h3>
+        </div>
+        <div class="quick-actions">
+          <button type="button" class="quick-btn" id="quickAddStudent"><i class="fa-solid fa-user-plus"></i> Öğrenci Ekle</button>
+          <button type="button" class="quick-btn"><i class="fa-solid fa-calendar-check"></i> Randevu Ver</button>
+          <button type="button" class="quick-btn"><i class="fa-solid fa-file-pen"></i> Test Oluştur</button>
+        </div>
+        <p class="actions-card__sub">Aktif Öğrenciler</p>
+        <ul class="mini-list" id="activeStudentsList"></ul>
+        <button type="button" class="btn btn--full">Tüm Öğrenciler</button>
+      </div>
+    </aside>
+  </div>
+
+  <script type="module" src="js/koc-panel.js"></script>
+</body>
+</html>
