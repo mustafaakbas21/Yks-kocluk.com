@@ -190,6 +190,26 @@
     </aside>
   </div>
 
+  <!-- Modül hiç çalışmazsa (file:// veya js 404) en azından mesaj göster -->
+  <script>
+    (function () {
+      function warn() {
+        var row = document.getElementById("appointmentsRow");
+        if (!row || row.dataset.panelOk === "1") return;
+        if (!/yükleniyor|Yükleniyor/i.test(row.innerHTML)) return;
+        row.innerHTML =
+          '<p class="empty-hint empty-hint--error" style="text-align:left;max-width:520px;margin:0 auto">' +
+          "<strong>Panel JavaScript’i çalışmadı.</strong><br>" +
+          "• Adres çubuğunda <code>file://</code> görüyorsanız: VS Code <strong>Live Server</strong> ile açın (http://127.0.0.1:…).<br>" +
+          "• F12 → <strong>Network</strong> → <code>koc-panel.js</code> kırmızı (404) ise klasör yapısını kontrol edin.</p>";
+        var tb = document.getElementById("denemeTableBody");
+        if (tb && /Yükleniyor/i.test(tb.innerHTML))
+          tb.innerHTML =
+            '<tr><td colspan="5" class="table-empty table-empty--error">Önce panel scriptinin yüklendiğinden emin olun.</td></tr>';
+      }
+      setTimeout(warn, 4000);
+    })();
+  </script>
   <script type="module" src="js/koc-panel.js"></script>
 </body>
 </html>

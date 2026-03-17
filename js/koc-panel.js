@@ -31,6 +31,11 @@ onAuthStateChanged(auth, function (user) {
 if (localStorage.getItem("isLoggedIn") !== "true") {
   window.location.replace("index.html");
 } else {
+(function () {
+  var el = document.getElementById("appointmentsRow");
+  if (el) el.dataset.panelOk = "1";
+})();
+
 const firebaseConfig = {
   apiKey: "AIzaSyD3RUiCIlcysC6S7TFMbChD8h0cfHeroP8",
   authDomain: "yks-kocluk-8f7c6.firebaseapp.com",
@@ -508,17 +513,39 @@ function showLoadTimeoutWarning() {
 initSidebar();
 updateCoachProfile();
 
-var _loadTimer = setTimeout(showLoadTimeoutWarning, 8000);
+var _loadTimer = setTimeout(showLoadTimeoutWarning, 12000);
 
-signInAnonymously(auth)
-  .then(function () {
-    subscribeFirestore();
-    clearTimeout(_loadTimer);
-  })
-  .catch(function (e) {
-    console.warn("Anonim giriş başarısız (isteğe bağlı):", e);
-    subscribeFirestore();
-    clearTimeout(_loadTimer);
-  });
+Promise.race([
+  signInAnonymously(auth)
+    .then(function () {
+      console.log("Firebase anonim oturum açıldı.");
+    })
+    .catch(function (e) {
+      console.warn("Anonim giriş:", e && e.code ? e.code : e);
+    }),
+  new Promise(function (resolve) {
+    setTimeout(resolve, 2500);
+  }),
+]).then(function () {
+  clearTimeout(_loadTimer);
+  subscribeFirestore();
+  setTimeout(function verifyDataLoaded() {
+    var row = document.getElementById("appointmentsRow");
+    if (!row) return;
+    var still =
+      row.querySelector(".empty-hint--loading") ||
+      /Veriler yükleniyor|yükleniyor/i.test(row.textContent || "");
+    if (still) {
+      row.innerHTML =
+        '<p class="empty-hint empty-hint--error"><strong>Hâlâ yüklenmiyorsa:</strong> F12 → Network’te ' +
+        "<code>firestore.googleapis.com</code> isteği var mı? Yoksa internet / reklam engelleyici. " +
+        "Firebase’de <strong>Anonymous</strong> girişi açın; Firestore Rules: <code>allow read: if request.auth != null;</code></p>";
+      var tb = document.getElementById("denemeTableBody");
+      if (tb && /Yükleniyor/i.test(tb.textContent || ""))
+        tb.innerHTML =
+          '<tr><td colspan="5" class="table-empty table-empty--error">Yukarıdaki adımları uygulayın.</td></tr>';
+    }
+  }, 7000);
+});
 
 } /* isLoggedIn */
