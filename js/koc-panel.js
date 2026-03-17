@@ -1,8 +1,6 @@
 /**
- * YKS Koçluk — Koç Paneli (geliştirme)
- * Giriş / redirect / Firebase Auth yok — sadece Firestore.
- * Firestore Rules: test için allow read, write: if true; (veya herkese okuma)
- * HTML: <script type="module" src="js/koc-panel.js"></script>
+ * YKS Koçluk — Panel (Firestore + tüm butonlar)
+ * Menüye özellik eklemek için: window.YKSPanel.onNavigate(fn) veya data-nav ile navigate
  */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
@@ -34,14 +32,22 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 let firestoreUnsubs = [];
+let cachedAppointments = [];
+let cachedExams = [];
+let cachedStudents = [];
+let apptCarouselOffset = 0;
+let examTypeFilter = "all";
+let examsPageFilter = "all";
+let searchQuery = "";
+const navigateCallbacks = [];
+
+let currentView = "dashboard";
 
 function clearFirestoreListeners() {
   firestoreUnsubs.forEach(function (unsub) {
     try {
       unsub();
-    } catch (e) {
-      /* ignore */
-    }
+    } catch (e) {}
   });
   firestoreUnsubs = [];
 }
@@ -63,10 +69,7 @@ function toDate(value) {
     if (!isNaN(d.getTime())) return d;
     const parts = value.split(/[./]/);
     if (parts.length === 3) {
-      const dd = parseInt(parts[0], 10);
-      const mm = parseInt(parts[1], 10) - 1;
-      const yy = parseInt(parts[2], 10);
-      return new Date(yy, mm, dd);
+      return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
     }
   }
   return null;
@@ -76,9 +79,7 @@ function appointmentSortTime(data) {
   const d = toDate(data.scheduledAt) || toDate(data.date);
   if (d && data.time && typeof data.time === "string") {
     const m = data.time.match(/(\d{1,2})[.:](\d{2})/);
-    if (m) {
-      d.setHours(parseInt(m[1], 10), parseInt(m[2], 10), 0, 0);
-    }
+    if (m) d.setHours(parseInt(m[1], 10), parseInt(m[2], 10), 0, 0);
   }
   return d ? d.getTime() : 0;
 }
@@ -88,24 +89,16 @@ function formatAppointmentMeta(data) {
   const timeStr =
     data.time ||
     (d && !isNaN(d.getTime())
-      ? String(d.getHours()).padStart(2, "0") +
-        ":" +
-        String(d.getMinutes()).padStart(2, "0")
+      ? String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0")
       : "");
   if (d && !isNaN(d.getTime())) {
-    const opts = { day: "numeric", month: "long", year: "numeric" };
-    return (
-      d.toLocaleDateString("tr-TR", opts) + (timeStr ? " · " + timeStr : "")
-    );
+    return d.toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" }) + (timeStr ? " · " + timeStr : "");
   }
   return (data.date || "") + (data.time ? " · " + data.time : "") || "Tarih belirtilmedi";
 }
 
-function renderAppointments(docs) {
-  const row = document.getElementById("appointmentsRow");
-  if (!row) return;
-
-  const items = docs
+function buildAppointmentList(docs) {
+  return docs
     .map(function (docSnap) {
       return { ...docSnap.data(), id: docSnap.id };
     })
@@ -116,39 +109,58 @@ function renderAppointments(docs) {
       const t = appointmentSortTime(x);
       return t >= Date.now() - 86400000 || t === 0;
     });
+}
 
-  const top = items.slice(0, 3);
+function appointmentCardHtml(ap) {
+  const name = ap.studentName || ap.ogrenciAdi || ap.name || "Öğrenci";
+  const title = ap.title || ap.type || ap.note || "Randevu";
+  return (
+    '<article class="appt-card">' +
+    '<div class="appt-card__icon"><i class="fa-solid fa-bell"></i></div>' +
+    '<div class="appt-card__body">' +
+    '<p class="appt-card__meta">' +
+    escapeHtml(formatAppointmentMeta(ap)) +
+    "</p>" +
+    '<h3 class="appt-card__student">' +
+    escapeHtml(name) +
+    "</h3>" +
+    '<p class="appt-card__type">' +
+    escapeHtml(title) +
+    "</p></div>" +
+    '<button type="button" class="appt-card__more appt-card__menu-btn" data-appt-id="' +
+    escapeHtml(ap.id) +
+    '" aria-label="Randevu seçenekleri"><i class="fa-solid fa-ellipsis-vertical"></i></button></article>'
+  );
+}
+
+function filterApptsBySearch(list) {
+  const q = searchQuery.trim().toLowerCase();
+  if (!q) return list;
+  return list.filter(function (ap) {
+    const name = (ap.studentName || ap.ogrenciAdi || ap.name || "") + " " + (ap.title || ap.type || "");
+    return name.toLowerCase().indexOf(q) !== -1;
+  });
+}
+
+function renderDashboardAppointments() {
+  const row = document.getElementById("appointmentsRow");
+  if (!row) return;
+  const filtered = filterApptsBySearch(cachedAppointments);
+  const n = filtered.length;
+  if (apptCarouselOffset >= n) apptCarouselOffset = Math.max(0, n - 3);
+  if (apptCarouselOffset < 0) apptCarouselOffset = 0;
+  const top = filtered.slice(apptCarouselOffset, apptCarouselOffset + 3);
 
   if (top.length === 0) {
     row.innerHTML =
-      '<p class="empty-hint"><i class="fa-solid fa-calendar-xmark"></i> Yaklaşan randevu yok. Firestore <code>appointments</code> koleksiyonuna kayıt ekleyin.</p>';
-    return;
+      '<p class="empty-hint"><i class="fa-solid fa-calendar-xmark"></i> Randevu yok veya aramanızla eşleşmedi.</p>';
+  } else {
+    row.innerHTML = top.map(appointmentCardHtml).join("");
   }
-
-  row.innerHTML = top
-    .map(function (ap) {
-      const name =
-        ap.studentName || ap.ogrenciAdi || ap.name || "Öğrenci";
-      const title = ap.title || ap.type || ap.note || "Randevu";
-      return (
-        '<article class="appt-card">' +
-        '<div class="appt-card__icon"><i class="fa-solid fa-bell"></i></div>' +
-        '<div class="appt-card__body">' +
-        '<p class="appt-card__meta">' +
-        escapeHtml(formatAppointmentMeta(ap)) +
-        "</p>" +
-        '<h3 class="appt-card__student">' +
-        escapeHtml(name) +
-        "</h3>" +
-        '<p class="appt-card__type">' +
-        escapeHtml(title) +
-        "</p>" +
-        "</div>" +
-        '<button type="button" class="appt-card__more" aria-label="Menü"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
-        "</article>"
-      );
-    })
-    .join("");
+  const prev = document.getElementById("btnApptPrev");
+  const next = document.getElementById("btnApptNext");
+  if (prev) prev.disabled = apptCarouselOffset <= 0;
+  if (next) next.disabled = apptCarouselOffset + 3 >= filtered.length;
 }
 
 function examDateSort(data) {
@@ -156,73 +168,162 @@ function examDateSort(data) {
   return d ? d.getTime() : 0;
 }
 
-function renderExams(docs) {
+function examMatchesFilters(row) {
+  const tur = (row.examType || row.type || row.tur || "TYT").toUpperCase();
+  if (examTypeFilter === "TYT" && tur !== "TYT") return false;
+  if (examTypeFilter === "AYT" && tur !== "AYT") return false;
+  const q = searchQuery.trim().toLowerCase();
+  if (q) {
+    const blob =
+      (row.studentName || row.ogrenciAdi || row.name || "") +
+      " " +
+      tur +
+      " " +
+      (row.status || row.durum || "");
+    if (blob.toLowerCase().indexOf(q) === -1) return false;
+  }
+  return true;
+}
+
+function examRowHtml(row, colspan) {
+  const ogrenci = row.studentName || row.ogrenciAdi || row.name || "—";
+  const tur = (row.examType || row.type || row.tur || "TYT").toUpperCase();
+  const badgeClass = tur === "TYT" ? "badge-tyt" : "badge-ayt";
+  const net = row.net != null ? String(row.net) : "—";
+  const d = toDate(row.examDate) || toDate(row.date);
+  const tarih = d && !isNaN(d.getTime()) ? d.toLocaleDateString("tr-TR") : String(row.date || "—");
+  const durum = row.status || row.durum || "—";
+  const isOk = /tamamlandı|rapor|hazır/i.test(durum) || row.analyzed === true;
+  const statusHtml = isOk
+    ? '<span class="status-ok"><i class="fa-solid fa-circle-check"></i> ' + escapeHtml(durum) + "</span>"
+    : escapeHtml(durum);
+  const c = colspan || 5;
+  return (
+    "<tr data-exam-id=\"" +
+    escapeHtml(row.id) +
+    "\"><td><strong>" +
+    escapeHtml(ogrenci) +
+    "</strong></td><td><span class=\"" +
+    badgeClass +
+    "\">" +
+    escapeHtml(tur === "AYT" ? "AYT" : "TYT") +
+    "</span></td><td>" +
+    escapeHtml(net) +
+    " net</td><td>" +
+    escapeHtml(tarih) +
+    "</td><td>" +
+    statusHtml +
+    ' <button type="button" class="btn-detail" data-id="' +
+    escapeHtml(row.id) +
+    '">Detay</button></td></tr>'
+  );
+}
+
+function renderDashboardExams() {
   const tbody = document.getElementById("denemeTableBody");
   if (!tbody) return;
-
-  const rows = docs
-    .map(function (docSnap) {
-      return { ...docSnap.data(), id: docSnap.id };
-    })
-    .sort(function (a, b) {
-      return examDateSort(b) - examDateSort(a);
-    })
-    .slice(0, 15);
-
-  if (rows.length === 0) {
+  const plain = cachedExams.slice().sort(function (a, b) {
+    return examDateSort(b) - examDateSort(a);
+  });
+  const filtered = plain.filter(examMatchesFilters);
+  const slice = filtered.slice(0, 15);
+  if (slice.length === 0) {
     tbody.innerHTML =
-      '<tr><td colspan="5" class="table-empty">Henüz deneme kaydı yok. <code>exams</code> koleksiyonuna veri ekleyin.</td></tr>';
+      '<tr><td colspan="5" class="table-empty">Kayıt yok veya filtreye uymuyor.</td></tr>';
     return;
   }
+  tbody.innerHTML = slice.map(function (row) {
+    return examRowHtml(row, 5);
+  }).join("");
+}
 
-  tbody.innerHTML = rows
+function renderExamsFullPage() {
+  const tbody = document.getElementById("examsPageBody");
+  if (!tbody) return;
+  const plain = cachedExams.slice().sort(function (a, b) {
+    return examDateSort(b) - examDateSort(a);
+  });
+  let filtered = plain;
+  if (examsPageFilter === "TYT") filtered = plain.filter(function (r) {
+    return (r.examType || r.type || r.tur || "TYT").toUpperCase() === "TYT";
+  });
+  else if (examsPageFilter === "AYT") filtered = plain.filter(function (r) {
+    return (r.examType || r.type || r.tur || "").toUpperCase() === "AYT";
+  });
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Deneme kaydı yok.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered
     .map(function (row) {
-      const ogrenci =
-        row.studentName || row.ogrenciAdi || row.name || "—";
+      const ogrenci = row.studentName || row.ogrenciAdi || row.name || "—";
       const tur = (row.examType || row.type || row.tur || "TYT").toUpperCase();
       const badgeClass = tur === "TYT" ? "badge-tyt" : "badge-ayt";
       const net = row.net != null ? String(row.net) : "—";
       const d = toDate(row.examDate) || toDate(row.date);
-      const tarih =
-        d && !isNaN(d.getTime())
-          ? d.toLocaleDateString("tr-TR")
-          : String(row.date || "—");
+      const tarih = d && !isNaN(d.getTime()) ? d.toLocaleDateString("tr-TR") : "—";
       const durum = row.status || row.durum || "—";
-      const isOk =
-        /tamamlandı|rapor|hazır/i.test(durum) || row.analyzed === true;
-      const statusHtml = isOk
-        ? '<span class="status-ok"><i class="fa-solid fa-circle-check"></i> ' +
-          escapeHtml(durum) +
-          "</span>"
-        : escapeHtml(durum);
-
       return (
-        "<tr data-exam-id=\"" +
-        escapeHtml(row.id) +
-        "\">" +
-        "<td><strong>" +
+        "<tr><td><strong>" +
         escapeHtml(ogrenci) +
-        "</strong></td>" +
-        '<td><span class="' +
+        "</strong></td><td><span class=\"" +
         badgeClass +
-        '">' +
-        escapeHtml(tur === "AYT" ? "AYT" : "TYT") +
-        "</span></td>" +
-        "<td>" +
+        "\">" +
+        escapeHtml(tur) +
+        "</span></td><td>" +
         escapeHtml(net) +
-        " net</td>" +
-        "<td>" +
+        "</td><td>" +
         escapeHtml(tarih) +
-        "</td>" +
-        "<td>" +
-        statusHtml +
-        ' <button type="button" class="btn-detail" data-id="' +
+        "</td><td>" +
+        escapeHtml(durum) +
+        "</td><td><button type=\"button\" class=\"btn-detail\" data-id=\"" +
         escapeHtml(row.id) +
-        '">Detay</button></td>' +
-        "</tr>"
+        "\">Detay</button></td></tr>"
       );
     })
     .join("");
+}
+
+function renderStudentsPage() {
+  const grid = document.getElementById("studentsPageGrid");
+  if (!grid) return;
+  if (cachedStudents.length === 0) {
+    grid.innerHTML = '<p class="page-desc">Henüz öğrenci yok. <strong>Yeni Öğrenci</strong> ile ekleyin.</p>';
+    return;
+  }
+  grid.innerHTML = cachedStudents
+    .map(function (s) {
+      const name = s.name || s.studentName || "Öğrenci";
+      const seed = s.avatarSeed || name;
+      const img = "https://api.dicebear.com/7.x/avataaars/svg?seed=" + encodeURIComponent(String(seed));
+      const track = s.track || s.paket || "TYT + AYT";
+      return (
+        '<div class="student-card">' +
+        '<img src="' +
+        img +
+        '" alt="" width="64" height="64" />' +
+        "<h3>" +
+        escapeHtml(name) +
+        "</h3>" +
+        "<p>" +
+        escapeHtml(track) +
+        '</p><button type="button" class="btn btn--xs btn--outline student-open-btn" data-student-id="' +
+        escapeHtml(s.id) +
+        '">Detay</button></div>'
+      );
+    })
+    .join("");
+}
+
+function renderAppointmentsPage() {
+  const row = document.getElementById("appointmentsPageRow");
+  if (!row) return;
+  const list = cachedAppointments;
+  if (list.length === 0) {
+    row.innerHTML = '<p class="empty-hint">Randevu kaydı yok.</p>';
+    return;
+  }
+  row.innerHTML = list.map(appointmentCardHtml).join("");
 }
 
 const WEEK_LABELS = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
@@ -230,13 +331,11 @@ const WEEK_LABELS = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
 function renderAppointmentDensityChart(docs) {
   const container = document.getElementById("barChart");
   if (!container) return;
-
   const counts = [0, 0, 0, 0, 0, 0, 0];
   const now = new Date();
   const weekStart = new Date(now);
   weekStart.setHours(0, 0, 0, 0);
   weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
-
   docs.forEach(function (docSnap) {
     const ap = docSnap.data();
     const t = appointmentSortTime(ap);
@@ -246,25 +345,19 @@ function renderAppointmentDensityChart(docs) {
     const diff = Math.floor((dt - weekStart) / 86400000);
     if (diff >= 0 && diff < 7) counts[diff]++;
   });
-
   const max = Math.max.apply(null, counts.concat([1]));
-
   container.innerHTML = WEEK_LABELS.map(function (label, i) {
     const pct = Math.round((counts[i] / max) * 100);
     return (
       '<div class="bar-chart__col">' +
       '<div class="bar-chart__bar" style="height:0%" data-h="' +
       pct +
-      '%" title="' +
-      counts[i] +
-      ' randevu"></div>' +
+      '%"></div>' +
       '<span class="bar-chart__label">' +
       escapeHtml(label) +
-      "</span>" +
-      "</div>"
+      "</span></div>"
     );
   }).join("");
-
   requestAnimationFrame(function () {
     container.querySelectorAll(".bar-chart__bar").forEach(function (bar) {
       bar.style.height = bar.getAttribute("data-h");
@@ -275,41 +368,28 @@ function renderAppointmentDensityChart(docs) {
 function renderStudentsList(docs) {
   const list = document.getElementById("activeStudentsList");
   const countEl = document.getElementById("activeStudentCount");
-  if (countEl) countEl.textContent = String(docs.length);
-
+  if (countEl) countEl.textContent = String(cachedStudents.length);
   if (!list) return;
-
   const top = docs.slice(0, 5);
   if (top.length === 0) {
-    list.innerHTML =
-      '<li class="mini-list__empty">Öğrenci yok. <code>students</code> koleksiyonuna ekleyin.</li>';
+    list.innerHTML = '<li class="mini-list__empty">Öğrenci yok.</li>';
     return;
   }
-
   list.innerHTML = top
     .map(function (docSnap) {
-      const s = docSnap.data();
+      const s = docSnap.data ? docSnap.data() : docSnap;
       const name = s.name || s.studentName || "Öğrenci";
       const seed = s.avatarSeed || name;
-      const img =
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=" +
-        encodeURIComponent(String(seed));
+      const img = "https://api.dicebear.com/7.x/avataaars/svg?seed=" + encodeURIComponent(String(seed));
       const track = s.track || s.paket || "TYT + AYT";
       return (
-        "<li>" +
-        '<img src="' +
+        "<li><img src=\"" +
         img +
-        '" alt="" width="36" height="36" loading="lazy" />' +
-        '<div class="mini-list__info">' +
-        '<div class="mini-list__name">' +
+        '" alt="" width="36" height="36" loading="lazy" /><div class="mini-list__info"><div class="mini-list__name">' +
         escapeHtml(name) +
-        "</div>" +
-        '<div class="mini-list__role">' +
+        '</div><div class="mini-list__role">' +
         escapeHtml(track) +
-        "</div>" +
-        "</div>" +
-        '<span class="mini-follow mini-follow--static">Aktif</span>' +
-        "</li>"
+        '</div></div><span class="mini-follow mini-follow--static">Aktif</span></li>'
       );
     })
     .join("");
@@ -319,84 +399,128 @@ function updateCoachProfile() {
   const greet = document.querySelector(".profile-card__greet");
   if (greet) {
     const h = new Date().getHours();
-    const part =
-      h < 12 ? "Günaydın" : h < 18 ? "İyi günler" : "İyi akşamlar";
-    greet.innerHTML =
-      part + ", <strong>Koç</strong> <span style=\"font-weight:500;color:var(--gray-500, #6b7280);font-size:.85em\">(geliştirme)</span>";
+    const part = h < 12 ? "Günaydın" : h < 18 ? "İyi günler" : "İyi akşamlar";
+    greet.innerHTML = part + ", <strong>Koç</strong>";
   }
 }
 
 function firestoreErrorHtml(err) {
   const code = err && err.code ? String(err.code) : "";
   if (code === "permission-denied")
-    return (
-      "<strong>Erişim reddedildi.</strong> Firestore Rules geliştirme için örn: " +
-      "<code>allow read, write: if true;</code> (sadece test; canlıda asla böyle bırakmayın)."
-    );
-  return (
-    "Veri alınamadı: " +
-    escapeHtml((err && err.message) || code || "Bilinmeyen hata") +
-    "."
-  );
+    return "<strong>Erişim reddedildi.</strong> Firestore Rules kontrol edin.";
+  return escapeHtml((err && err.message) || code || "Hata");
+}
+
+function onAppointmentsSnap(snap) {
+  cachedAppointments = buildAppointmentList(snap.docs);
+  apptCarouselOffset = 0;
+  renderDashboardAppointments();
+  renderAppointmentDensityChart(snap.docs);
+  renderAppointmentsPage();
+}
+
+function onExamsSnap(snap) {
+  cachedExams = snap.docs.map(function (d) {
+    return { ...d.data(), id: d.id };
+  });
+  renderDashboardExams();
+  renderExamsFullPage();
+}
+
+function onStudentsSnap(snap) {
+  cachedStudents = snap.docs.map(function (d) {
+    return { ...d.data(), id: d.id };
+  });
+  renderStudentsList(snap.docs);
+  renderStudentsPage();
 }
 
 function subscribeFirestore() {
   clearFirestoreListeners();
-
   firestoreUnsubs.push(
     onSnapshot(
       collection(db, "appointments"),
-      function (snap) {
-        renderAppointments(snap.docs);
-        renderAppointmentDensityChart(snap.docs);
-      },
+      onAppointmentsSnap,
       function (err) {
-        console.error("appointments", err);
+        console.error(err);
         const row = document.getElementById("appointmentsRow");
-        if (row)
-          row.innerHTML =
-            '<p class="empty-hint empty-hint--error">' +
-            firestoreErrorHtml(err) +
-            "</p>";
+        if (row) row.innerHTML = '<p class="empty-hint empty-hint--error">' + firestoreErrorHtml(err) + "</p>";
       }
     )
   );
-
   firestoreUnsubs.push(
     onSnapshot(
       collection(db, "exams"),
-      function (snap) {
-        renderExams(snap.docs);
-      },
+      onExamsSnap,
       function (err) {
-        console.error("exams", err);
         const tbody = document.getElementById("denemeTableBody");
         if (tbody)
           tbody.innerHTML =
-            '<tr><td colspan="5" class="table-empty table-empty--error">' +
-            firestoreErrorHtml(err) +
-            "</td></tr>";
+            '<tr><td colspan="5" class="table-empty table-empty--error">' + firestoreErrorHtml(err) + "</td></tr>";
       }
     )
   );
-
   firestoreUnsubs.push(
     onSnapshot(
       collection(db, "students"),
-      function (snap) {
-        renderStudentsList(snap.docs);
-      },
+      onStudentsSnap,
       function (err) {
-        console.error("students", err);
         const list = document.getElementById("activeStudentsList");
-        if (list)
-          list.innerHTML =
-            '<li class="mini-list__empty mini-list__empty--err">' +
-            firestoreErrorHtml(err) +
-            "</li>";
+        if (list) list.innerHTML = "<li class='mini-list__empty'>" + firestoreErrorHtml(err) + "</li>";
       }
     )
   );
+}
+
+function showToast(msg) {
+  const t = document.getElementById("panelToast");
+  if (!t) {
+    alert(msg);
+    return;
+  }
+  t.textContent = msg;
+  t.hidden = false;
+  t.classList.add("toast--show");
+  clearTimeout(showToast._tm);
+  showToast._tm = setTimeout(function () {
+    t.classList.remove("toast--show");
+    t.hidden = true;
+  }, 2800);
+}
+
+function navigateTo(view) {
+  if (!view) return;
+  var previous = currentView;
+  currentView = view;
+  document.querySelectorAll(".main-view").forEach(function (el) {
+    const v = el.getAttribute("data-view");
+    const on = v === view;
+    el.classList.toggle("is-active", on);
+    el.hidden = !on;
+  });
+  document.querySelectorAll("button.sidebar__link[data-nav]").forEach(function (btn) {
+    btn.classList.toggle("sidebar__link--active", btn.getAttribute("data-nav") === view);
+  });
+  var brand = document.querySelector(".sidebar__brand-btn");
+  if (brand) brand.classList.toggle("sidebar__brand-btn--active", view === "dashboard");
+  navigateCallbacks.forEach(function (fn) {
+    try {
+      fn(view, { previous: previous });
+    } catch (e) {
+      console.error(e);
+    }
+  });
+  const sidebar = document.getElementById("sidebar");
+  const overlay = document.getElementById("sidebarOverlay");
+  if (sidebar && overlay && window.innerWidth <= 992) {
+    sidebar.classList.remove("is-open");
+    overlay.classList.remove("is-open");
+    document.body.style.overflow = "";
+  }
+  if (view === "denemeler") renderExamsFullPage();
+  if (view === "ogrenciler") renderStudentsPage();
+  if (view === "randevu") renderAppointmentsPage();
+  window.dispatchEvent(new CustomEvent("yks:navigate", { detail: { view: view } }));
 }
 
 function initSidebar() {
@@ -410,25 +534,52 @@ function initSidebar() {
     overlay.classList.add("is-open");
     document.body.style.overflow = "hidden";
   }
-
   function shut() {
     sidebar.classList.remove("is-open");
     overlay.classList.remove("is-open");
     document.body.style.overflow = "";
   }
-
   if (toggle) toggle.addEventListener("click", open);
   if (close) close.addEventListener("click", shut);
   if (overlay) overlay.addEventListener("click", shut);
-
   window.addEventListener("resize", function () {
     if (window.innerWidth > 992) shut();
   });
 }
 
-function handleLogout(e) {
-  if (e) e.preventDefault();
-  window.alert("Geliştirme modu: giriş/çıkış kapalı. Sayfayı yenilemek için F5 kullanın.");
+function initNavigation() {
+  document.querySelectorAll("[data-nav]").forEach(function (el) {
+    el.addEventListener("click", function () {
+      navigateTo(el.getAttribute("data-nav"));
+    });
+  });
+}
+
+function cycleExamFilter() {
+  if (examTypeFilter === "all") examTypeFilter = "TYT";
+  else if (examTypeFilter === "TYT") examTypeFilter = "AYT";
+  else examTypeFilter = "all";
+  const labels = { all: "Tümü", TYT: "TYT", AYT: "AYT" };
+  const lab = document.getElementById("searchFilterLabel");
+  if (lab) {
+    lab.hidden = examTypeFilter === "all";
+    lab.textContent = "Deneme: " + labels[examTypeFilter];
+  }
+  showToast("Liste filtresi: " + labels[examTypeFilter]);
+  renderDashboardExams();
+  apptCarouselOffset = 0;
+  renderDashboardAppointments();
+}
+
+function cycleExamsPageFilter() {
+  if (examsPageFilter === "all") examsPageFilter = "TYT";
+  else if (examsPageFilter === "TYT") examsPageFilter = "AYT";
+  else examsPageFilter = "all";
+  const labels = { all: "Tümü", TYT: "TYT", AYT: "AYT" };
+  const btn = document.getElementById("btnExamsFilter");
+  if (btn) btn.innerHTML = '<i class="fa-solid fa-filter"></i> Filtre: ' + labels[examsPageFilter];
+  renderExamsFullPage();
+  showToast("Sayfa filtresi: " + labels[examsPageFilter]);
 }
 
 async function handleNewStudent() {
@@ -440,49 +591,174 @@ async function handleNewStudent() {
       createdAt: serverTimestamp(),
       track: "TYT + AYT",
     });
+    showToast("Öğrenci eklendi.");
   } catch (err) {
     console.error(err);
-    alert("Öğrenci eklenemedi. Firestore kuralları yazmaya izin veriyor mu kontrol edin.");
+    alert("Eklenemedi: " + (err.message || err));
   }
 }
 
-document.addEventListener("click", function (e) {
-  const btn = e.target.closest(".btn-detail");
-  if (btn && btn.dataset.id) {
-    e.preventDefault();
-    alert("Deneme ID: " + btn.dataset.id);
+function initAllButtons() {
+  document.getElementById("btnNewStudent") &&
+    document.getElementById("btnNewStudent").addEventListener("click", handleNewStudent);
+  document.getElementById("quickAddStudent") &&
+    document.getElementById("quickAddStudent").addEventListener("click", handleNewStudent);
+  document.getElementById("btnPageAddStudent") &&
+    document.getElementById("btnPageAddStudent").addEventListener("click", handleNewStudent);
+
+  document.getElementById("btnApptPrev") &&
+    document.getElementById("btnApptPrev").addEventListener("click", function () {
+      apptCarouselOffset = Math.max(0, apptCarouselOffset - 1);
+      renderDashboardAppointments();
+    });
+  document.getElementById("btnApptNext") &&
+    document.getElementById("btnApptNext").addEventListener("click", function () {
+      apptCarouselOffset += 1;
+      renderDashboardAppointments();
+    });
+
+  var searchEl = document.getElementById("searchInput");
+  if (searchEl) {
+    var debounce;
+    searchEl.addEventListener("input", function () {
+      searchQuery = searchEl.value || "";
+      apptCarouselOffset = 0;
+      clearTimeout(debounce);
+      debounce = setTimeout(function () {
+        renderDashboardExams();
+        renderDashboardAppointments();
+      }, 200);
+    });
   }
-});
+  document.getElementById("btnSearchFilter") &&
+    document.getElementById("btnSearchFilter").addEventListener("click", cycleExamFilter);
 
-function bindNewStudentButtons() {
-  const handler = function () {
-    handleNewStudent();
-  };
-  const btnNew = document.getElementById("btnNewStudent");
-  const quick = document.getElementById("quickAddStudent");
-  if (btnNew) btnNew.addEventListener("click", handler);
-  if (quick) quick.addEventListener("click", handler);
+  document.getElementById("btnSeeAllExams") &&
+    document.getElementById("btnSeeAllExams").addEventListener("click", function () {
+      navigateTo("denemeler");
+    });
+  document.getElementById("btnExamsFilter") &&
+    document.getElementById("btnExamsFilter").addEventListener("click", cycleExamsPageFilter);
+
+  document.getElementById("quickRandevu") &&
+    document.getElementById("quickRandevu").addEventListener("click", function () {
+      navigateTo("randevu");
+      showToast("Randevu sayfası — form sonraki adımda.");
+    });
+  document.getElementById("quickTest") &&
+    document.getElementById("quickTest").addEventListener("click", function () {
+      navigateTo("testmaker");
+    });
+  document.getElementById("btnAllStudents") &&
+    document.getElementById("btnAllStudents").addEventListener("click", function () {
+      navigateTo("ogrenciler");
+    });
+
+  document.getElementById("btnNewAppointment") &&
+    document.getElementById("btnNewAppointment").addEventListener("click", function () {
+      showToast("Randevu oluşturma formu yakında.");
+    });
+  document.getElementById("btnCreateTest") &&
+    document.getElementById("btnCreateTest").addEventListener("click", function () {
+      showToast("Yeni test sihirbazı yakında.");
+    });
+  document.getElementById("btnTestBank") &&
+    document.getElementById("btnTestBank").addEventListener("click", function () {
+      showToast("Soru bankası modülü yakında.");
+    });
+  document.getElementById("btnTestPublish") &&
+    document.getElementById("btnTestPublish").addEventListener("click", function () {
+      showToast("Yayınlanan testler listesi yakında.");
+    });
+
+  document.getElementById("btnNewPayment") &&
+    document.getElementById("btnNewPayment").addEventListener("click", function () {
+      showToast("Tahsilat kaydı formu yakında.");
+    });
+  document.getElementById("btnStatIncome") &&
+    document.getElementById("btnStatIncome").addEventListener("click", function () {
+      showToast("Aylık tahsilat raporu yakında.");
+    });
+  document.getElementById("btnStatPending") &&
+    document.getElementById("btnStatPending").addEventListener("click", function () {
+      showToast("Bekleyen ödemeler listesi yakında.");
+    });
+
+  document.getElementById("btnProfileMenu") &&
+    document.getElementById("btnProfileMenu").addEventListener("click", function () {
+      showToast("Profil menüsü — ayarlar yakında.");
+    });
+  document.getElementById("btnNotify") &&
+    document.getElementById("btnNotify").addEventListener("click", function () {
+      showToast("Bildirimler yakında.");
+    });
+  document.getElementById("btnProfileSettings") &&
+    document.getElementById("btnProfileSettings").addEventListener("click", function () {
+      showToast("Ayarlar yakında.");
+    });
+  document.getElementById("btnMessages") &&
+    document.getElementById("btnMessages").addEventListener("click", function () {
+      showToast("Mesajlar yakında.");
+    });
+
+  document.getElementById("btnLogout") &&
+    document.getElementById("btnLogout").addEventListener("click", function (e) {
+      e.preventDefault();
+      if (confirm("Çıkış yapılsın mı?")) {
+        window.location.href = "index.html";
+      }
+    });
+
+  document.addEventListener("click", function (e) {
+    const det = e.target.closest(".btn-detail");
+    if (det && det.dataset.id) {
+      e.preventDefault();
+      showToast("Deneme detayı (ID: " + det.dataset.id + ")");
+    }
+    const apptMenu = e.target.closest(".appt-card__menu-btn");
+    if (apptMenu && apptMenu.dataset.apptId) {
+      e.preventDefault();
+      showToast("Randevu seçenekleri — ID: " + apptMenu.dataset.apptId);
+    }
+    const st = e.target.closest(".student-open-btn");
+    if (st && st.dataset.studentId) {
+      var sid = st.dataset.studentId;
+      var found = cachedStudents.find(function (x) {
+        return x.id === sid;
+      });
+      showToast(found ? "Öğrenci: " + (found.name || found.studentName || sid) : "Öğrenci kartı");
+    }
+  });
 }
-bindNewStudentButtons();
 
-const btnLogout = document.getElementById("btnLogout");
-if (btnLogout) btnLogout.addEventListener("click", handleLogout);
+window.YKSPanel = {
+  navigate: navigateTo,
+  getView: function () {
+    return currentView;
+  },
+  onNavigate: function (fn) {
+    if (typeof fn === "function") navigateCallbacks.push(fn);
+  },
+  toast: showToast,
+};
 
 function showLoadTimeoutWarning() {
   const row = document.getElementById("appointmentsRow");
   const tbody = document.getElementById("denemeTableBody");
   if (row && row.querySelector(".empty-hint--loading")) {
     row.innerHTML =
-      '<p class="empty-hint empty-hint--error"><strong>Script çalışmadı.</strong> Sayfayı <code>http://</code> ile açın (Live Server). <code>file://</code> modül yükletmez.</p>';
+      '<p class="empty-hint empty-hint--error">Sayfayı <code>http://</code> ile açın (Live Server).</p>';
   }
   if (tbody && /Yükleniyor/i.test(tbody.textContent || "")) {
     tbody.innerHTML =
-      '<tr><td colspan="5" class="table-empty table-empty--error">HTTP ile açın veya F12 konsoluna bakın.</td></tr>';
+      '<tr><td colspan="5" class="table-empty table-empty--error">HTTP ile açın.</td></tr>';
   }
 }
 
 initSidebar();
+initNavigation();
+initAllButtons();
 updateCoachProfile();
 subscribeFirestore();
-
+navigateTo("dashboard");
 setTimeout(showLoadTimeoutWarning, 12000);

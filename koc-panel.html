@@ -16,10 +16,10 @@
 
     <aside class="sidebar" id="sidebar">
       <div class="sidebar__brand">
-        <div class="sidebar__logo">
-          <i class="fa-solid fa-graduation-cap"></i>
-        </div>
-        <span class="sidebar__title">YKS Koçluk</span>
+        <button type="button" class="sidebar__brand-btn" data-nav="dashboard" title="Ana sayfa">
+          <div class="sidebar__logo"><i class="fa-solid fa-graduation-cap"></i></div>
+          <span class="sidebar__title">YKS Koçluk</span>
+        </button>
         <button type="button" class="sidebar__close" id="sidebarClose" aria-label="Menüyü kapat">
           <i class="fa-solid fa-xmark"></i>
         </button>
@@ -29,47 +29,40 @@
         <p class="sidebar__section-label">Menü</p>
         <ul class="sidebar__menu">
           <li>
-            <a href="koc-panel.html" class="sidebar__link sidebar__link--active">
-              <i class="fa-solid fa-chart-pie"></i>
-              <span>Dashboard</span>
-            </a>
+            <button type="button" class="sidebar__link sidebar__link--active" data-nav="dashboard">
+              <i class="fa-solid fa-chart-pie"></i><span>Dashboard</span>
+            </button>
           </li>
           <li>
-            <a href="#" class="sidebar__link">
-              <i class="fa-solid fa-user-graduate"></i>
-              <span>Öğrencilerim</span>
-            </a>
+            <button type="button" class="sidebar__link" data-nav="ogrenciler">
+              <i class="fa-solid fa-user-graduate"></i><span>Öğrencilerim</span>
+            </button>
           </li>
           <li>
-            <a href="#" class="sidebar__link">
-              <i class="fa-solid fa-chart-line"></i>
-              <span>Deneme Analizleri</span>
-            </a>
+            <button type="button" class="sidebar__link" data-nav="denemeler">
+              <i class="fa-solid fa-chart-line"></i><span>Deneme Analizleri</span>
+            </button>
           </li>
           <li>
-            <a href="#" class="sidebar__link">
-              <i class="fa-solid fa-calendar-days"></i>
-              <span>Randevu &amp; Takvim</span>
-            </a>
+            <button type="button" class="sidebar__link" data-nav="randevu">
+              <i class="fa-solid fa-calendar-days"></i><span>Randevu &amp; Takvim</span>
+            </button>
           </li>
           <li>
-            <a href="#" class="sidebar__link">
-              <i class="fa-solid fa-file-circle-check"></i>
-              <span>TestMaker</span>
-            </a>
+            <button type="button" class="sidebar__link" data-nav="testmaker">
+              <i class="fa-solid fa-file-circle-check"></i><span>TestMaker</span>
+            </button>
           </li>
           <li>
-            <a href="#" class="sidebar__link">
-              <i class="fa-solid fa-wallet"></i>
-              <span>Muhasebe</span>
-            </a>
+            <button type="button" class="sidebar__link" data-nav="muhasebe">
+              <i class="fa-solid fa-wallet"></i><span>Muhasebe</span>
+            </button>
           </li>
         </ul>
         <ul class="sidebar__menu sidebar__menu--footer">
           <li>
             <button type="button" class="sidebar__link sidebar__link--logout" id="btnLogout">
-              <i class="fa-solid fa-right-from-bracket"></i>
-              <span>Çıkış Yap</span>
+              <i class="fa-solid fa-right-from-bracket"></i><span>Çıkış Yap</span>
             </button>
           </li>
         </ul>
@@ -84,84 +77,149 @@
         <div class="search-bar">
           <i class="fa-solid fa-magnifying-glass search-bar__icon"></i>
           <input type="search" class="search-bar__input" id="searchInput" placeholder="Öğrenci, deneme veya randevu ara..." autocomplete="off" />
-          <button type="button" class="search-bar__filter" aria-label="Filtrele">
+          <button type="button" class="search-bar__filter" id="btnSearchFilter" aria-label="Deneme türü filtresi" title="TYT / AYT / Tümü">
             <i class="fa-solid fa-sliders"></i>
           </button>
         </div>
+        <span class="search-filter-label" id="searchFilterLabel" hidden></span>
       </header>
 
-      <section class="banner">
-        <div class="banner__content">
-          <span class="banner__tag">YKS KOÇLUK</span>
-          <h1 class="banner__title">YKS 2026 Sürecini Yönetin</h1>
-          <button type="button" class="btn btn--banner" id="btnNewStudent">
-            <span class="btn__play"><i class="fa-solid fa-user-plus"></i></span>
-            Yeni Öğrenci Ekle
-          </button>
-        </div>
-        <div class="banner__decor" aria-hidden="true">
-          <i class="fa-solid fa-star"></i>
-          <i class="fa-solid fa-star"></i>
-          <i class="fa-solid fa-wand-magic-sparkles"></i>
-        </div>
-      </section>
+      <div class="main-views" id="mainViews">
+        <div class="main-view is-active" data-view="dashboard" id="view-dashboard">
+          <section class="banner">
+            <div class="banner__content">
+              <span class="banner__tag">YKS KOÇLUK</span>
+              <h1 class="banner__title">YKS 2026 Sürecini Yönetin</h1>
+              <button type="button" class="btn btn--banner" id="btnNewStudent">
+                <span class="btn__play"><i class="fa-solid fa-user-plus"></i></span>
+                Yeni Öğrenci Ekle
+              </button>
+            </div>
+            <div class="banner__decor" aria-hidden="true">
+              <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-wand-magic-sparkles"></i>
+            </div>
+          </section>
 
-      <section class="section">
-        <div class="section__head">
-          <h2 class="section__title">Yaklaşan Randevular</h2>
-          <div class="section__arrows">
-            <button type="button" class="icon-btn" aria-label="Önceki"><i class="fa-solid fa-chevron-left"></i></button>
-            <button type="button" class="icon-btn" aria-label="Sonraki"><i class="fa-solid fa-chevron-right"></i></button>
+          <section class="section">
+            <div class="section__head">
+              <h2 class="section__title">Yaklaşan Randevular</h2>
+              <div class="section__arrows">
+                <button type="button" class="icon-btn" id="btnApptPrev" aria-label="Önceki randevular"><i class="fa-solid fa-chevron-left"></i></button>
+                <button type="button" class="icon-btn" id="btnApptNext" aria-label="Sonraki randevular"><i class="fa-solid fa-chevron-right"></i></button>
+              </div>
+            </div>
+            <div class="cards-row" id="appointmentsRow">
+              <p class="empty-hint empty-hint--loading"><i class="fa-solid fa-spinner fa-spin"></i> Veriler yükleniyor…</p>
+            </div>
+          </section>
+
+          <section class="section section--table">
+            <div class="section__head">
+              <h2 class="section__title">Son Deneme Analizleri</h2>
+              <button type="button" class="link-see-all link-see-all--btn" id="btnSeeAllExams">Tümünü Gör</button>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table" id="tableDashboardExams">
+                <thead>
+                  <tr>
+                    <th>Öğrenci Adı</th>
+                    <th>Deneme Türü</th>
+                    <th>Net</th>
+                    <th>Tarih</th>
+                    <th>Durum / Aksiyon</th>
+                  </tr>
+                </thead>
+                <tbody id="denemeTableBody">
+                  <tr><td colspan="5" class="table-empty">Yükleniyor…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <div class="main-view" data-view="ogrenciler" id="view-ogrenciler" hidden>
+          <div class="page-head">
+            <h1 class="page-head__title">Öğrencilerim</h1>
+            <button type="button" class="btn btn--sm btn--purple" id="btnPageAddStudent"><i class="fa-solid fa-user-plus"></i> Yeni Öğrenci</button>
+          </div>
+          <p class="page-desc">Firestore <code>students</code> listesi. Detay sayfaları sonraki aşamada.</p>
+          <div class="student-grid" id="studentsPageGrid"></div>
+        </div>
+
+        <div class="main-view" data-view="denemeler" id="view-denemeler" hidden>
+          <div class="page-head">
+            <h1 class="page-head__title">Deneme Analizleri</h1>
+            <button type="button" class="btn btn--sm btn--purple" id="btnExamsFilter"><i class="fa-solid fa-filter"></i> Filtre: Tümü</button>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Öğrenci</th>
+                  <th>Tür</th>
+                  <th>Net</th>
+                  <th>Tarih</th>
+                  <th>Durum</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="examsPageBody"></tbody>
+            </table>
           </div>
         </div>
-        <div class="cards-row" id="appointmentsRow">
-          <p class="empty-hint empty-hint--loading"><i class="fa-solid fa-spinner fa-spin"></i> Veriler yükleniyor…</p>
-        </div>
-      </section>
 
-      <section class="section section--table">
-        <div class="section__head">
-          <h2 class="section__title">Son Deneme Analizleri</h2>
-          <a href="#" class="link-see-all">Tümünü Gör</a>
+        <div class="main-view" data-view="randevu" id="view-randevu" hidden>
+          <div class="page-head">
+            <h1 class="page-head__title">Randevu &amp; Takvim</h1>
+            <button type="button" class="btn btn--sm btn--purple" id="btnNewAppointment"><i class="fa-solid fa-calendar-plus"></i> Randevu Oluştur</button>
+          </div>
+          <p class="page-desc">Takvim görünümü eklenecek. Yaklaşan randevular aşağıda.</p>
+          <div class="cards-row cards-row--wide" id="appointmentsPageRow"></div>
         </div>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Öğrenci Adı</th>
-                <th>Deneme Türü</th>
-                <th>Net</th>
-                <th>Tarih</th>
-                <th>Durum / Aksiyon</th>
-              </tr>
-            </thead>
-            <tbody id="denemeTableBody">
-              <tr>
-                <td colspan="5" class="table-empty">Yükleniyor…</td>
-              </tr>
-            </tbody>
-          </table>
+
+        <div class="main-view" data-view="testmaker" id="view-testmaker" hidden>
+          <div class="page-head">
+            <h1 class="page-head__title">TestMaker</h1>
+            <button type="button" class="btn btn--sm btn--purple" id="btnCreateTest"><i class="fa-solid fa-file-circle-plus"></i> Yeni Test</button>
+          </div>
+          <p class="page-desc">Test oluşturma sihirbazı burada olacak.</p>
+          <ul class="feature-list">
+            <li><button type="button" class="feature-list__btn" id="btnTestBank"><i class="fa-solid fa-database"></i> Soru bankası</button></li>
+            <li><button type="button" class="feature-list__btn" id="btnTestPublish"><i class="fa-solid fa-paper-plane"></i> Yayınlanan testler</button></li>
+          </ul>
         </div>
-      </section>
+
+        <div class="main-view" data-view="muhasebe" id="view-muhasebe" hidden>
+          <div class="page-head">
+            <h1 class="page-head__title">Muhasebe</h1>
+            <button type="button" class="btn btn--sm btn--purple" id="btnNewPayment"><i class="fa-solid fa-lira-sign"></i> Tahsilat Kaydı</button>
+          </div>
+          <p class="page-desc">Ödeme ve paket takibi burada yapılacak.</p>
+          <div class="stat-cards">
+            <button type="button" class="stat-card" id="btnStatIncome"><span class="stat-card__val">—</span><span class="stat-card__lbl">Bu ay tahsilat</span></button>
+            <button type="button" class="stat-card" id="btnStatPending"><span class="stat-card__val">—</span><span class="stat-card__lbl">Bekleyen</span></button>
+          </div>
+        </div>
+      </div>
     </main>
 
     <aside class="panel">
       <div class="panel__card profile-card">
         <div class="profile-card__head">
           <h2 class="profile-card__title">Koç Profili</h2>
-          <button type="button" class="icon-btn icon-btn--ghost" aria-label="Menü"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+          <button type="button" class="icon-btn icon-btn--ghost" id="btnProfileMenu" aria-label="Profil menüsü"><i class="fa-solid fa-ellipsis-vertical"></i></button>
         </div>
         <div class="profile-card__avatar-wrap">
           <div class="profile-card__avatar">
-            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=coachYKS" alt="Koç" width="96" height="96" />
+            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=coachYKS" alt="Koç" width="96" height="96" id="profileAvatarImg" />
           </div>
         </div>
         <p class="profile-card__greet">Yükleniyor…</p>
         <p class="profile-card__sub"><span id="activeStudentCount">0</span> kayıtlı öğrenci</p>
         <div class="profile-card__actions">
-          <button type="button" class="round-icon-btn" aria-label="Bildirimler"><i class="fa-regular fa-bell"></i></button>
-          <button type="button" class="round-icon-btn" aria-label="Ayarlar"><i class="fa-solid fa-gear"></i></button>
-          <button type="button" class="round-icon-btn" aria-label="Mesajlar"><i class="fa-regular fa-envelope"></i></button>
+          <button type="button" class="round-icon-btn" id="btnNotify" aria-label="Bildirimler"><i class="fa-regular fa-bell"></i></button>
+          <button type="button" class="round-icon-btn" id="btnProfileSettings" aria-label="Ayarlar"><i class="fa-solid fa-gear"></i></button>
+          <button type="button" class="round-icon-btn" id="btnMessages" aria-label="Mesajlar"><i class="fa-regular fa-envelope"></i></button>
         </div>
       </div>
 
@@ -180,37 +238,29 @@
         </div>
         <div class="quick-actions">
           <button type="button" class="quick-btn" id="quickAddStudent"><i class="fa-solid fa-user-plus"></i> Öğrenci Ekle</button>
-          <button type="button" class="quick-btn"><i class="fa-solid fa-calendar-check"></i> Randevu Ver</button>
-          <button type="button" class="quick-btn"><i class="fa-solid fa-file-pen"></i> Test Oluştur</button>
+          <button type="button" class="quick-btn" id="quickRandevu"><i class="fa-solid fa-calendar-check"></i> Randevu Ver</button>
+          <button type="button" class="quick-btn" id="quickTest"><i class="fa-solid fa-file-pen"></i> Test Oluştur</button>
         </div>
         <p class="actions-card__sub">Aktif Öğrenciler</p>
         <ul class="mini-list" id="activeStudentsList"></ul>
-        <button type="button" class="btn btn--full">Tüm Öğrenciler</button>
+        <button type="button" class="btn btn--full" id="btnAllStudents">Tüm Öğrenciler</button>
       </div>
     </aside>
   </div>
 
-  <!-- Modül hiç çalışmazsa (file:// veya js 404) en azından mesaj göster -->
+  <div class="toast" id="panelToast" role="status" aria-live="polite" hidden></div>
+
   <script>
     (function () {
       function warn() {
         var row = document.getElementById("appointmentsRow");
         if (!row || row.dataset.panelOk === "1") return;
         if (!/yükleniyor|Yükleniyor/i.test(row.innerHTML)) return;
-        row.innerHTML =
-          '<p class="empty-hint empty-hint--error" style="text-align:left;max-width:520px;margin:0 auto">' +
-          "<strong>Panel JavaScript’i çalışmadı.</strong><br>" +
-          "• Adres çubuğunda <code>file://</code> görüyorsanız: VS Code <strong>Live Server</strong> ile açın (http://127.0.0.1:…).<br>" +
-          "• F12 → <strong>Network</strong> → <code>koc-panel.js</code> kırmızı (404) ise klasör yapısını kontrol edin.</p>";
-        var tb = document.getElementById("denemeTableBody");
-        if (tb && /Yükleniyor/i.test(tb.innerHTML))
-          tb.innerHTML =
-            '<tr><td colspan="5" class="table-empty table-empty--error">Önce panel scriptinin yüklendiğinden emin olun.</td></tr>';
+        row.innerHTML = '<p class="empty-hint empty-hint--error" style="text-align:left;max-width:520px;margin:0 auto"><strong>Panel JavaScript’i çalışmadı.</strong> Live Server ile http:// olarak açın.</p>';
       }
       setTimeout(warn, 4000);
     })();
   </script>
-  <!-- ES modül: script etiketinde mutlaka type="module" kullanın -->
   <script type="module" src="js/koc-panel.js"></script>
 </body>
 </html>
