@@ -1,7 +1,7 @@
 /**
  * YKS Koçluk — Koç Paneli
- * Oturum: localStorage isLoggedIn (Firebase Auth kullanılmıyor)
- * Veri: Firestore (CDN) — aynen devam
+ * HTML: <script type="module" src="js/koc-panel.js"></script> olmalı.
+ * Aşağıdaki import'lar kısa isim (firebase/app) DEĞİL — tarayıcının çözebildiği tam CDN URL'leri.
  */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
@@ -13,6 +13,7 @@ import {
 import {
   getFirestore,
   collection,
+  getDocs,
   onSnapshot,
   addDoc,
   serverTimestamp,
