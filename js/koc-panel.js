@@ -1,37 +1,20 @@
 /**
- * YKS Koçluk — Koç Paneli
- * HTML: <script type="module" src="js/koc-panel.js"></script> olmalı.
- * Aşağıdaki import'lar kısa isim (firebase/app) DEĞİL — tarayıcının çözebildiği tam CDN URL'leri.
+ * YKS Koçluk — Koç Paneli (geliştirme)
+ * Giriş / redirect / Firebase Auth yok — sadece Firestore.
+ * Firestore Rules: test için allow read, write: if true; (veya herkese okuma)
+ * HTML: <script type="module" src="js/koc-panel.js"></script>
  */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import {
-  getAuth,
-  signInAnonymously,
-  signOut,
-} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import {
   getFirestore,
   collection,
-  getDocs,
   onSnapshot,
   addDoc,
   serverTimestamp,
   Timestamp,
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-/* Firebase Auth devre dışı — eski oturum kontrolü (yorum):
-import { getAuth, onAuthStateChanged, signOut } from "...firebase-auth.js";
-onAuthStateChanged(auth, function (user) {
-  if (!user) { window.location.href = "index.html"; return; }
-  updateCoachProfile(user);
-  subscribeFirestore();
-});
-*/
-
-if (localStorage.getItem("isLoggedIn") !== "true") {
-  window.location.replace("index.html");
-} else {
 (function () {
   var el = document.getElementById("appointmentsRow");
   if (el) el.dataset.panelOk = "1";
@@ -48,10 +31,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getFirestore(app);
-
-const LOGIN_PATH = "index.html";
 
 let firestoreUnsubs = [];
 
@@ -302,7 +282,7 @@ function renderStudentsList(docs) {
   const top = docs.slice(0, 5);
   if (top.length === 0) {
     list.innerHTML =
-      '<li class="mini-list__empty">Öğrenci yok. <code>students</code> koleksiyonuna ekleyin veya &quot;Yeni Öğrenci Ekle&quot; kullanın.</li>';
+      '<li class="mini-list__empty">Öğrenci yok. <code>students</code> koleksiyonuna ekleyin.</li>';
     return;
   }
 
@@ -337,87 +317,85 @@ function renderStudentsList(docs) {
 
 function updateCoachProfile() {
   const greet = document.querySelector(".profile-card__greet");
-  const role = localStorage.getItem("role") || "admin";
-  const display = role === "admin" ? "Admin" : "Koç";
   if (greet) {
     const h = new Date().getHours();
     const part =
       h < 12 ? "Günaydın" : h < 18 ? "İyi günler" : "İyi akşamlar";
     greet.innerHTML =
-      part + ", <strong>" + escapeHtml(display) + "</strong>";
+      part + ", <strong>Koç</strong> <span style=\"font-weight:500;color:var(--gray-500, #6b7280);font-size:.85em\">(geliştirme)</span>";
   }
+}
+
+function firestoreErrorHtml(err) {
+  const code = err && err.code ? String(err.code) : "";
+  if (code === "permission-denied")
+    return (
+      "<strong>Erişim reddedildi.</strong> Firestore Rules geliştirme için örn: " +
+      "<code>allow read, write: if true;</code> (sadece test; canlıda asla böyle bırakmayın)."
+    );
+  return (
+    "Veri alınamadı: " +
+    escapeHtml((err && err.message) || code || "Bilinmeyen hata") +
+    "."
+  );
 }
 
 function subscribeFirestore() {
   clearFirestoreListeners();
 
-  const apptCol = collection(db, "appointments");
-  const unsubAppt = onSnapshot(
-    apptCol,
-    function (snap) {
-      renderAppointments(snap.docs);
-      renderAppointmentDensityChart(snap.docs);
-    },
-    function (err) {
-      console.error("appointments", err);
-      const row = document.getElementById("appointmentsRow");
-      if (row)
-        row.innerHTML =
-          '<p class="empty-hint empty-hint--error">' +
-          firestoreErrorHtml(err, "appointments") +
-          "</p>";
-    }
+  firestoreUnsubs.push(
+    onSnapshot(
+      collection(db, "appointments"),
+      function (snap) {
+        renderAppointments(snap.docs);
+        renderAppointmentDensityChart(snap.docs);
+      },
+      function (err) {
+        console.error("appointments", err);
+        const row = document.getElementById("appointmentsRow");
+        if (row)
+          row.innerHTML =
+            '<p class="empty-hint empty-hint--error">' +
+            firestoreErrorHtml(err) +
+            "</p>";
+      }
+    )
   );
-  firestoreUnsubs.push(unsubAppt);
 
-  const examsCol = collection(db, "exams");
-  const unsubExams = onSnapshot(
-    examsCol,
-    function (snap) {
-      renderExams(snap.docs);
-    },
-    function (err) {
-      console.error("exams", err);
-      const tbody = document.getElementById("denemeTableBody");
-      if (tbody)
-        tbody.innerHTML =
-          '<tr><td colspan="5" class="table-empty table-empty--error">' +
-          firestoreErrorHtml(err, "exams") +
-          "</td></tr>";
-    }
+  firestoreUnsubs.push(
+    onSnapshot(
+      collection(db, "exams"),
+      function (snap) {
+        renderExams(snap.docs);
+      },
+      function (err) {
+        console.error("exams", err);
+        const tbody = document.getElementById("denemeTableBody");
+        if (tbody)
+          tbody.innerHTML =
+            '<tr><td colspan="5" class="table-empty table-empty--error">' +
+            firestoreErrorHtml(err) +
+            "</td></tr>";
+      }
+    )
   );
-  firestoreUnsubs.push(unsubExams);
 
-  const studentsCol = collection(db, "students");
-  const unsubStudents = onSnapshot(
-    studentsCol,
-    function (snap) {
-      renderStudentsList(snap.docs);
-    },
-    function (err) {
-      console.error("students", err);
-      const list = document.getElementById("activeStudentsList");
-      if (list)
-        list.innerHTML =
-          '<li class="mini-list__empty mini-list__empty--err">' +
-          firestoreErrorHtml(err, "students") +
-          "</li>";
-    }
-  );
-  firestoreUnsubs.push(unsubStudents);
-}
-
-function firestoreErrorHtml(err, _col) {
-  const code = err && err.code ? String(err.code) : "";
-  if (code === "permission-denied")
-    return (
-      "<strong>Erişim reddedildi.</strong> Firebase Console → Firestore Rules içinde okumaya izin verin " +
-      "veya Authentication → Sign-in method → <strong>Anonymous</strong> açık olsun (panel arka planda anonim oturum açar)."
-    );
-  return (
-    "Veri alınamadı: " +
-    escapeHtml((err && err.message) || code || "Bilinmeyen hata") +
-    ". Konsolu (F12) kontrol edin."
+  firestoreUnsubs.push(
+    onSnapshot(
+      collection(db, "students"),
+      function (snap) {
+        renderStudentsList(snap.docs);
+      },
+      function (err) {
+        console.error("students", err);
+        const list = document.getElementById("activeStudentsList");
+        if (list)
+          list.innerHTML =
+            '<li class="mini-list__empty mini-list__empty--err">' +
+            firestoreErrorHtml(err) +
+            "</li>";
+      }
+    )
   );
 }
 
@@ -450,11 +428,7 @@ function initSidebar() {
 
 function handleLogout(e) {
   if (e) e.preventDefault();
-  clearFirestoreListeners();
-  localStorage.removeItem("isLoggedIn");
-  localStorage.removeItem("role");
-  signOut(auth).catch(function () {});
-  window.location.href = LOGIN_PATH;
+  window.alert("Geliştirme modu: giriş/çıkış kapalı. Sayfayı yenilemek için F5 kullanın.");
 }
 
 async function handleNewStudent() {
@@ -468,9 +442,7 @@ async function handleNewStudent() {
     });
   } catch (err) {
     console.error(err);
-    alert(
-      "Öğrenci eklenemedi. Firestore kurallarını kontrol edin (giriş artık Firebase Auth değil; kurallar request.auth gerektiriyorsa yazma reddedilir)."
-    );
+    alert("Öğrenci eklenemedi. Firestore kuralları yazmaya izin veriyor mu kontrol edin.");
   }
 }
 
@@ -478,7 +450,7 @@ document.addEventListener("click", function (e) {
   const btn = e.target.closest(".btn-detail");
   if (btn && btn.dataset.id) {
     e.preventDefault();
-    alert("Deneme ID: " + btn.dataset.id + " (detay sayfası sonraki aşamada).");
+    alert("Deneme ID: " + btn.dataset.id);
   }
 });
 
@@ -501,52 +473,16 @@ function showLoadTimeoutWarning() {
   const tbody = document.getElementById("denemeTableBody");
   if (row && row.querySelector(".empty-hint--loading")) {
     row.innerHTML =
-      '<p class="empty-hint empty-hint--error"><strong>Sayfa tam yüklenmedi.</strong> ' +
-      "Projeyi <strong>Live Server</strong> veya <code>http://localhost</code> ile açın; " +
-      "<code>file://</code> ile açılırsa JavaScript modülleri çalışmaz. Tarayıcıda F12 → Console hatalarına bakın.</p>";
+      '<p class="empty-hint empty-hint--error"><strong>Script çalışmadı.</strong> Sayfayı <code>http://</code> ile açın (Live Server). <code>file://</code> modül yükletmez.</p>';
   }
   if (tbody && /Yükleniyor/i.test(tbody.textContent || "")) {
     tbody.innerHTML =
-      '<tr><td colspan="5" class="table-empty table-empty--error">Yukarıdaki gibi sayfayı HTTP üzerinden açın veya konsolu kontrol edin.</td></tr>';
+      '<tr><td colspan="5" class="table-empty table-empty--error">HTTP ile açın veya F12 konsoluna bakın.</td></tr>';
   }
 }
 
 initSidebar();
 updateCoachProfile();
+subscribeFirestore();
 
-var _loadTimer = setTimeout(showLoadTimeoutWarning, 12000);
-
-Promise.race([
-  signInAnonymously(auth)
-    .then(function () {
-      console.log("Firebase anonim oturum açıldı.");
-    })
-    .catch(function (e) {
-      console.warn("Anonim giriş:", e && e.code ? e.code : e);
-    }),
-  new Promise(function (resolve) {
-    setTimeout(resolve, 2500);
-  }),
-]).then(function () {
-  clearTimeout(_loadTimer);
-  subscribeFirestore();
-  setTimeout(function verifyDataLoaded() {
-    var row = document.getElementById("appointmentsRow");
-    if (!row) return;
-    var still =
-      row.querySelector(".empty-hint--loading") ||
-      /Veriler yükleniyor|yükleniyor/i.test(row.textContent || "");
-    if (still) {
-      row.innerHTML =
-        '<p class="empty-hint empty-hint--error"><strong>Hâlâ yüklenmiyorsa:</strong> F12 → Network’te ' +
-        "<code>firestore.googleapis.com</code> isteği var mı? Yoksa internet / reklam engelleyici. " +
-        "Firebase’de <strong>Anonymous</strong> girişi açın; Firestore Rules: <code>allow read: if request.auth != null;</code></p>";
-      var tb = document.getElementById("denemeTableBody");
-      if (tb && /Yükleniyor/i.test(tb.textContent || ""))
-        tb.innerHTML =
-          '<tr><td colspan="5" class="table-empty table-empty--error">Yukarıdaki adımları uygulayın.</td></tr>';
-    }
-  }, 7000);
-});
-
-} /* isLoggedIn */
+setTimeout(showLoadTimeoutWarning, 12000);
