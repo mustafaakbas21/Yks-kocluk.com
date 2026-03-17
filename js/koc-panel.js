@@ -17,14 +17,14 @@ import {
 /* Firebase Auth devre dışı — eski oturum kontrolü (yorum):
 import { getAuth, onAuthStateChanged, signOut } from "...firebase-auth.js";
 onAuthStateChanged(auth, function (user) {
-  if (!user) { window.location.href = "login.html"; return; }
+  if (!user) { window.location.href = "index.html"; return; }
   updateCoachProfile(user);
   subscribeFirestore();
 });
 */
 
 if (localStorage.getItem("isLoggedIn") !== "true") {
-  window.location.replace("login.html");
+  window.location.replace("index.html");
 } else {
 const firebaseConfig = {
   apiKey: "AIzaSyD3RUiCIlcysC6S7TFMbChD8h0cfHeroP8",
@@ -39,7 +39,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const LOGIN_PATH = "login.html";
+const LOGIN_PATH = "index.html";
 
 let firestoreUnsubs = [];
 
