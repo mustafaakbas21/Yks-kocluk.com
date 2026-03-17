@@ -1287,6 +1287,24 @@ button.sidebar__link {
   opacity: 1;
 }
 
+.toast.toast--tr {
+  top: 1.1rem;
+  right: 1.1rem;
+  left: auto;
+  bottom: auto;
+  transform: translateX(120%);
+  max-width: min(92vw, 380px);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 40px rgba(49, 46, 129, 0.45);
+}
+
+.toast.toast--tr.toast--show,
+.toast.toast--tr.toast--show {
+  transform: translateX(0);
+}
+
 .icon-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;

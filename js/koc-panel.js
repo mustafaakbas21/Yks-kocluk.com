@@ -438,34 +438,19 @@ function onStudentsSnap(snap) {
   fillStudentSelects();
 }
 
+/** ERP öğrenci formu — koc-panel.html 3 sütun */
 var STUDENT_FORM_FIELDS = [
   "name",
-  "tcKimlik",
-  "birthDate",
-  "gender",
   "phone",
   "email",
-  "address",
-  "schoolName",
-  "gradeLevel",
   "yksAlan",
-  "targetDepartment",
-  "targetRank",
-  "targetScore",
-  "track",
-  "weeklyHours",
-  "status",
-  "coachingStartDate",
+  "targetUniversityDepartment",
+  "currentTytNet",
+  "targetTytNet",
   "parentName",
-  "parentRelation",
   "parentPhone",
-  "parentEmail",
-  "emergencyContactName",
-  "emergencyContactPhone",
-  "allergies",
-  "healthNotes",
-  "coachNotes",
-  "avatarSeed",
+  "monthlyCoachingFee",
+  "installmentDay",
 ];
 
 function fillStudentSelects() {
@@ -487,18 +472,39 @@ function fillStudentSelects() {
   });
 }
 
+/** Tek seferde yalnızca bir modal açık — HTML id'leri ile eşleşir */
+var MODAL_IDS = ["studentModal", "appointmentModal", "testModal", "financeModal", "examModal"];
+
 function closeAllModals() {
   var o = document.getElementById("modalOverlay");
   if (!o) return;
+  MODAL_IDS.forEach(function (id) {
+    var m = document.getElementById(id);
+    if (m) m.hidden = true;
+  });
   o.classList.remove("is-open");
   o.setAttribute("aria-hidden", "true");
-  document.querySelectorAll("#modalOverlay .modal").forEach(function (m) {
-    m.hidden = true;
-  });
   document.body.style.overflow = "";
 }
 
-function openModalPanel(modalId) {
+/** Sadece bu modalı kapat; başka açık modal yoksa overlay'i de kapatır */
+function closeModal(modalId) {
+  var m = document.getElementById(modalId);
+  var o = document.getElementById("modalOverlay");
+  if (!m || !o) return;
+  m.hidden = true;
+  var anyStillOpen = MODAL_IDS.some(function (id) {
+    var el = document.getElementById(id);
+    return el && !el.hidden;
+  });
+  if (!anyStillOpen) {
+    o.classList.remove("is-open");
+    o.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+  }
+}
+
+function openModal(modalId) {
   closeAllModals();
   var o = document.getElementById("modalOverlay");
   var m = document.getElementById(modalId);
@@ -525,24 +531,23 @@ function openStudentModal(editId) {
     if (s) {
       STUDENT_FORM_FIELDS.forEach(function (key) {
         var el = form.elements[key];
-        if (el && s[key] != null && s[key] !== "") el.value = String(s[key]);
+        var val = s[key];
+        if (key === "targetUniversityDepartment" && (val == null || val === ""))
+          val = s.targetDepartment || "";
+        if (el && val != null && val !== "") el.value = String(val);
       });
     }
   } else {
-    if (sub) sub.textContent = "Yeni öğrenci — tüm alanlar isteğe bağlıdır (ad & telefon önerilir).";
-    if (title) title.innerHTML = '<i class="fa-solid fa-user-plus"></i> Yeni öğrenci kaydı';
-    var t = document.getElementById("st_track");
-    if (t) t.value = "TYT + AYT";
-    var st = document.getElementById("st_status");
-    if (st) st.value = "Aktif";
+    if (sub) sub.textContent = "Kişisel · akademik · veli & muhasebe bilgilerini girin.";
+    if (title) title.innerHTML = '<i class="fa-solid fa-id-card"></i> Yeni öğrenci kaydı';
   }
-  openModalPanel("modalStudent");
+  openModal("studentModal");
 }
 
 async function submitStudentForm(e) {
   e.preventDefault();
   var form = e.target;
-  var editId = document.getElementById("studentEditId").value;
+  var editId = (document.getElementById("studentEditId") || {}).value || "";
   var fd = new FormData(form);
   var data = {};
   fd.forEach(function (val, key) {
@@ -557,15 +562,27 @@ async function submitStudentForm(e) {
     showToast("Öğrenci telefonu zorunludur.");
     return;
   }
+  if (data.monthlyCoachingFee !== undefined && data.monthlyCoachingFee !== "") {
+    var fee = parseFloat(String(data.monthlyCoachingFee).replace(",", "."), 10);
+    data.monthlyCoachingFee = isNaN(fee) ? data.monthlyCoachingFee : fee;
+  }
+  if (data.installmentDay !== undefined && data.installmentDay !== "") {
+    var day = parseInt(data.installmentDay, 10);
+    if (!isNaN(day)) data.installmentDay = Math.min(31, Math.max(1, day));
+  }
+  if (!editId) {
+    data.track = data.track || "TYT + AYT";
+    data.status = data.status || "Aktif";
+  }
   try {
     if (editId) {
       data.updatedAt = serverTimestamp();
       await updateDoc(doc(db, "students", editId), data);
-      showToast("Öğrenci güncellendi.");
+      showToast("Öğrenci başarıyla güncellendi.");
     } else {
       data.createdAt = serverTimestamp();
       await addDoc(collection(db, "students"), data);
-      showToast("Yeni öğrenci kaydedildi.");
+      showToast("Öğrenci başarıyla eklendi.");
     }
     closeAllModals();
   } catch (err) {
@@ -611,27 +628,81 @@ async function submitAppointmentForm(e) {
   }
 }
 
-async function submitTestForm(e) {
-  e.preventDefault();
-  var fd = new FormData(e.target);
+function getTestMakerPayload() {
+  var ders = document.getElementById("tm_ders");
+  var konu = document.getElementById("tm_konu");
+  var zorluk = document.getElementById("tm_zorluk");
+  var soru = document.getElementById("tm_soru");
+  var baslik = document.getElementById("tm_testAd");
+  var layout = document.querySelector('input[name="tm_layout"]:checked');
+  var font = document.querySelector('input[name="tm_font"]:checked');
+  var theme = document.querySelector('input[name="tm_theme"]:checked');
+  return {
+    title: (baslik && baslik.value.trim()) || "Adsız test taslağı",
+    subject: ders ? ders.value : "",
+    topic: konu ? konu.value.trim() : "",
+    difficulty: zorluk ? zorluk.value : "Orta",
+    questionCount: soru ? parseInt(soru.value, 10) || 40 : 40,
+    layout: layout ? layout.value : "yks_cift_sutun",
+    layoutLabel:
+      layout && layout.value === "yks_cift_sutun"
+        ? "YKS Orijinal (Çift Sütun)"
+        : layout && layout.value === "tek_sutun_bank"
+          ? "Soru Bankası (Tek Sütun)"
+          : "Kurumsal Deneme (Kapaklı)",
+    fontFamily: font ? font.value : "Times New Roman",
+    colorTheme: theme ? theme.value : "matbaa_bw",
+    colorThemeLabel:
+      theme && theme.value === "matbaa_bw"
+        ? "Siyah-Beyaz (Matbaa)"
+        : theme && theme.value === "kurumsal_mor"
+          ? "Kurumsal (Mavi/Mor)"
+          : "Renkli (Soru Bankası)",
+  };
+}
+
+function initTestMakerTabs() {
+  var root = document.getElementById("testMakerRoot");
+  if (!root) return;
+  root.querySelectorAll(".tm-tab").forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      var n = tab.getAttribute("data-tm-tab");
+      root.querySelectorAll(".tm-tab").forEach(function (t) {
+        t.classList.toggle("is-active", t.getAttribute("data-tm-tab") === n);
+        t.setAttribute("aria-selected", t.getAttribute("data-tm-tab") === n ? "true" : "false");
+      });
+      root.querySelectorAll(".tm-panel").forEach(function (p, i) {
+        var on = p.id === "tmPanel" + n;
+        p.classList.toggle("is-active", on);
+        p.hidden = !on;
+      });
+    });
+  });
+}
+
+function resetTestMakerModal() {
+  var root = document.getElementById("testMakerRoot");
+  if (!root) return;
+  var first = root.querySelector('.tm-tab[data-tm-tab="1"]');
+  if (first) first.click();
+}
+
+async function onPdfTaslakClick() {
+  var payload = getTestMakerPayload();
+  console.log("[TestMaker] PDF taslağı seçimleri:", JSON.stringify(payload, null, 2));
   try {
     await addDoc(collection(db, "tests"), {
-      title: fd.get("title"),
-      subject: fd.get("subject"),
-      difficulty: fd.get("difficulty"),
-      questionCount: parseInt(fd.get("questionCount"), 10) || 40,
-      durationMin: parseInt(fd.get("durationMin"), 10) || 50,
-      description: fd.get("description") || "",
-      targetStudentNote: fd.get("targetStudentNote") || "",
+      ...payload,
+      module: "TestMakerPro",
+      pdfDraft: true,
       status: "Taslak",
       createdAt: serverTimestamp(),
     });
-    showToast("Test taslağı kaydedildi (tests).");
+    showToast("Test taslağı kaydedildi — PDF için veriler konsolda.");
     closeAllModals();
-    e.target.reset();
   } catch (err) {
     console.error(err);
-    alert(err.message || err);
+    showToast("Kayıt hatası: " + (err.message || err));
   }
 }
 
@@ -708,10 +779,16 @@ function initModals() {
   var overlay = document.getElementById("modalOverlay");
   if (!overlay) return;
   overlay.addEventListener("click", function (ev) {
+    var closeBtn = ev.target.closest && ev.target.closest("[data-close-modal]");
+    if (closeBtn && overlay.contains(closeBtn)) {
+      var modalHost = closeBtn.closest(".modal");
+      if (modalHost && modalHost.id) {
+        ev.preventDefault();
+        closeModal(modalHost.id);
+        return;
+      }
+    }
     if (ev.target === overlay) closeAllModals();
-  });
-  document.querySelectorAll("[data-close-modal]").forEach(function (btn) {
-    btn.addEventListener("click", closeAllModals);
   });
   document.addEventListener("keydown", function (ev) {
     if (ev.key === "Escape") closeAllModals();
@@ -720,8 +797,9 @@ function initModals() {
   if (fs) fs.addEventListener("submit", submitStudentForm);
   var fa = document.getElementById("formAppointment");
   if (fa) fa.addEventListener("submit", submitAppointmentForm);
-  var ft = document.getElementById("formTest");
-  if (ft) ft.addEventListener("submit", submitTestForm);
+  initTestMakerTabs();
+  var btnPdf = document.getElementById("btnPdfTaslak");
+  if (btnPdf) btnPdf.addEventListener("click", onPdfTaslakClick);
   var fp = document.getElementById("formPayment");
   if (fp) fp.addEventListener("submit", submitPaymentForm);
   var fe = document.getElementById("formExam");
@@ -880,25 +958,28 @@ function initAllButtons() {
     fillStudentSelects();
     var d = document.getElementById("ap_date");
     if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
-    openModalPanel("modalAppointment");
+    openModal("appointmentModal");
   }
   function openPayModal() {
     fillStudentSelects();
     var d = document.getElementById("pay_date");
     if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
-    openModalPanel("modalPayment");
+    openModal("financeModal");
   }
 
-  document.getElementById("btnNewStudent") &&
-    document.getElementById("btnNewStudent").addEventListener("click", function () {
+  var elNewSt = document.getElementById("btnNewStudent");
+  if (elNewSt)
+    elNewSt.addEventListener("click", function () {
       openStudentModal(null);
     });
-  document.getElementById("quickAddStudent") &&
-    document.getElementById("quickAddStudent").addEventListener("click", function () {
+  var elQuickSt = document.getElementById("quickAddStudent");
+  if (elQuickSt)
+    elQuickSt.addEventListener("click", function () {
       openStudentModal(null);
     });
-  document.getElementById("btnPageAddStudent") &&
-    document.getElementById("btnPageAddStudent").addEventListener("click", function () {
+  var elPageSt = document.getElementById("btnPageAddStudent");
+  if (elPageSt)
+    elPageSt.addEventListener("click", function () {
       openStudentModal(null);
     });
 
@@ -940,27 +1021,30 @@ function initAllButtons() {
       fillStudentSelects();
       var ed = document.getElementById("ex_date");
       if (ed && !ed.value) ed.value = new Date().toISOString().slice(0, 10);
-      openModalPanel("modalExam");
+      openModal("examModal");
     });
 
-  document.getElementById("quickRandevu") &&
-    document.getElementById("quickRandevu").addEventListener("click", function () {
-      openApptModal();
+  var elQuickAppt = document.getElementById("quickRandevu");
+  if (elQuickAppt) elQuickAppt.addEventListener("click", openApptModal);
+  var elQuickTest = document.getElementById("quickTest");
+  if (elQuickTest)
+    elQuickTest.addEventListener("click", function () {
+      resetTestMakerModal();
+      openModal("testModal");
     });
-  document.getElementById("quickTest") &&
-    document.getElementById("quickTest").addEventListener("click", function () {
-      openModalPanel("modalTest");
-    });
-  document.getElementById("btnAllStudents") &&
-    document.getElementById("btnAllStudents").addEventListener("click", function () {
+  var elAllSt = document.getElementById("btnAllStudents");
+  if (elAllSt)
+    elAllSt.addEventListener("click", function () {
       navigateTo("ogrenciler");
     });
 
-  document.getElementById("btnNewAppointment") &&
-    document.getElementById("btnNewAppointment").addEventListener("click", openApptModal);
-  document.getElementById("btnCreateTest") &&
-    document.getElementById("btnCreateTest").addEventListener("click", function () {
-      openModalPanel("modalTest");
+  var elNewAppt = document.getElementById("btnNewAppointment");
+  if (elNewAppt) elNewAppt.addEventListener("click", openApptModal);
+  var elCreateTest = document.getElementById("btnCreateTest");
+  if (elCreateTest)
+    elCreateTest.addEventListener("click", function () {
+      resetTestMakerModal();
+      openModal("testModal");
     });
   document.getElementById("btnTestBank") &&
     document.getElementById("btnTestBank").addEventListener("click", function () {
@@ -1039,9 +1123,10 @@ window.YKSPanel = {
   openStudentForm: openStudentModal,
   openAppointmentForm: function () {
     fillStudentSelects();
-    openModalPanel("modalAppointment");
+    openModal("appointmentModal");
   },
   closeModals: closeAllModals,
+  closeModal: closeModal,
 };
 
 function showLoadTimeoutWarning() {
