@@ -42,7 +42,37 @@ const auth = getAuth(app);
 let kocPanelBootstrapped = false;
 
 function getCoachId() {
+  try {
+    var imp = sessionStorage.getItem("superAdminViewAsCoach");
+    if (imp && String(imp).trim()) return String(imp).trim();
+  } catch (e) {}
   return (localStorage.getItem("currentUser") || "").trim();
+}
+
+function showImpersonateBanner(coachUsername) {
+  if (document.getElementById("impersonateBanner")) return;
+  document.body.style.paddingTop = "52px";
+  var bar = document.createElement("div");
+  bar.id = "impersonateBanner";
+  bar.setAttribute("role", "status");
+  bar.style.cssText =
+    "position:fixed;top:0;left:0;right:0;z-index:99999;padding:0.65rem 1.25rem;background:linear-gradient(90deg,rgba(124,58,237,0.97),rgba(13,159,122,0.94));color:#fff;font-size:0.88rem;font-weight:600;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:0.75rem 1rem;box-shadow:0 4px 24px rgba(0,0,0,0.35);font-family:Outfit,system-ui,sans-serif;";
+  bar.innerHTML =
+    '<span><i class="fa-solid fa-user-secret" style="margin-right:0.45rem"></i>Kurucu görünümü: <strong>' +
+    escapeHtml(coachUsername) +
+    '</strong></span><a href="#" id="impersonateExit" style="color:#fff;text-decoration:underline;font-weight:800">Kurucu paneline dön</a>';
+  document.body.insertBefore(bar, document.body.firstChild);
+  var exit = document.getElementById("impersonateExit");
+  if (exit) {
+    exit.addEventListener("click", function (e) {
+      e.preventDefault();
+      try {
+        sessionStorage.removeItem("superAdminViewAsCoach");
+      } catch (err) {}
+      document.body.style.paddingTop = "";
+      window.location.href = "super-admin.html";
+    });
+  }
 }
 
 function coachQuery(collectionName) {
@@ -343,16 +373,18 @@ function renderStudentsPage() {
   grid.innerHTML = cachedStudents
     .map(function (s) {
       const name = s.name || s.studentName || "Öğrenci";
-      const img =
-        s.avatarUrl ||
-        buildStudentAvatarUrl(name, s.gender);
+      var rawAv = s.avatarUrl;
+      var src =
+        rawAv && /^https?:\/\//i.test(String(rawAv).trim())
+          ? String(rawAv).trim().replace(/"/g, "")
+          : buildStudentAvatarUrl(name, s.gender);
       const track = s.examGroup || s.track || s.paket || "TYT + AYT";
       const sid = escapeHtml(s.id);
       return (
         '<div class="student-card">' +
         '<img src="' +
-        img +
-        '" alt="" width="64" height="64" />' +
+        src +
+        '" alt="" width="64" height="64" loading="lazy" />' +
         "<h3>" +
         escapeHtml(name) +
         "</h3>" +
@@ -642,9 +674,11 @@ function renderStudentsList(docs) {
     .map(function (docSnap) {
       const s = docSnap.data ? docSnap.data() : docSnap;
       const name = s.name || s.studentName || "Öğrenci";
-      const img =
-        s.avatarUrl ||
-        buildStudentAvatarUrl(name, s.gender);
+      var rawAv2 = s.avatarUrl;
+      var img =
+        rawAv2 && /^https?:\/\//i.test(String(rawAv2).trim())
+          ? String(rawAv2).trim().replace(/"/g, "")
+          : buildStudentAvatarUrl(name, s.gender);
       const track = s.examGroup || s.track || s.paket || "TYT + AYT";
       return (
         "<li><img src=\"" +
@@ -809,39 +843,22 @@ async function firestoreDeleteConfirmed(collectionName, docId) {
   }
 }
 
-/** Dicebear avataaars — cinsiyete göre avatar URL (seed = tam ad, boşluklar encode) */
+/**
+ * DiceBear 8.x — lokal dosya yok; sadece API URL.
+ * Erkek: avataaars-neutral | Kadın: lorelei | Tesettür: avataaars + hijab
+ */
 function buildStudentAvatarUrl(fullName, gender) {
   var n = String(fullName || "ogrenci").trim();
   var seed = encodeURIComponent(n);
-  var isKadin = gender === "Kadın" || gender === "Kadin";
-  var top = isKadin ? "hijab" : "shortHair";
-  return (
-    "https://api.dicebear.com/7.x/avataaars/svg?seed=" +
-    seed +
-    "&style=circle&top=" +
-    top
-  );
+  var g = gender === "Kadın" || gender === "Kadin" ? "Kadın" : gender === "Tesettür" ? "Tesettür" : "Erkek";
+  if (g === "Erkek") {
+    return "https://api.dicebear.com/8.x/avataaars-neutral/svg?seed=" + seed;
+  }
+  if (g === "Kadın") {
+    return "https://api.dicebear.com/8.x/lorelei/svg?seed=" + seed;
+  }
+  return "https://api.dicebear.com/8.x/avataaars/svg?seed=" + seed + "&top=hijab";
 }
-
-/** ERP öğrenci formu — sekmeli alanlar */
-var STUDENT_FORM_FIELDS = [
-  "firstName",
-  "lastName",
-  "tcKimlikNo",
-  "schoolName",
-  "classGrade",
-  "examGroup",
-  "fieldType",
-  "currentTytNet",
-  "targetTytNet",
-  "parentFullName",
-  "parentRelation",
-  "parentPhone",
-  "emergencyContactName",
-  "registrationDate",
-  "agreedTotalFee",
-  "installmentCount",
-];
 
 function setStudentErpTab(index) {
   var tabs = document.querySelectorAll("[data-student-tab]");
@@ -890,6 +907,8 @@ var MODAL_IDS = ["studentModal", "appointmentModal", "testModal", "financeModal"
 function closeAllModals() {
   var o = document.getElementById("modalOverlay");
   if (!o) return;
+  var sm = document.getElementById("studentModal");
+  if (sm && !sm.hidden) resetStudentModalPanes();
   MODAL_IDS.forEach(function (id) {
     var m = document.getElementById(id);
     if (m) m.hidden = true;
@@ -899,11 +918,22 @@ function closeAllModals() {
   document.body.style.overflow = "";
 }
 
+/** Öğrenci modalı: ekleme paneline dön */
+function resetStudentModalPanes() {
+  var addPane = document.getElementById("studentPaneAdd");
+  var editPane = document.getElementById("studentPaneEdit");
+  if (addPane) addPane.hidden = false;
+  if (editPane) editPane.hidden = true;
+  var fa = document.getElementById("formStudentAdd");
+  if (fa) fa.reset();
+}
+
 /** Sadece bu modalı kapat; başka açık modal yoksa overlay'i de kapatır */
 function closeModal(modalId) {
   var m = document.getElementById(modalId);
   var o = document.getElementById("modalOverlay");
   if (!m || !o) return;
+  if (modalId === "studentModal") resetStudentModalPanes();
   m.hidden = true;
   var anyStillOpen = MODAL_IDS.some(function (id) {
     var el = document.getElementById(id);
@@ -927,82 +957,99 @@ function openModal(modalId) {
   document.body.style.overflow = "hidden";
 }
 
-function setStudentSubmitUi(isEdit) {
-  var btn = document.getElementById("btnStudentSubmit");
-  if (btn)
-    btn.innerHTML = isEdit
-      ? '<i class="fa-solid fa-rotate"></i> Güncelle'
-      : '<i class="fa-solid fa-cloud-arrow-up"></i> Kaydet';
-}
-
-function openStudentModal(editId) {
-  var form = document.getElementById("formStudent");
+function openStudentModal() {
+  var form = document.getElementById("formStudentAdd");
   if (!form) return;
+  resetStudentModalPanes();
   form.reset();
   setStudentErpTab(0);
-  var hid = document.getElementById("editDocId");
-  if (hid) hid.value = editId || "";
   var sub = document.getElementById("modalStudentSubtitle");
   var title = document.getElementById("modalStudentTitle");
   var regDate = document.getElementById("st_registrationDate");
-  if (editId) {
-    var s = cachedStudents.find(function (x) {
-      return x.id === editId;
-    });
-    if (sub) sub.textContent = "Kayıt güncelleniyor. Öğrenci ID: " + editId.slice(0, 8) + "…";
-    if (title) title.innerHTML = '<i class="fa-solid fa-user-pen"></i> Öğrenci düzenle';
-    if (s) {
-      STUDENT_FORM_FIELDS.forEach(function (key) {
-        var el = form.elements[key];
-        var val = s[key];
-        if (el) el.value = val != null && val !== undefined && val !== "" ? String(val) : "";
-      });
-      var fn = s.firstName;
-      var ln = s.lastName;
-      if ((!fn || !ln) && s.name) {
-        var parts = String(s.name).trim().split(/\s+/);
-        fn = fn || parts[0] || "";
-        ln = ln || parts.slice(1).join(" ") || "";
-      }
-      if (form.elements.firstName && !form.elements.firstName.value) form.elements.firstName.value = fn;
-      if (form.elements.lastName && !form.elements.lastName.value) form.elements.lastName.value = ln;
-      if (!form.elements.parentFullName.value && s.parentFullName == null && s.parentName)
-        form.elements.parentFullName.value = String(s.parentName);
-      if (!form.elements.parentPhone.value && s.parentPhone == null && s.phone)
-        form.elements.parentPhone.value = String(s.phone);
-      if (!form.elements.fieldType.value && s.fieldType == null && s.yksAlan)
-        form.elements.fieldType.value = String(s.yksAlan);
-      if (!form.elements.examGroup.value && s.examGroup == null && s.track)
-        form.elements.examGroup.value = String(s.track);
-      var g = s.gender || "Erkek";
-      form.querySelectorAll('input[name="gender"]').forEach(function (r) {
-        r.checked = r.value === g || (g === "Kadın" && r.value === "Kadın");
-      });
-    }
-    setStudentSubmitUi(true);
-  } else {
-    if (sub) sub.textContent = "Sekmeler arasında gezerek tüm bilgileri doldurun.";
-    if (title) title.innerHTML = '<i class="fa-solid fa-id-card"></i> Yeni öğrenci kaydı';
-    if (regDate) regDate.value = new Date().toISOString().slice(0, 10);
-    form.querySelectorAll('input[name="gender"]').forEach(function (r) {
-      r.checked = r.value === "Erkek";
-    });
-    setStudentSubmitUi(false);
-  }
+  if (sub) sub.textContent = "Sekmeler arasında gezerek tüm bilgileri doldurun.";
+  if (title) title.innerHTML = '<i class="fa-solid fa-id-card"></i> Yeni öğrenci kaydı';
+  if (regDate) regDate.value = new Date().toISOString().slice(0, 10);
+  form.querySelectorAll('input[name="add_gender"]').forEach(function (r) {
+    r.checked = r.value === "Erkek";
+  });
   openModal("studentModal");
 }
 
-async function submitStudentForm(e) {
+function editStudent(studentId) {
+  var s = cachedStudents.find(function (x) {
+    return x.id === studentId;
+  });
+  if (!s) {
+    showToast("Öğrenci bulunamadı.");
+    return;
+  }
+  var fn = s.firstName;
+  var ln = s.lastName;
+  if ((!fn || !ln) && s.name) {
+    var parts = String(s.name).trim().split(/\s+/);
+    fn = fn || parts[0] || "";
+    ln = ln || parts.slice(1).join(" ") || "";
+  }
+  function ev(id, v) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.value = v != null && v !== undefined && v !== "" ? String(v) : "";
+  }
+  document.getElementById("editStudentDocId").value = studentId;
+  document.getElementById("editStudentName").value = fn || "";
+  document.getElementById("editStudentSurname").value = ln || "";
+  ev("editTcKimlikNo", s.tcKimlikNo);
+  ev("editSchoolName", s.schoolName);
+  ev("editClassGrade", s.classGrade);
+  ev("editExamGroup", s.examGroup != null && s.examGroup !== "" ? s.examGroup : s.track);
+  ev("editFieldType", s.fieldType != null && s.fieldType !== "" ? s.fieldType : s.yksAlan);
+  ev("editCurrentTytNet", s.currentTytNet);
+  ev("editTargetTytNet", s.targetTytNet);
+  ev("editParentFullName", s.parentFullName != null ? s.parentFullName : s.parentName);
+  ev("editParentRelation", s.parentRelation);
+  ev("editParentPhone", s.parentPhone != null ? s.parentPhone : s.phone);
+  ev("editEmergencyContactName", s.emergencyContactName);
+  var rd = s.registrationDate;
+  var rdDt = rd && typeof rd !== "string" ? toDate(rd) : null;
+  if (rdDt && !isNaN(rdDt.getTime())) ev("editRegistrationDate", rdDt.toISOString().slice(0, 10));
+  else if (rd && typeof rd === "string") ev("editRegistrationDate", rd.slice(0, 10));
+  else ev("editRegistrationDate", "");
+  ev("editAgreedTotalFee", s.agreedTotalFee);
+  ev("editInstallmentCount", s.installmentCount);
+  var g = s.gender || "Erkek";
+  if (g === "Kadin") g = "Kadın";
+  document.querySelectorAll('input[name="edit_gender"]').forEach(function (r) {
+    r.checked = r.value === g;
+  });
+  if (!document.querySelector('input[name="edit_gender"]:checked')) {
+    var er = document.querySelector('input[name="edit_gender"][value="Erkek"]');
+    if (er) er.checked = true;
+  }
+  var addPane = document.getElementById("studentPaneAdd");
+  var editPane = document.getElementById("studentPaneEdit");
+  if (addPane) addPane.hidden = true;
+  if (editPane) editPane.hidden = false;
+  var sub = document.getElementById("modalStudentSubtitle");
+  var title = document.getElementById("modalStudentTitle");
+  if (sub) sub.textContent = "Kayıt güncelleniyor. ID: " + studentId.slice(0, 8) + "…";
+  if (title) title.innerHTML = '<i class="fa-solid fa-user-pen"></i> Öğrenci düzenle';
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () {
+      openModal("studentModal");
+    });
+  });
+}
+
+async function submitStudentAddForm(e) {
   e.preventDefault();
   var form = e.target;
-  var editId = ((document.getElementById("editDocId") || {}).value || "").trim();
   var fd = new FormData(form);
   var data = {};
   fd.forEach(function (val, key) {
-    if (key === "gender") return;
+    if (key === "add_gender") return;
     if (val !== "" && val != null) data[key] = typeof val === "string" ? val.trim() : val;
   });
-  var genEl = form.querySelector('input[name="gender"]:checked');
+  var genEl = form.querySelector('input[name="add_gender"]:checked');
   data.gender = genEl ? genEl.value : "Erkek";
   var first = (data.firstName || "").trim();
   var last = (data.lastName || "").trim();
@@ -1030,23 +1077,92 @@ async function submitStudentForm(e) {
   }
   data.avatarUrl = buildStudentAvatarUrl(data.name, data.gender);
   data.track = data.examGroup && data.examGroup !== "" ? data.examGroup : "TYT + AYT";
-  if (!editId) data.status = data.status || "Aktif";
+  data.status = data.status || "Aktif";
   try {
-    if (editId) {
-      data.updatedAt = serverTimestamp();
-      await updateDoc(doc(db, "students", editId), data);
-      showToast("Öğrenci başarıyla güncellendi.");
-    } else {
-      data.createdAt = serverTimestamp();
-      data.coach_id = getCoachId();
-      await addDoc(collection(db, "students"), data);
-      showToast("Öğrenci başarıyla eklendi.");
-    }
+    data.createdAt = serverTimestamp();
+    data.coach_id = getCoachId();
+    await addDoc(collection(db, "students"), data);
+    showToast("Öğrenci başarıyla eklendi.");
     form.reset();
-    var ed = document.getElementById("editDocId");
-    if (ed) ed.value = "";
     setStudentErpTab(0);
-    setStudentSubmitUi(false);
+    closeAllModals();
+  } catch (err) {
+    console.error(err);
+    alert("Kayıt hatası: " + (err.message || err));
+  }
+}
+
+async function submitStudentEditForm(e) {
+  e.preventDefault();
+  var editId = (document.getElementById("editStudentDocId") || {}).value;
+  editId = editId ? String(editId).trim() : "";
+  if (!editId) {
+    showToast("Geçersiz kayıt.");
+    return;
+  }
+  var first = (document.getElementById("editStudentName") || {}).value;
+  first = first ? String(first).trim() : "";
+  var last = (document.getElementById("editStudentSurname") || {}).value;
+  last = last ? String(last).trim() : "";
+  if (!first || !last) {
+    showToast("Ad ve soyad zorunludur.");
+    return;
+  }
+  var parentPhone = (document.getElementById("editParentPhone") || {}).value;
+  parentPhone = parentPhone ? String(parentPhone).trim() : "";
+  if (!parentPhone) {
+    showToast("Veli telefonu zorunludur.");
+    return;
+  }
+  var genEl = document.querySelector('input[name="edit_gender"]:checked');
+  var gender = genEl ? genEl.value : "Erkek";
+  function gv(id) {
+    var el = document.getElementById(id);
+    return el && el.value != null ? String(el.value).trim() : "";
+  }
+  var tckn = gv("editTcKimlikNo");
+  if (tckn && String(tckn).replace(/\D/g, "").length !== 11) {
+    showToast("TCKN 11 hane olmalıdır (veya boş bırakın).");
+    return;
+  }
+  var data = {
+    firstName: first,
+    lastName: last,
+    name: (first + " " + last).trim(),
+    gender: gender,
+    parentPhone: parentPhone,
+    phone: parentPhone,
+    tcKimlikNo: tckn || null,
+    schoolName: gv("editSchoolName") || null,
+    classGrade: gv("editClassGrade") || null,
+    examGroup: gv("editExamGroup") || null,
+    fieldType: gv("editFieldType") || null,
+    currentTytNet: gv("editCurrentTytNet") || null,
+    targetTytNet: gv("editTargetTytNet") || null,
+    parentFullName: gv("editParentFullName") || null,
+    parentRelation: gv("editParentRelation") || null,
+    emergencyContactName: gv("editEmergencyContactName") || null,
+    registrationDate: gv("editRegistrationDate") || null,
+    agreedTotalFee: gv("editAgreedTotalFee"),
+    installmentCount: gv("editInstallmentCount"),
+  };
+  if (data.agreedTotalFee !== "") {
+    var fee2 = parseFloat(String(data.agreedTotalFee).replace(",", "."), 10);
+    data.agreedTotalFee = isNaN(fee2) ? null : fee2;
+  } else data.agreedTotalFee = null;
+  if (data.installmentCount !== "") {
+    var ins2 = parseInt(data.installmentCount, 10);
+    data.installmentCount = isNaN(ins2) ? null : Math.min(36, Math.max(1, ins2));
+  } else data.installmentCount = null;
+  data.track = data.examGroup && data.examGroup !== "" ? data.examGroup : "TYT + AYT";
+  data.avatarUrl = buildStudentAvatarUrl(data.name, data.gender);
+  data.updatedAt = serverTimestamp();
+  try {
+    await updateDoc(doc(db, "students", editId), data);
+    showToast("Öğrenci başarıyla güncellendi.");
+    document.getElementById("formStudentEdit").reset();
+    document.getElementById("editStudentDocId").value = "";
+    resetStudentModalPanes();
     closeAllModals();
   } catch (err) {
     console.error(err);
@@ -1469,11 +1585,13 @@ function initModals() {
   document.addEventListener("keydown", function (ev) {
     if (ev.key === "Escape") closeAllModals();
   });
-  var fs = document.getElementById("formStudent");
-  if (fs) {
-    fs.addEventListener("submit", submitStudentForm);
+  var fsAdd = document.getElementById("formStudentAdd");
+  if (fsAdd) {
+    fsAdd.addEventListener("submit", submitStudentAddForm);
     initStudentErpTabs();
   }
+  var fsEdit = document.getElementById("formStudentEdit");
+  if (fsEdit) fsEdit.addEventListener("submit", submitStudentEditForm);
   var fa = document.getElementById("formAppointment");
   if (fa) fa.addEventListener("submit", submitAppointmentForm);
   initTestMakerTabs();
@@ -2070,17 +2188,17 @@ function initAllButtons() {
   var elNewSt = document.getElementById("btnNewStudent");
   if (elNewSt)
     elNewSt.addEventListener("click", function () {
-      openStudentModal(null);
+      openStudentModal();
     });
   var elQuickSt = document.getElementById("quickAddStudent");
   if (elQuickSt)
     elQuickSt.addEventListener("click", function () {
-      openStudentModal(null);
+      openStudentModal();
     });
   var elPageSt = document.getElementById("btnPageAddStudent");
   if (elPageSt)
     elPageSt.addEventListener("click", function () {
-      openStudentModal(null);
+      openStudentModal();
     });
 
   document.getElementById("btnApptPrev") &&
@@ -2189,7 +2307,7 @@ function initAllButtons() {
     var edSt = t.closest && t.closest("[data-edit-student]");
     if (edSt) {
       e.preventDefault();
-      openStudentModal(edSt.getAttribute("data-edit-student"));
+      editStudent(edSt.getAttribute("data-edit-student"));
       return;
     }
     var delAp = t.closest && t.closest("[data-del-appt]");
@@ -2298,6 +2416,15 @@ onAuthStateChanged(auth, function (user) {
         });
       }
       if (profile.role === "admin") {
+        var viewAs = "";
+        try {
+          viewAs = (sessionStorage.getItem("superAdminViewAsCoach") || "").trim();
+        } catch (e) {}
+        if (viewAs) {
+          showImpersonateBanner(viewAs);
+          bootstrapKocPanelAfterAuth();
+          return;
+        }
         window.location.replace("super-admin.html");
         return;
       }

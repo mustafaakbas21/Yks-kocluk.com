@@ -14,6 +14,10 @@ import {
   doc,
   setDoc,
   getDoc,
+  updateDoc,
+  addDoc,
+  collection,
+  serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -78,7 +82,7 @@ var loginMode = "coach";
 
 function setMode(mode) {
   loginMode = mode;
-  document.querySelectorAll(".mode-tab").forEach(function (btn) {
+  document.querySelectorAll(".login-tabs button").forEach(function (btn) {
     btn.classList.toggle("is-active", btn.getAttribute("data-mode") === mode);
   });
   var hint = document.getElementById("modeHint");
@@ -130,6 +134,11 @@ document.getElementById("loginForm").addEventListener("submit", async function (
       showError("Hesap yapılandırılmamış. Yönetici ile iletişime geçin.");
       return;
     }
+    if (profile.frozen === true) {
+      await signOut(auth);
+      showError("Bu hesap dondurulmuş. Kurucu ile iletişime geçin.");
+      return;
+    }
     if (loginMode === "admin" && profile.role !== "admin") {
       await signOut(auth);
       showError("Bu hesap kurucu değil. Koç girişi sekmesini kullanın.");
@@ -145,6 +154,23 @@ document.getElementById("loginForm").addEventListener("submit", async function (
     if (profile.role === "admin") {
       window.location.replace("super-admin.html");
     } else {
+      try {
+        sessionStorage.removeItem("superAdminViewAsCoach");
+      } catch (_) {}
+      try {
+        await updateDoc(doc(db, "users", u.uid), { lastLogin: serverTimestamp() });
+      } catch (e) {
+        console.warn("[login] lastLogin:", e);
+      }
+      try {
+        await addDoc(collection(db, "coachLoginLog"), {
+          coachId: u.uid,
+          username: displayUsername,
+          at: serverTimestamp(),
+        });
+      } catch (e) {
+        console.warn("[login] coachLoginLog:", e);
+      }
       window.location.replace("koc-panel.html");
     }
   } catch (err) {

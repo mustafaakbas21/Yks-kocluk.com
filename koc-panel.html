@@ -483,8 +483,8 @@
         </div>
         <button type="button" class="modal__close" data-close-modal aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <form class="modal__body modal__body--flush" id="formStudent">
-        <input type="hidden" id="editDocId" value="" />
+      <div id="studentPaneAdd" class="student-modal-pane">
+      <form class="modal__body modal__body--flush" id="formStudentAdd" novalidate>
         <div class="student-erp-tabs" role="tablist" aria-label="Öğrenci formu sekmeleri">
           <button type="button" class="student-erp-tab is-active" role="tab" id="studentTabBtn0" aria-selected="true" aria-controls="studentTabPanel0" data-student-tab="0"><i class="fa-solid fa-user"></i> Kişisel</button>
           <button type="button" class="student-erp-tab" role="tab" id="studentTabBtn1" aria-selected="false" aria-controls="studentTabPanel1" data-student-tab="1"><i class="fa-solid fa-book-open"></i> Akademik</button>
@@ -510,9 +510,9 @@
               <div class="form-group" style="grid-column: 1 / -1;">
                 <span class="form-required" style="display:block;margin-bottom:0.35rem;">Cinsiyet</span>
                 <div class="student-erp-gender">
-                  <label><input type="radio" name="gender" value="Erkek" checked /> Erkek</label>
-                  <label><input type="radio" name="gender" value="Kadın" /> Kadın</label>
-                  <label><input type="radio" name="gender" value="Tesettür" /> Tesettür</label>
+                  <label><input type="radio" name="add_gender" value="Erkek" checked /> Erkek</label>
+                  <label><input type="radio" name="add_gender" value="Kadın" /> Kadın</label>
+                  <label><input type="radio" name="add_gender" value="Tesettür" /> Tesettür</label>
                 </div>
               </div>
             </div>
@@ -612,6 +612,118 @@
           <button type="submit" class="btn-modal-primary" id="btnStudentSubmit"><i class="fa-solid fa-cloud-arrow-up"></i> Kaydet</button>
         </div>
       </form>
+      </div>
+      <div id="studentPaneEdit" class="student-modal-pane" hidden>
+      <form class="modal__body modal__body--flush" id="formStudentEdit" novalidate>
+        <input type="hidden" id="editStudentDocId" value="" />
+        <div class="student-erp-panels" style="max-height:min(62vh,540px)">
+          <div class="student-erp-grid">
+            <p class="student-erp-section-title">Kişisel</p>
+            <div class="form-group">
+              <label class="form-required" for="editStudentName">Ad</label>
+              <input id="editStudentName" maxlength="60" placeholder="Ad" autocomplete="given-name" />
+            </div>
+            <div class="form-group">
+              <label class="form-required" for="editStudentSurname">Soyad</label>
+              <input id="editStudentSurname" maxlength="60" placeholder="Soyad" autocomplete="family-name" />
+            </div>
+            <div class="form-group">
+              <label for="editTcKimlikNo">TCKN</label>
+              <input id="editTcKimlikNo" inputmode="numeric" maxlength="11" placeholder="11 hane" />
+            </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <span class="form-required" style="display:block;margin-bottom:0.35rem">Cinsiyet</span>
+              <div class="student-erp-gender">
+                <label><input type="radio" name="edit_gender" value="Erkek" /> Erkek</label>
+                <label><input type="radio" name="edit_gender" value="Kadın" /> Kadın</label>
+                <label><input type="radio" name="edit_gender" value="Tesettür" /> Tesettür</label>
+              </div>
+            </div>
+            <p class="student-erp-section-title">Akademik</p>
+            <div class="form-group">
+              <label for="editSchoolName">Okul</label>
+              <input id="editSchoolName" maxlength="200" placeholder="Okul adı" />
+            </div>
+            <div class="form-group">
+              <label for="editClassGrade">Sınıf</label>
+              <input id="editClassGrade" maxlength="40" placeholder="Örn. 12 / Mezun" />
+            </div>
+            <div class="form-group">
+              <label for="editExamGroup">Sınav grubu</label>
+              <select id="editExamGroup">
+                <option value="">— Seçin —</option>
+                <option value="Mezun TYT-AYT">Mezun TYT-AYT</option>
+                <option value="12. Sınıf Say">12. Sınıf Say</option>
+                <option value="12. Sınıf EA">12. Sınıf EA</option>
+                <option value="12. Sınıf Sözel">12. Sınıf Sözel</option>
+                <option value="12. Sınıf Dil">12. Sınıf Dil</option>
+                <option value="11. Sınıf">11. Sınıf</option>
+                <option value="TYT Hazırlık">TYT Hazırlık</option>
+                <option value="Diğer">Diğer</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="editFieldType">Alan</label>
+              <select id="editFieldType">
+                <option value="">— Seçin —</option>
+                <option value="Sayısal">Sayısal</option>
+                <option value="Eşit Ağırlık (EA)">Eşit Ağırlık (EA)</option>
+                <option value="Sözel">Sözel</option>
+                <option value="Dil">Dil</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="editCurrentTytNet">Güncel net</label>
+              <input id="editCurrentTytNet" inputmode="decimal" placeholder="Örn. 72,5" />
+            </div>
+            <div class="form-group">
+              <label for="editTargetTytNet">Hedef net</label>
+              <input id="editTargetTytNet" inputmode="decimal" placeholder="Örn. 100" />
+            </div>
+            <p class="student-erp-section-title">Veli iletişim</p>
+            <div class="form-group">
+              <label for="editParentFullName">Veli adı soyadı</label>
+              <input id="editParentFullName" maxlength="120" />
+            </div>
+            <div class="form-group">
+              <label for="editParentRelation">Yakınlık</label>
+              <select id="editParentRelation">
+                <option value="">— Seçin —</option>
+                <option value="Anne">Anne</option>
+                <option value="Baba">Baba</option>
+                <option value="Vasi">Vasi</option>
+                <option value="Diğer">Diğer</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-required" for="editParentPhone">Veli telefonu</label>
+              <input id="editParentPhone" type="tel" placeholder="05xx xxx xx xx" />
+            </div>
+            <div class="form-group">
+              <label for="editEmergencyContactName">Acil durum kişisi</label>
+              <input id="editEmergencyContactName" maxlength="120" />
+            </div>
+            <p class="student-erp-section-title">Kayıt &amp; muhasebe</p>
+            <div class="form-group">
+              <label for="editRegistrationDate">Kayıt tarihi</label>
+              <input id="editRegistrationDate" type="date" />
+            </div>
+            <div class="form-group">
+              <label for="editAgreedTotalFee">Toplam ücret (₺)</label>
+              <input id="editAgreedTotalFee" type="number" min="0" step="0.01" />
+            </div>
+            <div class="form-group">
+              <label for="editInstallmentCount">Taksit sayısı</label>
+              <input id="editInstallmentCount" type="number" min="1" max="36" />
+            </div>
+          </div>
+        </div>
+        <div class="modal__foot modal__foot--sticky">
+          <button type="button" class="btn-modal-secondary" data-close-modal>Vazgeç</button>
+          <button type="submit" class="btn-modal-primary" id="btnStudentEditSubmit"><i class="fa-solid fa-rotate"></i> Güncelle</button>
+        </div>
+      </form>
+      </div>
     </div>
 
     <!-- Randevu -->

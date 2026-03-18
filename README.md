@@ -31,4 +31,7 @@ yks-kocluk/
 
 Firestore Rules bu koleksiyonlara yazmayı da açmalıdır.
 
+- **Kurucu paneli** (`super-admin.html`): Koç tablosu, KPI, Chart.js. Koç her girişte `users/{uid}.lastLogin` ve `coachLoginLog` kaydı oluşur (grafik için). `firestore.rules.example` içinde `coachLoginLog` ve admin’in `users` güncellemesi (dondurma) tanımlıdır.
+- **Şifre sıfırlama:** Başka kullanıcının şifresi yalnızca **Firebase Admin SDK** veya Cloud Function ile değiştirilebilir; paneldeki buton yönerge gösterir.
+
 Panel listeleri **Firestore**’dan gelir; giriş bilgisi `localStorage` ile tutulur.
