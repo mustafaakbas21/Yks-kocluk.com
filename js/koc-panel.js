@@ -90,6 +90,150 @@ let cachedTests = [];
 let tmWsCropper = null;
 let tmWsPdfDoc = null;
 let tmWsWorkspaceBound = false;
+let tmActiveLibId = null;
+let tmWsDragBlock = null;
+const TM_IDB_NAME = "TestMakerProLibrary";
+const TM_IDB_VER = 1;
+const TM_IDB_STORE = "pdfs";
+
+function tmIdbOpen() {
+  return new Promise(function (resolve, reject) {
+    var req = indexedDB.open(TM_IDB_NAME, TM_IDB_VER);
+    req.onerror = function () {
+      reject(req.error);
+    };
+    req.onupgradeneeded = function () {
+      var db = req.result;
+      if (!db.objectStoreNames.contains(TM_IDB_STORE)) db.createObjectStore(TM_IDB_STORE, { keyPath: "id" });
+    };
+    req.onsuccess = function () {
+      resolve(req.result);
+    };
+  });
+}
+
+function tmLibPut(rec) {
+  return tmIdbOpen().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(TM_IDB_STORE, "readwrite");
+      tx.objectStore(TM_IDB_STORE).put(rec);
+      tx.oncomplete = function () {
+        db.close();
+        resolve();
+      };
+      tx.onerror = function () {
+        db.close();
+        reject(tx.error);
+      };
+    });
+  });
+}
+
+function tmLibGetAllMeta() {
+  return tmIdbOpen().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      var out = [];
+      var tx = db.transaction(TM_IDB_STORE, "readonly");
+      var st = tx.objectStore(TM_IDB_STORE);
+      var cur = st.openCursor();
+      cur.onsuccess = function (e) {
+        var c = e.target.result;
+        if (c) {
+          out.push({ id: c.value.id, name: c.value.name, addedAt: c.value.addedAt });
+          c.continue();
+        } else {
+          db.close();
+          out.sort(function (a, b) {
+            return (b.addedAt || 0) - (a.addedAt || 0);
+          });
+          resolve(out);
+        }
+      };
+      cur.onerror = function () {
+        db.close();
+        reject(cur.error);
+      };
+    });
+  });
+}
+
+function tmLibGetFull(id) {
+  return tmIdbOpen().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(TM_IDB_STORE, "readonly");
+      var req = tx.objectStore(TM_IDB_STORE).get(id);
+      req.onsuccess = function () {
+        db.close();
+        resolve(req.result || null);
+      };
+      req.onerror = function () {
+        db.close();
+        reject(req.error);
+      };
+    });
+  });
+}
+
+function tmLibDelete(id) {
+  return tmIdbOpen().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(TM_IDB_STORE, "readwrite");
+      tx.objectStore(TM_IDB_STORE).delete(id);
+      tx.oncomplete = function () {
+        db.close();
+        resolve();
+      };
+      tx.onerror = function () {
+        db.close();
+        reject(tx.error);
+      };
+    });
+  });
+}
+
+function tmLibraryRenderList() {
+  var ul = document.getElementById("tmLibraryList");
+  if (!ul) return;
+  tmLibGetAllMeta()
+    .then(function (items) {
+      if (items.length === 0) {
+        ul.innerHTML =
+          '<li class="tm-library__empty">Henüz PDF yok. «PDF ekle» ile yükleyin.</li>';
+        return;
+      }
+      ul.innerHTML = items
+        .map(function (it) {
+          var active = it.id === tmActiveLibId ? " is-active" : "";
+          return (
+            '<li class="tm-library__item' +
+            active +
+            '" data-lib-id="' +
+            escapeHtml(it.id) +
+            '" title="' +
+            escapeHtml(it.name) +
+            '">' +
+            '<span class="tm-library__item-name">' +
+            escapeHtml(it.name) +
+            '</span>' +
+            '<button type="button" class="tm-library__item-del" data-lib-del="' +
+            escapeHtml(it.id) +
+            '" aria-label="Sil"><i class="fa-solid fa-trash"></i></button></li>'
+          );
+        })
+        .join("");
+    })
+    .catch(function (e) {
+      console.error(e);
+      ul.innerHTML = '<li class="tm-library__empty">Kitaplık okunamadı.</li>';
+    });
+}
+
+function tmRenumberTmQuestions() {
+  document.querySelectorAll("#tmA4Body .tm-a4-block").forEach(function (el, i) {
+    var b = el.querySelector(".tm-q-badge");
+    if (b) b.textContent = "Soru " + (i + 1) + ")";
+  });
+}
 let apptCarouselOffset = 0;
 let randevuChartInstance = null;
 let netBasariChartInstance = null;
@@ -1707,6 +1851,7 @@ function testmakerWorkspaceEnter() {
   var app = document.querySelector(".app");
   if (app) app.classList.add("app--testmaker-workspace");
   bindTestMakerWorkspace();
+  tmLibraryRenderList();
 }
 
 function tmWsRenderPdfPage(pageNum) {
@@ -1764,35 +1909,44 @@ function tmWsLoadImageFile(file) {
   img.src = url;
 }
 
+function tmWsLoadPdfFromBuffer(buf) {
+  if (typeof pdfjsLib === "undefined") {
+    showToast("PDF.js yüklenemedi.");
+    return Promise.resolve();
+  }
+  var u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  return pdfjsLib
+    .getDocument({ data: u8 })
+    .promise.then(function (doc) {
+      tmWsPdfDoc = doc;
+      var sel = document.getElementById("tmPdfPageSelect");
+      if (sel) {
+        sel.innerHTML = "";
+        for (var i = 1; i <= doc.numPages; i++) {
+          var o = document.createElement("option");
+          o.value = String(i);
+          o.textContent = "Sayfa " + i;
+          sel.appendChild(o);
+        }
+      }
+      var pr = document.getElementById("tmPdfPageRow");
+      if (pr) pr.hidden = doc.numPages < 2;
+      return tmWsRenderPdfPage(1);
+    })
+    .catch(function (e) {
+      console.error(e);
+      showToast("PDF okunamadı.");
+    });
+}
+
 function tmWsHandleFile(file) {
   if (!file) return;
+  tmActiveLibId = null;
+  tmLibraryRenderList();
   var n = file.name.toLowerCase();
   if (n.endsWith(".pdf")) {
     file.arrayBuffer().then(function (buf) {
-      if (typeof pdfjsLib === "undefined") {
-        showToast("PDF.js yüklenemedi.");
-        return;
-      }
-      pdfjsLib
-        .getDocument({ data: buf })
-        .promise.then(function (doc) {
-          tmWsPdfDoc = doc;
-          var sel = document.getElementById("tmPdfPageSelect");
-          sel.innerHTML = "";
-          for (var i = 1; i <= doc.numPages; i++) {
-            var o = document.createElement("option");
-            o.value = String(i);
-            o.textContent = "Sayfa " + i;
-            sel.appendChild(o);
-          }
-          var pr = document.getElementById("tmPdfPageRow");
-          if (pr) pr.hidden = doc.numPages < 2;
-          return tmWsRenderPdfPage(1);
-        })
-        .catch(function (e) {
-          console.error(e);
-          showToast("PDF okunamadı.");
-        });
+      tmWsLoadPdfFromBuffer(buf);
     });
   } else if (/\.(png|jpe?g)$/.test(n)) {
     tmWsLoadImageFile(file);
@@ -1890,48 +2044,83 @@ function tmWsDownloadPdf() {
   var name = ((document.getElementById("tmWsTitle") && document.getElementById("tmWsTitle").value) || "sinav")
     .trim()
     .replace(/[\\/:*?"<>|]/g, "-");
+  var prevOverflow = paper.style.overflow;
+  paper.style.overflow = "hidden";
   html2pdf()
     .set({
       margin: 0,
       filename: name + ".pdf",
-      image: { type: "jpeg", quality: 0.98 },
+      image: { type: "jpeg", quality: 0.95 },
+      pagebreak: { mode: ["avoid-all", "css", "legacy"] },
       html2canvas: {
-        scale: 2.5,
+        scale: 2,
         useCORS: true,
+        scrollY: 0,
         logging: false,
         letterRendering: true,
         allowTaint: true,
+        windowWidth: paper.scrollWidth,
+        windowHeight: paper.scrollHeight,
       },
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
     })
     .from(paper)
     .save()
+    .then(function () {
+      paper.style.overflow = prevOverflow || "";
+    })
     .catch(function (e) {
+      paper.style.overflow = prevOverflow || "";
       console.error(e);
       showToast("PDF oluşturulamadı.");
     });
 }
 
-function tmSyncKurumsalHeaderTexts() {
-  var titleInp = document.getElementById("tmWsTitle");
-  var main = document.getElementById("tmKurumsalTitleMain");
-  var t = (titleInp && titleInp.value.trim()) || "Kurumsal TYT Denemesi";
-  if (main) main.textContent = t;
+function tmSyncPaperHeaders() {
+  var inst = (document.getElementById("tmWsInstitution") && document.getElementById("tmWsInstitution").value.trim()) || "";
+  var course =
+    (document.getElementById("tmWsCourse") && document.getElementById("tmWsCourse").value.trim()) ||
+    (document.getElementById("tmWsSubject") && document.getElementById("tmWsSubject").value) ||
+    "";
+  var topic = (document.getElementById("tmWsTopic") && document.getElementById("tmWsTopic").value.trim()) || "";
   var d = document.getElementById("tmWsTestDate");
-  var dateEl = document.getElementById("tmKurumsalTitleDate");
-  if (dateEl)
-    dateEl.textContent =
-      d && d.value
-        ? new Date(d.value + "T12:00:00").toLocaleDateString("tr-TR", {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-          })
-        : new Date().toLocaleDateString("tr-TR", {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-          });
+  var dateStr =
+    d && d.value
+      ? new Date(d.value + "T12:00:00").toLocaleDateString("tr-TR", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })
+      : new Date().toLocaleDateString("tr-TR", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        });
+
+  var el;
+  el = document.getElementById("tmH_osym_inst");
+  if (el) el.textContent = inst || "KURUM ADI";
+  el = document.getElementById("tmH_osym_date");
+  if (el) el.textContent = dateStr;
+  el = document.getElementById("tmH_osym_course");
+  if (el) el.textContent = course || "DERS ADI";
+  el = document.getElementById("tmH_osym_topic");
+  if (el) el.textContent = topic || "Konu / ünite";
+
+  el = document.getElementById("tmH_vip_inst");
+  if (el) el.textContent = inst || "Kurum Adı";
+  el = document.getElementById("tmH_vip_course");
+  if (el) el.textContent = course || "Ders";
+  el = document.getElementById("tmH_vip_topic");
+  if (el) el.textContent = topic || "Konu";
+
+  el = document.getElementById("tmH_foy_inst");
+  if (el) el.textContent = inst || "Kurum";
+  el = document.getElementById("tmH_foy_course");
+  if (el) el.textContent = course || "Ders";
+  el = document.getElementById("tmH_foy_topic");
+  if (el) el.textContent = topic || "Konu";
+
   var sn = document.getElementById("tmHdrStudentInput");
   var nn = document.getElementById("tmHdrNetInput");
   var hsn = document.getElementById("tmHdrStudentName");
@@ -1942,24 +2131,13 @@ function tmSyncKurumsalHeaderTexts() {
 
 function tmApplyWorkspaceTemplate() {
   var paper = document.getElementById("tmA4Paper");
-  var hdr = document.getElementById("tmKurumsalHeader");
   var sel = document.getElementById("tmTemplate");
   if (!paper) return;
-  paper.classList.remove(
-    "tm-font-inter",
-    "tm-font-merriweather",
-    "tm-a4-paper--foy",
-    "tm-a4-paper--kurumsal"
-  );
-  var mode = sel && sel.value === "foy" ? "foy" : "kurumsal";
-  if (mode === "kurumsal") {
-    paper.classList.add("tm-font-inter", "tm-a4-paper--kurumsal");
-    if (hdr) hdr.hidden = false;
-  } else {
-    paper.classList.add("tm-font-merriweather", "tm-a4-paper--foy");
-    if (hdr) hdr.hidden = true;
-  }
-  tmSyncKurumsalHeaderTexts();
+  var mode = (sel && sel.value) || "osym";
+  if (mode !== "osym" && mode !== "vip" && mode !== "foy") mode = "osym";
+  paper.classList.remove("tm-template-osym", "tm-template-vip", "tm-template-foy");
+  paper.classList.add("tm-template-" + mode);
+  tmSyncPaperHeaders();
 }
 
 function bindTestMakerWorkspace() {
@@ -2029,34 +2207,154 @@ function bindTestMakerWorkspace() {
       var dataUrl = canvas.toDataURL("image/png");
       var empty = document.getElementById("tmA4Empty");
       if (empty) empty.style.display = "none";
+      var a4b = document.getElementById("tmA4Body");
+      if (!a4b) return;
       var wrap = document.createElement("div");
       wrap.className = "tm-a4-block";
+      wrap.draggable = true;
+      wrap.setAttribute("data-tm-drag", "1");
+      var badge = document.createElement("div");
+      badge.className = "tm-q-badge";
+      var n = a4b.querySelectorAll(".tm-a4-block").length + 1;
+      badge.textContent = "Soru " + n + ")";
+      var imgW = document.createElement("div");
+      imgW.className = "tm-a4-block__imgwrap";
       var img = document.createElement("img");
       img.src = dataUrl;
       img.alt = "";
+      img.draggable = false;
+      imgW.appendChild(img);
       var xb = document.createElement("button");
       xb.type = "button";
       xb.className = "tm-a4-block__x";
       xb.setAttribute("aria-label", "Kaldır");
+      xb.draggable = false;
       xb.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-      wrap.appendChild(img);
+      wrap.appendChild(badge);
+      wrap.appendChild(imgW);
       wrap.appendChild(xb);
-      var a4b = document.getElementById("tmA4Body");
-      (a4b || document.getElementById("tmA4Paper")).appendChild(wrap);
+      a4b.appendChild(wrap);
+      tmRenumberTmQuestions();
     });
 
   var paper = document.getElementById("tmA4Paper");
+  var a4body = document.getElementById("tmA4Body");
   if (paper)
     paper.addEventListener("click", function (ev) {
       var x = ev.target.closest && ev.target.closest(".tm-a4-block__x");
       if (!x) return;
+      ev.preventDefault();
       var bl = x.closest(".tm-a4-block");
       if (bl) bl.remove();
-      if (!paper.querySelector(".tm-a4-block")) {
+      if (a4body && !a4body.querySelector(".tm-a4-block")) {
         var em = document.getElementById("tmA4Empty");
         if (em) em.style.display = "";
       }
+      tmRenumberTmQuestions();
     });
+
+  if (a4body) {
+    a4body.addEventListener("dragstart", function (e) {
+      var t = e.target.closest && e.target.closest(".tm-a4-block");
+      if (!t || !a4body.contains(t)) return;
+      tmWsDragBlock = t;
+      t.classList.add("tm-dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", "tm");
+    });
+    a4body.addEventListener("dragend", function () {
+      if (tmWsDragBlock) {
+        tmWsDragBlock.classList.remove("tm-dragging");
+        tmWsDragBlock = null;
+      }
+      a4body.querySelectorAll(".tm-drag-over").forEach(function (n) {
+        n.classList.remove("tm-drag-over");
+      });
+      tmRenumberTmQuestions();
+    });
+    a4body.addEventListener("dragover", function (e) {
+      if (!tmWsDragBlock || !a4body.contains(tmWsDragBlock)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      var blocks = Array.prototype.slice.call(a4body.querySelectorAll(".tm-a4-block"));
+      var y = e.clientY;
+      var insertBefore = null;
+      for (var i = 0; i < blocks.length; i++) {
+        if (blocks[i] === tmWsDragBlock) continue;
+        var rect = blocks[i].getBoundingClientRect();
+        if (y < rect.top + rect.height / 2) {
+          insertBefore = blocks[i];
+          break;
+        }
+      }
+      if (insertBefore) a4body.insertBefore(tmWsDragBlock, insertBefore);
+      else a4body.appendChild(tmWsDragBlock);
+    });
+  }
+
+  var libBtn = document.getElementById("tmLibUploadBtn");
+  var libInp = document.getElementById("tmLibFileInput");
+  if (libBtn && libInp) {
+    libBtn.addEventListener("click", function () {
+      libInp.click();
+    });
+    libInp.addEventListener("change", function () {
+      var f = libInp.files && libInp.files[0];
+      libInp.value = "";
+      if (!f || !f.name.toLowerCase().endsWith(".pdf")) {
+        showToast("Yalnızca PDF seçin.");
+        return;
+      }
+      f.arrayBuffer().then(function (buf) {
+        var id = "pdf_" + Date.now() + "_" + Math.random().toString(36).slice(2, 9);
+        tmLibPut({
+          id: id,
+          name: f.name.slice(0, 180),
+          addedAt: Date.now(),
+          buffer: buf,
+        })
+          .then(function () {
+            showToast("Kitaplığa eklendi.");
+            tmLibraryRenderList();
+          })
+          .catch(function (err) {
+            console.error(err);
+            showToast("Kaydedilemedi (IndexedDB).");
+          });
+      });
+    });
+  }
+
+  var libList = document.getElementById("tmLibraryList");
+  if (libList) {
+    libList.addEventListener("click", function (ev) {
+      var del = ev.target.closest && ev.target.closest("[data-lib-del]");
+      if (del) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        var did = del.getAttribute("data-lib-del");
+        if (!did || !confirm("Bu PDF kitaplıktan silinsin mi?")) return;
+        tmLibDelete(did).then(function () {
+          if (tmActiveLibId === did) tmActiveLibId = null;
+          tmLibraryRenderList();
+        });
+        return;
+      }
+      var item = ev.target.closest && ev.target.closest("[data-lib-id]");
+      if (!item) return;
+      var lid = item.getAttribute("data-lib-id");
+      if (!lid) return;
+      tmActiveLibId = lid;
+      tmLibraryRenderList();
+      tmLibGetFull(lid).then(function (rec) {
+        if (!rec || !rec.buffer) {
+          showToast("PDF bulunamadı.");
+          return;
+        }
+        tmWsLoadPdfFromBuffer(rec.buffer);
+      });
+    });
+  }
 
   var sav = document.getElementById("tmBtnSaveFirestore");
   if (sav) sav.addEventListener("click", tmWsSaveFirestoreDraft);
@@ -2065,14 +2363,23 @@ function bindTestMakerWorkspace() {
 
   var tmpl = document.getElementById("tmTemplate");
   if (tmpl) tmpl.addEventListener("change", tmApplyWorkspaceTemplate);
-  ["tmHdrStudentInput", "tmHdrNetInput", "tmWsTitle"].forEach(function (id) {
+  [
+    "tmHdrStudentInput",
+    "tmHdrNetInput",
+    "tmWsTitle",
+    "tmWsInstitution",
+    "tmWsCourse",
+    "tmWsTopic",
+    "tmWsSubject",
+  ].forEach(function (id) {
     var el = document.getElementById(id);
-    if (el) el.addEventListener("input", tmSyncKurumsalHeaderTexts);
+    if (el) el.addEventListener("input", tmSyncPaperHeaders);
+    if (el) el.addEventListener("change", tmSyncPaperHeaders);
   });
   var td = document.getElementById("tmWsTestDate");
   if (td) {
-    td.addEventListener("change", tmSyncKurumsalHeaderTexts);
-    td.addEventListener("input", tmSyncKurumsalHeaderTexts);
+    td.addEventListener("change", tmSyncPaperHeaders);
+    td.addEventListener("input", tmSyncPaperHeaders);
   }
   tmApplyWorkspaceTemplate();
 }

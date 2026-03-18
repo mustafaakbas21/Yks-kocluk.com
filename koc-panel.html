@@ -6,7 +6,7 @@
   <title>YKS Koçluk — Koç Paneli</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="css/koc-panel.css" />
@@ -294,39 +294,79 @@
                 </table>
               </div>
             </div>
-            <div class="tm-workspace__body">
-              <div class="tm-workspace__preview">
-                <div class="tm-a4-wrap" id="tmA4Wrap">
-                  <div class="tm-a4-paper tm-font-inter" id="tmA4Paper">
-                    <div class="tm-kurumsal-header" id="tmKurumsalHeader" hidden>
-                      <table class="tm-kurumsal-table" role="presentation">
-                        <tr>
-                          <td class="tm-kh-logo">
-                            <div class="tm-kh-brand"><i class="fa-solid fa-graduation-cap"></i> YKS Koçluk</div>
-                            <div class="tm-kh-sub">Kurumsal deneme şablonu</div>
-                          </td>
-                          <td class="tm-kh-title">
-                            <div class="tm-kh-title-main" id="tmKurumsalTitleMain">Kurumsal TYT Denemesi</div>
-                            <div class="tm-kh-title-date" id="tmKurumsalTitleDate"></div>
-                          </td>
-                          <td class="tm-kh-meta">
-                            <div class="tm-kh-box"><span class="tm-kh-lbl">Öğrenci</span><span class="tm-kh-val" id="tmHdrStudentName">—</span></div>
-                            <div class="tm-kh-box"><span class="tm-kh-lbl">Net</span><span class="tm-kh-val" id="tmHdrStudentNet">—</span></div>
-                          </td>
-                        </tr>
-                      </table>
-                    </div>
-                    <div id="tmA4Body">
-                      <div class="tm-a4-empty" id="tmA4Empty">Sağdan <strong>görsel veya PDF</strong> yükleyin, soruyu seçip <strong>A4'e Ekle</strong> deyin.</div>
+            <div class="tm-workspace__body tm-workspace__body--pro">
+              <aside class="tm-library" id="tmLibraryPanel" aria-label="PDF kitaplığı">
+                <div class="tm-library__head">
+                  <h3 class="tm-library__title"><i class="fa-solid fa-book-open"></i> Kitaplığım</h3>
+                  <button type="button" class="tm-lib-upload" id="tmLibUploadBtn"><i class="fa-solid fa-plus"></i> PDF ekle</button>
+                  <input type="file" id="tmLibFileInput" accept="application/pdf" hidden />
+                </div>
+                <ul class="tm-library__list" id="tmLibraryList"></ul>
+                <p class="tm-library__foot">PDF’ler IndexedDB’de saklanır (Firebase kotası kullanılmaz).</p>
+              </aside>
+              <div class="tm-workspace__center">
+                <div class="tm-a4-toolbar">
+                  <div class="tm-a4-toolbar__inner">
+                    <label class="tm-toolbar-field"><span>Kurum adı</span><input type="text" id="tmWsInstitution" placeholder="Kurum adı" maxlength="120" autocomplete="organization" /></label>
+                    <label class="tm-toolbar-field"><span>Ders</span><input type="text" id="tmWsCourse" placeholder="Örn. Matematik" maxlength="80" /></label>
+                    <label class="tm-toolbar-field"><span>Konu</span><input type="text" id="tmWsTopic" placeholder="Ünite / konu" maxlength="120" /></label>
+                    <label class="tm-toolbar-field tm-toolbar-field--select"><span>Şablon</span>
+                      <select id="tmTemplate" title="Sayfa şablonu">
+                        <option value="osym">ÖSYM Klasik</option>
+                        <option value="vip">VIP Kurumsal</option>
+                        <option value="foy">Föy / Yaprak Test</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+                <div class="tm-a4-preview-scroll">
+                  <div class="tm-a4-pdf-shell" id="tmA4PdfShell">
+                    <div class="a4-paper tm-template-osym" id="tmA4Paper">
+                      <div class="tm-paper-header tm-paper-header--osym" id="tmHeaderOsym">
+                        <div class="tm-h-osym__top">
+                          <span class="tm-h-osym__inst" id="tmH_osym_inst"></span>
+                          <span class="tm-h-osym__date" id="tmH_osym_date"></span>
+                        </div>
+                        <div class="tm-h-osym__course" id="tmH_osym_course"></div>
+                        <div class="tm-h-osym__topic" id="tmH_osym_topic"></div>
+                        <div class="tm-h-osym__line"></div>
+                      </div>
+                      <div class="tm-paper-header tm-paper-header--vip" id="tmHeaderVip">
+                        <div class="tm-h-vip__row">
+                          <div class="tm-h-vip__logo"><i class="fa-solid fa-graduation-cap"></i><span id="tmH_vip_inst">Kurum</span></div>
+                          <div class="tm-h-vip__meta">
+                            <div class="tm-h-vip__course" id="tmH_vip_course">Ders</div>
+                            <div class="tm-h-vip__topic" id="tmH_vip_topic">Konu</div>
+                          </div>
+                        </div>
+                        <div class="tm-h-vip__bar"></div>
+                        <div class="tm-h-vip__student"><span>Öğrenci</span><strong id="tmHdrStudentName">—</strong><span>Net</span><strong id="tmHdrStudentNet">—</strong></div>
+                      </div>
+                      <div class="tm-paper-header tm-paper-header--foy" id="tmHeaderFoy">
+                        <div class="tm-h-foy__head">
+                          <div class="tm-h-foy__titles">
+                            <div class="tm-h-foy__inst" id="tmH_foy_inst"></div>
+                            <div class="tm-h-foy__sub"><span id="tmH_foy_course"></span> — <span id="tmH_foy_topic"></span></div>
+                          </div>
+                          <div class="tm-h-foy__boxes">
+                            <div class="tm-h-foy__box">Ad Soyad<div class="tm-h-foy__blank"></div></div>
+                            <div class="tm-h-foy__box tm-h-foy__box--dy"><span>D</span><span>Y</span><div class="tm-h-foy__dygrid"><span></span><span></span><span></span><span></span><span></span><span></span></div></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div id="tmA4Body" class="tm-a4-body">
+                        <div class="tm-a4-empty" id="tmA4Empty">Kitaplıktan veya sağdan <strong>PDF</strong> açıp soruyu kırpın; <strong>A4’e Ekle</strong> ile sıraya alın. Soruları sürükleyerek yeniden sıralayın.</div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
               <aside class="tm-workspace__tools">
+                <p class="tm-tools__label"><i class="fa-solid fa-crop"></i> Okuyucu &amp; kırpma</p>
                 <div class="tm-dropzone" id="tmDropzone" tabindex="0">
                   <input type="file" id="tmFileInput" accept="image/png,image/jpeg,image/jpg,application/pdf" />
                   <i class="fa-solid fa-cloud-arrow-up fa-2x" style="opacity:0.9"></i>
-                  <p><strong>PNG, JPG veya PDF</strong> — sürükleyin veya tıklayın</p>
+                  <p><strong>Görsel / PDF</strong> veya soldan kitap seçin</p>
                 </div>
                 <div class="tm-pdf-page" id="tmPdfPageRow" hidden>
                   <span>PDF sayfa:</span>
@@ -345,20 +385,14 @@
             </div>
             <footer class="tm-workspace__bar">
               <div class="tm-bar-fields">
-                <label>Şablon
-                  <select id="tmTemplate" title="A4 görünümü">
-                    <option value="kurumsal">Kurumsal Deneme</option>
-                    <option value="foy">Özel Ders Föyü</option>
-                  </select>
+                <label>Test adı (dosya / kayıt)
+                  <input type="text" id="tmWsTitle" placeholder="Örn. Paraf TYT-7 Matematik" maxlength="200" />
                 </label>
-                <label>Üst bilgi — öğrenci
+                <label>VIP — öğrenci
                   <input type="text" id="tmHdrStudentInput" placeholder="Ad Soyad" maxlength="80" />
                 </label>
-                <label>Üst bilgi — net
+                <label>VIP — net
                   <input type="text" id="tmHdrNetInput" placeholder="Örn. 85,5" maxlength="12" />
-                </label>
-                <label>Test başlığı
-                  <input type="text" id="tmWsTitle" placeholder="Örn. Paraf TYT-7 Matematik" maxlength="200" />
                 </label>
                 <label>Ders
                   <select id="tmWsSubject">

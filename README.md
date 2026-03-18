@@ -27,6 +27,7 @@ yks-kocluk/
 - **appointments** — Randevu formu: `scheduledAt`, `studentId`, `studentName`, süre, tip, konu…
 - **exams** — Deneme kayıt formu + tablo
 - **tests** — TestMaker taslağı (`tests`)
+- **TestMaker Pro** — Sol **Kitaplığım**: PDF’ler **IndexedDB**’de; tıklayınca pdf.js ile kırpma alanında açılır. Üst araç çubuğu: kurum / ders / konu + şablon (ÖSYM çift sütun, VIP kurumsal, Föy). Sorular **Soru N)** rozeti ve sürükle-bırak ile sıralanır. PDF indirme: `pagebreak` + `html2canvas` ayarları ve `.a4-paper` 210×297mm.
 - **payments** — Tahsilat formu (`payments`)
 
 Firestore Rules bu koleksiyonlara yazmayı da açmalıdır.
