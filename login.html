@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Giriş — YKS Koçluk SaaS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    :root {
+      --bg: #0f0a1a;
+      --card: rgba(30, 22, 48, 0.92);
+      --purple: #8b5cf6;
+      --purple-dim: #6d28d9;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --radius: 20px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      background: var(--bg);
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(109, 40, 217, 0.45), transparent),
+        radial-gradient(ellipse 60% 40% at 100% 100%, rgba(139, 92, 246, 0.2), transparent);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .login-shell {
+      width: 100%;
+      max-width: 440px;
+    }
+    .login-brand {
+      text-align: center;
+      margin-bottom: 1.75rem;
+    }
+    .login-brand__icon {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 0.75rem;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--purple), var(--purple-dim));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      box-shadow: 0 12px 40px rgba(109, 40, 217, 0.4);
+    }
+    .login-brand h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+    .login-brand p {
+      margin: 0.35rem 0 0;
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+    .mode-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .mode-tab {
+      padding: 0.85rem 1rem;
+      border-radius: var(--radius);
+      border: 2px solid rgba(139, 92, 246, 0.25);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    .mode-tab:hover {
+      border-color: rgba(139, 92, 246, 0.5);
+      color: var(--text);
+    }
+    .mode-tab.is-active {
+      border-color: var(--purple);
+      background: rgba(139, 92, 246, 0.15);
+      color: #fff;
+      box-shadow: 0 0 24px rgba(139, 92, 246, 0.2);
+    }
+    .login-card {
+      background: var(--card);
+      border-radius: calc(var(--radius) + 4px);
+      padding: 1.75rem 1.75rem 1.5rem;
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(12px);
+    }
+    .login-card__hint {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin: 0 0 1.25rem;
+      line-height: 1.5;
+    }
+    .form-group {
+      margin-bottom: 1.1rem;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #c4b5fd;
+      margin-bottom: 0.4rem;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border-radius: 14px;
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      background: rgba(15, 10, 26, 0.6);
+      color: var(--text);
+      font-size: 1rem;
+      font-family: inherit;
+    }
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--purple);
+      box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+    }
+    .form-group input::placeholder {
+      color: #64748b;
+    }
+    .btn-login {
+      width: 100%;
+      margin-top: 0.5rem;
+      padding: 0.9rem 1.25rem;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--purple), var(--purple-dim));
+      color: #fff;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: transform 0.15s, filter 0.15s;
+    }
+    .btn-login:hover {
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+    }
+    .btn-login:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    #loginError {
+      display: none;
+      margin-top: 1rem;
+      padding: 0.65rem 0.85rem;
+      border-radius: 12px;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #fecaca;
+      font-size: 0.85rem;
+    }
+    #loginError.is-visible { display: block; }
+    .login-foot {
+      text-align: center;
+      margin-top: 1.25rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="login-shell">
+    <div class="login-brand">
+      <div class="login-brand__icon"><i class="fa-solid fa-layer-group"></i></div>
+      <h1>YKS Koçluk</h1>
+      <p>Çoklu kiracı yönetim platformu</p>
+    </div>
+    <div class="mode-tabs" role="tablist" aria-label="Giriş türü">
+      <button type="button" class="mode-tab is-active" data-mode="coach" id="tabCoach">
+        <i class="fa-solid fa-chalkboard-user"></i> Koç Girişi
+      </button>
+      <button type="button" class="mode-tab" data-mode="admin" id="tabAdmin">
+        <i class="fa-solid fa-shield-halved"></i> Kurucu (Admin)
+      </button>
+    </div>
+    <div class="login-card">
+      <p class="login-card__hint" id="modeHint">Koç hesabınızla giriş yapın. Sadece <strong>kullanıcı adı</strong> ve şifre yeterlidir.</p>
+      <form id="loginForm" autocomplete="off">
+        <div class="form-group">
+          <label for="loginUsername">Kullanıcı adı</label>
+          <input id="loginUsername" name="username" type="text" required placeholder="örn. ayse_koc" autocapitalize="none" autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label for="loginPassword">Şifre</label>
+          <input id="loginPassword" name="password" type="password" required placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <button type="submit" class="btn-login" id="loginSubmit">
+          <i class="fa-solid fa-right-to-bracket"></i> Giriş Yap
+        </button>
+        <div id="loginError" role="alert"></div>
+      </form>
+    </div>
+    <p class="login-foot">İlk kurulum: kurucu hesabı otomatik oluşturulur (admin1)</p>
+  </div>
+  <script type="module" src="js/login.js"></script>
+</body>
+</html>

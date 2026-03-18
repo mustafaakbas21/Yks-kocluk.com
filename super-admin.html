@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kurucu Paneli — YKS Koçluk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    :root {
+      --bg: #050508;
+      --surface: #0c0c12;
+      --border: rgba(0, 255, 200, 0.12);
+      --neon: #00ffc8;
+      --neon-dim: #00b894;
+      --purple: #a855f7;
+      --text: #e2e8f0;
+      --muted: #64748b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Outfit", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      background-image:
+        radial-gradient(ellipse 100% 80% at 0% 0%, rgba(168, 85, 247, 0.12), transparent 50%),
+        radial-gradient(ellipse 80% 60% at 100% 100%, rgba(0, 255, 200, 0.08), transparent 45%);
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.75rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(12, 12, 18, 0.85);
+      backdrop-filter: blur(12px);
+    }
+    .topbar__brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 800;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+    .topbar__brand i {
+      color: var(--neon);
+      filter: drop-shadow(0 0 8px rgba(0, 255, 200, 0.5));
+    }
+    .topbar__actions {
+      display: flex;
+      gap: 0.75rem;
+    }
+    .btn-ghost {
+      padding: 0.5rem 1rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .btn-ghost:hover { color: var(--neon); border-color: rgba(0, 255, 200, 0.35); }
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 3rem;
+    }
+    h2 {
+      margin: 0 0 1.25rem;
+      font-size: 1.35rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    h2 i { color: var(--neon); }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 1.75rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 0 40px rgba(0, 255, 200, 0.04);
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem 1.25rem;
+    }
+    @media (max-width: 720px) { .form-grid { grid-template-columns: 1fr; } }
+    .form-group label {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--neon-dim);
+      margin-bottom: 0.35rem;
+    }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 0.7rem 0.9rem;
+      border-radius: 12px;
+      border: 1px solid rgba(0, 255, 200, 0.15);
+      background: #060609;
+      color: var(--text);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.9rem;
+    }
+    .form-group input:focus, .form-group select:focus {
+      outline: none;
+      border-color: var(--neon);
+      box-shadow: 0 0 0 2px rgba(0, 255, 200, 0.15);
+    }
+    .form-group--full { grid-column: 1 / -1; }
+    .btn-create {
+      margin-top: 1.25rem;
+      padding: 0.85rem 1.5rem;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--neon-dim), var(--neon));
+      color: #050508;
+      font-family: inherit;
+      font-weight: 800;
+      font-size: 0.95rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      box-shadow: 0 0 28px rgba(0, 255, 200, 0.25);
+    }
+    .btn-create:hover { filter: brightness(1.05); }
+    .btn-create:disabled { opacity: 0.5; cursor: not-allowed; }
+    #formCoachMsg {
+      margin-top: 1rem;
+      padding: 0.65rem;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      display: none;
+    }
+    #formCoachMsg.is-ok { display: block; background: rgba(0, 255, 200, 0.1); border: 1px solid rgba(0, 255, 200, 0.3); color: var(--neon); }
+    #formCoachMsg.is-err { display: block; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); color: #fca5a5; }
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    th {
+      text-align: left;
+      padding: 0.85rem 1rem;
+      background: rgba(0, 255, 200, 0.06);
+      color: var(--neon);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 0.68rem;
+    }
+    td {
+      padding: 0.75rem 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      color: var(--text);
+    }
+    tr:hover td { background: rgba(168, 85, 247, 0.05); }
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      border-radius: 8px;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+    .badge--pro { background: rgba(168, 85, 247, 0.25); color: #d8b4fe; }
+    .badge--bas { background: rgba(0, 255, 200, 0.12); color: var(--neon); }
+    .mono { font-family: "JetBrains Mono", monospace; font-size: 0.82rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar__brand">
+      <i class="fa-solid fa-bolt"></i>
+      Kurucu Kontrol Merkezi
+    </div>
+    <div class="topbar__actions">
+      <button type="button" class="btn-ghost" id="btnLogout"><i class="fa-solid fa-right-from-bracket"></i> Çıkış</button>
+    </div>
+  </header>
+  <main>
+    <section class="card">
+      <h2><i class="fa-solid fa-user-plus"></i> Yeni koç hesabı oluştur</h2>
+      <form id="formCreateCoach">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="coachUsername">Koç kullanıcı adı</label>
+            <input id="coachUsername" required placeholder="ornek_koc" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="coachPassword">Şifre</label>
+            <input id="coachPassword" type="password" required minlength="6" placeholder="min. 6 karakter" />
+          </div>
+          <div class="form-group form-group--full">
+            <label for="coachInstitution">Kurum / dershane adı</label>
+            <input id="coachInstitution" required maxlength="200" placeholder="Örn. Paraf Eğitim" />
+          </div>
+          <div class="form-group">
+            <label for="coachPhone">İletişim telefonu</label>
+            <input id="coachPhone" type="tel" placeholder="05xx xxx xx xx" />
+          </div>
+          <div class="form-group">
+            <label for="coachPackage">Paket tipi</label>
+            <select id="coachPackage" required>
+              <option value="Başlangıç">Başlangıç</option>
+              <option value="Pro">Pro</option>
+            </select>
+          </div>
+        </div>
+        <button type="submit" class="btn-create" id="btnCreateCoach">
+          <i class="fa-solid fa-cloud-arrow-up"></i> Hesabı oluştur
+        </button>
+        <div id="formCoachMsg"></div>
+      </form>
+    </section>
+    <section>
+      <h2><i class="fa-solid fa-users"></i> Kayıtlı koçlar</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Kullanıcı adı</th>
+              <th>Kurum</th>
+              <th>Telefon</th>
+              <th>Paket</th>
+              <th>UID</th>
+            </tr>
+          </thead>
+          <tbody id="coachesTableBody">
+            <tr><td colspan="5" class="mono" style="padding:1.5rem">Yükleniyor…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="js/super-admin.js"></script>
+</body>
+</html>

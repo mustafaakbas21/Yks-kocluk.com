@@ -6,12 +6,54 @@
   <title>YKS Koçluk — Koç Paneli</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="css/koc-panel.css" />
   <link rel="stylesheet" href="css/forms-modal.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" crossorigin="anonymous" />
   <link rel="stylesheet" href="css/testmaker-workspace.css" />
+  <style>
+    /* Öğrenci ERP modal — sekme + grid (yalnızca bu sayfa) */
+    .student-erp-tabs { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 2px solid #e9d5ff; padding: 0 1rem; background: linear-gradient(180deg, #faf5ff 0%, #f3e8ff 100%); flex-shrink: 0; border-radius: 0; }
+    .student-erp-tab { flex: 1; min-width: 120px; max-width: 200px; padding: 0.85rem 0.65rem; border: none; background: transparent; font-family: inherit; font-size: 0.8rem; font-weight: 700; color: #64748b; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; transition: color 0.2s, border-color 0.2s, background 0.2s; border-radius: 12px 12px 0 0; }
+    .student-erp-tab:hover { color: #7c3aed; background: rgba(124, 58, 237, 0.08); }
+    .student-erp-tab.is-active { color: #5b21b6; border-bottom-color: #7c3aed; background: #fff; }
+    .student-erp-tab i { opacity: 0.85; font-size: 0.9rem; }
+    .student-erp-panels { padding: 1.25rem 1.5rem 1rem; background: linear-gradient(180deg, #faf5ff 0%, #fff 14%); min-height: 320px; overflow-y: auto; max-height: min(58vh, 520px); }
+    .student-erp-panel[hidden] { display: none !important; }
+    .student-erp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.85rem 1rem; }
+    @media (max-width: 1024px) { .student-erp-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 640px) { .student-erp-grid { grid-template-columns: 1fr; } .student-erp-tab { min-width: 100px; font-size: 0.72rem; } }
+    .student-erp-grid .form-group { margin-bottom: 0; }
+    .student-erp-grid .form-group label { font-size: 0.8rem; font-weight: 600; color: #4c1d95; }
+    .student-erp-grid input, .student-erp-grid select { border-radius: 12px; border: 1px solid #e9d5ff; padding: 0.55rem 0.75rem; width: 100%; box-sizing: border-box; font-family: inherit; }
+    .student-erp-grid input:focus, .student-erp-grid select:focus { outline: none; border-color: #a78bfa; box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.25); }
+    .student-erp-section-title { grid-column: 1 / -1; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: #7c3aed; margin: 0.35rem 0 0.15rem; padding-bottom: 0.35rem; border-bottom: 1px solid #ede9fe; }
+    .student-erp-gender { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; padding: 0.5rem 0; }
+    .student-erp-gender label { display: inline-flex; align-items: center; gap: 0.45rem; cursor: pointer; font-weight: 600; color: #334155; margin: 0; }
+    .student-erp-gender input { width: auto; accent-color: #7c3aed; }
+    /* Dashboard Analytics */
+    .dashboard-kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 0 1.5rem 1.25rem; max-width: calc(100% - 3rem); }
+    @media (max-width: 1100px) { .dashboard-kpi-row { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .dashboard-kpi-row { grid-template-columns: 1fr; } }
+    .dashboard-kpi-card { background: linear-gradient(145deg, #fff 0%, #faf5ff 100%); border-radius: var(--radius-lg, 20px); padding: 1.15rem 1.25rem; border: 1px solid #ede9fe; box-shadow: 0 4px 20px rgba(109, 40, 217, 0.08); display: flex; flex-direction: column; gap: 0.35rem; }
+    .dashboard-kpi-card__icon { width: 2.5rem; height: 2.5rem; border-radius: 12px; background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; margin-bottom: 0.25rem; }
+    .dashboard-kpi-card__val { font-size: 1.65rem; font-weight: 800; color: #4c1d95; letter-spacing: -0.03em; line-height: 1.15; }
+    .dashboard-kpi-card__lbl { font-size: 0.78rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
+    .dashboard-analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin: 0 1.5rem 1.5rem; max-width: calc(100% - 3rem); align-items: start; }
+    @media (max-width: 900px) { .dashboard-analytics-grid { grid-template-columns: 1fr; } }
+    .dashboard-analytics-card { background: #fff; border-radius: var(--radius-lg, 20px); padding: 1.25rem 1.5rem; border: 1px solid var(--gray-200, #e8e8ed); box-shadow: var(--shadow-sm, 0 2px 8px rgba(109,40,217,0.08)); }
+    .dashboard-analytics-card__title { font-size: 0.95rem; font-weight: 800; color: #4c1d95; margin: 0 0 1rem; display: flex; align-items: center; gap: 0.5rem; }
+    .net-donut-wrap { position: relative; width: min(100%, 260px); height: 240px; margin: 0 auto; }
+    .net-donut-wrap canvas { max-height: 220px; }
+    .net-donut-center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -52%); text-align: center; pointer-events: none; }
+    .net-donut-center__pct { font-size: 2.35rem; font-weight: 800; color: #5b21b6; line-height: 1; }
+    .net-donut-center__sub { font-size: 0.72rem; font-weight: 600; color: #64748b; margin-top: 0.35rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .dashboard-insight { font-size: 0.9rem; color: #475569; line-height: 1.65; margin: 0; }
+    .dashboard-insight strong { color: #5b21b6; }
+    .chart-card__canvas-wrap { position: relative; height: 220px; width: 100%; margin-top: 0.5rem; }
+  </style>
   <!-- TestMaker: Cropper.js + pdf.js (head’de CSS); script’ler body sonunda (html2pdf, cropper, pdf) -->
 </head>
 <body>
@@ -103,6 +145,46 @@
               <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-wand-magic-sparkles"></i>
             </div>
           </section>
+
+          <div class="dashboard-kpi-row" aria-label="Özet göstergeler">
+            <div class="dashboard-kpi-card">
+              <div class="dashboard-kpi-card__icon"><i class="fa-solid fa-user-graduate"></i></div>
+              <span class="dashboard-kpi-card__lbl">Toplam aktif öğrenci</span>
+              <span class="dashboard-kpi-card__val" id="kpiActiveStudents">—</span>
+            </div>
+            <div class="dashboard-kpi-card">
+              <div class="dashboard-kpi-card__icon"><i class="fa-solid fa-calendar-week"></i></div>
+              <span class="dashboard-kpi-card__lbl">Bu haftaki randevular</span>
+              <span class="dashboard-kpi-card__val" id="kpiWeekAppointments">—</span>
+            </div>
+            <div class="dashboard-kpi-card">
+              <div class="dashboard-kpi-card__icon"><i class="fa-solid fa-chart-simple"></i></div>
+              <span class="dashboard-kpi-card__lbl">Ortalama TYT neti</span>
+              <span class="dashboard-kpi-card__val" id="kpiAvgTytNet">—</span>
+            </div>
+            <div class="dashboard-kpi-card">
+              <div class="dashboard-kpi-card__icon"><i class="fa-solid fa-file-circle-check"></i></div>
+              <span class="dashboard-kpi-card__lbl">Çözülen deneme sayısı</span>
+              <span class="dashboard-kpi-card__val" id="kpiExamCount">—</span>
+            </div>
+          </div>
+
+          <div class="dashboard-analytics-grid">
+            <div class="dashboard-analytics-card">
+              <h3 class="dashboard-analytics-card__title"><i class="fa-solid fa-bullseye"></i> Hedefe ulaşma (net)</h3>
+              <div class="net-donut-wrap">
+                <canvas id="netBasariChart" aria-label="Öğrenci net hedef başarı oranı"></canvas>
+                <div class="net-donut-center" id="netBasariCenter">
+                  <div class="net-donut-center__pct" id="netBasariPct">—</div>
+                  <div class="net-donut-center__sub">hedef oranı</div>
+                </div>
+              </div>
+            </div>
+            <div class="dashboard-analytics-card">
+              <h3 class="dashboard-analytics-card__title"><i class="fa-solid fa-lightbulb"></i> Performans özeti</h3>
+              <p class="dashboard-insight" id="dashboardInsightText">Veriler yükleniyor…</p>
+            </div>
+          </div>
 
           <section class="section">
             <div class="section__head">
@@ -215,8 +297,28 @@
             <div class="tm-workspace__body">
               <div class="tm-workspace__preview">
                 <div class="tm-a4-wrap" id="tmA4Wrap">
-                  <div class="tm-a4-paper" id="tmA4Paper">
-                    <div class="tm-a4-empty" id="tmA4Empty">Sağdan <strong>görsel veya PDF</strong> yükleyin, soruyu seçip <strong>A4'e Ekle</strong> deyin.</div>
+                  <div class="tm-a4-paper tm-font-inter" id="tmA4Paper">
+                    <div class="tm-kurumsal-header" id="tmKurumsalHeader" hidden>
+                      <table class="tm-kurumsal-table" role="presentation">
+                        <tr>
+                          <td class="tm-kh-logo">
+                            <div class="tm-kh-brand"><i class="fa-solid fa-graduation-cap"></i> YKS Koçluk</div>
+                            <div class="tm-kh-sub">Kurumsal deneme şablonu</div>
+                          </td>
+                          <td class="tm-kh-title">
+                            <div class="tm-kh-title-main" id="tmKurumsalTitleMain">Kurumsal TYT Denemesi</div>
+                            <div class="tm-kh-title-date" id="tmKurumsalTitleDate"></div>
+                          </td>
+                          <td class="tm-kh-meta">
+                            <div class="tm-kh-box"><span class="tm-kh-lbl">Öğrenci</span><span class="tm-kh-val" id="tmHdrStudentName">—</span></div>
+                            <div class="tm-kh-box"><span class="tm-kh-lbl">Net</span><span class="tm-kh-val" id="tmHdrStudentNet">—</span></div>
+                          </td>
+                        </tr>
+                      </table>
+                    </div>
+                    <div id="tmA4Body">
+                      <div class="tm-a4-empty" id="tmA4Empty">Sağdan <strong>görsel veya PDF</strong> yükleyin, soruyu seçip <strong>A4'e Ekle</strong> deyin.</div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -243,6 +345,18 @@
             </div>
             <footer class="tm-workspace__bar">
               <div class="tm-bar-fields">
+                <label>Şablon
+                  <select id="tmTemplate" title="A4 görünümü">
+                    <option value="kurumsal">Kurumsal Deneme</option>
+                    <option value="foy">Özel Ders Föyü</option>
+                  </select>
+                </label>
+                <label>Üst bilgi — öğrenci
+                  <input type="text" id="tmHdrStudentInput" placeholder="Ad Soyad" maxlength="80" />
+                </label>
+                <label>Üst bilgi — net
+                  <input type="text" id="tmHdrNetInput" placeholder="Örn. 85,5" maxlength="12" />
+                </label>
                 <label>Test başlığı
                   <input type="text" id="tmWsTitle" placeholder="Örn. Paraf TYT-7 Matematik" maxlength="200" />
                 </label>
@@ -332,9 +446,11 @@
       </div>
 
       <div class="panel__card chart-card">
-        <h3 class="chart-card__title">Randevu Yoğunluğu</h3>
-        <p class="chart-card__subtitle">Bu hafta günlük randevu sayısı (Firestore)</p>
-        <div class="bar-chart" id="barChart" role="img" aria-label="Randevu yoğunluğu"></div>
+        <h3 class="chart-card__title">Randevu yoğunluğu</h3>
+        <p class="chart-card__subtitle">Bu hafta günlük dağılım (Chart.js)</p>
+        <div class="chart-card__canvas-wrap">
+          <canvas id="randevuChart" aria-label="Haftalık randevu grafiği"></canvas>
+        </div>
         <div class="chart-card__legend">
           <span><i class="fa-solid fa-circle" style="color: var(--purple-500)"></i> Randevu adedi</span>
         </div>
@@ -358,80 +474,137 @@
 
   <!-- ========== Modallar ========== -->
   <div class="modal-overlay" id="modalOverlay" aria-hidden="true">
-    <!-- Öğrenci ERP — 3 sütun -->
+    <!-- Öğrenci ERP — sekmeli -->
     <div class="modal modal--xl modal--erp" id="studentModal" role="dialog" aria-labelledby="modalStudentTitle" hidden>
       <div class="modal__head">
         <div>
-          <h2 class="modal__title" id="modalStudentTitle"><i class="fa-solid fa-id-card"></i> Öğrenci kaydı</h2>
-          <p class="modal__subtitle" id="modalStudentSubtitle">Kişisel · Akademik · Veli &amp; muhasebe</p>
+          <h2 class="modal__title" id="modalStudentTitle"><i class="fa-solid fa-id-card"></i> Yeni öğrenci kaydı</h2>
+          <p class="modal__subtitle" id="modalStudentSubtitle">Kişisel · Akademik · Veli · Muhasebe — sekmeler arasında gezinin</p>
         </div>
         <button type="button" class="modal__close" data-close-modal aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <form class="modal__body modal__body--flush" id="formStudent">
         <input type="hidden" id="editDocId" value="" />
-        <div class="erp-form-grid">
-          <section class="erp-col">
-            <h3 class="erp-col__title"><span class="erp-col__badge">1</span> Kişisel bilgiler</h3>
-            <div class="form-group">
-              <label class="form-required" for="st_name">Ad Soyad</label>
-              <input id="st_name" name="name" required maxlength="120" placeholder="Örn. Mehmet Yılmaz" autocomplete="name" />
-            </div>
-            <div class="form-group">
-              <label class="form-required" for="st_phone">Telefon</label>
-              <input id="st_phone" name="phone" type="tel" required placeholder="05xx xxx xx xx" autocomplete="tel" />
-            </div>
-            <div class="form-group">
-              <label for="st_email">E-posta</label>
-              <input id="st_email" name="email" type="email" placeholder="ornek@mail.com" autocomplete="email" />
-            </div>
-          </section>
-          <section class="erp-col">
-            <h3 class="erp-col__title"><span class="erp-col__badge">2</span> Akademik durum</h3>
-            <div class="form-group">
-              <label class="form-required" for="st_yksAlan">Alan</label>
-              <select id="st_yksAlan" name="yksAlan" required>
-                <option value="">— Seçin —</option>
-                <option value="Sayısal">Sayısal</option>
-                <option value="Eşit Ağırlık">Eşit Ağırlık (EA)</option>
-                <option value="Sözel">Sözel</option>
-                <option value="Dil">Dil</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-required" for="st_hedefUni">Hedef üniversite &amp; bölüm</label>
-              <input id="st_hedefUni" name="targetUniversityDepartment" required placeholder="Örn. Hacettepe Tıp, ODTÜ Bilgisayar…" />
-            </div>
-            <div class="form-grid form-grid--2" style="gap:0.65rem">
+        <div class="student-erp-tabs" role="tablist" aria-label="Öğrenci formu sekmeleri">
+          <button type="button" class="student-erp-tab is-active" role="tab" id="studentTabBtn0" aria-selected="true" aria-controls="studentTabPanel0" data-student-tab="0"><i class="fa-solid fa-user"></i> Kişisel</button>
+          <button type="button" class="student-erp-tab" role="tab" id="studentTabBtn1" aria-selected="false" aria-controls="studentTabPanel1" data-student-tab="1"><i class="fa-solid fa-book-open"></i> Akademik</button>
+          <button type="button" class="student-erp-tab" role="tab" id="studentTabBtn2" aria-selected="false" aria-controls="studentTabPanel2" data-student-tab="2"><i class="fa-solid fa-people-roof"></i> Veli</button>
+          <button type="button" class="student-erp-tab" role="tab" id="studentTabBtn3" aria-selected="false" aria-controls="studentTabPanel3" data-student-tab="3"><i class="fa-solid fa-lira-sign"></i> Muhasebe</button>
+        </div>
+        <div class="student-erp-panels">
+          <div class="student-erp-panel" role="tabpanel" id="studentTabPanel0" aria-labelledby="studentTabBtn0" data-student-panel="0">
+            <div class="student-erp-grid">
+              <p class="student-erp-section-title">Kişisel bilgiler</p>
               <div class="form-group">
-                <label for="st_tytGuncel">Güncel TYT neti</label>
-                <input id="st_tytGuncel" name="currentTytNet" inputmode="decimal" placeholder="Örn. 72,5" />
+                <label class="form-required" for="st_firstName">Ad</label>
+                <input id="st_firstName" name="firstName" required maxlength="60" placeholder="Ad" autocomplete="given-name" />
               </div>
               <div class="form-group">
-                <label for="st_tytHedef">Hedef TYT neti</label>
-                <input id="st_tytHedef" name="targetTytNet" inputmode="decimal" placeholder="Örn. 100" />
+                <label class="form-required" for="st_lastName">Soyad</label>
+                <input id="st_lastName" name="lastName" required maxlength="60" placeholder="Soyad" autocomplete="family-name" />
+              </div>
+              <div class="form-group">
+                <label for="st_tcKimlikNo">TCKN</label>
+                <input id="st_tcKimlikNo" name="tcKimlikNo" inputmode="numeric" maxlength="11" placeholder="11 hane" />
+              </div>
+              <div class="form-group" style="grid-column: 1 / -1;">
+                <span class="form-required" style="display:block;margin-bottom:0.35rem;">Cinsiyet</span>
+                <div class="student-erp-gender">
+                  <label><input type="radio" name="gender" value="Erkek" checked /> Erkek</label>
+                  <label><input type="radio" name="gender" value="Kadın" /> Kadın</label>
+                </div>
               </div>
             </div>
-          </section>
-          <section class="erp-col">
-            <h3 class="erp-col__title"><span class="erp-col__badge">3</span> Veli &amp; muhasebe</h3>
-            <div class="form-group">
-              <label for="st_veliAd">Veli adı soyadı</label>
-              <input id="st_veliAd" name="parentName" placeholder="Veli / vasi" />
+          </div>
+          <div class="student-erp-panel" role="tabpanel" id="studentTabPanel1" aria-labelledby="studentTabBtn1" data-student-panel="1" hidden>
+            <div class="student-erp-grid">
+              <p class="student-erp-section-title">Akademik</p>
+              <div class="form-group">
+                <label for="st_schoolName">Okul</label>
+                <input id="st_schoolName" name="schoolName" maxlength="200" placeholder="Okul adı" />
+              </div>
+              <div class="form-group">
+                <label for="st_classGrade">Sınıf</label>
+                <input id="st_classGrade" name="classGrade" maxlength="40" placeholder="Örn. 12 / Mezun" />
+              </div>
+              <div class="form-group">
+                <label for="st_examGroup">Sınav grubu</label>
+                <select id="st_examGroup" name="examGroup">
+                  <option value="">— Seçin —</option>
+                  <option value="Mezun TYT-AYT">Mezun TYT-AYT</option>
+                  <option value="12. Sınıf Say">12. Sınıf Say</option>
+                  <option value="12. Sınıf EA">12. Sınıf EA</option>
+                  <option value="12. Sınıf Sözel">12. Sınıf Sözel</option>
+                  <option value="12. Sınıf Dil">12. Sınıf Dil</option>
+                  <option value="11. Sınıf">11. Sınıf</option>
+                  <option value="TYT Hazırlık">TYT Hazırlık</option>
+                  <option value="Diğer">Diğer</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="st_fieldType">Alan</label>
+                <select id="st_fieldType" name="fieldType">
+                  <option value="">— Seçin —</option>
+                  <option value="Sayısal">Sayısal</option>
+                  <option value="Eşit Ağırlık (EA)">Eşit Ağırlık (EA)</option>
+                  <option value="Sözel">Sözel</option>
+                  <option value="Dil">Dil</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="st_currentTytNet">Güncel net</label>
+                <input id="st_currentTytNet" name="currentTytNet" inputmode="decimal" placeholder="Örn. 72,5" />
+              </div>
+              <div class="form-group">
+                <label for="st_targetTytNet">Hedef net</label>
+                <input id="st_targetTytNet" name="targetTytNet" inputmode="decimal" placeholder="Örn. 100" />
+              </div>
             </div>
-            <div class="form-group">
-              <label for="st_veliTel">Veli telefonu</label>
-              <input id="st_veliTel" name="parentPhone" type="tel" placeholder="05xx…" />
+          </div>
+          <div class="student-erp-panel" role="tabpanel" id="studentTabPanel2" aria-labelledby="studentTabBtn2" data-student-panel="2" hidden>
+            <div class="student-erp-grid">
+              <p class="student-erp-section-title">Veli iletişim</p>
+              <div class="form-group">
+                <label for="st_parentFullName">Veli adı soyadı</label>
+                <input id="st_parentFullName" name="parentFullName" maxlength="120" placeholder="Ad soyad" />
+              </div>
+              <div class="form-group">
+                <label for="st_parentRelation">Yakınlık derecesi</label>
+                <select id="st_parentRelation" name="parentRelation">
+                  <option value="">— Seçin —</option>
+                  <option value="Anne">Anne</option>
+                  <option value="Baba">Baba</option>
+                  <option value="Vasi">Vasi</option>
+                  <option value="Diğer">Diğer</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-required" for="st_parentPhone">Veli telefonu</label>
+                <input id="st_parentPhone" name="parentPhone" type="tel" required placeholder="05xx xxx xx xx" autocomplete="tel" />
+              </div>
+              <div class="form-group">
+                <label for="st_emergencyContactName">Acil durum kişisi</label>
+                <input id="st_emergencyContactName" name="emergencyContactName" maxlength="120" placeholder="Ad soyad" />
+              </div>
             </div>
-            <div class="form-group">
-              <label for="st_ucret">Aylık koçluk ücreti (₺)</label>
-              <input id="st_ucret" name="monthlyCoachingFee" type="number" min="0" step="0.01" placeholder="0.00" />
+          </div>
+          <div class="student-erp-panel" role="tabpanel" id="studentTabPanel3" aria-labelledby="studentTabBtn3" data-student-panel="3" hidden>
+            <div class="student-erp-grid">
+              <p class="student-erp-section-title">Kayıt &amp; muhasebe</p>
+              <div class="form-group">
+                <label for="st_registrationDate">Kayıt tarihi</label>
+                <input id="st_registrationDate" name="registrationDate" type="date" />
+              </div>
+              <div class="form-group">
+                <label for="st_agreedTotalFee">Toplam ücret (₺)</label>
+                <input id="st_agreedTotalFee" name="agreedTotalFee" type="number" min="0" step="0.01" placeholder="0.00" />
+              </div>
+              <div class="form-group">
+                <label for="st_installmentCount">Taksit sayısı</label>
+                <input id="st_installmentCount" name="installmentCount" type="number" min="1" max="36" placeholder="Örn. 9" />
+              </div>
             </div>
-            <div class="form-group">
-              <label for="st_taksit">Taksit / ödeme günü</label>
-              <span class="form-hint">Ayın hangi günü (1–31)</span>
-              <input id="st_taksit" name="installmentDay" type="number" min="1" max="31" placeholder="Örn. 5" />
-            </div>
-          </section>
+          </div>
         </div>
         <div class="modal__foot modal__foot--sticky">
           <button type="button" class="btn-modal-secondary" data-close-modal>Vazgeç</button>

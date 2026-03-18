@@ -4,6 +4,7 @@
  */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import {
   getFirestore,
   collection,
@@ -14,6 +15,9 @@ import {
   deleteDoc,
   serverTimestamp,
   Timestamp,
+  query,
+  where,
+  getDoc,
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 (function () {
@@ -33,6 +37,19 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
+
+let kocPanelBootstrapped = false;
+
+function getCoachId() {
+  return (localStorage.getItem("currentUser") || "").trim();
+}
+
+function coachQuery(collectionName) {
+  var cid = getCoachId();
+  if (!cid) return null;
+  return query(collection(db, collectionName), where("coach_id", "==", cid));
+}
 
 let firestoreUnsubs = [];
 let cachedAppointments = [];
@@ -44,6 +61,8 @@ let tmWsCropper = null;
 let tmWsPdfDoc = null;
 let tmWsWorkspaceBound = false;
 let apptCarouselOffset = 0;
+let randevuChartInstance = null;
+let netBasariChartInstance = null;
 let examTypeFilter = "all";
 let examsPageFilter = "all";
 let searchQuery = "";
@@ -324,9 +343,10 @@ function renderStudentsPage() {
   grid.innerHTML = cachedStudents
     .map(function (s) {
       const name = s.name || s.studentName || "Öğrenci";
-      const seed = s.avatarSeed || name;
-      const img = "https://api.dicebear.com/7.x/avataaars/svg?seed=" + encodeURIComponent(String(seed));
-      const track = s.track || s.paket || "TYT + AYT";
+      const img =
+        s.avatarUrl ||
+        buildStudentAvatarUrl(name, s.gender);
+      const track = s.examGroup || s.track || s.paket || "TYT + AYT";
       const sid = escapeHtml(s.id);
       return (
         '<div class="student-card">' +
@@ -362,42 +382,250 @@ function renderAppointmentsPage() {
 }
 
 const WEEK_LABELS = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+const RANDEVU_GUN_ADLARI_TR = [
+  "Pazartesi",
+  "Salı",
+  "Çarşamba",
+  "Perşembe",
+  "Cuma",
+  "Cumartesi",
+  "Pazar",
+];
 
-function renderAppointmentDensityChart(docs) {
-  const container = document.getElementById("barChart");
-  if (!container) return;
-  const counts = [0, 0, 0, 0, 0, 0, 0];
-  const now = new Date();
-  const weekStart = new Date(now);
+function getCalendarWeekStart(d) {
+  var weekStart = new Date(d);
   weekStart.setHours(0, 0, 0, 0);
   weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
-  docs.forEach(function (docSnap) {
-    const ap = docSnap.data();
-    const t = appointmentSortTime(ap);
+  return weekStart;
+}
+
+function countAppointmentsThisWeek() {
+  var weekStart = getCalendarWeekStart(new Date());
+  var weekEnd = weekStart.getTime() + 7 * 86400000;
+  var n = 0;
+  cachedAppointments.forEach(function (ap) {
+    var t = appointmentSortTime(ap);
     if (!t) return;
-    const dt = new Date(t);
-    if (dt < weekStart || dt > weekStart.getTime() + 7 * 86400000 * 2) return;
-    const diff = Math.floor((dt - weekStart) / 86400000);
+    var dt = new Date(t).getTime();
+    if (dt >= weekStart.getTime() && dt < weekEnd) n++;
+  });
+  return n;
+}
+
+/** Firestore randevu dokümanları — haftalık günlük sütun grafiği (Chart.js) */
+function renderAppointmentsChart(docs) {
+  var canvas = document.getElementById("randevuChart");
+  if (!canvas || typeof Chart === "undefined") return;
+  var ctx = canvas.getContext("2d");
+  var counts = [0, 0, 0, 0, 0, 0, 0];
+  var weekStart = getCalendarWeekStart(new Date());
+  var weekEnd = weekStart.getTime() + 7 * 86400000;
+  docs.forEach(function (docSnap) {
+    var ap = docSnap.data();
+    var t = appointmentSortTime(ap);
+    if (!t) return;
+    var dt = new Date(t).getTime();
+    if (dt < weekStart.getTime() || dt >= weekEnd) return;
+    var diff = Math.floor((dt - weekStart.getTime()) / 86400000);
     if (diff >= 0 && diff < 7) counts[diff]++;
   });
-  const max = Math.max.apply(null, counts.concat([1]));
-  container.innerHTML = WEEK_LABELS.map(function (label, i) {
-    const pct = Math.round((counts[i] / max) * 100);
-    return (
-      '<div class="bar-chart__col">' +
-      '<div class="bar-chart__bar" style="height:0%" data-h="' +
-      pct +
-      '%"></div>' +
-      '<span class="bar-chart__label">' +
-      escapeHtml(label) +
-      "</span></div>"
-    );
-  }).join("");
-  requestAnimationFrame(function () {
-    container.querySelectorAll(".bar-chart__bar").forEach(function (bar) {
-      bar.style.height = bar.getAttribute("data-h");
-    });
+  if (randevuChartInstance) {
+    randevuChartInstance.destroy();
+    randevuChartInstance = null;
+  }
+  randevuChartInstance = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: WEEK_LABELS.slice(),
+      datasets: [
+        {
+          label: "Randevu",
+          data: counts,
+          backgroundColor: "rgba(124, 58, 237, 0.88)",
+          hoverBackgroundColor: "rgba(109, 40, 217, 0.95)",
+          borderRadius: 10,
+          borderSkipped: false,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          displayColors: false,
+          callbacks: {
+            title: function () {
+              return "";
+            },
+            label: function (item) {
+              var i = item.dataIndex;
+              return RANDEVU_GUN_ADLARI_TR[i] + ": " + item.raw + " Randevu";
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 11, weight: "600" }, color: "#64748b" },
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { stepSize: 1, precision: 0, color: "#64748b" },
+          grid: { color: "rgba(124, 58, 237, 0.06)" },
+        },
+      },
+    },
   });
+}
+
+function computeAvgNetAchievementPct() {
+  var pcts = [];
+  cachedStudents.forEach(function (s) {
+    var cur = parseFloat(String(s.currentTytNet != null ? s.currentTytNet : "").replace(",", "."), 10);
+    var tgt = parseFloat(String(s.targetTytNet != null ? s.targetTytNet : "").replace(",", "."), 10);
+    if (isNaN(cur) || isNaN(tgt) || tgt <= 0) return;
+    pcts.push(Math.min(100, Math.round((cur / tgt) * 100)));
+  });
+  if (pcts.length === 0) return null;
+  return Math.round(pcts.reduce(function (a, b) {
+    return a + b;
+  }, 0) / pcts.length);
+}
+
+function renderDashboardKpis() {
+  var elS = document.getElementById("kpiActiveStudents");
+  var elA = document.getElementById("kpiWeekAppointments");
+  var elN = document.getElementById("kpiAvgTytNet");
+  var elE = document.getElementById("kpiExamCount");
+  if (!elS || !elA || !elN || !elE) return;
+  var active = cachedStudents.filter(function (s) {
+    return (s.status || "Aktif") !== "Pasif";
+  }).length;
+  elS.textContent = String(active);
+  elA.textContent = String(countAppointmentsThisWeek());
+  var tytExams = cachedExams.filter(function (e) {
+    var x = String(e.examType || e.type || e.tur || "")
+      .toUpperCase()
+      .trim();
+    return x === "TYT" || x.indexOf("TYT") === 0;
+  });
+  var sum = 0;
+  var c = 0;
+  tytExams.forEach(function (e) {
+    if (e.net == null || e.net === "") return;
+    var v = parseFloat(String(e.net).replace(",", "."), 10);
+    if (!isNaN(v)) {
+      sum += v;
+      c++;
+    }
+  });
+  if (c === 0) {
+    cachedStudents.forEach(function (s) {
+      if (s.currentTytNet == null || s.currentTytNet === "") return;
+      var v = parseFloat(String(s.currentTytNet).replace(",", "."), 10);
+      if (!isNaN(v)) {
+        sum += v;
+        c++;
+      }
+    });
+  }
+  elN.textContent = c > 0 ? (sum / c).toFixed(1) : "—";
+  elE.textContent = String(cachedExams.length);
+  var insight = document.getElementById("dashboardInsightText");
+  if (insight) {
+    var pct = computeAvgNetAchievementPct();
+    var parts = [];
+    if (pct != null)
+      parts.push(
+        "Öğrenci kayıtlarına göre ortalama <strong>%" +
+          pct +
+          "</strong> hedef net düzeyine yaklaşım görülüyor."
+      );
+    else
+      parts.push(
+        "Net hedef grafiği için öğrencilerde <strong>güncel net</strong> ve <strong>hedef net</strong> alanlarını doldurun."
+      );
+    parts.push(
+      " Bu hafta <strong>" +
+        countAppointmentsThisWeek() +
+        "</strong> randevu; panelde <strong>" +
+        cachedExams.length +
+        "</strong> deneme kaydı."
+    );
+    insight.innerHTML = parts.join("");
+  }
+}
+
+function renderNetBasariChart() {
+  var canvas = document.getElementById("netBasariChart");
+  var pctEl = document.getElementById("netBasariPct");
+  if (!canvas || typeof Chart === "undefined") return;
+  var pct = computeAvgNetAchievementPct();
+  if (netBasariChartInstance) {
+    netBasariChartInstance.destroy();
+    netBasariChartInstance = null;
+  }
+  if (pctEl) pctEl.textContent = pct != null ? pct + "%" : "—";
+  var ctx = canvas.getContext("2d");
+  if (pct == null) {
+    netBasariChartInstance = new Chart(ctx, {
+      type: "doughnut",
+      data: {
+        datasets: [
+          {
+            data: [1],
+            backgroundColor: ["#e2e8f0"],
+            borderWidth: 0,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "70%",
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      },
+    });
+    return;
+  }
+  var kalan = Math.max(0, 100 - pct);
+  netBasariChartInstance = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels: ["Hedefe ulaşma", "Kalan"],
+      datasets: [
+        {
+          data: [pct, kalan],
+          backgroundColor: ["#7c3aed", "#ede9fe"],
+          borderWidth: 0,
+          hoverBackgroundColor: ["#6d28d9", "#ddd6fe"],
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "70%",
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function (item) {
+              return item.label + ": %" + item.raw;
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+function refreshDashboardAnalytics() {
+  renderDashboardKpis();
+  renderNetBasariChart();
 }
 
 function renderStudentsList(docs) {
@@ -414,9 +642,10 @@ function renderStudentsList(docs) {
     .map(function (docSnap) {
       const s = docSnap.data ? docSnap.data() : docSnap;
       const name = s.name || s.studentName || "Öğrenci";
-      const seed = s.avatarSeed || name;
-      const img = "https://api.dicebear.com/7.x/avataaars/svg?seed=" + encodeURIComponent(String(seed));
-      const track = s.track || s.paket || "TYT + AYT";
+      const img =
+        s.avatarUrl ||
+        buildStudentAvatarUrl(name, s.gender);
+      const track = s.examGroup || s.track || s.paket || "TYT + AYT";
       return (
         "<li><img src=\"" +
         img +
@@ -450,8 +679,9 @@ function onAppointmentsSnap(snap) {
   cachedAppointments = buildAppointmentList(snap.docs);
   apptCarouselOffset = 0;
   renderDashboardAppointments();
-  renderAppointmentDensityChart(snap.docs);
+  renderAppointmentsChart(snap.docs);
   renderAppointmentsPage();
+  refreshDashboardAnalytics();
 }
 
 function onExamsSnap(snap) {
@@ -460,6 +690,7 @@ function onExamsSnap(snap) {
   });
   renderDashboardExams();
   renderExamsFullPage();
+  refreshDashboardAnalytics();
 }
 
 function onStudentsSnap(snap) {
@@ -469,6 +700,7 @@ function onStudentsSnap(snap) {
   renderStudentsList(snap.docs);
   renderStudentsPage();
   fillStudentSelects();
+  refreshDashboardAnalytics();
 }
 
 function onPaymentsSnap(snap) {
@@ -577,20 +809,61 @@ async function firestoreDeleteConfirmed(collectionName, docId) {
   }
 }
 
-/** ERP öğrenci formu — koc-panel.html 3 sütun */
+/** Dicebear avataaars — cinsiyete göre avatar URL (seed = tam ad, boşluklar encode) */
+function buildStudentAvatarUrl(fullName, gender) {
+  var n = String(fullName || "ogrenci").trim();
+  var seed = encodeURIComponent(n);
+  var isKadin = gender === "Kadın" || gender === "Kadin";
+  var top = isKadin ? "hijab" : "shortHair";
+  return (
+    "https://api.dicebear.com/7.x/avataaars/svg?seed=" +
+    seed +
+    "&style=circle&top=" +
+    top
+  );
+}
+
+/** ERP öğrenci formu — sekmeli alanlar */
 var STUDENT_FORM_FIELDS = [
-  "name",
-  "phone",
-  "email",
-  "yksAlan",
-  "targetUniversityDepartment",
+  "firstName",
+  "lastName",
+  "tcKimlikNo",
+  "schoolName",
+  "classGrade",
+  "examGroup",
+  "fieldType",
   "currentTytNet",
   "targetTytNet",
-  "parentName",
+  "parentFullName",
+  "parentRelation",
   "parentPhone",
-  "monthlyCoachingFee",
-  "installmentDay",
+  "emergencyContactName",
+  "registrationDate",
+  "agreedTotalFee",
+  "installmentCount",
 ];
+
+function setStudentErpTab(index) {
+  var tabs = document.querySelectorAll("[data-student-tab]");
+  var panels = document.querySelectorAll("[data-student-panel]");
+  tabs.forEach(function (btn, i) {
+    var on = i === index;
+    btn.classList.toggle("is-active", on);
+    btn.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  panels.forEach(function (panel, i) {
+    panel.hidden = i !== index;
+  });
+}
+
+function initStudentErpTabs() {
+  document.querySelectorAll("[data-student-tab]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var i = parseInt(btn.getAttribute("data-student-tab"), 10);
+      if (!isNaN(i)) setStudentErpTab(i);
+    });
+  });
+}
 
 function fillStudentSelects() {
   ["ap_student", "pay_student", "ex_student"].forEach(function (sid) {
@@ -666,10 +939,12 @@ function openStudentModal(editId) {
   var form = document.getElementById("formStudent");
   if (!form) return;
   form.reset();
+  setStudentErpTab(0);
   var hid = document.getElementById("editDocId");
   if (hid) hid.value = editId || "";
   var sub = document.getElementById("modalStudentSubtitle");
   var title = document.getElementById("modalStudentTitle");
+  var regDate = document.getElementById("st_registrationDate");
   if (editId) {
     var s = cachedStudents.find(function (x) {
       return x.id === editId;
@@ -680,15 +955,38 @@ function openStudentModal(editId) {
       STUDENT_FORM_FIELDS.forEach(function (key) {
         var el = form.elements[key];
         var val = s[key];
-        if (key === "targetUniversityDepartment" && (val == null || val === ""))
-          val = s.targetDepartment || "";
         if (el) el.value = val != null && val !== undefined && val !== "" ? String(val) : "";
+      });
+      var fn = s.firstName;
+      var ln = s.lastName;
+      if ((!fn || !ln) && s.name) {
+        var parts = String(s.name).trim().split(/\s+/);
+        fn = fn || parts[0] || "";
+        ln = ln || parts.slice(1).join(" ") || "";
+      }
+      if (form.elements.firstName && !form.elements.firstName.value) form.elements.firstName.value = fn;
+      if (form.elements.lastName && !form.elements.lastName.value) form.elements.lastName.value = ln;
+      if (!form.elements.parentFullName.value && s.parentFullName == null && s.parentName)
+        form.elements.parentFullName.value = String(s.parentName);
+      if (!form.elements.parentPhone.value && s.parentPhone == null && s.phone)
+        form.elements.parentPhone.value = String(s.phone);
+      if (!form.elements.fieldType.value && s.fieldType == null && s.yksAlan)
+        form.elements.fieldType.value = String(s.yksAlan);
+      if (!form.elements.examGroup.value && s.examGroup == null && s.track)
+        form.elements.examGroup.value = String(s.track);
+      var g = s.gender || "Erkek";
+      form.querySelectorAll('input[name="gender"]').forEach(function (r) {
+        r.checked = r.value === g || (g === "Kadın" && r.value === "Kadın");
       });
     }
     setStudentSubmitUi(true);
   } else {
-    if (sub) sub.textContent = "Kişisel · akademik · veli & muhasebe bilgilerini girin.";
+    if (sub) sub.textContent = "Sekmeler arasında gezerek tüm bilgileri doldurun.";
     if (title) title.innerHTML = '<i class="fa-solid fa-id-card"></i> Yeni öğrenci kaydı';
+    if (regDate) regDate.value = new Date().toISOString().slice(0, 10);
+    form.querySelectorAll('input[name="gender"]').forEach(function (r) {
+      r.checked = r.value === "Erkek";
+    });
     setStudentSubmitUi(false);
   }
   openModal("studentModal");
@@ -701,28 +999,38 @@ async function submitStudentForm(e) {
   var fd = new FormData(form);
   var data = {};
   fd.forEach(function (val, key) {
+    if (key === "gender") return;
     if (val !== "" && val != null) data[key] = typeof val === "string" ? val.trim() : val;
   });
-  if (!data.name) {
-    showToast("Ad Soyad zorunludur.");
+  var genEl = form.querySelector('input[name="gender"]:checked');
+  data.gender = genEl ? genEl.value : "Erkek";
+  var first = (data.firstName || "").trim();
+  var last = (data.lastName || "").trim();
+  if (!first || !last) {
+    showToast("Ad ve soyad zorunludur.");
     return;
   }
-  if (!data.phone) {
-    showToast("Öğrenci telefonu zorunludur.");
+  data.name = (first + " " + last).trim();
+  if (!data.parentPhone) {
+    showToast("Veli telefonu zorunludur.");
     return;
   }
-  if (data.monthlyCoachingFee !== undefined && data.monthlyCoachingFee !== "") {
-    var fee = parseFloat(String(data.monthlyCoachingFee).replace(",", "."), 10);
-    data.monthlyCoachingFee = isNaN(fee) ? data.monthlyCoachingFee : fee;
+  data.phone = data.parentPhone;
+  if (data.tcKimlikNo && String(data.tcKimlikNo).replace(/\D/g, "").length !== 11) {
+    showToast("TCKN 11 hane olmalıdır (veya boş bırakın).");
+    return;
   }
-  if (data.installmentDay !== undefined && data.installmentDay !== "") {
-    var day = parseInt(data.installmentDay, 10);
-    if (!isNaN(day)) data.installmentDay = Math.min(31, Math.max(1, day));
+  if (data.agreedTotalFee !== undefined && data.agreedTotalFee !== "") {
+    var fee = parseFloat(String(data.agreedTotalFee).replace(",", "."), 10);
+    data.agreedTotalFee = isNaN(fee) ? data.agreedTotalFee : fee;
   }
-  if (!editId) {
-    data.track = data.track || "TYT + AYT";
-    data.status = data.status || "Aktif";
+  if (data.installmentCount !== undefined && data.installmentCount !== "") {
+    var ins = parseInt(data.installmentCount, 10);
+    if (!isNaN(ins)) data.installmentCount = Math.min(36, Math.max(1, ins));
   }
+  data.avatarUrl = buildStudentAvatarUrl(data.name, data.gender);
+  data.track = data.examGroup && data.examGroup !== "" ? data.examGroup : "TYT + AYT";
+  if (!editId) data.status = data.status || "Aktif";
   try {
     if (editId) {
       data.updatedAt = serverTimestamp();
@@ -730,12 +1038,14 @@ async function submitStudentForm(e) {
       showToast("Öğrenci başarıyla güncellendi.");
     } else {
       data.createdAt = serverTimestamp();
+      data.coach_id = getCoachId();
       await addDoc(collection(db, "students"), data);
       showToast("Öğrenci başarıyla eklendi.");
     }
     form.reset();
     var ed = document.getElementById("editDocId");
     if (ed) ed.value = "";
+    setStudentErpTab(0);
     setStudentSubmitUi(false);
     closeAllModals();
   } catch (err) {
@@ -831,6 +1141,7 @@ async function submitAppointmentForm(e) {
       showToast("Randevu güncellendi.");
     } else {
       payload.createdAt = serverTimestamp();
+      payload.coach_id = getCoachId();
       await addDoc(collection(db, "appointments"), payload);
       showToast("Randevu kaydedildi.");
     }
@@ -963,6 +1274,7 @@ async function onPdfTaslakClick() {
         pdfDraft: true,
         status: "Taslak",
         createdAt: serverTimestamp(),
+        coach_id: getCoachId(),
       });
       showToast("Test taslağı kaydedildi — PDF için veriler konsolda.");
     }
@@ -1036,6 +1348,7 @@ async function submitPaymentForm(e) {
       showToast("Tahsilat güncellendi.");
     } else {
       payload.createdAt = serverTimestamp();
+      payload.coach_id = getCoachId();
       await addDoc(collection(db, "payments"), payload);
       showToast("Tahsilat kaydedildi.");
     }
@@ -1123,6 +1436,7 @@ async function submitExamForm(e) {
       showToast("Deneme kaydı güncellendi.");
     } else {
       payload.createdAt = serverTimestamp();
+      payload.coach_id = getCoachId();
       await addDoc(collection(db, "exams"), payload);
       showToast("Deneme kaydı eklendi.");
     }
@@ -1156,7 +1470,10 @@ function initModals() {
     if (ev.key === "Escape") closeAllModals();
   });
   var fs = document.getElementById("formStudent");
-  if (fs) fs.addEventListener("submit", submitStudentForm);
+  if (fs) {
+    fs.addEventListener("submit", submitStudentForm);
+    initStudentErpTabs();
+  }
   var fa = document.getElementById("formAppointment");
   if (fa) fa.addEventListener("submit", submitAppointmentForm);
   initTestMakerTabs();
@@ -1170,9 +1487,18 @@ function initModals() {
 
 function subscribeFirestore() {
   clearFirestoreListeners();
+  var qa = coachQuery("appointments");
+  var qe = coachQuery("exams");
+  var qs = coachQuery("students");
+  var qp = coachQuery("payments");
+  var qt = coachQuery("tests");
+  if (!qa || !qe || !qs || !qp || !qt) {
+    console.warn("[Firestore] coach_id eksik veya sorgu kurulamadı.");
+    return;
+  }
   firestoreUnsubs.push(
     onSnapshot(
-      collection(db, "appointments"),
+      qa,
       onAppointmentsSnap,
       function (err) {
         console.error(err);
@@ -1183,7 +1509,7 @@ function subscribeFirestore() {
   );
   firestoreUnsubs.push(
     onSnapshot(
-      collection(db, "exams"),
+      qe,
       onExamsSnap,
       function (err) {
         const tbody = document.getElementById("denemeTableBody");
@@ -1195,7 +1521,7 @@ function subscribeFirestore() {
   );
   firestoreUnsubs.push(
     onSnapshot(
-      collection(db, "students"),
+      qs,
       onStudentsSnap,
       function (err) {
         const list = document.getElementById("activeStudentsList");
@@ -1205,7 +1531,7 @@ function subscribeFirestore() {
   );
   firestoreUnsubs.push(
     onSnapshot(
-      collection(db, "payments"),
+      qp,
       onPaymentsSnap,
       function (err) {
         var tb = document.getElementById("paymentsTableBody");
@@ -1215,7 +1541,7 @@ function subscribeFirestore() {
   );
   firestoreUnsubs.push(
     onSnapshot(
-      collection(db, "tests"),
+      qt,
       onTestsSnap,
       function (err) {
         var tb = document.getElementById("testsTableBody");
@@ -1424,6 +1750,7 @@ async function tmWsSaveFirestoreDraft() {
       status: "Taslak",
       pdfDraft: true,
       createdAt: serverTimestamp(),
+      coach_id: getCoachId(),
     });
     showToast("Taslak Firestore'a kaydedildi (" + arr.length + " soru).");
   } catch (err) {
@@ -1465,6 +1792,56 @@ function tmWsDownloadPdf() {
       console.error(e);
       showToast("PDF oluşturulamadı.");
     });
+}
+
+function tmSyncKurumsalHeaderTexts() {
+  var titleInp = document.getElementById("tmWsTitle");
+  var main = document.getElementById("tmKurumsalTitleMain");
+  var t = (titleInp && titleInp.value.trim()) || "Kurumsal TYT Denemesi";
+  if (main) main.textContent = t;
+  var d = document.getElementById("tmWsTestDate");
+  var dateEl = document.getElementById("tmKurumsalTitleDate");
+  if (dateEl)
+    dateEl.textContent =
+      d && d.value
+        ? new Date(d.value + "T12:00:00").toLocaleDateString("tr-TR", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })
+        : new Date().toLocaleDateString("tr-TR", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          });
+  var sn = document.getElementById("tmHdrStudentInput");
+  var nn = document.getElementById("tmHdrNetInput");
+  var hsn = document.getElementById("tmHdrStudentName");
+  var hnet = document.getElementById("tmHdrStudentNet");
+  if (hsn) hsn.textContent = (sn && sn.value.trim()) || "—";
+  if (hnet) hnet.textContent = (nn && nn.value.trim()) || "—";
+}
+
+function tmApplyWorkspaceTemplate() {
+  var paper = document.getElementById("tmA4Paper");
+  var hdr = document.getElementById("tmKurumsalHeader");
+  var sel = document.getElementById("tmTemplate");
+  if (!paper) return;
+  paper.classList.remove(
+    "tm-font-inter",
+    "tm-font-merriweather",
+    "tm-a4-paper--foy",
+    "tm-a4-paper--kurumsal"
+  );
+  var mode = sel && sel.value === "foy" ? "foy" : "kurumsal";
+  if (mode === "kurumsal") {
+    paper.classList.add("tm-font-inter", "tm-a4-paper--kurumsal");
+    if (hdr) hdr.hidden = false;
+  } else {
+    paper.classList.add("tm-font-merriweather", "tm-a4-paper--foy");
+    if (hdr) hdr.hidden = true;
+  }
+  tmSyncKurumsalHeaderTexts();
 }
 
 function bindTestMakerWorkspace() {
@@ -1546,7 +1923,8 @@ function bindTestMakerWorkspace() {
       xb.innerHTML = '<i class="fa-solid fa-xmark"></i>';
       wrap.appendChild(img);
       wrap.appendChild(xb);
-      document.getElementById("tmA4Paper").appendChild(wrap);
+      var a4b = document.getElementById("tmA4Body");
+      (a4b || document.getElementById("tmA4Paper")).appendChild(wrap);
     });
 
   var paper = document.getElementById("tmA4Paper");
@@ -1566,6 +1944,19 @@ function bindTestMakerWorkspace() {
   if (sav) sav.addEventListener("click", tmWsSaveFirestoreDraft);
   var pdf = document.getElementById("tmBtnPdfDownload");
   if (pdf) pdf.addEventListener("click", tmWsDownloadPdf);
+
+  var tmpl = document.getElementById("tmTemplate");
+  if (tmpl) tmpl.addEventListener("change", tmApplyWorkspaceTemplate);
+  ["tmHdrStudentInput", "tmHdrNetInput", "tmWsTitle"].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener("input", tmSyncKurumsalHeaderTexts);
+  });
+  var td = document.getElementById("tmWsTestDate");
+  if (td) {
+    td.addEventListener("change", tmSyncKurumsalHeaderTexts);
+    td.addEventListener("input", tmSyncKurumsalHeaderTexts);
+  }
+  tmApplyWorkspaceTemplate();
 }
 
 function navigateTo(view) {
@@ -1780,9 +2171,11 @@ function initAllButtons() {
   document.getElementById("btnLogout") &&
     document.getElementById("btnLogout").addEventListener("click", function (e) {
       e.preventDefault();
-      if (confirm("Çıkış yapılsın mı?")) {
-        window.location.href = "index.html";
-      }
+      if (!confirm("Çıkış yapılsın mı?")) return;
+      localStorage.removeItem("currentUser");
+      signOut(auth).finally(function () {
+        window.location.replace("login.html");
+      });
     });
 
   document.addEventListener("click", function (e) {
@@ -1878,11 +2271,49 @@ function showLoadTimeoutWarning() {
   }
 }
 
-initSidebar();
-initNavigation();
-initModals();
-initAllButtons();
-updateCoachProfile();
-subscribeFirestore();
-navigateTo("dashboard");
-setTimeout(showLoadTimeoutWarning, 12000);
+function bootstrapKocPanelAfterAuth() {
+  if (kocPanelBootstrapped) return;
+  kocPanelBootstrapped = true;
+  initSidebar();
+  initNavigation();
+  initModals();
+  initAllButtons();
+  updateCoachProfile();
+  subscribeFirestore();
+  navigateTo("dashboard");
+  setTimeout(showLoadTimeoutWarning, 12000);
+}
+
+onAuthStateChanged(auth, function (user) {
+  if (!user) {
+    window.location.replace("login.html");
+    return;
+  }
+  getDoc(doc(db, "users", user.uid))
+    .then(function (snap) {
+      var profile = snap.data();
+      if (!profile || !profile.role) {
+        return signOut(auth).then(function () {
+          window.location.replace("login.html");
+        });
+      }
+      if (profile.role === "admin") {
+        window.location.replace("super-admin.html");
+        return;
+      }
+      if (profile.role !== "coach") {
+        return signOut(auth).then(function () {
+          window.location.replace("login.html");
+        });
+      }
+      var uname = profile.username;
+      if (!uname && user.email) uname = user.email.split("@")[0];
+      localStorage.setItem("currentUser", (uname || "").trim());
+      bootstrapKocPanelAfterAuth();
+    })
+    .catch(function () {
+      signOut(auth).finally(function () {
+        window.location.replace("login.html");
+      });
+    });
+});

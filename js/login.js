@@ -1,54 +1,164 @@
 /**
- * YKS Koçluk — Basit giriş (Firebase Auth devre dışı)
- * Kullanıcı: admin | Şifre: admin123
+ * YKS Koçluk — Çoklu kiracı giriş (kullanıcı adı → @sistem.com)
  */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  signOut,
+  fetchSignInMethodsForEmail,
+  createUserWithEmailAndPassword,
+} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc,
+} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-(function () {
-  "use strict";
+const firebaseConfig = {
+  apiKey: "AIzaSyD3RUiCIlcysC6S7TFMbChD8h0cfHeroP8",
+  authDomain: "yks-kocluk-8f7c6.firebaseapp.com",
+  projectId: "yks-kocluk-8f7c6",
+  storageBucket: "yks-kocluk-8f7c6.firebasestorage.app",
+  messagingSenderId: "928738467961",
+  appId: "1:928738467961:web:7e023f5b8f0ae3637874a8",
+  measurementId: "G-GGYN4VBFPR",
+};
 
-  const PANEL_PATH = "koc-panel.html";
+const EMAIL_DOMAIN = "@sistem.com";
+const ADMIN_EMAIL = "admin1" + EMAIL_DOMAIN;
+const ADMIN_PASSWORD = "admin123";
 
-  if (localStorage.getItem("isLoggedIn") === "true") {
-    window.location.replace(PANEL_PATH);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+function usernameToEmail(username) {
+  var u = String(username || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "");
+  if (!u) throw new Error("Geçerli bir kullanıcı adı girin (a-z, 0-9, _).");
+  return u + EMAIL_DOMAIN;
+}
+
+function showError(msg) {
+  var el = document.getElementById("loginError");
+  if (el) {
+    el.textContent = msg;
+    el.classList.add("is-visible");
+  } else alert(msg);
+}
+
+function hideError() {
+  var el = document.getElementById("loginError");
+  if (el) el.classList.remove("is-visible");
+}
+
+/** İlk kurulum: admin1@sistem.com yoksa oluştur + Firestore users */
+async function ensureInitialAdmin() {
+  try {
+    var methods = await fetchSignInMethodsForEmail(auth, ADMIN_EMAIL);
+    if (methods.length > 0) return;
+    var cred = await createUserWithEmailAndPassword(auth, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await setDoc(doc(db, "users", cred.user.uid), {
+      username: "admin1",
+      role: "admin",
+      createdAt: new Date().toISOString(),
+    });
+    await signOut(auth);
+  } catch (e) {
+    if (e && e.code === "auth/email-already-in-use") return;
+    console.warn("[login] init admin:", e);
+  }
+}
+
+var loginMode = "coach";
+
+function setMode(mode) {
+  loginMode = mode;
+  document.querySelectorAll(".mode-tab").forEach(function (btn) {
+    btn.classList.toggle("is-active", btn.getAttribute("data-mode") === mode);
+  });
+  var hint = document.getElementById("modeHint");
+  if (hint) {
+    hint.innerHTML =
+      mode === "admin"
+        ? "<strong>Kurucu</strong> hesabı ile giriş. Yeni koçlar bu panelden oluşturulur."
+        : "Koç hesabınızla giriş yapın. Sadece <strong>kullanıcı adı</strong> ve şifre yeterlidir.";
+  }
+}
+
+document.getElementById("tabCoach") &&
+  document.getElementById("tabCoach").addEventListener("click", function () {
+    setMode("coach");
+  });
+document.getElementById("tabAdmin") &&
+  document.getElementById("tabAdmin").addEventListener("click", function () {
+    setMode("admin");
+  });
+
+document.getElementById("loginForm").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  hideError();
+  var userEl = document.getElementById("loginUsername");
+  var passEl = document.getElementById("loginPassword");
+  var submitBtn = document.getElementById("loginSubmit");
+  var rawUser = (userEl && userEl.value) || "";
+  var password = (passEl && passEl.value) || "";
+  if (!password) {
+    showError("Şifre girin.");
     return;
   }
-
-  const form = document.getElementById("loginForm");
-  const errEl = document.getElementById("loginError");
-  const submitBtn = document.getElementById("loginSubmit");
-  const userInput = document.getElementById("loginUser");
-  const passInput = document.getElementById("loginPassword");
-
-  function showError(msg) {
-    if (errEl) {
-      errEl.textContent = msg;
-      errEl.classList.add("is-visible");
-    } else {
-      alert(msg);
-    }
+  var email;
+  try {
+    email = usernameToEmail(rawUser);
+  } catch (err) {
+    showError(err.message || "Kullanıcı adı geçersiz.");
+    return;
   }
-
-  function hideError() {
-    if (errEl) errEl.classList.remove("is-visible");
-  }
-
-  if (!form || !userInput || !passInput) return;
-
-  form.addEventListener("submit", function (e) {
-    e.preventDefault();
-    hideError();
-
-    const user = String(userInput.value).trim().toLowerCase();
-    const password = passInput.value;
-
-    if (user === "admin" && password === "admin123") {
-      localStorage.setItem("isLoggedIn", "true");
-      localStorage.setItem("role", "admin");
-      window.location.href = PANEL_PATH;
+  if (submitBtn) submitBtn.disabled = true;
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    var u = auth.currentUser;
+    if (!u) throw new Error("Oturum açılamadı.");
+    var snap = await getDoc(doc(db, "users", u.uid));
+    var profile = snap.data();
+    if (!profile || !profile.role) {
+      await signOut(auth);
+      showError("Hesap yapılandırılmamış. Yönetici ile iletişime geçin.");
       return;
     }
-
-    showError("Hatalı giriş");
+    if (loginMode === "admin" && profile.role !== "admin") {
+      await signOut(auth);
+      showError("Bu hesap kurucu değil. Koç girişi sekmesini kullanın.");
+      return;
+    }
+    if (loginMode === "coach" && profile.role !== "coach") {
+      await signOut(auth);
+      showError("Bu hesap koç değil. Kurucu (Admin) sekmesini kullanın.");
+      return;
+    }
+    var displayUsername = profile.username || rawUser.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+    localStorage.setItem("currentUser", displayUsername);
+    if (profile.role === "admin") {
+      window.location.replace("super-admin.html");
+    } else {
+      window.location.replace("koc-panel.html");
+    }
+  } catch (err) {
+    console.error(err);
+    var code = err && err.code;
+    if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found")
+      showError("Kullanıcı adı veya şifre hatalı.");
+    else if (code === "auth/too-many-requests") showError("Çok fazla deneme. Bir süre sonra tekrar deneyin.");
+    else showError(err.message || "Giriş başarısız.");
+  } finally {
     if (submitBtn) submitBtn.disabled = false;
-  });
-})();
+  }
+});
+
+ensureInitialAdmin().catch(function (e) {
+  console.error(e);
+});

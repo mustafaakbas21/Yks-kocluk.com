@@ -14,7 +14,7 @@
   padding: 0 !important;
   margin: 0 !important;
   overflow: hidden;
-  background: linear-gradient(160deg, #1e1b4b 0%, #312e81 40%, #4c1d95 100%);
+  background: #1c1c1e;
 }
 
 .tm-workspace {
@@ -95,28 +95,156 @@
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 1rem 1.25rem;
+  padding: 1.25rem 1.5rem;
   overflow: auto;
-  background: rgba(0, 0, 0, 0.15);
+  background: #2c2c2e;
 }
 
 .tm-a4-wrap {
   width: 210mm;
   min-height: 297mm;
   max-width: 100%;
-  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0, 0, 0, 0.08);
-  background: #fff;
+  background: transparent;
   color: #111;
   position: relative;
   flex-shrink: 0;
+  filter: drop-shadow(0 12px 40px rgba(0, 0, 0, 0.35));
 }
 
 .tm-a4-paper {
   width: 100%;
   min-height: 297mm;
-  padding: 12mm 14mm;
+  padding: 0;
   box-sizing: border-box;
   background: #fff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  border-radius: 2px;
+}
+
+.tm-font-inter {
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+.tm-font-merriweather {
+  font-family: "Merriweather", Georgia, "Times New Roman", serif;
+}
+
+.tm-kurumsal-header {
+  padding: 10mm 12mm 6mm;
+  border-bottom: 2px solid #7c3aed;
+  margin-bottom: 0;
+  background: linear-gradient(180deg, #faf5ff 0%, #fff 100%);
+}
+
+.tm-kurumsal-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.tm-kurumsal-table td {
+  vertical-align: top;
+  padding: 0.35rem 0.5rem;
+}
+
+.tm-kh-logo {
+  width: 28%;
+}
+
+.tm-kh-brand {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: #5b21b6;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.tm-kh-sub {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #7c3aed;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 0.2rem;
+}
+
+.tm-kh-title {
+  width: 44%;
+  text-align: center;
+  padding: 0 0.5rem;
+}
+
+.tm-kh-title-main {
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: #1e1b4b;
+  line-height: 1.25;
+}
+
+.tm-kh-title-date {
+  font-size: 0.72rem;
+  color: #64748b;
+  margin-top: 0.35rem;
+  font-weight: 600;
+}
+
+.tm-kh-meta {
+  width: 28%;
+  text-align: right;
+}
+
+.tm-kh-box {
+  display: inline-block;
+  text-align: left;
+  min-width: 5.5rem;
+  margin-bottom: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  background: #fff;
+  border: 1px solid #e9d5ff;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(124, 58, 237, 0.08);
+}
+
+.tm-kh-lbl {
+  display: block;
+  font-size: 0.58rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #7c3aed;
+}
+
+.tm-kh-val {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-top: 0.15rem;
+}
+
+.tm-a4-paper--kurumsal #tmA4Body {
+  padding: 8mm 12mm 12mm;
+}
+
+.tm-a4-paper--foy {
+  border-left: 5px solid #7c3aed;
+  border-right: 5px solid #7c3aed;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15), inset 0 0 0 1px rgba(124, 58, 237, 0.12);
+}
+
+.tm-a4-paper--foy #tmA4Body {
+  padding: 14mm 16mm;
+  min-height: 240mm;
+  background: linear-gradient(180deg, #fffefc 0%, #fff 40%);
+}
+
+#tmA4Body {
+  min-height: 200mm;
+}
+
+.tm-a4-paper:not(.tm-a4-paper--kurumsal):not(.tm-a4-paper--foy) #tmA4Body {
+  padding: 12mm 14mm;
 }
 
 .tm-a4-block {
