@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="css/forms-modal.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" crossorigin="anonymous" />
   <link rel="stylesheet" href="css/testmaker-workspace.css" />
+  <!-- TestMaker: Cropper.js + pdf.js (head’de CSS); script’ler body sonunda (html2pdf, cropper, pdf) -->
 </head>
 <body>
   <div class="app">
@@ -265,6 +266,9 @@
                     <option value="Zor">Zor</option>
                     <option value="YKS tipi">YKS tipi</option>
                   </select>
+                </label>
+                <label>Test tarihi
+                  <input type="date" id="tmWsTestDate" />
                 </label>
               </div>
               <div class="tm-bar-actions">

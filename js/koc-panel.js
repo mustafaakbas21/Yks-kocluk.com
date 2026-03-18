@@ -1408,11 +1408,15 @@ async function tmWsSaveFirestoreDraft() {
     showToast("Kaydedilecek veri çok büyük.");
     return;
   }
+  var dateStr =
+    (document.getElementById("tmWsTestDate") && document.getElementById("tmWsTestDate").value) ||
+    new Date().toISOString().slice(0, 10);
   try {
     await addDoc(collection(db, "tests"), {
       title: title,
       subject: (document.getElementById("tmWsSubject") && document.getElementById("tmWsSubject").value) || "",
       difficulty: (document.getElementById("tmWsDiff") && document.getElementById("tmWsDiff").value) || "Orta",
+      testDate: dateStr,
       questionImages: arr,
       questionCount: arr.length,
       workspaceVersion: 2,
@@ -1445,8 +1449,14 @@ function tmWsDownloadPdf() {
     .set({
       margin: 0,
       filename: name + ".pdf",
-      image: { type: "jpeg", quality: 0.96 },
-      html2canvas: { scale: 2, useCORS: true, logging: false, letterRendering: true },
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: {
+        scale: 2.5,
+        useCORS: true,
+        logging: false,
+        letterRendering: true,
+        allowTaint: true,
+      },
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
     })
     .from(paper)
@@ -1462,6 +1472,9 @@ function bindTestMakerWorkspace() {
   var root = document.getElementById("tmWorkspaceRoot");
   if (!root) return;
   tmWsWorkspaceBound = true;
+
+  var dateInp = document.getElementById("tmWsTestDate");
+  if (dateInp && !dateInp.value) dateInp.value = new Date().toISOString().slice(0, 10);
 
   var toggle = document.getElementById("btnTmToggleList");
   if (toggle)

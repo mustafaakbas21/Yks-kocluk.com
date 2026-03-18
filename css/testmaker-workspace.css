@@ -87,9 +87,10 @@
   gap: 0;
 }
 
-/* Sol: A4 önizleme ~60% */
+/* Sol: A4 canlı önizleme %60 (prompt: onlinetestmaker tarzı) */
 .tm-workspace__preview {
-  flex: 0 0 58%;
+  flex: 0 0 60%;
+  max-width: 60%;
   min-width: 0;
   display: flex;
   align-items: flex-start;
@@ -167,10 +168,11 @@
   border-radius: 8px;
 }
 
-/* Sağ: kırpma ~40% */
+/* Sağ: kırpma + yükleme %40 */
 .tm-workspace__tools {
-  flex: 1;
-  min-width: 280px;
+  flex: 0 0 40%;
+  max-width: 40%;
+  min-width: 260px;
   display: flex;
   flex-direction: column;
   padding: 1rem;
@@ -374,9 +376,12 @@
   }
   .tm-workspace__preview {
     flex: 0 0 auto;
+    max-width: 100%;
     max-height: 50vh;
   }
   .tm-workspace__tools {
+    flex: 1 1 auto;
+    max-width: 100%;
     border-left: none;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     max-height: 42vh;
