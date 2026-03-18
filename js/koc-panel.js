@@ -11,6 +11,7 @@ import {
   addDoc,
   doc,
   updateDoc,
+  deleteDoc,
   serverTimestamp,
   Timestamp,
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
@@ -37,6 +38,11 @@ let firestoreUnsubs = [];
 let cachedAppointments = [];
 let cachedExams = [];
 let cachedStudents = [];
+let cachedPayments = [];
+let cachedTests = [];
+let tmWsCropper = null;
+let tmWsPdfDoc = null;
+let tmWsWorkspaceBound = false;
 let apptCarouselOffset = 0;
 let examTypeFilter = "all";
 let examsPageFilter = "all";
@@ -116,8 +122,10 @@ function buildAppointmentList(docs) {
 function appointmentCardHtml(ap) {
   const name = ap.studentName || ap.ogrenciAdi || ap.name || "Öğrenci";
   const title = ap.title || ap.type || ap.note || "Randevu";
+  const id = escapeHtml(ap.id);
   return (
     '<article class="appt-card">' +
+    '<div class="appt-card__top">' +
     '<div class="appt-card__icon"><i class="fa-solid fa-bell"></i></div>' +
     '<div class="appt-card__body">' +
     '<p class="appt-card__meta">' +
@@ -128,10 +136,13 @@ function appointmentCardHtml(ap) {
     "</h3>" +
     '<p class="appt-card__type">' +
     escapeHtml(title) +
-    "</p></div>" +
-    '<button type="button" class="appt-card__more appt-card__menu-btn" data-appt-id="' +
-    escapeHtml(ap.id) +
-    '" aria-label="Randevu seçenekleri"><i class="fa-solid fa-ellipsis-vertical"></i></button></article>'
+    '</p></div></div><div class="appt-card__crud">' +
+    '<button type="button" class="btn-crud btn-crud--edit" data-edit-appt="' +
+    id +
+    '"><i class="fa-solid fa-pen"></i> Düzenle</button>' +
+    '<button type="button" class="btn-crud btn-crud--del" data-del-appt="' +
+    id +
+    '"><i class="fa-solid fa-trash"></i> Sil</button></div></article>'
   );
 }
 
@@ -199,10 +210,18 @@ function examRowHtml(row, colspan) {
   const statusHtml = isOk
     ? '<span class="status-ok"><i class="fa-solid fa-circle-check"></i> ' + escapeHtml(durum) + "</span>"
     : escapeHtml(durum);
-  const c = colspan || 5;
+  const eid = escapeHtml(row.id);
+  const actions =
+    '<span class="crud-cell">' +
+    '<button type="button" class="btn-crud btn-crud--edit" data-edit-exam="' +
+    eid +
+    '"><i class="fa-solid fa-pen"></i> Düzenle</button>' +
+    '<button type="button" class="btn-crud btn-crud--del" data-del-exam="' +
+    eid +
+    '"><i class="fa-solid fa-trash"></i> Sil</button></span>';
   return (
     "<tr data-exam-id=\"" +
-    escapeHtml(row.id) +
+    eid +
     "\"><td><strong>" +
     escapeHtml(ogrenci) +
     "</strong></td><td><span class=\"" +
@@ -215,9 +234,9 @@ function examRowHtml(row, colspan) {
     escapeHtml(tarih) +
     "</td><td>" +
     statusHtml +
-    ' <button type="button" class="btn-detail" data-id="' +
-    escapeHtml(row.id) +
-    '">Detay</button></td></tr>'
+    "</td><td>" +
+    actions +
+    "</td></tr>"
   );
 }
 
@@ -231,11 +250,11 @@ function renderDashboardExams() {
   const slice = filtered.slice(0, 15);
   if (slice.length === 0) {
     tbody.innerHTML =
-      '<tr><td colspan="5" class="table-empty">Kayıt yok veya filtreye uymuyor.</td></tr>';
+      '<tr><td colspan="6" class="table-empty">Kayıt yok veya filtreye uymuyor.</td></tr>';
     return;
   }
   tbody.innerHTML = slice.map(function (row) {
-    return examRowHtml(row, 5);
+    return examRowHtml(row, 6);
   }).join("");
 }
 
@@ -265,6 +284,15 @@ function renderExamsFullPage() {
       const d = toDate(row.examDate) || toDate(row.date);
       const tarih = d && !isNaN(d.getTime()) ? d.toLocaleDateString("tr-TR") : "—";
       const durum = row.status || row.durum || "—";
+      const eid = escapeHtml(row.id);
+      const actions =
+        '<span class="crud-cell">' +
+        '<button type="button" class="btn-crud btn-crud--edit" data-edit-exam="' +
+        eid +
+        '"><i class="fa-solid fa-pen"></i> Düzenle</button>' +
+        '<button type="button" class="btn-crud btn-crud--del" data-del-exam="' +
+        eid +
+        '"><i class="fa-solid fa-trash"></i> Sil</button></span>';
       return (
         "<tr><td><strong>" +
         escapeHtml(ogrenci) +
@@ -278,9 +306,9 @@ function renderExamsFullPage() {
         escapeHtml(tarih) +
         "</td><td>" +
         escapeHtml(durum) +
-        "</td><td><button type=\"button\" class=\"btn-detail\" data-id=\"" +
-        escapeHtml(row.id) +
-        "\">Detay</button></td></tr>"
+        "</td><td>" +
+        actions +
+        "</td></tr>"
       );
     })
     .join("");
@@ -299,6 +327,7 @@ function renderStudentsPage() {
       const seed = s.avatarSeed || name;
       const img = "https://api.dicebear.com/7.x/avataaars/svg?seed=" + encodeURIComponent(String(seed));
       const track = s.track || s.paket || "TYT + AYT";
+      const sid = escapeHtml(s.id);
       return (
         '<div class="student-card">' +
         '<img src="' +
@@ -309,9 +338,13 @@ function renderStudentsPage() {
         "</h3>" +
         "<p>" +
         escapeHtml(track) +
-        '</p><button type="button" class="btn btn--xs btn--outline student-open-btn" data-student-id="' +
-        escapeHtml(s.id) +
-        '">Detay</button></div>'
+        '</p><div class="student-card__crud">' +
+        '<button type="button" class="btn-crud btn-crud--edit" data-edit-student="' +
+        sid +
+        '"><i class="fa-solid fa-pen"></i> Düzenle</button>' +
+        '<button type="button" class="btn-crud btn-crud--del" data-del-student="' +
+        sid +
+        '"><i class="fa-solid fa-trash"></i> Sil</button></div></div>'
       );
     })
     .join("");
@@ -438,6 +471,112 @@ function onStudentsSnap(snap) {
   fillStudentSelects();
 }
 
+function onPaymentsSnap(snap) {
+  cachedPayments = snap.docs.map(function (d) {
+    return { ...d.data(), id: d.id };
+  });
+  renderPaymentsTable();
+  updateMuhasebeStats();
+}
+
+function onTestsSnap(snap) {
+  cachedTests = snap.docs.map(function (d) {
+    return { ...d.data(), id: d.id };
+  });
+  renderTestsTable();
+}
+
+function renderPaymentsTable() {
+  var tbody = document.getElementById("paymentsTableBody");
+  if (!tbody) return;
+  if (cachedPayments.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="table-empty">Tahsilat kaydı yok.</td></tr>';
+    return;
+  }
+  var sorted = cachedPayments.slice().sort(function (a, b) {
+    var da = (b.paymentDate || "").localeCompare(a.paymentDate || "");
+    return da || (b.createdAt && a.createdAt ? 0 : 0);
+  });
+  tbody.innerHTML = sorted
+    .map(function (p) {
+      var pid = escapeHtml(p.id);
+      var amt = p.amount != null ? String(p.amount) : "—";
+      return (
+        "<tr><td>" +
+        escapeHtml(p.studentName || "—") +
+        "</td><td><strong>" +
+        escapeHtml(amt) +
+        "</strong></td><td>" +
+        escapeHtml(p.paymentDate || "—") +
+        "</td><td>" +
+        escapeHtml(p.paymentMethod || "—") +
+        '</td><td><span class="crud-cell">' +
+        '<button type="button" class="btn-crud btn-crud--edit" data-edit-payment="' +
+        pid +
+        '"><i class="fa-solid fa-pen"></i> Düzenle</button>' +
+        '<button type="button" class="btn-crud btn-crud--del" data-del-payment="' +
+        pid +
+        '"><i class="fa-solid fa-trash"></i> Sil</button></span></td></tr>'
+      );
+    })
+    .join("");
+}
+
+function updateMuhasebeStats() {
+  var now = new Date();
+  var ym = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+  var monthTotal = 0;
+  cachedPayments.forEach(function (p) {
+    var d = (p.paymentDate || "").slice(0, 7);
+    if (d === ym) monthTotal += parseFloat(p.amount) || 0;
+  });
+  var inc = document.querySelector("#btnStatIncome .stat-card__val");
+  if (inc) inc.textContent = monthTotal > 0 ? monthTotal.toLocaleString("tr-TR") + " ₺" : "—";
+}
+
+function renderTestsTable() {
+  var tbody = document.getElementById("testsTableBody");
+  if (!tbody) return;
+  if (cachedTests.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="table-empty">Test kaydı yok.</td></tr>';
+    return;
+  }
+  var sorted = cachedTests.slice().reverse();
+  tbody.innerHTML = sorted
+    .map(function (t) {
+      var tid = escapeHtml(t.id);
+      return (
+        "<tr><td>" +
+        escapeHtml(t.title || "—") +
+        "</td><td>" +
+        escapeHtml(t.subject || "—") +
+        "</td><td>" +
+        escapeHtml(t.questionCount != null ? String(t.questionCount) : "—") +
+        "</td><td>" +
+        escapeHtml(t.status || "—") +
+        '</td><td><span class="crud-cell">' +
+        '<button type="button" class="btn-crud btn-crud--edit" data-edit-test="' +
+        tid +
+        '"><i class="fa-solid fa-pen"></i> Düzenle</button>' +
+        '<button type="button" class="btn-crud btn-crud--del" data-del-test="' +
+        tid +
+        '"><i class="fa-solid fa-trash"></i> Sil</button></span></td></tr>'
+      );
+    })
+    .join("");
+}
+
+async function firestoreDeleteConfirmed(collectionName, docId) {
+  if (!confirm("Bu kaydı silmek istediğinize emin misiniz?")) return;
+  try {
+    await deleteDoc(doc(db, collectionName, docId));
+    showToast("Kayıt silindi.");
+  } catch (err) {
+    console.error(err);
+    alert("Silinemedi: " + (err.message || err));
+  }
+}
+
 /** ERP öğrenci formu — koc-panel.html 3 sütun */
 var STUDENT_FORM_FIELDS = [
   "name",
@@ -515,11 +654,20 @@ function openModal(modalId) {
   document.body.style.overflow = "hidden";
 }
 
+function setStudentSubmitUi(isEdit) {
+  var btn = document.getElementById("btnStudentSubmit");
+  if (btn)
+    btn.innerHTML = isEdit
+      ? '<i class="fa-solid fa-rotate"></i> Güncelle'
+      : '<i class="fa-solid fa-cloud-arrow-up"></i> Kaydet';
+}
+
 function openStudentModal(editId) {
   var form = document.getElementById("formStudent");
   if (!form) return;
   form.reset();
-  document.getElementById("studentEditId").value = editId || "";
+  var hid = document.getElementById("editDocId");
+  if (hid) hid.value = editId || "";
   var sub = document.getElementById("modalStudentSubtitle");
   var title = document.getElementById("modalStudentTitle");
   if (editId) {
@@ -534,12 +682,14 @@ function openStudentModal(editId) {
         var val = s[key];
         if (key === "targetUniversityDepartment" && (val == null || val === ""))
           val = s.targetDepartment || "";
-        if (el && val != null && val !== "") el.value = String(val);
+        if (el) el.value = val != null && val !== undefined && val !== "" ? String(val) : "";
       });
     }
+    setStudentSubmitUi(true);
   } else {
     if (sub) sub.textContent = "Kişisel · akademik · veli & muhasebe bilgilerini girin.";
     if (title) title.innerHTML = '<i class="fa-solid fa-id-card"></i> Yeni öğrenci kaydı';
+    setStudentSubmitUi(false);
   }
   openModal("studentModal");
 }
@@ -547,11 +697,10 @@ function openStudentModal(editId) {
 async function submitStudentForm(e) {
   e.preventDefault();
   var form = e.target;
-  var editId = (document.getElementById("studentEditId") || {}).value || "";
+  var editId = ((document.getElementById("editDocId") || {}).value || "").trim();
   var fd = new FormData(form);
   var data = {};
   fd.forEach(function (val, key) {
-    if (key === "editId") return;
     if (val !== "" && val != null) data[key] = typeof val === "string" ? val.trim() : val;
   });
   if (!data.name) {
@@ -584,6 +733,10 @@ async function submitStudentForm(e) {
       await addDoc(collection(db, "students"), data);
       showToast("Öğrenci başarıyla eklendi.");
     }
+    form.reset();
+    var ed = document.getElementById("editDocId");
+    if (ed) ed.value = "";
+    setStudentSubmitUi(false);
     closeAllModals();
   } catch (err) {
     console.error(err);
@@ -591,9 +744,64 @@ async function submitStudentForm(e) {
   }
 }
 
+function resetAppointmentModalUi() {
+  var t = document.getElementById("modalApptTitle");
+  if (t) t.innerHTML = '<i class="fa-solid fa-calendar-plus"></i> Randevu oluştur';
+  var s = document.getElementById("modalApptSubtitle");
+  if (s) s.textContent = "Öğrenci ile görüşme planlayın";
+  var b = document.getElementById("btnApptSubmit");
+  if (b) b.innerHTML = '<i class="fa-solid fa-check"></i> Kaydet';
+}
+
+function openAppointmentModalNew() {
+  var f = document.getElementById("formAppointment");
+  if (f) f.reset();
+  var h = document.getElementById("appointmentEditDocId");
+  if (h) h.value = "";
+  resetAppointmentModalUi();
+  fillStudentSelects();
+  var d = document.getElementById("ap_date");
+  if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
+  openModal("appointmentModal");
+}
+
+function openAppointmentModalEdit(docId) {
+  var ap = cachedAppointments.find(function (x) {
+    return x.id === docId;
+  });
+  if (!ap) return;
+  fillStudentSelects();
+  document.getElementById("appointmentEditDocId").value = docId;
+  document.getElementById("ap_student").value = ap.studentId || "";
+  var dateStr = ap.date || "";
+  if (!dateStr && ap.scheduledAt) {
+    var dt = toDate(ap.scheduledAt);
+    if (dt && !isNaN(dt.getTime())) dateStr = dt.toISOString().slice(0, 10);
+  }
+  document.getElementById("ap_date").value = dateStr;
+  var tm = ap.time || "";
+  if (!tm && ap.scheduledAt) {
+    var dt2 = toDate(ap.scheduledAt);
+    if (dt2)
+      tm =
+        String(dt2.getHours()).padStart(2, "0") + ":" + String(dt2.getMinutes()).padStart(2, "0");
+  }
+  if (tm.length >= 5) tm = tm.slice(0, 5);
+  document.getElementById("ap_time").value = tm;
+  document.getElementById("ap_duration").value = String(ap.durationMin != null ? ap.durationMin : 45);
+  document.getElementById("ap_type").value = ap.meetingType || "Yüz yüze";
+  document.getElementById("ap_topic").value = ap.topic || "";
+  document.getElementById("ap_notes").value = ap.internalNotes || "";
+  document.getElementById("ap_location").value = ap.locationOrLink || "";
+  document.getElementById("modalApptTitle").innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Randevu düzenle';
+  document.getElementById("btnApptSubmit").innerHTML = '<i class="fa-solid fa-rotate"></i> Güncelle';
+  openModal("appointmentModal");
+}
+
 async function submitAppointmentForm(e) {
   e.preventDefault();
   var fd = new FormData(e.target);
+  var editAppt = ((document.getElementById("appointmentEditDocId") || {}).value || "").trim();
   var sid = fd.get("studentId");
   var st = cachedStudents.find(function (x) {
     return x.id === sid;
@@ -604,24 +812,33 @@ async function submitAppointmentForm(e) {
   }
   var d = fd.get("appointmentDate");
   var t = fd.get("appointmentTime");
+  var payload = {
+    studentId: sid,
+    studentName: st.name || st.studentName || "",
+    scheduledAt: Timestamp.fromDate(new Date(d + "T" + t)),
+    date: d,
+    time: t,
+    durationMin: parseInt(fd.get("durationMin"), 10) || 45,
+    meetingType: fd.get("meetingType") || "",
+    topic: fd.get("topic") || "",
+    internalNotes: fd.get("internalNotes") || "",
+    locationOrLink: fd.get("locationOrLink") || "",
+  };
   try {
-    var combined = new Date(d + "T" + t);
-    await addDoc(collection(db, "appointments"), {
-      studentId: sid,
-      studentName: st.name || st.studentName || "",
-      scheduledAt: Timestamp.fromDate(combined),
-      date: d,
-      time: t,
-      durationMin: parseInt(fd.get("durationMin"), 10) || 45,
-      meetingType: fd.get("meetingType") || "",
-      topic: fd.get("topic") || "",
-      internalNotes: fd.get("internalNotes") || "",
-      locationOrLink: fd.get("locationOrLink") || "",
-      createdAt: serverTimestamp(),
-    });
-    showToast("Randevu kaydedildi.");
-    closeAllModals();
+    if (editAppt) {
+      payload.updatedAt = serverTimestamp();
+      await updateDoc(doc(db, "appointments", editAppt), payload);
+      showToast("Randevu güncellendi.");
+    } else {
+      payload.createdAt = serverTimestamp();
+      await addDoc(collection(db, "appointments"), payload);
+      showToast("Randevu kaydedildi.");
+    }
     e.target.reset();
+    var h = document.getElementById("appointmentEditDocId");
+    if (h) h.value = "";
+    resetAppointmentModalUi();
+    closeAllModals();
   } catch (err) {
     console.error(err);
     alert(err.message || err);
@@ -681,24 +898,75 @@ function initTestMakerTabs() {
 }
 
 function resetTestMakerModal() {
+  var te = document.getElementById("testEditDocId");
+  if (te) te.value = "";
+  var lbl = document.getElementById("btnPdfTaslakLabel");
+  if (lbl) lbl.textContent = "PDF taslağı oluştur";
   var root = document.getElementById("testMakerRoot");
   if (!root) return;
   var first = root.querySelector('.tm-tab[data-tm-tab="1"]');
   if (first) first.click();
 }
 
+function setTestRadioGroup(name, value) {
+  document.querySelectorAll('input[name="' + name + '"]').forEach(function (inp) {
+    inp.checked = inp.value === value;
+  });
+}
+
+function openTestModalEdit(testId) {
+  var t = cachedTests.find(function (x) {
+    return x.id === testId;
+  });
+  if (!t) return;
+  var root = document.getElementById("testMakerRoot");
+  if (root) {
+    var first = root.querySelector('.tm-tab[data-tm-tab="1"]');
+    if (first) first.click();
+  }
+  document.getElementById("testEditDocId").value = testId;
+  var ders = document.getElementById("tm_ders");
+  if (ders) ders.value = t.subject || "Türkçe";
+  var konu = document.getElementById("tm_konu");
+  if (konu) konu.value = t.topic || "";
+  var z = document.getElementById("tm_zorluk");
+  if (z) z.value = t.difficulty || "Orta";
+  var soru = document.getElementById("tm_soru");
+  if (soru) soru.value = t.questionCount != null ? String(t.questionCount) : "40";
+  var ad = document.getElementById("tm_testAd");
+  if (ad) ad.value = t.title || "";
+  setTestRadioGroup("tm_layout", t.layout || "yks_cift_sutun");
+  setTestRadioGroup("tm_font", t.fontFamily || "Times New Roman");
+  setTestRadioGroup("tm_theme", t.colorTheme || "matbaa_bw");
+  var lbl = document.getElementById("btnPdfTaslakLabel");
+  if (lbl) lbl.textContent = "Güncelle";
+  openModal("testModal");
+}
+
 async function onPdfTaslakClick() {
   var payload = getTestMakerPayload();
+  var editTestId = ((document.getElementById("testEditDocId") || {}).value || "").trim();
   console.log("[TestMaker] PDF taslağı seçimleri:", JSON.stringify(payload, null, 2));
   try {
-    await addDoc(collection(db, "tests"), {
-      ...payload,
-      module: "TestMakerPro",
-      pdfDraft: true,
-      status: "Taslak",
-      createdAt: serverTimestamp(),
-    });
-    showToast("Test taslağı kaydedildi — PDF için veriler konsolda.");
+    if (editTestId) {
+      await updateDoc(doc(db, "tests", editTestId), {
+        ...payload,
+        module: "TestMakerPro",
+        pdfDraft: true,
+        updatedAt: serverTimestamp(),
+      });
+      showToast("Test güncellendi.");
+    } else {
+      await addDoc(collection(db, "tests"), {
+        ...payload,
+        module: "TestMakerPro",
+        pdfDraft: true,
+        status: "Taslak",
+        createdAt: serverTimestamp(),
+      });
+      showToast("Test taslağı kaydedildi — PDF için veriler konsolda.");
+    }
+    resetTestMakerModal();
     closeAllModals();
   } catch (err) {
     console.error(err);
@@ -706,9 +974,44 @@ async function onPdfTaslakClick() {
   }
 }
 
+function resetPaymentModalUi() {
+  var b = document.getElementById("btnPaymentSubmit");
+  if (b) b.innerHTML = '<i class="fa-solid fa-check"></i> Kaydet';
+}
+
+function openPaymentModalNew() {
+  var f = document.getElementById("formPayment");
+  if (f) f.reset();
+  var h = document.getElementById("paymentEditDocId");
+  if (h) h.value = "";
+  resetPaymentModalUi();
+  fillStudentSelects();
+  var d = document.getElementById("pay_date");
+  if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
+  openModal("financeModal");
+}
+
+function openPaymentModalEdit(docId) {
+  var p = cachedPayments.find(function (x) {
+    return x.id === docId;
+  });
+  if (!p) return;
+  fillStudentSelects();
+  document.getElementById("paymentEditDocId").value = docId;
+  document.getElementById("pay_student").value = p.studentId || "";
+  document.getElementById("pay_amount").value = p.amount != null ? String(p.amount) : "";
+  document.getElementById("pay_date").value = p.paymentDate || "";
+  document.getElementById("pay_method").value = p.paymentMethod || "Nakit";
+  document.getElementById("pay_desc").value = p.description || "";
+  document.getElementById("pay_invoice").value = p.invoiceNote || "";
+  document.getElementById("btnPaymentSubmit").innerHTML = '<i class="fa-solid fa-rotate"></i> Güncelle';
+  openModal("financeModal");
+}
+
 async function submitPaymentForm(e) {
   e.preventDefault();
   var fd = new FormData(e.target);
+  var editPay = ((document.getElementById("paymentEditDocId") || {}).value || "").trim();
   var sid = fd.get("studentId");
   var st = cachedStudents.find(function (x) {
     return x.id === sid;
@@ -717,29 +1020,78 @@ async function submitPaymentForm(e) {
     showToast("Öğrenci seçin.");
     return;
   }
+  var payload = {
+    studentId: sid,
+    studentName: st.name || st.studentName || "",
+    amount: parseFloat(fd.get("amount")) || 0,
+    paymentDate: fd.get("paymentDate") || new Date().toISOString().slice(0, 10),
+    paymentMethod: fd.get("paymentMethod") || "",
+    description: fd.get("description") || "",
+    invoiceNote: fd.get("invoiceNote") || "",
+  };
   try {
-    await addDoc(collection(db, "payments"), {
-      studentId: sid,
-      studentName: st.name || st.studentName || "",
-      amount: parseFloat(fd.get("amount")) || 0,
-      paymentDate: fd.get("paymentDate") || new Date().toISOString().slice(0, 10),
-      paymentMethod: fd.get("paymentMethod") || "",
-      description: fd.get("description") || "",
-      invoiceNote: fd.get("invoiceNote") || "",
-      createdAt: serverTimestamp(),
-    });
-    showToast("Tahsilat kaydedildi (payments).");
-    closeAllModals();
+    if (editPay) {
+      payload.updatedAt = serverTimestamp();
+      await updateDoc(doc(db, "payments", editPay), payload);
+      showToast("Tahsilat güncellendi.");
+    } else {
+      payload.createdAt = serverTimestamp();
+      await addDoc(collection(db, "payments"), payload);
+      showToast("Tahsilat kaydedildi.");
+    }
     e.target.reset();
+    var h = document.getElementById("paymentEditDocId");
+    if (h) h.value = "";
+    resetPaymentModalUi();
+    closeAllModals();
   } catch (err) {
     console.error(err);
     alert(err.message || err);
   }
 }
 
+function resetExamModalUi() {
+  var b = document.getElementById("btnExamSubmit");
+  if (b) b.innerHTML = '<i class="fa-solid fa-save"></i> Kaydet';
+}
+
+function openExamModalNew() {
+  var f = document.getElementById("formExam");
+  if (f) f.reset();
+  var h = document.getElementById("examEditDocId");
+  if (h) h.value = "";
+  resetExamModalUi();
+  fillStudentSelects();
+  var ed = document.getElementById("ex_date");
+  if (ed && !ed.value) ed.value = new Date().toISOString().slice(0, 10);
+  openModal("examModal");
+}
+
+function openExamModalEdit(docId) {
+  var ex = cachedExams.find(function (x) {
+    return x.id === docId;
+  });
+  if (!ex) return;
+  fillStudentSelects();
+  document.getElementById("examEditDocId").value = docId;
+  document.getElementById("ex_student").value = ex.studentId || "";
+  document.getElementById("ex_type").value = (ex.examType || ex.tur || "TYT").toUpperCase() === "AYT" ? "AYT" : "TYT";
+  document.getElementById("ex_net").value = ex.net != null ? String(ex.net) : "";
+  var d = toDate(ex.examDate) || toDate(ex.date);
+  document.getElementById("ex_date").value =
+    d && !isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : ex.date || "";
+  document.getElementById("ex_name").value = ex.examName || "";
+  document.getElementById("ex_breakdown").value = ex.subjectBreakdown || "";
+  document.getElementById("ex_status").value = ex.status || "Kayıt girildi";
+  document.getElementById("ex_coach").value = ex.coachExamNote || "";
+  document.getElementById("btnExamSubmit").innerHTML = '<i class="fa-solid fa-rotate"></i> Güncelle';
+  openModal("examModal");
+}
+
 async function submitExamForm(e) {
   e.preventDefault();
   var fd = new FormData(e.target);
+  var editEx = ((document.getElementById("examEditDocId") || {}).value || "").trim();
   var sid = fd.get("studentId");
   var st = cachedStudents.find(function (x) {
     return x.id === sid;
@@ -751,24 +1103,34 @@ async function submitExamForm(e) {
   var exD = fd.get("examDate");
   var examDateTs = null;
   if (exD) examDateTs = Timestamp.fromDate(new Date(exD));
+  var payload = {
+    studentId: sid,
+    studentName: st.name || st.studentName || "",
+    examType: fd.get("examType"),
+    tur: fd.get("examType"),
+    net: fd.get("net"),
+    examDate: examDateTs,
+    date: exD || "",
+    examName: fd.get("examName") || "",
+    subjectBreakdown: fd.get("subjectBreakdown") || "",
+    status: fd.get("status") || "Kayıt girildi",
+    coachExamNote: fd.get("coachExamNote") || "",
+  };
   try {
-    await addDoc(collection(db, "exams"), {
-      studentId: sid,
-      studentName: st.name || st.studentName || "",
-      examType: fd.get("examType"),
-      tur: fd.get("examType"),
-      net: fd.get("net"),
-      examDate: examDateTs,
-      date: exD || "",
-      examName: fd.get("examName") || "",
-      subjectBreakdown: fd.get("subjectBreakdown") || "",
-      status: fd.get("status") || "Kayıt girildi",
-      coachExamNote: fd.get("coachExamNote") || "",
-      createdAt: serverTimestamp(),
-    });
-    showToast("Deneme kaydı eklendi.");
-    closeAllModals();
+    if (editEx) {
+      payload.updatedAt = serverTimestamp();
+      await updateDoc(doc(db, "exams", editEx), payload);
+      showToast("Deneme kaydı güncellendi.");
+    } else {
+      payload.createdAt = serverTimestamp();
+      await addDoc(collection(db, "exams"), payload);
+      showToast("Deneme kaydı eklendi.");
+    }
     e.target.reset();
+    var h = document.getElementById("examEditDocId");
+    if (h) h.value = "";
+    resetExamModalUi();
+    closeAllModals();
   } catch (err) {
     console.error(err);
     alert(err.message || err);
@@ -827,7 +1189,7 @@ function subscribeFirestore() {
         const tbody = document.getElementById("denemeTableBody");
         if (tbody)
           tbody.innerHTML =
-            '<tr><td colspan="5" class="table-empty table-empty--error">' + firestoreErrorHtml(err) + "</td></tr>";
+            '<tr><td colspan="6" class="table-empty table-empty--error">' + firestoreErrorHtml(err) + "</td></tr>";
       }
     )
   );
@@ -838,6 +1200,26 @@ function subscribeFirestore() {
       function (err) {
         const list = document.getElementById("activeStudentsList");
         if (list) list.innerHTML = "<li class='mini-list__empty'>" + firestoreErrorHtml(err) + "</li>";
+      }
+    )
+  );
+  firestoreUnsubs.push(
+    onSnapshot(
+      collection(db, "payments"),
+      onPaymentsSnap,
+      function (err) {
+        var tb = document.getElementById("paymentsTableBody");
+        if (tb) tb.innerHTML = "<tr><td colspan='5' class='table-empty table-empty--error'>" + firestoreErrorHtml(err) + "</td></tr>";
+      }
+    )
+  );
+  firestoreUnsubs.push(
+    onSnapshot(
+      collection(db, "tests"),
+      onTestsSnap,
+      function (err) {
+        var tb = document.getElementById("testsTableBody");
+        if (tb) tb.innerHTML = "<tr><td colspan='5' class='table-empty table-empty--error'>" + firestoreErrorHtml(err) + "</td></tr>";
       }
     )
   );
@@ -859,9 +1241,324 @@ function showToast(msg) {
   }, 2800);
 }
 
+function destroyTmWsCropper() {
+  if (tmWsCropper && typeof tmWsCropper.destroy === "function") {
+    try {
+      tmWsCropper.destroy();
+    } catch (e) {}
+    tmWsCropper = null;
+  }
+}
+
+function testmakerWorkspaceLeave() {
+  var app = document.querySelector(".app");
+  if (app) app.classList.remove("app--testmaker-workspace");
+  destroyTmWsCropper();
+  tmWsPdfDoc = null;
+  var addBtn = document.getElementById("tmBtnAddToA4");
+  if (addBtn) addBtn.disabled = true;
+}
+
+function testmakerWorkspaceEnter() {
+  var app = document.querySelector(".app");
+  if (app) app.classList.add("app--testmaker-workspace");
+  bindTestMakerWorkspace();
+}
+
+function tmWsRenderPdfPage(pageNum) {
+  if (!tmWsPdfDoc || typeof pdfjsLib === "undefined") return Promise.resolve();
+  destroyTmWsCropper();
+  return tmWsPdfDoc.getPage(pageNum).then(function (page) {
+    var scale = 2;
+    var vp = page.getViewport({ scale: scale });
+    var canvas = document.createElement("canvas");
+    canvas.width = vp.width;
+    canvas.height = vp.height;
+    return page
+      .render({ canvasContext: canvas.getContext("2d"), viewport: vp })
+      .promise.then(function () {
+        var img = document.getElementById("tmCropImg");
+        img.src = canvas.toDataURL("image/png");
+        img.style.display = "block";
+        if (typeof Cropper !== "undefined") {
+          tmWsCropper = new Cropper(img, {
+            viewMode: 1,
+            dragMode: "crop",
+            autoCropArea: 0.55,
+            responsive: true,
+            restore: false,
+          });
+        }
+        var b = document.getElementById("tmBtnAddToA4");
+        if (b) b.disabled = false;
+      });
+  });
+}
+
+function tmWsLoadImageFile(file) {
+  var row = document.getElementById("tmPdfPageRow");
+  if (row) row.hidden = true;
+  tmWsPdfDoc = null;
+  destroyTmWsCropper();
+  var img = document.getElementById("tmCropImg");
+  var url = URL.createObjectURL(file);
+  img.onload = function () {
+    URL.revokeObjectURL(url);
+    img.style.display = "block";
+    if (typeof Cropper !== "undefined") {
+      tmWsCropper = new Cropper(img, {
+        viewMode: 1,
+        dragMode: "crop",
+        autoCropArea: 0.55,
+        responsive: true,
+        restore: false,
+      });
+    }
+    var b = document.getElementById("tmBtnAddToA4");
+    if (b) b.disabled = false;
+  };
+  img.src = url;
+}
+
+function tmWsHandleFile(file) {
+  if (!file) return;
+  var n = file.name.toLowerCase();
+  if (n.endsWith(".pdf")) {
+    file.arrayBuffer().then(function (buf) {
+      if (typeof pdfjsLib === "undefined") {
+        showToast("PDF.js yüklenemedi.");
+        return;
+      }
+      pdfjsLib
+        .getDocument({ data: buf })
+        .promise.then(function (doc) {
+          tmWsPdfDoc = doc;
+          var sel = document.getElementById("tmPdfPageSelect");
+          sel.innerHTML = "";
+          for (var i = 1; i <= doc.numPages; i++) {
+            var o = document.createElement("option");
+            o.value = String(i);
+            o.textContent = "Sayfa " + i;
+            sel.appendChild(o);
+          }
+          var pr = document.getElementById("tmPdfPageRow");
+          if (pr) pr.hidden = doc.numPages < 2;
+          return tmWsRenderPdfPage(1);
+        })
+        .catch(function (e) {
+          console.error(e);
+          showToast("PDF okunamadı.");
+        });
+    });
+  } else if (/\.(png|jpe?g)$/.test(n)) {
+    tmWsLoadImageFile(file);
+  } else {
+    showToast("Yalnızca PNG, JPG veya PDF.");
+  }
+}
+
+function tmWsCompressJpeg(dataUrl, maxW, q) {
+  return new Promise(function (resolve) {
+    var im = new Image();
+    im.onload = function () {
+      var w = im.width,
+        h = im.height;
+      if (w > maxW) {
+        h = Math.round((h * maxW) / w);
+        w = maxW;
+      }
+      var c = document.createElement("canvas");
+      c.width = w;
+      c.height = h;
+      c.getContext("2d").drawImage(im, 0, 0, w, h);
+      resolve(c.toDataURL("image/jpeg", q));
+    };
+    im.onerror = function () {
+      resolve(dataUrl);
+    };
+    im.src = dataUrl;
+  });
+}
+
+async function tmWsSaveFirestoreDraft() {
+  var title = (document.getElementById("tmWsTitle") && document.getElementById("tmWsTitle").value) || "";
+  title = title.trim();
+  if (!title) {
+    showToast("Test başlığı girin.");
+    return;
+  }
+  var blocks = document.querySelectorAll("#tmA4Paper .tm-a4-block img");
+  if (blocks.length === 0) {
+    showToast("A4'e en az bir soru ekleyin.");
+    return;
+  }
+  var arr = [];
+  var total = 0;
+  var maxBytes = 900000;
+  for (var i = 0; i < blocks.length; i++) {
+    var j = await tmWsCompressJpeg(blocks[i].src, 700, 0.68);
+    if (total + j.length > maxBytes) {
+      showToast("Firestore ~1MB sınırı: " + arr.length + " soru kaydedildi.");
+      break;
+    }
+    arr.push(j);
+    total += j.length;
+  }
+  if (arr.length === 0) {
+    showToast("Kaydedilecek veri çok büyük.");
+    return;
+  }
+  try {
+    await addDoc(collection(db, "tests"), {
+      title: title,
+      subject: (document.getElementById("tmWsSubject") && document.getElementById("tmWsSubject").value) || "",
+      difficulty: (document.getElementById("tmWsDiff") && document.getElementById("tmWsDiff").value) || "Orta",
+      questionImages: arr,
+      questionCount: arr.length,
+      workspaceVersion: 2,
+      module: "TestMakerWorkspace",
+      status: "Taslak",
+      pdfDraft: true,
+      createdAt: serverTimestamp(),
+    });
+    showToast("Taslak Firestore'a kaydedildi (" + arr.length + " soru).");
+  } catch (err) {
+    console.error(err);
+    alert(err.message || String(err));
+  }
+}
+
+function tmWsDownloadPdf() {
+  var paper = document.getElementById("tmA4Paper");
+  if (!paper || !paper.querySelector(".tm-a4-block")) {
+    showToast("Önce A4'e soru ekleyin.");
+    return;
+  }
+  if (typeof html2pdf === "undefined") {
+    alert("html2pdf yüklenmedi. Sayfayı yenileyin.");
+    return;
+  }
+  var name = ((document.getElementById("tmWsTitle") && document.getElementById("tmWsTitle").value) || "sinav")
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, "-");
+  html2pdf()
+    .set({
+      margin: 0,
+      filename: name + ".pdf",
+      image: { type: "jpeg", quality: 0.96 },
+      html2canvas: { scale: 2, useCORS: true, logging: false, letterRendering: true },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+    })
+    .from(paper)
+    .save()
+    .catch(function (e) {
+      console.error(e);
+      showToast("PDF oluşturulamadı.");
+    });
+}
+
+function bindTestMakerWorkspace() {
+  if (tmWsWorkspaceBound) return;
+  var root = document.getElementById("tmWorkspaceRoot");
+  if (!root) return;
+  tmWsWorkspaceBound = true;
+
+  var toggle = document.getElementById("btnTmToggleList");
+  if (toggle)
+    toggle.addEventListener("click", function () {
+      var p = document.getElementById("tmSavedListPanel");
+      if (!p) return;
+      p.hidden = !p.hidden;
+      if (!p.hidden) renderTestsTable();
+    });
+
+  var dz = document.getElementById("tmDropzone");
+  var fin = document.getElementById("tmFileInput");
+  if (dz && fin) {
+    dz.addEventListener("click", function () {
+      fin.click();
+    });
+    dz.addEventListener("dragover", function (e) {
+      e.preventDefault();
+      dz.classList.add("tm-dropzone--active");
+    });
+    dz.addEventListener("dragleave", function () {
+      dz.classList.remove("tm-dropzone--active");
+    });
+    dz.addEventListener("drop", function (e) {
+      e.preventDefault();
+      dz.classList.remove("tm-dropzone--active");
+      var f = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) tmWsHandleFile(f);
+    });
+    fin.addEventListener("change", function () {
+      var f = fin.files && fin.files[0];
+      if (f) tmWsHandleFile(f);
+      fin.value = "";
+    });
+  }
+
+  var btnPdfPage = document.getElementById("tmPdfPageApply");
+  if (btnPdfPage)
+    btnPdfPage.addEventListener("click", function () {
+      var sel = document.getElementById("tmPdfPageSelect");
+      var n = sel ? parseInt(sel.value, 10) : 1;
+      if (n >= 1) tmWsRenderPdfPage(n);
+    });
+
+  var addA4 = document.getElementById("tmBtnAddToA4");
+  if (addA4)
+    addA4.addEventListener("click", function () {
+      if (!tmWsCropper || typeof tmWsCropper.getCroppedCanvas !== "function") {
+        showToast("Önce görsel yükleyip alan seçin.");
+        return;
+      }
+      var canvas = tmWsCropper.getCroppedCanvas({ maxWidth: 2000, maxHeight: 2800 });
+      if (!canvas || canvas.width < 8 || canvas.height < 8) {
+        showToast("Geçerli bir kırpma alanı seçin.");
+        return;
+      }
+      var dataUrl = canvas.toDataURL("image/png");
+      var empty = document.getElementById("tmA4Empty");
+      if (empty) empty.style.display = "none";
+      var wrap = document.createElement("div");
+      wrap.className = "tm-a4-block";
+      var img = document.createElement("img");
+      img.src = dataUrl;
+      img.alt = "";
+      var xb = document.createElement("button");
+      xb.type = "button";
+      xb.className = "tm-a4-block__x";
+      xb.setAttribute("aria-label", "Kaldır");
+      xb.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+      wrap.appendChild(img);
+      wrap.appendChild(xb);
+      document.getElementById("tmA4Paper").appendChild(wrap);
+    });
+
+  var paper = document.getElementById("tmA4Paper");
+  if (paper)
+    paper.addEventListener("click", function (ev) {
+      var x = ev.target.closest && ev.target.closest(".tm-a4-block__x");
+      if (!x) return;
+      var bl = x.closest(".tm-a4-block");
+      if (bl) bl.remove();
+      if (!paper.querySelector(".tm-a4-block")) {
+        var em = document.getElementById("tmA4Empty");
+        if (em) em.style.display = "";
+      }
+    });
+
+  var sav = document.getElementById("tmBtnSaveFirestore");
+  if (sav) sav.addEventListener("click", tmWsSaveFirestoreDraft);
+  var pdf = document.getElementById("tmBtnPdfDownload");
+  if (pdf) pdf.addEventListener("click", tmWsDownloadPdf);
+}
+
 function navigateTo(view) {
   if (!view) return;
   var previous = currentView;
+  if (previous === "testmaker" && view !== "testmaker") testmakerWorkspaceLeave();
   currentView = view;
   document.querySelectorAll(".main-view").forEach(function (el) {
     const v = el.getAttribute("data-view");
@@ -891,6 +1588,11 @@ function navigateTo(view) {
   if (view === "denemeler") renderExamsFullPage();
   if (view === "ogrenciler") renderStudentsPage();
   if (view === "randevu") renderAppointmentsPage();
+  if (view === "testmaker") {
+    testmakerWorkspaceEnter();
+    renderTestsTable();
+  }
+  if (view === "muhasebe") renderPaymentsTable();
   window.dispatchEvent(new CustomEvent("yks:navigate", { detail: { view: view } }));
 }
 
@@ -955,16 +1657,10 @@ function cycleExamsPageFilter() {
 
 function initAllButtons() {
   function openApptModal() {
-    fillStudentSelects();
-    var d = document.getElementById("ap_date");
-    if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
-    openModal("appointmentModal");
+    openAppointmentModalNew();
   }
   function openPayModal() {
-    fillStudentSelects();
-    var d = document.getElementById("pay_date");
-    if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
-    openModal("financeModal");
+    openPaymentModalNew();
   }
 
   var elNewSt = document.getElementById("btnNewStudent");
@@ -1016,21 +1712,15 @@ function initAllButtons() {
     });
   document.getElementById("btnExamsFilter") &&
     document.getElementById("btnExamsFilter").addEventListener("click", cycleExamsPageFilter);
-  document.getElementById("btnAddExamRecord") &&
-    document.getElementById("btnAddExamRecord").addEventListener("click", function () {
-      fillStudentSelects();
-      var ed = document.getElementById("ex_date");
-      if (ed && !ed.value) ed.value = new Date().toISOString().slice(0, 10);
-      openModal("examModal");
-    });
+  var elAddEx = document.getElementById("btnAddExamRecord");
+  if (elAddEx) elAddEx.addEventListener("click", openExamModalNew);
 
   var elQuickAppt = document.getElementById("quickRandevu");
   if (elQuickAppt) elQuickAppt.addEventListener("click", openApptModal);
   var elQuickTest = document.getElementById("quickTest");
   if (elQuickTest)
     elQuickTest.addEventListener("click", function () {
-      resetTestMakerModal();
-      openModal("testModal");
+      navigateTo("testmaker");
     });
   var elAllSt = document.getElementById("btnAllStudents");
   if (elAllSt)
@@ -1040,20 +1730,10 @@ function initAllButtons() {
 
   var elNewAppt = document.getElementById("btnNewAppointment");
   if (elNewAppt) elNewAppt.addEventListener("click", openApptModal);
-  var elCreateTest = document.getElementById("btnCreateTest");
-  if (elCreateTest)
-    elCreateTest.addEventListener("click", function () {
-      resetTestMakerModal();
-      openModal("testModal");
-    });
-  document.getElementById("btnTestBank") &&
-    document.getElementById("btnTestBank").addEventListener("click", function () {
-      showToast("Soru bankası: sorular Firestore’da ayrı koleksiyonda tutulacak (sonraki adım).");
-    });
-  document.getElementById("btnTestPublish") &&
-    document.getElementById("btnTestPublish").addEventListener("click", function () {
-      navigateTo("testmaker");
-      showToast("Yayınlı testler — tests koleksiyonunda status ≠ Taslak kayıtlar listelenecek.");
+  var elTestBank = document.getElementById("btnTestBank");
+  if (elTestBank)
+    elTestBank.addEventListener("click", function () {
+      showToast("Soru bankası — workspace’te görsel/PDF ile soru ekleyebilirsiniz.");
     });
 
   document.getElementById("btnNewPayment") &&
@@ -1093,20 +1773,66 @@ function initAllButtons() {
     });
 
   document.addEventListener("click", function (e) {
-    const det = e.target.closest(".btn-detail");
-    if (det && det.dataset.id) {
+    var t = e.target;
+    var delSt = t.closest && t.closest("[data-del-student]");
+    if (delSt) {
       e.preventDefault();
-      showToast("Deneme detayı (ID: " + det.dataset.id + ")");
+      firestoreDeleteConfirmed("students", delSt.getAttribute("data-del-student"));
+      return;
     }
-    const apptMenu = e.target.closest(".appt-card__menu-btn");
-    if (apptMenu && apptMenu.dataset.apptId) {
+    var edSt = t.closest && t.closest("[data-edit-student]");
+    if (edSt) {
       e.preventDefault();
-      showToast("Randevu seçenekleri — ID: " + apptMenu.dataset.apptId);
+      openStudentModal(edSt.getAttribute("data-edit-student"));
+      return;
     }
-    const st = e.target.closest(".student-open-btn");
-    if (st && st.dataset.studentId) {
+    var delAp = t.closest && t.closest("[data-del-appt]");
+    if (delAp) {
       e.preventDefault();
-      openStudentModal(st.dataset.studentId);
+      firestoreDeleteConfirmed("appointments", delAp.getAttribute("data-del-appt"));
+      return;
+    }
+    var edAp = t.closest && t.closest("[data-edit-appt]");
+    if (edAp) {
+      e.preventDefault();
+      openAppointmentModalEdit(edAp.getAttribute("data-edit-appt"));
+      return;
+    }
+    var delEx = t.closest && t.closest("[data-del-exam]");
+    if (delEx) {
+      e.preventDefault();
+      firestoreDeleteConfirmed("exams", delEx.getAttribute("data-del-exam"));
+      return;
+    }
+    var edEx = t.closest && t.closest("[data-edit-exam]");
+    if (edEx) {
+      e.preventDefault();
+      openExamModalEdit(edEx.getAttribute("data-edit-exam"));
+      return;
+    }
+    var delPay = t.closest && t.closest("[data-del-payment]");
+    if (delPay) {
+      e.preventDefault();
+      firestoreDeleteConfirmed("payments", delPay.getAttribute("data-del-payment"));
+      return;
+    }
+    var edPay = t.closest && t.closest("[data-edit-payment]");
+    if (edPay) {
+      e.preventDefault();
+      openPaymentModalEdit(edPay.getAttribute("data-edit-payment"));
+      return;
+    }
+    var delTest = t.closest && t.closest("[data-del-test]");
+    if (delTest) {
+      e.preventDefault();
+      firestoreDeleteConfirmed("tests", delTest.getAttribute("data-del-test"));
+      return;
+    }
+    var edTest = t.closest && t.closest("[data-edit-test]");
+    if (edTest) {
+      e.preventDefault();
+      openTestModalEdit(edTest.getAttribute("data-edit-test"));
+      return;
     }
   });
 }
@@ -1121,10 +1847,7 @@ window.YKSPanel = {
   },
   toast: showToast,
   openStudentForm: openStudentModal,
-  openAppointmentForm: function () {
-    fillStudentSelects();
-    openModal("appointmentModal");
-  },
+  openAppointmentForm: openAppointmentModalNew,
   closeModals: closeAllModals,
   closeModal: closeModal,
 };

@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="css/koc-panel.css" />
   <link rel="stylesheet" href="css/forms-modal.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" crossorigin="anonymous" />
+  <link rel="stylesheet" href="css/testmaker-workspace.css" />
 </head>
 <body>
   <div class="app">
@@ -127,11 +129,12 @@
                     <th>Deneme Türü</th>
                     <th>Net</th>
                     <th>Tarih</th>
-                    <th>Durum / Aksiyon</th>
+                    <th>Durum</th>
+                    <th>İşlem</th>
                   </tr>
                 </thead>
                 <tbody id="denemeTableBody">
-                  <tr><td colspan="5" class="table-empty">Yükleniyor…</td></tr>
+                  <tr><td colspan="6" class="table-empty">Yükleniyor…</td></tr>
                 </tbody>
               </table>
             </div>
@@ -143,7 +146,7 @@
             <h1 class="page-head__title">Öğrencilerim</h1>
             <button type="button" class="btn btn--sm btn--purple" id="btnPageAddStudent"><i class="fa-solid fa-user-plus"></i> Yeni Öğrenci</button>
           </div>
-          <p class="page-desc">Öğrenci kartında <strong>Detay</strong> ile tam kayıt düzenlenir. Aşağıdaki formlar Firestore’a kaydedilir.</p>
+          <p class="page-desc"><strong>Düzenle</strong> veya <strong>Sil</strong> ile kayıtları yönetin. Formlar Firestore’a yazılır.</p>
           <div class="student-grid" id="studentsPageGrid"></div>
         </div>
 
@@ -164,7 +167,7 @@
                   <th>Net</th>
                   <th>Tarih</th>
                   <th>Durum</th>
-                  <th></th>
+                  <th>İşlem</th>
                 </tr>
               </thead>
               <tbody id="examsPageBody"></tbody>
@@ -181,16 +184,99 @@
           <div class="cards-row cards-row--wide" id="appointmentsPageRow"></div>
         </div>
 
-        <div class="main-view" data-view="testmaker" id="view-testmaker" hidden>
-          <div class="page-head">
-            <h1 class="page-head__title">TestMaker</h1>
-            <button type="button" class="btn btn--sm btn--purple" id="btnCreateTest"><i class="fa-solid fa-file-circle-plus"></i> Yeni Test</button>
+        <div class="main-view tm-workspace-view" data-view="testmaker" id="view-testmaker" hidden>
+          <div id="tmWorkspaceRoot" class="tm-workspace">
+            <header class="tm-workspace__header">
+              <button type="button" class="tm-back-dashboard" data-nav="dashboard" title="Ana panele dön">
+                <i class="fa-solid fa-arrow-left"></i> Panele dön
+              </button>
+              <span class="tm-workspace__brand"><i class="fa-solid fa-wand-magic-sparkles"></i> TestMaker Pro — Sınav Çalışma Alanı</span>
+              <button type="button" class="tm-back-dashboard" id="btnTmToggleList" style="border-style:dashed">
+                <i class="fa-solid fa-list"></i> Kayıtlı testler
+              </button>
+            </header>
+            <div id="tmSavedListPanel" class="tm-saved-panel" hidden>
+              <div class="table-wrap" style="border:none;background:transparent">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Başlık</th>
+                      <th>Ders</th>
+                      <th>Soru</th>
+                      <th>Durum</th>
+                      <th style="min-width:130px">İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody id="testsTableBody"><tr><td colspan="5" class="table-empty">Yükleniyor…</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="tm-workspace__body">
+              <div class="tm-workspace__preview">
+                <div class="tm-a4-wrap" id="tmA4Wrap">
+                  <div class="tm-a4-paper" id="tmA4Paper">
+                    <div class="tm-a4-empty" id="tmA4Empty">Sağdan <strong>görsel veya PDF</strong> yükleyin, soruyu seçip <strong>A4'e Ekle</strong> deyin.</div>
+                  </div>
+                </div>
+              </div>
+              <aside class="tm-workspace__tools">
+                <div class="tm-dropzone" id="tmDropzone" tabindex="0">
+                  <input type="file" id="tmFileInput" accept="image/png,image/jpeg,image/jpg,application/pdf" />
+                  <i class="fa-solid fa-cloud-arrow-up fa-2x" style="opacity:0.9"></i>
+                  <p><strong>PNG, JPG veya PDF</strong> — sürükleyin veya tıklayın</p>
+                </div>
+                <div class="tm-pdf-page" id="tmPdfPageRow" hidden>
+                  <span>PDF sayfa:</span>
+                  <select id="tmPdfPageSelect" aria-label="PDF sayfa numarası"></select>
+                  <button type="button" class="btn btn--sm btn--purple" id="tmPdfPageApply">Sayfayı yükle</button>
+                </div>
+                <div class="tm-crop-wrap" id="tmCropWrap">
+                  <img id="tmCropImg" alt="Kırpma kaynağı" style="display:none;max-width:100%" />
+                </div>
+                <div class="tm-tool-actions">
+                  <button type="button" class="tm-btn-add-a4" id="tmBtnAddToA4" disabled>
+                    <i class="fa-solid fa-scissors"></i> A4'e Ekle
+                  </button>
+                </div>
+              </aside>
+            </div>
+            <footer class="tm-workspace__bar">
+              <div class="tm-bar-fields">
+                <label>Test başlığı
+                  <input type="text" id="tmWsTitle" placeholder="Örn. Paraf TYT-7 Matematik" maxlength="200" />
+                </label>
+                <label>Ders
+                  <select id="tmWsSubject">
+                    <option value="Matematik">Matematik</option>
+                    <option value="Türkçe">Türkçe</option>
+                    <option value="Fizik">Fizik</option>
+                    <option value="Kimya">Kimya</option>
+                    <option value="Biyoloji">Biyoloji</option>
+                    <option value="Tarih">Tarih</option>
+                    <option value="Coğrafya">Coğrafya</option>
+                    <option value="TYT Genel">TYT Genel</option>
+                    <option value="Diğer">Diğer</option>
+                  </select>
+                </label>
+                <label>Zorluk
+                  <select id="tmWsDiff">
+                    <option value="Kolay">Kolay</option>
+                    <option value="Orta" selected>Orta</option>
+                    <option value="Zor">Zor</option>
+                    <option value="YKS tipi">YKS tipi</option>
+                  </select>
+                </label>
+              </div>
+              <div class="tm-bar-actions">
+                <button type="button" class="tm-btn-save-draft" id="tmBtnSaveFirestore">
+                  <i class="fa-solid fa-database"></i> Taslağı Kaydet (Firestore)
+                </button>
+                <button type="button" class="tm-btn-pdf-dl" id="tmBtnPdfDownload">
+                  <i class="fa-solid fa-download"></i> PDF İndir
+                </button>
+              </div>
+            </footer>
           </div>
-          <p class="page-desc">Test oluşturma sihirbazı burada olacak.</p>
-          <ul class="feature-list">
-            <li><button type="button" class="feature-list__btn" id="btnTestBank"><i class="fa-solid fa-database"></i> Soru bankası</button></li>
-            <li><button type="button" class="feature-list__btn" id="btnTestPublish"><i class="fa-solid fa-paper-plane"></i> Yayınlanan testler</button></li>
-          </ul>
         </div>
 
         <div class="main-view" data-view="muhasebe" id="view-muhasebe" hidden>
@@ -198,7 +284,21 @@
             <h1 class="page-head__title">Muhasebe</h1>
             <button type="button" class="btn btn--sm btn--purple" id="btnNewPayment"><i class="fa-solid fa-lira-sign"></i> Tahsilat Kaydı</button>
           </div>
-          <p class="page-desc">Ödeme ve paket takibi burada yapılacak.</p>
+          <p class="page-desc">Tahsilat kayıtlarını yönetin.</p>
+          <div class="table-wrap" style="margin-bottom:1.5rem">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Öğrenci</th>
+                  <th>Tutar (₺)</th>
+                  <th>Tarih</th>
+                  <th>Yöntem</th>
+                  <th style="min-width:140px">İşlem</th>
+                </tr>
+              </thead>
+              <tbody id="paymentsTableBody"><tr><td colspan="5" class="table-empty">Yükleniyor…</td></tr></tbody>
+            </table>
+          </div>
           <div class="stat-cards">
             <button type="button" class="stat-card" id="btnStatIncome"><span class="stat-card__val">—</span><span class="stat-card__lbl">Bu ay tahsilat</span></button>
             <button type="button" class="stat-card" id="btnStatPending"><span class="stat-card__val">—</span><span class="stat-card__lbl">Bekleyen</span></button>
@@ -264,7 +364,7 @@
         <button type="button" class="modal__close" data-close-modal aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <form class="modal__body modal__body--flush" id="formStudent">
-        <input type="hidden" name="editId" id="studentEditId" value="" />
+        <input type="hidden" id="editDocId" value="" />
         <div class="erp-form-grid">
           <section class="erp-col">
             <h3 class="erp-col__title"><span class="erp-col__badge">1</span> Kişisel bilgiler</h3>
@@ -331,7 +431,7 @@
         </div>
         <div class="modal__foot modal__foot--sticky">
           <button type="button" class="btn-modal-secondary" data-close-modal>Vazgeç</button>
-          <button type="submit" class="btn-modal-primary"><i class="fa-solid fa-cloud-arrow-up"></i> Kaydet ve listeyi güncelle</button>
+          <button type="submit" class="btn-modal-primary" id="btnStudentSubmit"><i class="fa-solid fa-cloud-arrow-up"></i> Kaydet</button>
         </div>
       </form>
     </div>
@@ -341,11 +441,12 @@
       <div class="modal__head">
         <div>
           <h2 class="modal__title" id="modalApptTitle"><i class="fa-solid fa-calendar-plus"></i> Randevu oluştur</h2>
-          <p class="modal__subtitle">Öğrenci ile görüşme planlayın</p>
+          <p class="modal__subtitle" id="modalApptSubtitle">Öğrenci ile görüşme planlayın</p>
         </div>
         <button type="button" class="modal__close" data-close-modal aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <form class="modal__body" id="formAppointment">
+        <input type="hidden" id="appointmentEditDocId" value="" />
         <fieldset class="form-fieldset">
           <legend>Öğrenci &amp; zaman</legend>
           <div class="form-grid form-grid--2">
@@ -400,7 +501,7 @@
         </fieldset>
         <div class="modal__foot" style="margin: 0 -1.5rem -1.5rem;">
           <button type="button" class="btn-modal-secondary" data-close-modal>Vazgeç</button>
-          <button type="submit" class="btn-modal-primary"><i class="fa-solid fa-check"></i> Randevuyu kaydet</button>
+          <button type="submit" class="btn-modal-primary" id="btnApptSubmit"><i class="fa-solid fa-check"></i> Kaydet</button>
         </div>
       </form>
     </div>
@@ -415,6 +516,7 @@
         <button type="button" class="modal__close" data-close-modal aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="modal__body modal__body--flush" id="testMakerRoot">
+        <input type="hidden" id="testEditDocId" value="" />
         <div class="tm-tabs" role="tablist">
           <button type="button" class="tm-tab is-active" data-tm-tab="1" role="tab" aria-selected="true"><i class="fa-solid fa-filter"></i> İçerik filtreleme</button>
           <button type="button" class="tm-tab" data-tm-tab="2" role="tab" aria-selected="false"><i class="fa-solid fa-palette"></i> Şablon &amp; görünüm</button>
@@ -513,7 +615,7 @@
         <div class="modal__foot modal__foot--sticky tm-footer">
           <button type="button" class="btn-modal-secondary" data-close-modal>Kapat</button>
           <button type="button" class="btn-modal-primary btn-modal-primary--wide" id="btnPdfTaslak">
-            <i class="fa-solid fa-file-pdf"></i> PDF taslağı oluştur
+            <i class="fa-solid fa-file-pdf"></i> <span id="btnPdfTaslakLabel">PDF taslağı oluştur</span>
           </button>
         </div>
       </div>
@@ -529,6 +631,7 @@
         <button type="button" class="modal__close" data-close-modal aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <form class="modal__body" id="formPayment">
+        <input type="hidden" id="paymentEditDocId" value="" />
         <div class="form-grid form-grid--2">
           <div class="form-group form-group--full">
             <label class="form-required" for="pay_student">Öğrenci</label>
@@ -562,7 +665,7 @@
         </div>
         <div class="modal__foot" style="margin: 0 -1.5rem -1.5rem;">
           <button type="button" class="btn-modal-secondary" data-close-modal>Vazgeç</button>
-          <button type="submit" class="btn-modal-primary"><i class="fa-solid fa-check"></i> Kaydet</button>
+          <button type="submit" class="btn-modal-primary" id="btnPaymentSubmit"><i class="fa-solid fa-check"></i> Kaydet</button>
         </div>
       </form>
     </div>
@@ -577,6 +680,7 @@
         <button type="button" class="modal__close" data-close-modal aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <form class="modal__body" id="formExam">
+        <input type="hidden" id="examEditDocId" value="" />
         <div class="form-grid form-grid--2">
           <div class="form-group form-group--full">
             <label class="form-required" for="ex_student">Öğrenci</label>
@@ -620,7 +724,7 @@
         </div>
         <div class="modal__foot" style="margin: 0 -1.5rem -1.5rem;">
           <button type="button" class="btn-modal-secondary" data-close-modal>Vazgeç</button>
-          <button type="submit" class="btn-modal-primary"><i class="fa-solid fa-save"></i> Kaydet</button>
+          <button type="submit" class="btn-modal-primary" id="btnExamSubmit"><i class="fa-solid fa-save"></i> Kaydet</button>
         </div>
       </form>
     </div>
@@ -639,6 +743,15 @@
       setTimeout(warn, 4000);
     })();
   </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous"></script>
+  <script>
+    if (typeof pdfjsLib !== "undefined") {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    }
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous"></script>
   <script type="module" src="js/koc-panel.js"></script>
 </body>
 </html>
