@@ -2583,7 +2583,7 @@ function tmPreparePrintClone(clone, livePaper, widthPx, mm) {
     Math.round(297 * mm) +
     "px;max-width:" +
     widthPx +
-    "px;margin:0;padding:0;box-sizing:border-box;background:#fff;color:#111;position:relative;overflow:visible;-webkit-print-color-adjust:exact;print-color-adjust:exact;";
+    "px;margin:0!important;padding:0;box-sizing:border-box;background:#fff;color:#111;position:relative;left:0;top:0;overflow:visible;-webkit-print-color-adjust:exact;print-color-adjust:exact;";
   clone.style.setProperty("--tm-accent", acc);
   clone.style.setProperty("--tm-accent-rgb", accRgb);
   clone.style.setProperty("--tm-gutter", gut);
@@ -2688,14 +2688,17 @@ function tmWsDownloadPdf() {
   area.id = "tempPrintArea";
   area.setAttribute("aria-hidden", "true");
   area.style.cssText =
-    "position:absolute;left:-9999px;top:0;width:" +
+    "position:fixed;left:0;top:0;width:" +
     W +
     "px;min-height:" +
     H +
-    "px;margin:0;padding:0;background:#ffffff;color:#111111;overflow:visible;box-sizing:border-box;";
+    "px;margin:0;padding:0;background:#ffffff;color:#111111;overflow:visible;box-sizing:border-box;visibility:hidden;z-index:-1;pointer-events:none;";
 
   var clone = paper.cloneNode(true);
   tmPreparePrintClone(clone, paper, W, mm);
+  clone.style.position = "relative";
+  clone.style.left = "0";
+  clone.style.top = "0";
   area.appendChild(clone);
   document.body.appendChild(area);
 
@@ -2743,8 +2746,6 @@ function tmWsDownloadPdf() {
             scrollY: 0,
             width: W,
             height: contentH,
-            windowWidth: W,
-            windowHeight: contentH,
           },
           jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
         })
