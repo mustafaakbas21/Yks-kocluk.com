@@ -94,6 +94,10 @@ let tmWsPdfRendering = false;
 let tmWsWorkspaceBound = false;
 let tmActiveLibId = null;
 let tmWsDragBlock = null;
+let tmColorStudioBound = false;
+let tmHue = 210;
+let tmSat = 85;
+let tmVal = 42;
 const TM_IDB_NAME = "TestMakerProLibrary";
 const TM_IDB_VER = 1;
 const TM_IDB_STORE = "pdfs";
@@ -231,11 +235,458 @@ function tmLibraryRenderList() {
 }
 
 function tmRenumberTmQuestions() {
-  document.querySelectorAll("#tmA4Body .tm-a4-block").forEach(function (el, i) {
+  var paper = document.getElementById("tmA4Paper");
+  var order = [];
+  if (paper && paper.classList.contains("tm-template-osym")) {
+    var L = document.querySelectorAll("#tmA4ColLeft .tm-a4-block");
+    var R = document.querySelectorAll("#tmA4ColRight .tm-a4-block");
+    var mx = Math.max(L.length, R.length);
+    for (var i = 0; i < mx; i++) {
+      if (L[i]) order.push(L[i]);
+      if (R[i]) order.push(R[i]);
+    }
+  } else {
+    document.querySelectorAll("#tmA4Single .tm-a4-block").forEach(function (el) {
+      order.push(el);
+    });
+  }
+  order.forEach(function (el, idx) {
     var b = el.querySelector(".tm-q-badge");
-    if (b) b.textContent = "Soru " + (i + 1) + ")";
+    if (b) b.textContent = "Soru " + (idx + 1) + ")";
   });
 }
+
+function tmUpdateA4EmptyVisibility() {
+  var n = document.querySelectorAll("#tmA4Layout .tm-a4-block").length;
+  var empty = document.getElementById("tmA4Empty");
+  var dual = document.getElementById("tmA4Dual");
+  var single = document.getElementById("tmA4Single");
+  var paper = document.getElementById("tmA4Paper");
+  if (!empty || !dual || !single || !paper) return;
+  if (n === 0) {
+    empty.style.display = "flex";
+    dual.hidden = true;
+    single.hidden = true;
+    return;
+  }
+  empty.style.display = "none";
+  if (paper.classList.contains("tm-template-osym")) {
+    dual.hidden = false;
+    single.hidden = true;
+  } else {
+    dual.hidden = true;
+    single.hidden = false;
+  }
+}
+
+function tmCollectBlocksFromCurrent(mode) {
+  var blocks = [];
+  if (mode === "osym") {
+    var L = Array.prototype.slice.call(document.querySelectorAll("#tmA4ColLeft .tm-a4-block"));
+    var R = Array.prototype.slice.call(document.querySelectorAll("#tmA4ColRight .tm-a4-block"));
+    var mx = Math.max(L.length, R.length);
+    for (var i = 0; i < mx; i++) {
+      if (L[i]) blocks.push(L[i]);
+      if (R[i]) blocks.push(R[i]);
+    }
+  } else {
+    blocks = Array.prototype.slice.call(document.querySelectorAll("#tmA4Single .tm-a4-block"));
+  }
+  return blocks;
+}
+
+function tmMigrateLayoutForTemplate(fromMode, toMode) {
+  var blocks = tmCollectBlocksFromCurrent(fromMode);
+  var L = document.getElementById("tmA4ColLeft");
+  var R = document.getElementById("tmA4ColRight");
+  var S = document.getElementById("tmA4Single");
+  if (!L || !R || !S) return;
+  L.innerHTML = "";
+  R.innerHTML = "";
+  S.innerHTML = "";
+  blocks.forEach(function (b) {
+    b.remove();
+  });
+  if (toMode === "osym") {
+    blocks.forEach(function (b, i) {
+      (i % 2 === 0 ? L : R).appendChild(b);
+    });
+  } else {
+    blocks.forEach(function (b) {
+      S.appendChild(b);
+    });
+  }
+  tmUpdateA4EmptyVisibility();
+}
+
+function tmGetAppendParent() {
+  var paper = document.getElementById("tmA4Paper");
+  var empty = document.getElementById("tmA4Empty");
+  var dual = document.getElementById("tmA4Dual");
+  var single = document.getElementById("tmA4Single");
+  if (!paper || !empty || !dual || !single) return null;
+  empty.style.display = "none";
+  if (paper.classList.contains("tm-template-osym")) {
+    dual.hidden = false;
+    single.hidden = true;
+    var L = document.getElementById("tmA4ColLeft");
+    var R = document.getElementById("tmA4ColRight");
+    return L.querySelectorAll(".tm-a4-block").length <= R.querySelectorAll(".tm-a4-block").length ? L : R;
+  }
+  dual.hidden = true;
+  single.hidden = false;
+  return single;
+}
+
+var TM_COLOR_PRESETS = {
+  yks: { swatches: ["#1a1a1a", "#374151", "#0f172a", "#1e40af", "#991b1b"], def: "#1a1a1a" },
+  pastel: { swatches: ["#B3E5FC", "#C8E6C9", "#F8BBD0", "#81D4FA", "#A5D6A7"], def: "#0288D1" },
+  vivid: { swatches: ["#673AB7", "#00BCD4", "#FF5722", "#E91E63", "#FFC107"], def: "#673AB7" },
+};
+
+function tmNormalizeHex(h) {
+  h = String(h || "").trim();
+  if (!h) return null;
+  if (h[0] !== "#") h = "#" + h;
+  if (h.length === 4)
+    h = "#" + h[1] + h[1] + h[2] + h[2] + h[3] + h[3];
+  return /^#[0-9A-Fa-f]{6}$/.test(h) ? h.toUpperCase() : null;
+}
+
+function tmHexToRgb(hex) {
+  var x = tmNormalizeHex(hex);
+  if (!x) return null;
+  return {
+    r: parseInt(x.slice(1, 3), 16),
+    g: parseInt(x.slice(3, 5), 16),
+    b: parseInt(x.slice(5, 7), 16),
+  };
+}
+
+function tmRgbToHex(r, g, b) {
+  return (
+    "#" +
+    [r, g, b]
+      .map(function (n) {
+        return Math.max(0, Math.min(255, Math.round(n)))
+          .toString(16)
+          .padStart(2, "0");
+      })
+      .join("")
+      .toUpperCase()
+  );
+}
+
+function tmHsvToRgb(h, s, v) {
+  s /= 100;
+  v /= 100;
+  var c = v * s;
+  var x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  var m = v - c;
+  var rp = 0,
+    gp = 0,
+    bp = 0;
+  if (h < 60) {
+    rp = c;
+    gp = x;
+  } else if (h < 120) {
+    rp = x;
+    gp = c;
+  } else if (h < 180) {
+    gp = c;
+    bp = x;
+  } else if (h < 240) {
+    gp = x;
+    bp = c;
+  } else if (h < 300) {
+    rp = x;
+    bp = c;
+  } else {
+    rp = c;
+    bp = x;
+  }
+  return {
+    r: Math.round((rp + m) * 255),
+    g: Math.round((gp + m) * 255),
+    b: Math.round((bp + m) * 255),
+  };
+}
+
+function tmRgbToHsv(r, g, b) {
+  r /= 255;
+  g /= 255;
+  b /= 255;
+  var max = Math.max(r, g, b);
+  var min = Math.min(r, g, b);
+  var d = max - min;
+  var h = 0;
+  if (d !== 0) {
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+    else if (max === g) h = ((b - r) / d + 2) * 60;
+    else h = ((r - g) / d + 4) * 60;
+  }
+  var s = max === 0 ? 0 : (d / max) * 100;
+  var v = max * 100;
+  return { h: h, s: s, v: v };
+}
+
+function tmApplyAccentHex(hex) {
+  var x = tmNormalizeHex(hex);
+  if (!x) return;
+  var rgb = tmHexToRgb(x);
+  if (!rgb) return;
+  var paper = document.getElementById("tmA4Paper");
+  if (paper) {
+    paper.style.setProperty("--tm-accent", x);
+    paper.style.setProperty("--tm-accent-rgb", rgb.r + "," + rgb.g + "," + rgb.b);
+  }
+  document.documentElement.style.setProperty("--tm-studio-accent", x);
+}
+
+function tmSyncColorInputsFromHex(hex) {
+  var x = tmNormalizeHex(hex);
+  if (!x) return;
+  var rgb = tmHexToRgb(x);
+  if (!rgb) return;
+  var hsv = tmRgbToHsv(rgb.r, rgb.g, rgb.b);
+  tmHue = hsv.h;
+  tmSat = hsv.s;
+  tmVal = hsv.v;
+  var hi = document.getElementById("tmColorHex");
+  var ri = document.getElementById("tmColorR");
+  var gi = document.getElementById("tmColorG");
+  var bi = document.getElementById("tmColorB");
+  if (hi) hi.value = x;
+  if (ri) ri.value = String(rgb.r);
+  if (gi) gi.value = String(rgb.g);
+  if (bi) bi.value = String(rgb.b);
+}
+
+function tmDrawHueWheel() {
+  var c = document.getElementById("tmHueWheel");
+  if (!c) return;
+  var ctx = c.getContext("2d");
+  var w = c.width;
+  var h = c.height;
+  var cx = w / 2;
+  var cy = h / 2;
+  var rOut = Math.min(cx, cy) - 2;
+  var rIn = rOut * 0.55;
+  ctx.clearRect(0, 0, w, h);
+  for (var ang = 0; ang < 360; ang += 1) {
+    ctx.beginPath();
+    ctx.strokeStyle = "hsl(" + ang + ",100%,50%)";
+    ctx.lineWidth = rOut - rIn + 1;
+    ctx.arc(cx, cy, (rOut + rIn) / 2, ((ang - 1) * Math.PI) / 180, (ang * Math.PI) / 180);
+    ctx.stroke();
+  }
+  var mr = 6;
+  var rad = ((tmHue - 90) * Math.PI) / 180;
+  var pr = (rOut + rIn) / 2;
+  ctx.beginPath();
+  ctx.fillStyle = "#fff";
+  ctx.arc(cx + Math.cos(rad) * pr, cy + Math.sin(rad) * pr, mr, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#222";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+function tmDrawSatVal() {
+  var c = document.getElementById("tmSatVal");
+  if (!c) return;
+  var ctx = c.getContext("2d");
+  var w = c.width;
+  var h = c.height;
+  var img = ctx.createImageData(w, h);
+  var hu = tmHue;
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      var s = (x / w) * 100;
+      var v = (1 - y / h) * 100;
+      var rgb = tmHsvToRgb(hu, s, v);
+      var i = (y * w + x) * 4;
+      img.data[i] = rgb.r;
+      img.data[i + 1] = rgb.g;
+      img.data[i + 2] = rgb.b;
+      img.data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  var px = (tmSat / 100) * w;
+  var py = (1 - tmVal / 100) * h;
+  ctx.beginPath();
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 2;
+  ctx.arc(px, py, 5, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = "#000";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+function tmUpdateCompSwatches() {
+  var box = document.getElementById("tmCompSwatches");
+  if (!box) return;
+  var hex = document.getElementById("tmColorHex");
+  var x = hex && tmNormalizeHex(hex.value);
+  if (!x) return;
+  var rgb = tmHexToRgb(x);
+  if (!rgb) return;
+  var hsv = tmRgbToHsv(rgb.r, rgb.g, rgb.b);
+  var comps = [
+    tmRgbToHex.apply(null, Object.values(tmHsvToRgb((hsv.h + 180) % 360, hsv.s, hsv.v))),
+    tmRgbToHex.apply(null, Object.values(tmHsvToRgb((hsv.h + 120) % 360, hsv.s, hsv.v))),
+    tmRgbToHex.apply(null, Object.values(tmHsvToRgb((hsv.h + 240) % 360, hsv.s, hsv.v))),
+    tmRgbToHex.apply(null, Object.values(tmHsvToRgb((hsv.h + 30) % 360, Math.min(100, hsv.s + 15), Math.min(100, hsv.v + 10)))),
+  ];
+  box.innerHTML = "";
+  comps.forEach(function (ch) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "tm-comp-swatch";
+    b.style.background = ch;
+    b.title = ch;
+    b.addEventListener("click", function () {
+      tmApplyAccentHex(ch);
+      tmSyncColorInputsFromHex(ch);
+      tmDrawHueWheel();
+      tmDrawSatVal();
+      tmUpdateCompSwatches();
+    });
+    box.appendChild(b);
+  });
+}
+
+function tmApplyHsvToAccent() {
+  var rgb = tmHsvToRgb(tmHue, tmSat, tmVal);
+  var hex = tmRgbToHex(rgb.r, rgb.g, rgb.b);
+  tmApplyAccentHex(hex);
+  tmSyncColorInputsFromHex(hex);
+  tmDrawHueWheel();
+  tmUpdateCompSwatches();
+}
+
+function initTmColorStudio() {
+  if (tmColorStudioBound) return;
+  var preset = document.getElementById("tmColorPreset");
+  var grid = document.getElementById("tmSwatchGrid");
+  var wheel = document.getElementById("tmHueWheel");
+  var sat = document.getElementById("tmSatVal");
+  if (!preset || !grid || !wheel || !sat) return;
+  tmColorStudioBound = true;
+
+  function refillSwatches() {
+    var key = preset.value || "yks";
+    var p = TM_COLOR_PRESETS[key] || TM_COLOR_PRESETS.yks;
+    grid.innerHTML = "";
+    p.swatches.forEach(function (col) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "tm-swatch";
+      btn.style.background = col;
+      btn.title = col;
+      btn.addEventListener("click", function () {
+        grid.querySelectorAll(".tm-swatch").forEach(function (x) {
+          x.classList.remove("is-active");
+        });
+        btn.classList.add("is-active");
+        tmApplyAccentHex(col);
+        tmSyncColorInputsFromHex(col);
+        tmDrawHueWheel();
+        tmDrawSatVal();
+        tmUpdateCompSwatches();
+      });
+      grid.appendChild(btn);
+    });
+    tmApplyAccentHex(p.def);
+    tmSyncColorInputsFromHex(p.def);
+    tmDrawHueWheel();
+    tmDrawSatVal();
+    tmUpdateCompSwatches();
+    var first = grid.querySelector(".tm-swatch");
+    if (first) first.classList.add("is-active");
+  }
+
+  preset.addEventListener("change", refillSwatches);
+
+  function wheelPick(e) {
+    var rect = wheel.getBoundingClientRect();
+    var cx = rect.left + rect.width / 2;
+    var cy = rect.top + rect.height / 2;
+    var dx = e.clientX - cx;
+    var dy = e.clientY - cy;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    var rOut = Math.min(rect.width, rect.height) / 2 - 2;
+    var rIn = rOut * 0.55;
+    if (dist >= rIn && dist <= rOut + 8) {
+      tmHue = (Math.round((Math.atan2(dy, dx) * 180) / Math.PI) + 450) % 360;
+      tmApplyHsvToAccent();
+      tmDrawSatVal();
+    }
+  }
+  wheel.addEventListener("mousedown", function (e) {
+    wheelPick(e);
+    function mm(ev) {
+      wheelPick(ev);
+    }
+    function mu() {
+      document.removeEventListener("mousemove", mm);
+      document.removeEventListener("mouseup", mu);
+    }
+    document.addEventListener("mousemove", mm);
+    document.addEventListener("mouseup", mu);
+  });
+
+  function svPick(e) {
+    var rect = sat.getBoundingClientRect();
+    tmSat = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    tmVal = Math.max(0, Math.min(100, (1 - (e.clientY - rect.top) / rect.height) * 100));
+    tmApplyHsvToAccent();
+    tmDrawSatVal();
+  }
+  sat.addEventListener("mousedown", function (e) {
+    svPick(e);
+    function mm(ev) {
+      svPick(ev);
+    }
+    function mu() {
+      document.removeEventListener("mousemove", mm);
+      document.removeEventListener("mouseup", mu);
+    }
+    document.addEventListener("mousemove", mm);
+    document.addEventListener("mouseup", mu);
+  });
+
+  document.getElementById("tmColorHex").addEventListener("change", function () {
+    var x = tmNormalizeHex(document.getElementById("tmColorHex").value);
+    if (x) {
+      tmApplyAccentHex(x);
+      tmSyncColorInputsFromHex(x);
+      tmDrawHueWheel();
+      tmDrawSatVal();
+      tmUpdateCompSwatches();
+    }
+  });
+  ["tmColorR", "tmColorG", "tmColorB"].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el)
+      el.addEventListener("change", function () {
+        var r = parseInt(document.getElementById("tmColorR").value, 10) || 0;
+        var g = parseInt(document.getElementById("tmColorG").value, 10) || 0;
+        var b = parseInt(document.getElementById("tmColorB").value, 10) || 0;
+        var hex = tmRgbToHex(r, g, b);
+        tmApplyAccentHex(hex);
+        tmSyncColorInputsFromHex(hex);
+        tmDrawHueWheel();
+        tmDrawSatVal();
+        tmUpdateCompSwatches();
+      });
+  });
+
+  refillSwatches();
+}
+
 let apptCarouselOffset = 0;
 let randevuChartInstance = null;
 let netBasariChartInstance = null;
@@ -2127,6 +2578,8 @@ function tmWsDownloadPdf() {
     .replace(/[\\/:*?"<>|]/g, "-");
   var prevOverflow = paper.style.overflow;
   paper.style.overflow = "hidden";
+  var pw = paper.offsetWidth;
+  var ph = Math.max(paper.scrollHeight, paper.offsetHeight);
   html2pdf()
     .set({
       margin: 0,
@@ -2137,11 +2590,14 @@ function tmWsDownloadPdf() {
         scale: 2,
         useCORS: true,
         scrollY: 0,
+        scrollX: 0,
         logging: false,
         letterRendering: true,
         allowTaint: true,
-        windowWidth: paper.scrollWidth,
-        windowHeight: paper.scrollHeight,
+        width: pw,
+        height: ph,
+        windowWidth: pw,
+        windowHeight: ph,
       },
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
     })
@@ -2214,11 +2670,18 @@ function tmApplyWorkspaceTemplate() {
   var paper = document.getElementById("tmA4Paper");
   var sel = document.getElementById("tmTemplate");
   if (!paper) return;
+  var prev = paper.getAttribute("data-tm-layout") || "osym";
   var mode = (sel && sel.value) || "osym";
   if (mode !== "osym" && mode !== "vip" && mode !== "foy") mode = "osym";
+  if (prev !== mode && document.querySelectorAll("#tmA4Layout .tm-a4-block").length > 0) {
+    tmMigrateLayoutForTemplate(prev, mode);
+  }
+  paper.setAttribute("data-tm-layout", mode);
   paper.classList.remove("tm-template-osym", "tm-template-vip", "tm-template-foy");
   paper.classList.add("tm-template-" + mode);
   tmSyncPaperHeaders();
+  tmUpdateA4EmptyVisibility();
+  tmRenumberTmQuestions();
 }
 
 function bindTestMakerWorkspace() {
@@ -2313,9 +2776,7 @@ function bindTestMakerWorkspace() {
         return;
       }
       var dataUrl = canvas.toDataURL("image/png");
-      var empty = document.getElementById("tmA4Empty");
-      if (empty) empty.style.display = "none";
-      var a4b = document.getElementById("tmA4Body");
+      var a4b = tmGetAppendParent();
       if (!a4b) return;
       var wrap = document.createElement("div");
       wrap.className = "tm-a4-block";
@@ -2323,7 +2784,7 @@ function bindTestMakerWorkspace() {
       wrap.setAttribute("data-tm-drag", "1");
       var badge = document.createElement("div");
       badge.className = "tm-q-badge";
-      var n = a4b.querySelectorAll(".tm-a4-block").length + 1;
+      var n = document.querySelectorAll("#tmA4Layout .tm-a4-block").length + 1;
       badge.textContent = "Soru " + n + ")";
       var imgW = document.createElement("div");
       imgW.className = "tm-a4-block__imgwrap";
@@ -2346,7 +2807,7 @@ function bindTestMakerWorkspace() {
     });
 
   var paper = document.getElementById("tmA4Paper");
-  var a4body = document.getElementById("tmA4Body");
+  var a4layout = document.getElementById("tmA4Layout");
   if (paper)
     paper.addEventListener("click", function (ev) {
       var x = ev.target.closest && ev.target.closest(".tm-a4-block__x");
@@ -2354,37 +2815,36 @@ function bindTestMakerWorkspace() {
       ev.preventDefault();
       var bl = x.closest(".tm-a4-block");
       if (bl) bl.remove();
-      if (a4body && !a4body.querySelector(".tm-a4-block")) {
-        var em = document.getElementById("tmA4Empty");
-        if (em) em.style.display = "";
-      }
+      tmUpdateA4EmptyVisibility();
       tmRenumberTmQuestions();
     });
 
-  if (a4body) {
-    a4body.addEventListener("dragstart", function (e) {
+  if (a4layout) {
+    a4layout.addEventListener("dragstart", function (e) {
       var t = e.target.closest && e.target.closest(".tm-a4-block");
-      if (!t || !a4body.contains(t)) return;
+      if (!t || !a4layout.contains(t)) return;
       tmWsDragBlock = t;
       t.classList.add("tm-dragging");
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", "tm");
     });
-    a4body.addEventListener("dragend", function () {
+    a4layout.addEventListener("dragend", function () {
       if (tmWsDragBlock) {
         tmWsDragBlock.classList.remove("tm-dragging");
         tmWsDragBlock = null;
       }
-      a4body.querySelectorAll(".tm-drag-over").forEach(function (n) {
+      a4layout.querySelectorAll(".tm-drag-over").forEach(function (n) {
         n.classList.remove("tm-drag-over");
       });
       tmRenumberTmQuestions();
     });
-    a4body.addEventListener("dragover", function (e) {
-      if (!tmWsDragBlock || !a4body.contains(tmWsDragBlock)) return;
+    a4layout.addEventListener("dragover", function (e) {
+      if (!tmWsDragBlock || !a4layout.contains(tmWsDragBlock)) return;
+      var col = e.target.closest && e.target.closest("#tmA4ColLeft, #tmA4ColRight, #tmA4Single");
+      if (!col) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
-      var blocks = Array.prototype.slice.call(a4body.querySelectorAll(".tm-a4-block"));
+      var blocks = Array.prototype.slice.call(col.querySelectorAll(".tm-a4-block"));
       var y = e.clientY;
       var insertBefore = null;
       for (var i = 0; i < blocks.length; i++) {
@@ -2395,8 +2855,8 @@ function bindTestMakerWorkspace() {
           break;
         }
       }
-      if (insertBefore) a4body.insertBefore(tmWsDragBlock, insertBefore);
-      else a4body.appendChild(tmWsDragBlock);
+      if (insertBefore) col.insertBefore(tmWsDragBlock, insertBefore);
+      else col.appendChild(tmWsDragBlock);
     });
   }
 
@@ -2490,6 +2950,7 @@ function bindTestMakerWorkspace() {
     td.addEventListener("input", tmSyncPaperHeaders);
   }
   tmApplyWorkspaceTemplate();
+  initTmColorStudio();
 }
 
 function navigateTo(view) {

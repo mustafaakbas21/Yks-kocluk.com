@@ -294,6 +294,30 @@
   color: #111;
   position: relative;
   overflow: hidden;
+  --tm-accent: #1a1a1a;
+  --tm-accent-rgb: 26, 26, 26;
+  --tm-accent-soft: rgba(26, 26, 26, 0.12);
+  --tm-gutter: #c8c8c8;
+}
+
+.tm-h-accent-line {
+  background: var(--tm-accent) !important;
+  height: 2px !important;
+}
+
+.tm-h-accent-bar {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--tm-accent) 70%, #312e81),
+    var(--tm-accent),
+    color-mix(in srgb, var(--tm-accent) 60%, #1e40af)
+  ) !important;
+}
+
+@supports not (color: color-mix(in srgb, red, blue)) {
+  .tm-h-accent-bar {
+    background: var(--tm-accent) !important;
+  }
 }
 
 /* ========== Şablon başlıkları ========== */
@@ -355,23 +379,89 @@
 }
 
 .tm-h-osym__line {
-  height: 1px;
-  background: #000;
+  height: 2px;
+  background: var(--tm-accent);
   margin-bottom: 2mm;
 }
 
-.tm-template-osym #tmA4Body {
-  column-count: 2;
-  column-gap: 8mm;
-  column-fill: auto;
-  padding: 0 10mm 10mm;
+/* İki sütun + merkez çizgi — mm sabit (PDF ile aynı) */
+.tm-a4-layout {
+  width: 100%;
+  box-sizing: border-box;
   font-family: "Times New Roman", Times, serif;
 }
 
-.tm-template-osym .tm-a4-block {
+.tm-a4-empty--full {
+  min-height: 140mm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8mm 12mm;
+  color: #9ca3af;
+  font-size: 0.88rem;
+  border: 2px dashed #e5e7eb;
+  margin: 0 10mm 10mm;
+  border-radius: 6px;
+  box-sizing: border-box;
+}
+
+.tm-template-vip .tm-a4-empty--full,
+.tm-template-foy .tm-a4-empty--full {
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+.tm-a4-dual {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: center;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 10mm 10mm;
+  gap: 0;
+  min-height: 200mm;
+}
+
+.tm-a4-dual__col {
+  flex: 0 0 92.5mm;
+  width: 92.5mm;
+  max-width: 92.5mm;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.tm-a4-dual__gutter {
+  flex: 0 0 3mm;
+  width: 3mm;
+  min-height: 195mm;
+  align-self: stretch;
+  background: linear-gradient(90deg, transparent, var(--tm-gutter) 35%, var(--tm-gutter) 65%, transparent);
+  border-left: 1px solid var(--tm-gutter);
+  border-right: 1px solid var(--tm-gutter);
+  box-sizing: border-box;
+  opacity: 0.95;
+}
+
+.tm-template-osym .tm-a4-dual__col .tm-a4-block {
   break-inside: avoid;
-  -webkit-column-break-inside: avoid;
   page-break-inside: avoid;
+}
+
+.tm-a4-single {
+  padding: 8mm 12mm 12mm;
+  min-height: 120mm;
+  box-sizing: border-box;
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+.tm-template-osym .tm-a4-single {
+  font-family: "Times New Roman", Times, serif;
+}
+
+.tm-template-vip .tm-a4-single,
+.tm-template-foy .tm-a4-single {
+  padding: 8mm 12mm 12mm;
 }
 
 /* ========== Şablon: VIP ========== */
@@ -399,7 +489,7 @@
 
 .tm-h-vip__logo i {
   font-size: 1.35rem;
-  color: #5b21b6;
+  color: var(--tm-accent);
 }
 
 .tm-h-vip__meta {
@@ -414,7 +504,7 @@
 
 .tm-h-vip__topic {
   font-size: 0.82rem;
-  color: #5b21b6;
+  color: var(--tm-accent);
   margin-top: 0.2rem;
   font-weight: 600;
 }
@@ -442,10 +532,6 @@
   margin-right: 0.75rem;
 }
 
-.tm-template-vip #tmA4Body {
-  padding: 8mm 12mm 12mm;
-  font-family: "Inter", system-ui, sans-serif;
-}
 
 /* ========== Şablon: Föy ========== */
 .tm-paper-header--foy {
@@ -513,12 +599,7 @@
   border-radius: 2px;
 }
 
-.tm-template-foy #tmA4Body {
-  padding: 10mm 14mm 14mm;
-  font-family: "Inter", system-ui, sans-serif;
-}
-
-.tm-template-foy .tm-a4-block {
+.tm-template-foy .tm-a4-single .tm-a4-block {
   margin-bottom: 1.35rem;
 }
 
@@ -615,26 +696,6 @@
   background: #991b1b;
 }
 
-.tm-a4-empty {
-  min-height: 100mm;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #9ca3af;
-  font-size: 0.88rem;
-  text-align: center;
-  padding: 2rem;
-  border: 2px dashed #e5e7eb;
-  border-radius: 8px;
-  column-span: all;
-  -webkit-column-span: all;
-}
-
-.tm-template-vip .tm-a4-empty,
-.tm-template-foy .tm-a4-empty {
-  column-span: none;
-  -webkit-column-span: unset;
-}
 
 .tm-workspace__tools {
   flex: 0 0 34%;
@@ -816,6 +877,139 @@
 .tm-btn-add-a4:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* Renk stüdyosu */
+.tm-theme-studio {
+  margin-top: 0.5rem;
+  padding: 0.85rem 0.65rem;
+  border-radius: 16px;
+  background: linear-gradient(165deg, rgba(30, 27, 45, 0.95), rgba(15, 15, 22, 0.98));
+  border: 1px solid rgba(167, 139, 250, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.tm-studio-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #a78bfa;
+  margin-bottom: 0.65rem;
+}
+
+.tm-studio-select {
+  padding: 0.45rem 0.55rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.45);
+  color: #f4f4f5;
+  font-size: 0.82rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.tm-swatch-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.85rem;
+}
+
+.tm-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.tm-swatch:hover,
+.tm-swatch.is-active {
+  transform: scale(1.12);
+  box-shadow: 0 0 0 2px #a78bfa, 0 4px 14px rgba(124, 58, 237, 0.45);
+}
+
+.tm-wheel-studio {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 0.75rem;
+}
+
+.tm-studio-sub {
+  margin: 0 0 0.45rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.tm-wheel-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.tm-hue-wheel,
+.tm-satval {
+  border-radius: 50%;
+  cursor: crosshair;
+  display: block;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.tm-satval {
+  border-radius: 8px;
+}
+
+.tm-hex-row,
+.tm-rgb-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  align-items: center;
+  font-size: 0.72rem;
+  color: #a1a1aa;
+}
+
+.tm-studio-input {
+  margin-left: 0.25rem;
+  padding: 0.35rem 0.45rem;
+  width: 6.5rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  font-family: ui-monospace, monospace;
+  font-size: 0.78rem;
+}
+
+.tm-studio-input--sm {
+  width: 3.2rem;
+}
+
+.tm-comp-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.tm-comp-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  padding: 0;
 }
 
 .tm-workspace__bar {
