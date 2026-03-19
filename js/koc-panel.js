@@ -658,7 +658,12 @@ function tmGetQuestionsPerPage() {
 
 function tmGetAllPapers() {
   var c = document.getElementById("a4-pages-container");
-  if (c) return Array.prototype.slice.call(c.querySelectorAll(".a4-paper"));
+  if (c) {
+    /* Yalnızca doğrudan çocuklar — iç içe .a4-paper yanlış sıra / tekrar önlenir */
+    return Array.prototype.filter.call(c.children, function (el) {
+      return el.classList && el.classList.contains("a4-paper");
+    });
+  }
   var p = document.getElementById("tmA4Paper");
   return p ? [p] : [];
 }
@@ -851,20 +856,30 @@ function tmRenumberTmQuestions() {
 function tmUpdateA4EmptyVisibility() {
   var n = tmTotalQuestionBlocks();
   var empty = document.getElementById("tmA4Empty");
-  var dual = document.getElementById("testContentArea");
-  var single = document.getElementById("tmA4Single");
-  var paper = document.getElementById("tmA4Paper");
-  if (!empty || !dual || !single || !paper) return;
+  var container = document.getElementById("a4-pages-container");
+  if (!empty || !container) return;
   if (n === 0) {
     empty.style.display = "flex";
-    dual.hidden = true;
-    single.hidden = true;
+    tmGetAllPapers().forEach(function (p) {
+      var ta = p.querySelector(".test-content-area");
+      if (ta) ta.hidden = true;
+      var si = p.querySelector(".tm-a4-single");
+      if (si) si.hidden = true;
+    });
     tmRemoveExtraA4Pages();
     return;
   }
   empty.style.display = "none";
-  dual.hidden = false;
-  single.hidden = true;
+  /* Önceden yalnızca #testContentArea (1. sayfa) açılıyordu; 2+ sayfa hidden kalınca PDF son sayfayı atlıyordu */
+  tmGetAllPapers().forEach(function (p) {
+    var ta = p.querySelector(".test-content-area");
+    if (ta) {
+      ta.hidden = false;
+      ta.removeAttribute("hidden");
+    }
+    var si = p.querySelector(".tm-a4-single");
+    if (si) si.hidden = true;
+  });
 }
 
 function tmCollectBlocksFromCurrent(mode) {
@@ -3965,17 +3980,20 @@ function tmPreparePrintClone(clone, livePaper, widthPx, mm) {
   var emp = clone.querySelector(".tm-a4-empty");
   if (emp) emp.style.display = "none";
 
-  var liveDual = livePaper.querySelector("#testContentArea") || livePaper.querySelector(".test-content-area");
-  var liveSingle = livePaper.querySelector("#tmA4Single") || livePaper.querySelector(".tm-a4-single");
+  var liveDual = livePaper.querySelector(".test-content-area");
+  var liveSingle = livePaper.querySelector(".tm-a4-single");
   var cDual = clone.querySelector(".test-content-area");
   var cSingle = clone.querySelector(".tm-a4-single");
+  var dualHasQuestions = !!(liveDual && liveDual.querySelector(".tm-a4-block.question-item"));
 
   var padX = Math.round(10 * mm);
   var padB = Math.round(10 * mm);
   var colGap = Math.round(2 * mm);
 
-  if (liveDual && !liveDual.hidden && cDual) {
+  /* Alt sayfalarda hidden yanlış kalırsa bile soru varsa çift sütunu PDF’e zorla */
+  if (cDual && (dualHasQuestions || (liveDual && !liveDual.hidden))) {
     cDual.removeAttribute("hidden");
+    cDual.hidden = false;
     cDual.style.cssText =
       "display:flex!important;flex-direction:row;flex-wrap:nowrap;align-items:flex-start;width:100%;box-sizing:border-box;padding:0 " +
       padX +
@@ -3994,7 +4012,11 @@ function tmPreparePrintClone(clone, livePaper, widthPx, mm) {
       cSingle.setAttribute("hidden", "");
       cSingle.style.display = "none";
     }
-  } else if (liveSingle && !liveSingle.hidden && cSingle) {
+  } else if (
+    cSingle &&
+    liveSingle &&
+    (liveSingle.querySelector(".tm-a4-block.question-item") || !liveSingle.hidden)
+  ) {
     cSingle.removeAttribute("hidden");
     cSingle.style.cssText =
       "display:block!important;width:100%;box-sizing:border-box;padding:" +
@@ -4033,6 +4055,7 @@ function tmPreparePrintClone(clone, livePaper, widthPx, mm) {
 }
 
 function tmWsDownloadPdf() {
+  tmUpdateA4EmptyVisibility();
   var papers = tmGetAllPapers();
   if (!papers.length || tmTotalQuestionBlocks() === 0) {
     showToast("Önce A4'e soru ekleyin.");
