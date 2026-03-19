@@ -107,23 +107,16 @@ let tmEditorDrawing = false;
 let tmEditorDirty = false;
 let tmEditorTempPoint = null;
 let tmEditorAnnotations = {};
-let tmAnnotReturnSubView = "creator";
+let tmAnnotReturnSubView = "testmaker";
 let tmOptikStripVisible = false;
-const TM_TEMPLATE_IDS = [
-  "osym",
-  "vip",
-  "foy",
-  "t01",
-  "t02",
-  "t03",
-  "t04",
-  "t05",
-  "t06",
-  "t07",
-  "t08",
-  "t09",
-  "t10",
-];
+const TM_TEMPLATE_IDS = ["osym", "vip", "foy", "t01", "t02", "t03", "t04", "t05", "t06", "t07"];
+const TM_TEMPLATE_LEGACY_MAP = { t08: "t07", t09: "t07", t10: "t07" };
+function tmNormalizeTemplateMode(m) {
+  m = String(m || "osym").trim();
+  if (TM_TEMPLATE_LEGACY_MAP[m]) m = TM_TEMPLATE_LEGACY_MAP[m];
+  if (TM_TEMPLATE_IDS.indexOf(m) === -1) m = "osym";
+  return m;
+}
 function tmTemplatePaperClasses() {
   return TM_TEMPLATE_IDS.map(function (id) {
     return "tm-template-" + id;
@@ -274,37 +267,62 @@ function tmLibraryRenderList() {
     });
 }
 
+function tmSavedPdfRowHtml(it, withCover) {
+  var kind = it.kind || "pdf";
+  var tag =
+    kind === "layout"
+      ? ' <span class="tm-library__item-kind">Mizanpaj</span>'
+      : "";
+  var cover =
+    withCover && kind !== "layout"
+      ? '<div class="tm-saved-pdf-item__cover" aria-hidden="true"><i class="fa-solid fa-file-pdf"></i><span>PDF</span></div>'
+      : "";
+  return (
+    '<li class="tm-saved-pdf-item" data-lib-id="' +
+    escapeHtml(it.id) +
+    '" data-lib-kind="' +
+    escapeHtml(kind) +
+    '">' +
+    cover +
+    '<span class="tm-saved-pdf-item__name">' +
+    escapeHtml(it.name) +
+    tag +
+    '</span><div class="tm-saved-pdf-item__actions"><button type="button" class="is-edit" data-lib-edit="' +
+    escapeHtml(it.id) +
+    '"><i class="fa-solid fa-pen"></i> Düzenle</button><button type="button" class="is-del" data-lib-del="' +
+    escapeHtml(it.id) +
+    '"><i class="fa-solid fa-trash"></i> Sil</button></div></li>'
+  );
+}
+
 function tmRenderSavedPdfLibrary(items) {
   var host = document.getElementById("tmSavedPdfLibrary");
-  if (!host) return;
+  var hostPdfEd = document.getElementById("tmPdfEditorSavedList");
   var list = Array.isArray(items) ? items : [];
-  if (!list.length) {
-    host.innerHTML = '<li class="tm-library__empty">Hazır PDF yok.</li>';
-    return;
+  if (host) {
+    if (!list.length) {
+      host.innerHTML = '<li class="tm-library__empty">Hazır PDF yok.</li>';
+    } else {
+      host.innerHTML = list.map(function (it) {
+        return tmSavedPdfRowHtml(it, false);
+      }).join("");
+    }
   }
-  host.innerHTML = list
-    .map(function (it) {
-      var kind = it.kind || "pdf";
-      var tag =
-        kind === "layout"
-          ? ' <span class="tm-library__item-kind">Mizanpaj</span>'
-          : "";
-      return (
-        '<li class="tm-saved-pdf-item" data-lib-id="' +
-        escapeHtml(it.id) +
-        '" data-lib-kind="' +
-        escapeHtml(kind) +
-        '"><span class="tm-saved-pdf-item__name">' +
-        escapeHtml(it.name) +
-        tag +
-        '</span><div class="tm-saved-pdf-item__actions"><button type="button" class="is-edit" data-lib-edit="' +
-        escapeHtml(it.id) +
-        '"><i class="fa-solid fa-pen"></i> Düzenle</button><button type="button" class="is-del" data-lib-del="' +
-        escapeHtml(it.id) +
-        '"><i class="fa-solid fa-trash"></i> Sil</button></div></li>'
-      );
-    })
-    .join("");
+  if (hostPdfEd) {
+    var pdfs = list.filter(function (it) {
+      return (it.kind || "pdf") !== "layout";
+    });
+    if (!pdfs.length) {
+      hostPdfEd.innerHTML =
+        '<li class="tm-library__empty">Henüz PDF yok. <strong>PDF yükle</strong> ile ekleyin veya Kütüphane’den aktarın.</li>';
+    } else {
+      hostPdfEd.innerHTML = pdfs
+        .map(function (it) {
+          return tmSavedPdfRowHtml(it, true);
+        })
+        .join("");
+    }
+  }
 }
 
 function tmAnnotatorOpen() {
@@ -313,14 +331,17 @@ function tmAnnotatorOpen() {
   var cre = document.getElementById("tmViewCreator");
   var headTest = document.querySelector("#tmWorkspaceRoot .tm-workspace__header");
   var headLib = document.querySelector("#view-library .tm-workspace__header");
-  if (lib && !lib.hidden) tmAnnotReturnSubView = "library";
-  else tmAnnotReturnSubView = "creator";
+  var headPdf = document.querySelector("#view-pdf-editor .tm-workspace__header");
+  if (currentView === "library") tmAnnotReturnSubView = "library";
+  else if (currentView === "pdf-editor") tmAnnotReturnSubView = "pdf-editor";
+  else tmAnnotReturnSubView = "testmaker";
   if (ann) ann.hidden = false;
   document.body.classList.add("tm-annotate-open");
   if (lib) lib.hidden = true;
   if (cre) cre.hidden = true;
   if (headTest) headTest.hidden = true;
   if (headLib) headLib.hidden = true;
+  if (headPdf) headPdf.hidden = true;
   tmAnnotToolSync();
   tmEditorBindCanvas();
 }
@@ -329,7 +350,10 @@ function tmAnnotatorClose() {
   var ann = document.getElementById("viewPdfDuzenle");
   if (ann) ann.hidden = true;
   document.body.classList.remove("tm-annotate-open");
-  navigateTo(tmAnnotReturnSubView === "library" ? "library" : "testmaker");
+  var ret = tmAnnotReturnSubView;
+  if (ret === "library") navigateTo("library");
+  else if (ret === "pdf-editor") navigateTo("pdf-editor");
+  else navigateTo("testmaker");
 }
 
 function testmakerSetSubView(mode) {
@@ -513,6 +537,7 @@ function tmLoadLayoutFromLibrary(rec) {
   if (p.template && document.getElementById("tmTemplate")) {
     var tmSel0 = document.getElementById("tmTemplate");
     var tv0 = String(p.template);
+    if (TM_TEMPLATE_LEGACY_MAP[tv0]) tv0 = TM_TEMPLATE_LEGACY_MAP[tv0];
     if (TM_TEMPLATE_IDS.indexOf(tv0) === -1) tv0 = "osym";
     tmSel0.value = tv0;
   }
@@ -687,7 +712,7 @@ function tmCreateNewA4Page() {
   if (dupOptik) dupOptik.remove();
   var st = tmpl.getAttribute("style") || "";
   clone.setAttribute("style", st);
-  var mode = tmpl.getAttribute("data-tm-layout") || "osym";
+  var mode = tmNormalizeTemplateMode(tmpl.getAttribute("data-tm-layout"));
   clone.setAttribute("data-tm-layout", mode);
   tmTemplatePaperClasses().forEach(function (tcl) {
     clone.classList.remove(tcl);
@@ -1568,16 +1593,80 @@ function renderAppointmentsPage() {
   row.innerHTML = list.map(appointmentCardHtml).join("");
 }
 
-const WEEK_LABELS = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
-const RANDEVU_GUN_ADLARI_TR = [
-  "Pazartesi",
-  "Salı",
-  "Çarşamba",
-  "Perşembe",
-  "Cuma",
-  "Cumartesi",
-  "Pazar",
-];
+/** Bugünden başlayan 7 gün — grafik ekseni (1. etiket = bugün, örn. "20 Mart Cuma") */
+function buildRollingAppointmentChartAxis() {
+  var start = new Date();
+  start.setHours(0, 0, 0, 0);
+  var startMs = start.getTime();
+  function trTitle(s) {
+    if (!s) return "";
+    return s.charAt(0).toLocaleUpperCase("tr-TR") + s.slice(1);
+  }
+  function formatAxisLabel(d) {
+    var dayNum = d.getDate();
+    var monthStr = d.toLocaleDateString("tr-TR", { month: "long" });
+    var wdStr = d.toLocaleDateString("tr-TR", { weekday: "long" });
+    return dayNum + " " + trTitle(monthStr) + " " + trTitle(wdStr);
+  }
+  var labels = [];
+  var longNames = [];
+  for (var i = 0; i < 7; i++) {
+    var d = new Date(startMs + i * 86400000);
+    labels.push(formatAxisLabel(d));
+    longNames.push(
+      d.toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+    );
+  }
+  return { startMs: startMs, labels: labels, longNames: longNames };
+}
+
+/** Dashboard üstü — YKS 2026 (20 Haziran 2026 10:15) animasyonlu sayaç */
+function initDashboardYksCountdownWidget() {
+  var root = document.getElementById("yks-countdown-widget");
+  if (!root || root.getAttribute("data-yks-widget-init") === "1") return;
+  root.setAttribute("data-yks-widget-init", "1");
+  var targetMs = new Date(2026, 5, 20, 10, 15, 0).getTime();
+  var elD = document.getElementById("yks-widget-days");
+  var elH = document.getElementById("yks-widget-hours");
+  var elM = document.getElementById("yks-widget-minutes");
+  var elS = document.getElementById("yks-widget-seconds");
+  function pulseEl(el) {
+    if (!el) return;
+    el.classList.remove("is-tick");
+    void el.offsetWidth;
+    el.classList.add("is-tick");
+  }
+  function setAnim(el, nextStr) {
+    if (!el) return;
+    if (el.textContent !== String(nextStr)) {
+      el.textContent = String(nextStr);
+      pulseEl(el);
+    }
+  }
+  function tick() {
+    var diff = targetMs - Date.now();
+    if (diff <= 0) {
+      setAnim(elD, "0");
+      setAnim(elH, "00");
+      setAnim(elM, "00");
+      setAnim(elS, "00");
+      return;
+    }
+    var totalSec = Math.floor(diff / 1000);
+    var days = Math.floor(totalSec / 86400);
+    totalSec %= 86400;
+    var h = Math.floor(totalSec / 3600);
+    totalSec %= 3600;
+    var m = Math.floor(totalSec / 60);
+    var s = totalSec % 60;
+    setAnim(elD, String(days));
+    setAnim(elH, String(h).padStart(2, "0"));
+    setAnim(elM, String(m).padStart(2, "0"));
+    setAnim(elS, String(s).padStart(2, "0"));
+  }
+  tick();
+  setInterval(tick, 1000);
+}
 
 function getCalendarWeekStart(d) {
   var weekStart = new Date(d);
@@ -1604,68 +1693,80 @@ function renderAppointmentsChart(docs) {
   var canvas = document.getElementById("randevuChart");
   if (!canvas || typeof Chart === "undefined") return;
   var ctx = canvas.getContext("2d");
+  var roll = buildRollingAppointmentChartAxis();
+  var labels = roll.labels;
+  var longNames = roll.longNames;
   var counts = [0, 0, 0, 0, 0, 0, 0];
-  var weekStart = getCalendarWeekStart(new Date());
-  var weekEnd = weekStart.getTime() + 7 * 86400000;
   docs.forEach(function (docSnap) {
     var ap = docSnap.data();
     var t = appointmentSortTime(ap);
     if (!t) return;
-    var dt = new Date(t).getTime();
-    if (dt < weekStart.getTime() || dt >= weekEnd) return;
-    var diff = Math.floor((dt - weekStart.getTime()) / 86400000);
+    var day = new Date(t);
+    day.setHours(0, 0, 0, 0);
+    var diff = Math.round((day.getTime() - roll.startMs) / 86400000);
     if (diff >= 0 && diff < 7) counts[diff]++;
   });
   if (randevuChartInstance) {
     randevuChartInstance.destroy();
     randevuChartInstance = null;
   }
-  randevuChartInstance = new Chart(ctx, {
-    type: "bar",
-    data: {
-      labels: WEEK_LABELS.slice(),
-      datasets: [
-        {
-          label: "Randevu",
-          data: counts,
-          backgroundColor: "rgba(124, 58, 237, 0.88)",
-          hoverBackgroundColor: "rgba(109, 40, 217, 0.95)",
-          borderRadius: 10,
-          borderSkipped: false,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          displayColors: false,
-          callbacks: {
-            title: function () {
-              return "";
-            },
-            label: function (item) {
-              var i = item.dataIndex;
-              return RANDEVU_GUN_ADLARI_TR[i] + ": " + item.raw + " Randevu";
+  try {
+    randevuChartInstance = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Randevu",
+            data: counts,
+            backgroundColor: "rgba(124, 58, 237, 0.88)",
+            hoverBackgroundColor: "rgba(109, 40, 217, 0.95)",
+            borderRadius: 10,
+            borderSkipped: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            displayColors: false,
+            callbacks: {
+              title: function () {
+                return "";
+              },
+              label: function (item) {
+                var i = item.dataIndex;
+                return (longNames[i] || labels[i]) + ": " + item.raw + " randevu";
+              },
             },
           },
         },
-      },
-      scales: {
-        x: {
-          grid: { display: false },
-          ticks: { font: { size: 11, weight: "600" }, color: "#64748b" },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              font: { size: 10, weight: "600", family: "Inter, system-ui, sans-serif" },
+              color: "#64748b",
+              maxRotation: 48,
+              minRotation: 0,
+              autoSkip: false,
+            },
+          },
+          y: {
+            beginAtZero: true,
+            ticks: { stepSize: 1, precision: 0, color: "#64748b" },
+            grid: { color: "rgba(124, 58, 237, 0.06)" },
+          },
         },
-        y: {
-          beginAtZero: true,
-          ticks: { stepSize: 1, precision: 0, color: "#64748b" },
-          grid: { color: "rgba(124, 58, 237, 0.06)" },
-        },
       },
-    },
-  });
+    });
+  } catch (chartErr) {
+    console.error("[Chart] Randevu grafiği:", chartErr);
+    randevuChartInstance = null;
+  }
 }
 
 function computeAvgNetAchievementPct() {
@@ -2016,16 +2117,19 @@ async function firestoreDeleteConfirmed(collectionName, docId) {
   }
 }
 
-var MALE_AVATAR_POOL = Array.from({ length: 40 }, function (_, i) {
-  return "https://randomuser.me/api/portraits/men/" + (i + 1) + ".jpg";
+/** 40 pastel çizgi film avatar — gerçek fotoğraf yok (Dicebear avataaars) */
+var YKS_CARTOON_BG = ["b6e3f4", "c0aede", "ffd5dc", "d1d4f9", "ffdfbf", "bae6fd", "bbf7d0", "fde68a"];
+var YKS_CARTOON_AVATAR_POOL = Array.from({ length: 40 }, function (_, i) {
+  var bg = YKS_CARTOON_BG[i % YKS_CARTOON_BG.length];
+  return (
+    "https://api.dicebear.com/7.x/avataaars/png?seed=" +
+    encodeURIComponent("yks_pastel_" + (i + 1)) +
+    "&size=128&backgroundColor=" +
+    bg
+  );
 });
-var FEMALE_AVATAR_POOL = Array.from({ length: 40 }, function (_, i) {
-  return "https://randomuser.me/api/portraits/women/" + (i + 1) + ".jpg";
-});
-var HIJAB_AVATAR_POOL = Array.from({ length: 40 }, function (_, i) {
-  return "https://api.dicebear.com/8.x/avataaars/svg?seed=tesettur_" + (i + 1) + "&top=hijab";
-});
-var studentAddAvatarState = { mode: "preset", url: MALE_AVATAR_POOL[0], customDataUrl: "" };
+var studentAddAvatarState = { mode: "preset", url: YKS_CARTOON_AVATAR_POOL[0], customDataUrl: "" };
+var studentEditAvatarState = { mode: "preset", url: YKS_CARTOON_AVATAR_POOL[0], customDataUrl: "" };
 
 function normalizeGender(gender) {
   if (gender === "Kadın" || gender === "Kadin") return "Kadın";
@@ -2034,10 +2138,7 @@ function normalizeGender(gender) {
 }
 
 function getAvatarPoolByGender(gender) {
-  var g = normalizeGender(gender);
-  if (g === "Kadın") return FEMALE_AVATAR_POOL;
-  if (g === "Tesettür") return HIJAB_AVATAR_POOL;
-  return MALE_AVATAR_POOL;
+  return YKS_CARTOON_AVATAR_POOL;
 }
 
 function hashSimple(str) {
@@ -2068,10 +2169,39 @@ function updateStudentAvatarMetaText(gender, isCustom) {
     meta.textContent = "Kişisel resim seçildi";
     return;
   }
-  var g = normalizeGender(gender);
-  if (g === "Erkek") meta.textContent = "Erkek profil havuzu (40 seçenek)";
-  else if (g === "Kadın") meta.textContent = "Kadın profil havuzu (40 seçenek)";
-  else meta.textContent = "Tesettür profil havuzu (40 seçenek)";
+  meta.textContent = "YKS adayı avatar havuzu — 40 çizgi film (pastel)";
+}
+
+function updateEditStudentAvatarMeta(isCustom) {
+  var meta = document.getElementById("stEditAvatarMeta");
+  if (!meta) return;
+  meta.textContent = isCustom ? "Kişisel resim" : "YKS adayı avatar havuzu — 40 çizgi film (pastel)";
+}
+
+function setEditStudentAvatarPreview(url, options) {
+  var img = document.getElementById("stEditAvatarPreview");
+  if (!img || !url) return;
+  img.src = url;
+  var custom = options && options.mode === "custom";
+  studentEditAvatarState.mode = custom ? "custom" : "preset";
+  if (custom) {
+    studentEditAvatarState.customDataUrl = url;
+    studentEditAvatarState.url = "";
+  } else {
+    studentEditAvatarState.url = url;
+    studentEditAvatarState.customDataUrl = "";
+  }
+  updateEditStudentAvatarMeta(!!custom);
+}
+
+function pickRandomAvatarForEditForm() {
+  var pool = getAvatarPoolByGender("Erkek");
+  if (!pool || !pool.length) return;
+  var next = pool[Math.floor(Math.random() * pool.length)];
+  if (pool.length > 1 && next === studentEditAvatarState.url) {
+    next = pool[(pool.indexOf(next) + 1) % pool.length];
+  }
+  setEditStudentAvatarPreview(next, { mode: "preset" });
 }
 
 function setStudentAvatarPreview(url, options) {
@@ -2085,7 +2215,7 @@ function setStudentAvatarPreview(url, options) {
 }
 
 function pickRandomAvatarForAddForm() {
-  var pool = getAvatarPoolByGender(getSelectedAddGender());
+  var pool = YKS_CARTOON_AVATAR_POOL;
   if (!pool || !pool.length) return;
   var next = pool[Math.floor(Math.random() * pool.length)];
   if (pool.length > 1 && next === studentAddAvatarState.url) {
@@ -2126,15 +2256,73 @@ function fileToResizedDataUrl(file, sizePx, quality) {
   });
 }
 
+function closeAvatarGallerySheet() {
+  var sheet = document.getElementById("avatarGallerySheet");
+  if (sheet) {
+    sheet.hidden = true;
+    sheet.setAttribute("aria-hidden", "true");
+  }
+}
+
+function openAvatarGallerySheet(target) {
+  window.__avatarPickTarget = target === "edit" ? "edit" : "add";
+  var sheet = document.getElementById("avatarGallerySheet");
+  var grid = document.getElementById("avatarGalleryGrid");
+  if (grid && grid.getAttribute("data-built") !== "1") {
+    grid.innerHTML = YKS_CARTOON_AVATAR_POOL.map(function (url, idx) {
+      return (
+        '<button type="button" class="avatar-gallery__cell" data-avatar-idx="' +
+        idx +
+        '"><img src="' +
+        escapeHtml(url) +
+        '" alt="" loading="lazy" width="72" height="72" decoding="async"/></button>'
+      );
+    }).join("");
+    grid.setAttribute("data-built", "1");
+    grid.addEventListener("click", function (ev) {
+      var b = ev.target.closest && ev.target.closest("[data-avatar-idx]");
+      if (!b) return;
+      var idx = parseInt(b.getAttribute("data-avatar-idx"), 10);
+      var u = YKS_CARTOON_AVATAR_POOL[idx];
+      if (!u) return;
+      if (window.__avatarPickTarget === "edit") {
+        setEditStudentAvatarPreview(u, { mode: "preset" });
+      } else {
+        setStudentAvatarPreview(u, { mode: "preset" });
+      }
+      closeAvatarGallerySheet();
+    });
+  }
+  if (sheet) {
+    sheet.hidden = false;
+    sheet.setAttribute("aria-hidden", "false");
+  }
+}
+
+function initAvatarGalleryUi() {
+  document.querySelectorAll("[data-close-avatar-gallery]").forEach(function (el) {
+    el.addEventListener("click", function (e) {
+      e.preventDefault();
+      closeAvatarGallerySheet();
+    });
+  });
+}
+
 function initStudentAvatarPicker() {
   var randomBtn = document.getElementById("btnStAvatarRandom");
   var uploadBtn = document.getElementById("btnStAvatarUpload");
+  var galleryBtn = document.getElementById("btnStAvatarGallery");
   var fileInput = document.getElementById("stAvatarFile");
   if (!randomBtn || !uploadBtn || !fileInput) return;
 
   randomBtn.addEventListener("click", function () {
     pickRandomAvatarForAddForm();
   });
+  if (galleryBtn) {
+    galleryBtn.addEventListener("click", function () {
+      openAvatarGallerySheet("add");
+    });
+  }
   uploadBtn.addEventListener("click", function () {
     fileInput.click();
   });
@@ -2164,6 +2352,42 @@ function initStudentAvatarPicker() {
       }
       pickRandomAvatarForAddForm();
     });
+  });
+}
+
+function initStudentEditAvatarControls() {
+  var randomBtn = document.getElementById("btnStEditAvatarRandom");
+  var uploadBtn = document.getElementById("btnStEditAvatarUpload");
+  var galleryBtn = document.getElementById("btnStEditAvatarGallery");
+  var fileInput = document.getElementById("stEditAvatarFile");
+  if (!randomBtn || !uploadBtn || !fileInput) return;
+  randomBtn.addEventListener("click", function () {
+    pickRandomAvatarForEditForm();
+  });
+  if (galleryBtn) {
+    galleryBtn.addEventListener("click", function () {
+      openAvatarGallerySheet("edit");
+    });
+  }
+  uploadBtn.addEventListener("click", function () {
+    fileInput.click();
+  });
+  fileInput.addEventListener("change", async function () {
+    var f = fileInput.files && fileInput.files[0];
+    fileInput.value = "";
+    if (!f) return;
+    if (!/^image\//i.test(f.type || "")) {
+      showToast("Lutfen bir gorsel secin.");
+      return;
+    }
+    try {
+      var dataUrl = await fileToResizedDataUrl(f, 180, 0.85);
+      studentEditAvatarState.customDataUrl = dataUrl;
+      setEditStudentAvatarPreview(dataUrl, { mode: "custom" });
+    } catch (e) {
+      console.error(e);
+      showToast("Resim islenemedi.");
+    }
   });
 }
 
@@ -2281,7 +2505,7 @@ function openStudentModal() {
   });
   studentAddAvatarState.mode = "preset";
   studentAddAvatarState.customDataUrl = "";
-  studentAddAvatarState.url = MALE_AVATAR_POOL[0];
+  studentAddAvatarState.url = YKS_CARTOON_AVATAR_POOL[0];
   setStudentAvatarPreview(studentAddAvatarState.url, { mode: "preset" });
   openModal("studentModal");
 }
@@ -2338,17 +2562,17 @@ function editStudent(studentId) {
   }
   var addPane = document.getElementById("studentPaneAdd");
   var editPane = document.getElementById("studentPaneEdit");
-  if (addPane) addPane.hidden = true;
-  if (editPane) editPane.hidden = false;
   var sub = document.getElementById("modalStudentSubtitle");
   var title = document.getElementById("modalStudentTitle");
   if (sub) sub.textContent = "Kayıt güncelleniyor. ID: " + studentId.slice(0, 8) + "…";
   if (title) title.innerHTML = '<i class="fa-solid fa-user-pen"></i> Öğrenci düzenle';
-  requestAnimationFrame(function () {
-    requestAnimationFrame(function () {
-      openModal("studentModal");
-    });
-  });
+  var fullNm = ((fn || "") + " " + (ln || "")).trim();
+  var av = s.avatarUrl || buildStudentAvatarUrl(fullNm || (s.name || ""), g);
+  var isData = av && String(av).indexOf("data:") === 0;
+  setEditStudentAvatarPreview(av, { mode: isData ? "custom" : "preset" });
+  openModal("studentModal");
+  if (addPane) addPane.hidden = true;
+  if (editPane) editPane.hidden = false;
 }
 
 async function submitStudentAddForm(e) {
@@ -2469,10 +2693,10 @@ async function submitStudentEditForm(e) {
     data.installmentCount = isNaN(ins2) ? null : Math.min(36, Math.max(1, ins2));
   } else data.installmentCount = null;
   data.track = data.examGroup && data.examGroup !== "" ? data.examGroup : "TYT + AYT";
-  var existing = cachedStudents.find(function (x) {
-    return x.id === editId;
-  });
-  data.avatarUrl = existing && existing.avatarUrl ? existing.avatarUrl : buildStudentAvatarUrl(data.name, data.gender);
+  data.avatarUrl =
+    studentEditAvatarState.mode === "custom" && studentEditAvatarState.customDataUrl
+      ? studentEditAvatarState.customDataUrl
+      : studentEditAvatarState.url || buildStudentAvatarUrl(data.name, gender);
   data.updatedAt = serverTimestamp();
   try {
     await updateDoc(doc(db, "students", editId), data);
@@ -2900,7 +3124,13 @@ function initModals() {
     if (ev.target === overlay) closeAllModals();
   });
   document.addEventListener("keydown", function (ev) {
-    if (ev.key === "Escape") closeAllModals();
+    if (ev.key !== "Escape") return;
+    var sheet = document.getElementById("avatarGallerySheet");
+    if (sheet && !sheet.hidden) {
+      closeAvatarGallerySheet();
+      return;
+    }
+    closeAllModals();
   });
   var fsAdd = document.getElementById("formStudentAdd");
   if (fsAdd) {
@@ -2908,6 +3138,8 @@ function initModals() {
     initStudentErpTabs();
     initStudentAvatarPicker();
   }
+  initAvatarGalleryUi();
+  initStudentEditAvatarControls();
   var fsEdit = document.getElementById("formStudentEdit");
   if (fsEdit) fsEdit.addEventListener("submit", submitStudentEditForm);
   var fa = document.getElementById("formAppointment");
@@ -3018,10 +3250,12 @@ function testmakerWorkspaceLeave() {
   var ann = document.getElementById("viewPdfDuzenle");
   var head = document.querySelector("#tmWorkspaceRoot .tm-workspace__header");
   var headLib = document.querySelector("#view-library .tm-workspace__header");
+  var headPdf = document.querySelector("#view-pdf-editor .tm-workspace__header");
   document.body.classList.remove("tm-annotate-open");
   if (ann) ann.hidden = true;
   if (head) head.hidden = false;
   if (headLib) headLib.hidden = false;
+  if (headPdf) headPdf.hidden = false;
   destroyTmWsCropper();
   tmWsPdfDoc = null;
   tmWsPdfBytes = null;
@@ -3845,9 +4079,8 @@ function tmApplyWorkspaceTemplate() {
   var paper0 = document.getElementById("tmA4Paper");
   var sel = document.getElementById("tmTemplate");
   if (!paper0) return;
-  var prev = paper0.getAttribute("data-tm-layout") || "osym";
-  var mode = (sel && sel.value) || "osym";
-  if (TM_TEMPLATE_IDS.indexOf(mode) === -1) mode = "osym";
+  var prev = tmNormalizeTemplateMode(paper0.getAttribute("data-tm-layout"));
+  var mode = tmNormalizeTemplateMode((sel && sel.value) || "osym");
   if (prev !== mode && tmTotalQuestionBlocks() > 0) {
     tmMigrateLayoutForTemplate(prev, mode);
   }
@@ -3966,6 +4199,8 @@ function bindTestMakerWorkspace() {
     });
   var saveLib = document.getElementById("tmBtnSaveToLibrary");
   if (saveLib) saveLib.addEventListener("click", tmSaveLayoutToLocalLibrary);
+  var saveLibRibbon = document.getElementById("tmBtnSaveToLibraryRibbon");
+  if (saveLibRibbon) saveLibRibbon.addEventListener("click", tmSaveLayoutToLocalLibrary);
   var railT = document.getElementById("tmRailBtnTemplate");
   var railC = document.getElementById("tmRailBtnColor");
   var railL = document.getElementById("tmRailBtnLayout");
@@ -4240,23 +4475,56 @@ function bindTestMakerWorkspace() {
       });
     });
   }
-  var savedLib = document.getElementById("tmSavedPdfLibrary");
-  if (savedLib) {
-    savedLib.addEventListener("click", function (ev) {
-      var del = ev.target.closest && ev.target.closest("[data-lib-del]");
-      if (del) {
-        var did = del.getAttribute("data-lib-del");
-        if (!did || !confirm("Bu PDF kitaplıktan silinsin mi?")) return;
-        tmLibDelete(did).then(function () {
-          if (tmActiveLibId === did) tmActiveLibId = null;
-          tmLibraryRenderList();
-        });
+  function onSavedPdfLibraryClick(ev) {
+    var del = ev.target.closest && ev.target.closest("[data-lib-del]");
+    if (del) {
+      var did = del.getAttribute("data-lib-del");
+      if (!did || !confirm("Bu PDF kitaplıktan silinsin mi?")) return;
+      tmLibDelete(did).then(function () {
+        if (tmActiveLibId === did) tmActiveLibId = null;
+        tmLibraryRenderList();
+      });
+      return;
+    }
+    var editBtn = ev.target.closest && ev.target.closest("[data-lib-edit]");
+    if (editBtn) {
+      tmOpenPdfEditorFromLib(editBtn.getAttribute("data-lib-edit"));
+    }
+  }
+  document.querySelectorAll(".tm-saved-pdf-library").forEach(function (ul) {
+    ul.addEventListener("click", onSavedPdfLibraryClick);
+  });
+
+  var pdfEdBtn = document.getElementById("tmPdfEditorLibUploadBtn");
+  var pdfEdInp = document.getElementById("tmPdfEditorLibFileInput");
+  if (pdfEdBtn && pdfEdInp) {
+    pdfEdBtn.addEventListener("click", function () {
+      pdfEdInp.click();
+    });
+    pdfEdInp.addEventListener("change", function () {
+      var f = pdfEdInp.files && pdfEdInp.files[0];
+      pdfEdInp.value = "";
+      if (!f || !f.name.toLowerCase().endsWith(".pdf")) {
+        showToast("Yalnızca PDF seçin.");
         return;
       }
-      var editBtn = ev.target.closest && ev.target.closest("[data-lib-edit]");
-      if (editBtn) {
-        tmOpenPdfEditorFromLib(editBtn.getAttribute("data-lib-edit"));
-      }
+      f.arrayBuffer().then(function (buf) {
+        var id = "pdf_" + Date.now() + "_" + Math.random().toString(36).slice(2, 9);
+        tmLibPut({
+          id: id,
+          name: f.name.slice(0, 180),
+          addedAt: Date.now(),
+          buffer: buf,
+        })
+          .then(function () {
+            showToast("PDF eklendi.");
+            tmLibraryRenderList();
+          })
+          .catch(function (err) {
+            console.error(err);
+            showToast("Kaydedilemedi (IndexedDB).");
+          });
+      });
     });
   }
 
@@ -4315,8 +4583,8 @@ function bindTestMakerWorkspace() {
 function navigateTo(view) {
   if (!view) return;
   var previous = currentView;
-  var wasTm = previous === "testmaker" || previous === "library";
-  var nowTm = view === "testmaker" || view === "library";
+  var wasTm = previous === "testmaker" || previous === "library" || previous === "pdf-editor";
+  var nowTm = view === "testmaker" || view === "library" || view === "pdf-editor";
   if (wasTm && !nowTm) testmakerWorkspaceLeave();
   currentView = view;
   document.querySelectorAll(".main-view").forEach(function (el) {
@@ -4327,14 +4595,18 @@ function navigateTo(view) {
   });
   document.querySelectorAll("button.sidebar__link[data-nav]").forEach(function (btn) {
     var nv = btn.getAttribute("data-nav");
-    var on = nv === view || (nv === "testmaker" && (view === "testmaker" || view === "library"));
+    var on =
+      nv === view ||
+      (nv === "testmaker" && (view === "testmaker" || view === "library" || view === "pdf-editor"));
     btn.classList.toggle("sidebar__link--active", on);
   });
   document.querySelectorAll("[data-tm-nav-action]").forEach(function (btn) {
     var a = btn.getAttribute("data-tm-nav-action");
     btn.classList.toggle(
       "is-active",
-      (a === "library" && view === "library") || (a === "creator" && view === "testmaker")
+      (a === "library" && view === "library") ||
+        (a === "creator" && view === "testmaker") ||
+        (a === "pdf-editor" && view === "pdf-editor")
     );
   });
   tmSyncRibbonActive(view);
@@ -4357,12 +4629,11 @@ function navigateTo(view) {
   if (view === "denemeler") renderExamsFullPage();
   if (view === "ogrenciler") renderStudentsPage();
   if (view === "randevu") renderAppointmentsPage();
-  if (view === "testmaker" || view === "library") {
+  if (view === "testmaker" || view === "library" || view === "pdf-editor") {
     testmakerWorkspaceEnter();
     renderTestsTable();
     tmLibraryRenderList();
   }
-  if (view === "library") tmLibGetAllMeta().then(tmRenderSavedPdfLibrary);
   var cre = document.getElementById("tmViewCreator");
   if (cre) cre.hidden = view !== "testmaker";
   if (view === "muhasebe") renderPaymentsTable();
@@ -4410,7 +4681,9 @@ function initNavigation() {
     el.addEventListener("click", function (e) {
       e.stopPropagation();
       var action = el.getAttribute("data-tm-nav-action");
-      navigateTo(action === "library" ? "library" : "testmaker");
+      if (action === "library") navigateTo("library");
+      else if (action === "pdf-editor") navigateTo("pdf-editor");
+      else navigateTo("testmaker");
     });
   });
 }
@@ -4667,6 +4940,7 @@ function bootstrapKocPanelAfterAuth() {
   initNavigation();
   initModals();
   initAllButtons();
+  initDashboardYksCountdownWidget();
   updateCoachProfile();
   subscribeFirestore();
   navigateTo("dashboard");

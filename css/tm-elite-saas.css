@@ -322,9 +322,30 @@
 /* E-kitap kart ızgarası */
 .tm-tests-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.25rem;
   margin-bottom: 1.5rem;
+}
+.tm-test-card {
+  border-radius: 16px !important;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(30, 27, 75, 0.12) !important;
+  border: 1px solid rgba(124, 58, 237, 0.15) !important;
+  background: linear-gradient(180deg, #fff 0%, #faf5ff 100%) !important;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.tm-test-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 40px rgba(124, 58, 237, 0.18) !important;
+}
+.tm-test-card__thumb {
+  aspect-ratio: 3 / 4 !important;
+  max-height: none !important;
+}
+.tm-test-card__thumb img {
+  object-fit: cover !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 /* Sağ panel asla alta yığılmasın (geniş ekranda) */

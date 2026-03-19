@@ -54,6 +54,113 @@
     .dashboard-insight { font-size: 0.9rem; color: #475569; line-height: 1.65; margin: 0; }
     .dashboard-insight strong { color: #5b21b6; }
     .chart-card__canvas-wrap { position: relative; height: 220px; width: 100%; margin-top: 0.5rem; }
+    /* YKS premium sayaç — Dashboard üstü (Inter) */
+    .yks-countdown-widget {
+      position: relative;
+      width: 100%;
+      max-width: calc(100% - 3rem);
+      margin: 0 1.5rem 1.25rem;
+      box-sizing: border-box;
+      border-radius: 20px;
+      overflow: hidden;
+      background: linear-gradient(145deg, #0f172a 0%, #1e1b4b 45%, #312e81 100%);
+      border: 1px solid rgba(139, 92, 246, 0.35);
+      box-shadow: 0 20px 48px rgba(15, 23, 42, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      font-family: "Inter", system-ui, sans-serif;
+    }
+    .yks-countdown-widget__glow {
+      position: absolute;
+      inset: -40% -20% auto;
+      height: 70%;
+      background: radial-gradient(ellipse at 50% 0%, rgba(167, 139, 250, 0.35), transparent 55%);
+      pointer-events: none;
+    }
+    .yks-countdown-widget__inner { position: relative; z-index: 1; padding: 1.35rem 1.5rem 1.5rem; }
+    .yks-countdown-widget__head { margin-bottom: 1.15rem; }
+    .yks-countdown-widget__badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #c4b5fd;
+      background: rgba(139, 92, 246, 0.25);
+      padding: 0.28rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid rgba(167, 139, 250, 0.35);
+    }
+    .yks-countdown-widget__title {
+      margin: 0.65rem 0 0.2rem;
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #f8fafc;
+      letter-spacing: -0.02em;
+    }
+    .yks-countdown-widget__meta { margin: 0; font-size: 0.82rem; color: #94a3b8; font-weight: 500; }
+    .yks-countdown-widget__grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.75rem;
+    }
+    @media (max-width: 640px) {
+      .yks-countdown-widget__grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    .yks-countdown-widget__cell {
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 16px;
+      padding: 1rem 0.75rem;
+      text-align: center;
+      backdrop-filter: blur(8px);
+    }
+    .yks-countdown-widget__value {
+      display: block;
+      font-family: "Inter", system-ui, sans-serif;
+      font-size: clamp(1.85rem, 4vw, 2.35rem);
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: #fff;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), text-shadow 0.35s ease;
+    }
+    .yks-countdown-widget__value.is-tick {
+      animation: yksWidgetTick 0.55s ease;
+    }
+    @keyframes yksWidgetTick {
+      0% { transform: scale(1); text-shadow: 0 0 0 transparent; }
+      35% { transform: scale(1.08); text-shadow: 0 0 24px rgba(167, 139, 250, 0.65); }
+      100% { transform: scale(1); text-shadow: 0 0 0 transparent; }
+    }
+    .yks-countdown-widget__label {
+      display: block;
+      margin-top: 0.45rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #a5b4fc;
+    }
+    .student-avatar-picker__hint { font-size: 0.72rem; color: #64748b; margin-top: 0.35rem; }
+    .avatar-gallery-sheet { position: fixed; inset: 0; z-index: 100050; display: flex; align-items: flex-end; justify-content: center; pointer-events: none; }
+    .avatar-gallery-sheet:not([hidden]) { pointer-events: auto; }
+    .avatar-gallery-sheet__backdrop { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(4px); }
+    .avatar-gallery-sheet__panel { position: relative; z-index: 1; width: 100%; max-width: 520px; max-height: 85vh; margin: 0 auto; background: linear-gradient(180deg, #faf5ff, #fff); border-radius: 18px 18px 0 0; box-shadow: 0 -12px 40px rgba(0,0,0,0.25); display: flex; flex-direction: column; pointer-events: auto; border: 1px solid rgba(124,58,237,0.2); }
+    .avatar-gallery-sheet__head { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.1rem; border-bottom: 1px solid #e9d5ff; }
+    .avatar-gallery-sheet__head h3 { margin: 0; font-size: 1rem; color: #4c1d95; }
+    .avatar-gallery-sheet__grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.45rem; padding: 1rem; overflow-y: auto; flex: 1; }
+    .avatar-gallery__cell { border: 2px solid transparent; border-radius: 12px; padding: 0; cursor: pointer; background: #fff; overflow: hidden; aspect-ratio: 1; transition: border-color 0.15s, transform 0.15s; }
+    .avatar-gallery__cell:hover, .avatar-gallery__cell:focus-visible { border-color: #7c3aed; transform: scale(1.04); outline: none; }
+    .avatar-gallery__cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .tm-pdf-editor-hero { margin-bottom: 1.25rem; }
+    .tm-saved-pdf-library.tm-saved-pdf-library--ebook { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 1.15rem; list-style: none; padding: 0; margin: 0; }
+    .tm-saved-pdf-library.tm-saved-pdf-library--ebook .tm-saved-pdf-item { flex-direction: column; align-items: stretch; border-radius: 14px; padding: 0; overflow: hidden; background: linear-gradient(180deg, #fff, #faf5ff); border: 1px solid rgba(124,58,237,0.18); box-shadow: 0 10px 28px rgba(30,27,75,0.12); min-height: 220px; }
+    .tm-saved-pdf-library.tm-saved-pdf-library--ebook .tm-saved-pdf-item__name { padding: 0.65rem 0.75rem 0.35rem; font-weight: 700; font-size: 0.82rem; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .tm-saved-pdf-library.tm-saved-pdf-library--ebook .tm-saved-pdf-item__actions { margin-top: auto; padding: 0.5rem 0.6rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+    .tm-saved-pdf-library.tm-saved-pdf-library--ebook .tm-saved-pdf-item__actions button { width: 100%; justify-content: center; border-radius: 10px; }
+    .tm-workspace__save-lib { margin-left: auto; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.85rem; font-size: 0.78rem; font-weight: 700; border-radius: 10px; border: 1px solid rgba(16,185,129,0.45); background: rgba(16,185,129,0.12); color: #047857; cursor: pointer; font-family: inherit; }
+    .tm-workspace__save-lib:hover { background: rgba(16,185,129,0.22); }
+    .tm-workspace__header-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
   </style>
   <!-- TestMaker: Cropper.js + pdf.js (head’de CSS); script’ler body sonunda (html2pdf, cropper, pdf) -->
 </head>
@@ -100,8 +207,9 @@
               <i class="fa-solid fa-file-circle-check"></i><span>TestMaker</span>
             </button>
             <div class="sidebar__submenu">
-              <button type="button" class="sidebar__sublink" data-tm-nav-action="creator"><i class="fa-solid fa-pen-ruler"></i><span>Test Oluşturucu</span></button>
-              <button type="button" class="sidebar__sublink" data-tm-nav-action="library"><i class="fa-solid fa-layer-group"></i><span>Hazır Testler (Kütüphane)</span></button>
+              <button type="button" class="sidebar__sublink" data-tm-nav-action="creator" title="Test Oluşturucu"><i class="fa-solid fa-pen-ruler"></i><span>Test Oluşturucu</span></button>
+              <button type="button" class="sidebar__sublink" data-tm-nav-action="library" title="Hazır Testler (Kütüphane)"><i class="fa-solid fa-layer-group"></i><span>Hazır Testler (Kütüphane)</span></button>
+              <button type="button" class="sidebar__sublink" data-tm-nav-action="pdf-editor" title="PDF Düzenleyici"><i class="fa-solid fa-file-pen"></i><span>PDF Düzenleyici</span></button>
             </div>
           </li>
           <li>
@@ -137,6 +245,34 @@
 
       <div class="main-views" id="mainViews">
         <div class="main-view is-active" data-view="dashboard" id="view-dashboard">
+          <section id="yks-countdown-widget" class="yks-countdown-widget" aria-label="YKS 2026 sınavına kalan süre">
+            <div class="yks-countdown-widget__glow" aria-hidden="true"></div>
+            <div class="yks-countdown-widget__inner">
+              <div class="yks-countdown-widget__head">
+                <span class="yks-countdown-widget__badge">YKS 2026</span>
+                <h2 class="yks-countdown-widget__title">Sınava kalan süre</h2>
+                <p class="yks-countdown-widget__meta">Hedef: 20 Haziran 2026 · 10:15</p>
+              </div>
+              <div class="yks-countdown-widget__grid" role="timer" aria-live="polite" aria-relevant="text">
+                <div class="yks-countdown-widget__cell">
+                  <span class="yks-countdown-widget__value" id="yks-widget-days">0</span>
+                  <span class="yks-countdown-widget__label">Gün</span>
+                </div>
+                <div class="yks-countdown-widget__cell">
+                  <span class="yks-countdown-widget__value" id="yks-widget-hours">00</span>
+                  <span class="yks-countdown-widget__label">Saat</span>
+                </div>
+                <div class="yks-countdown-widget__cell">
+                  <span class="yks-countdown-widget__value" id="yks-widget-minutes">00</span>
+                  <span class="yks-countdown-widget__label">Dakika</span>
+                </div>
+                <div class="yks-countdown-widget__cell">
+                  <span class="yks-countdown-widget__value" id="yks-widget-seconds">00</span>
+                  <span class="yks-countdown-widget__label">Saniye</span>
+                </div>
+              </div>
+            </div>
+          </section>
           <section class="dashboard-elite-hero" aria-label="YKS geri sayım">
             <div id="yksCountdownHost" class="dashboard-yks-mount"></div>
             <div class="dashboard-elite-hero__cta">
@@ -275,11 +411,15 @@
                   <i class="fa-solid fa-arrow-left"></i> Panele dön
                 </button>
                 <span class="tm-workspace__brand"><i class="fa-solid fa-wand-magic-sparkles"></i> TestMaker Pro</span>
+                <button type="button" class="tm-workspace__save-lib" id="tmBtnSaveToLibraryRibbon" title="Mizanpajı yerel kütüphaneye kaydet">
+                  <i class="fa-solid fa-layer-group"></i> Kütüphaneye Kaydet
+                </button>
               </div>
               <nav class="tm-word-ribbon" aria-label="Üst menü">
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard" title="Ana panel"><i class="fa-solid fa-house"></i> Giriş</button>
                 <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="testmaker" title="Test oluştur"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library" title="Kütüphane"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor" title="PDF işaretleme"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler" title="Analiz"><i class="fa-solid fa-chart-line"></i> Analiz</button>
               </nav>
             </header>
@@ -311,15 +451,12 @@
                         </optgroup>
                         <optgroup label="Yayınevi &amp; özel">
                         <option value="t01">Limit — Lacivert şerit</option>
-                        <option value="t02">Endemik — Yeşil çizgi</option>
+                        <option value="t02">3D Yayınları — Yeşil çizgi</option>
                         <option value="t03">Paraf — Kontrast blok</option>
                         <option value="t04">345 — Minimal üst bilgi</option>
                         <option value="t05">Bilgi Sarmal — Turuncu</option>
                         <option value="t06">Acil Yayınları — Kırmızı bant</option>
                         <option value="t07">Fen Bilimleri — Teal</option>
-                        <option value="t08">TYT Master — Mor şerit</option>
-                        <option value="t09">Apotemi — Serif çift çizgi</option>
-                        <option value="t10">ÖSYM Neo — Kutu resmi</option>
                         </optgroup>
                       </select>
                     </label>
@@ -580,6 +717,7 @@
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
               <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>
             </nav>
           </header>
@@ -596,6 +734,35 @@
               <p class="tm-local-pdf-zone__hint">PDF: düzenleme canvas ile açılır · Mizanpaj: Test Tasarımı’nda yüklenir</p>
               <ul class="tm-saved-pdf-library" id="tmSavedPdfLibrary"></ul>
             </section>
+          </div>
+        </div>
+
+        <div class="main-view tm-workspace-view" data-view="pdf-editor" id="view-pdf-editor" hidden>
+          <header class="tm-workspace__header tm-workspace__header--ribbon">
+            <div class="tm-workspace__header-row">
+              <button type="button" class="tm-back-dashboard" data-nav="dashboard" title="Ana panele dön">
+                <i class="fa-solid fa-arrow-left"></i> Panele dön
+              </button>
+              <span class="tm-workspace__brand"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</span>
+            </div>
+            <nav class="tm-word-ribbon" aria-label="Üst menü">
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
+              <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>
+            </nav>
+          </header>
+          <div class="tm-library-page">
+            <div class="tm-pdf-editor-hero tm-library-hero">
+              <h2 class="tm-library-hero__title">PDF arşivi <span class="tm-library-hero__tag">İşaretleme</span></h2>
+              <p class="tm-library-hero__desc">Kalem, silgi ve metin araçlarıyla not alın. Her kartta <strong>Düzenle</strong> ve <strong>Sil</strong> yer alır.</p>
+              <div class="tm-source-panel__lib-row" style="margin-top:0.75rem">
+                <button type="button" class="tm-lib-upload tm-lib-upload--inline" id="tmPdfEditorLibUploadBtn"><i class="fa-solid fa-plus"></i> PDF yükle</button>
+                <input type="file" id="tmPdfEditorLibFileInput" accept="application/pdf" hidden />
+              </div>
+            </div>
+            <ul class="tm-saved-pdf-library tm-saved-pdf-library--ebook" id="tmPdfEditorSavedList" aria-label="Yerel PDF kartları"></ul>
           </div>
         </div>
 
@@ -729,13 +896,15 @@
               <div class="form-group student-avatar-picker" style="grid-column: 1 / -1;">
                 <label class="form-required">Profil fotoğrafı</label>
                 <div class="student-avatar-picker__row">
-                  <img id="stAvatarPreview" class="student-avatar-picker__img" src="https://randomuser.me/api/portraits/men/1.jpg" alt="Profil önizleme" />
+                  <img id="stAvatarPreview" class="student-avatar-picker__img" src="https://api.dicebear.com/7.x/avataaars/png?seed=yks_pastel_1&amp;size=128&amp;backgroundColor=b6e3f4" alt="Profil önizleme" />
                   <div class="student-avatar-picker__actions">
-                    <p class="student-avatar-picker__meta" id="stAvatarMeta">Erkek profil havuzu (40 seçenek)</p>
+                    <p class="student-avatar-picker__meta" id="stAvatarMeta">YKS adayı avatar (40 çizgi film, pastel)</p>
                     <div class="student-avatar-picker__btns">
                       <button type="button" class="btn-modal-secondary" id="btnStAvatarRandom"><i class="fa-solid fa-shuffle"></i> Rastgele</button>
-                      <button type="button" class="btn-modal-secondary" id="btnStAvatarUpload"><i class="fa-solid fa-image"></i> Resim değiştir</button>
+                      <button type="button" class="btn-modal-secondary" id="btnStAvatarGallery"><i class="fa-solid fa-border-all"></i> Resim değiştir</button>
+                      <button type="button" class="btn-modal-secondary" id="btnStAvatarUpload"><i class="fa-solid fa-upload"></i> Dosyadan</button>
                     </div>
+                    <p class="student-avatar-picker__hint">Gerçek insan fotoğrafı kullanılmaz; isteğe bağlı kendi görselinizi yükleyebilirsiniz.</p>
                     <input id="stAvatarFile" type="file" accept="image/*" hidden />
                   </div>
                 </div>
@@ -864,6 +1033,21 @@
         <div class="student-erp-panels" style="max-height:min(62vh,540px)">
           <div class="student-erp-grid">
             <p class="student-erp-section-title">Kişisel</p>
+            <div class="form-group student-avatar-picker" style="grid-column: 1 / -1;">
+              <label>Profil fotoğrafı</label>
+              <div class="student-avatar-picker__row">
+                <img id="stEditAvatarPreview" class="student-avatar-picker__img" src="https://api.dicebear.com/7.x/avataaars/png?seed=yks_pastel_1&amp;size=128&amp;backgroundColor=b6e3f4" alt="Düzenleme önizleme" />
+                <div class="student-avatar-picker__actions">
+                  <p class="student-avatar-picker__meta" id="stEditAvatarMeta">YKS adayı avatar (40 çizgi film)</p>
+                  <div class="student-avatar-picker__btns">
+                    <button type="button" class="btn-modal-secondary" id="btnStEditAvatarRandom"><i class="fa-solid fa-shuffle"></i> Rastgele</button>
+                    <button type="button" class="btn-modal-secondary" id="btnStEditAvatarGallery"><i class="fa-solid fa-border-all"></i> Resim değiştir</button>
+                    <button type="button" class="btn-modal-secondary" id="btnStEditAvatarUpload"><i class="fa-solid fa-upload"></i> Dosyadan</button>
+                  </div>
+                  <input id="stEditAvatarFile" type="file" accept="image/*" hidden />
+                </div>
+              </div>
+            </div>
             <div class="form-group">
               <label class="form-required" for="editStudentName">Ad</label>
               <input id="editStudentName" maxlength="60" placeholder="Ad" autocomplete="given-name" />
@@ -1262,6 +1446,17 @@
           <button type="submit" class="btn-modal-primary" id="btnExamSubmit"><i class="fa-solid fa-save"></i> Kaydet</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <div id="avatarGallerySheet" class="avatar-gallery-sheet" hidden aria-hidden="true">
+    <div class="avatar-gallery-sheet__backdrop" data-close-avatar-gallery tabindex="-1"></div>
+    <div class="avatar-gallery-sheet__panel" role="dialog" aria-labelledby="avatarGalleryTitle">
+      <div class="avatar-gallery-sheet__head">
+        <h3 id="avatarGalleryTitle">Avatar seç (40 pastel)</h3>
+        <button type="button" class="modal__close" data-close-avatar-gallery aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="avatar-gallery-sheet__grid" id="avatarGalleryGrid"></div>
     </div>
   </div>
 

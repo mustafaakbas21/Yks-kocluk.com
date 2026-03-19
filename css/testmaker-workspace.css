@@ -101,6 +101,42 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
+.tm-saved-pdf-item__cover {
+  grid-column: 1 / -1;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-height: 96px;
+  margin: -0.45rem -0.55rem 0.35rem;
+  border-radius: 10px 10px 0 0;
+  background: linear-gradient(160deg, #fef2f2 0%, #fecaca 100%);
+  color: #b91c1c;
+  font-size: 2rem;
+}
+.tm-saved-pdf-item__cover span {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #991b1b;
+}
+.tm-saved-pdf-library--ebook .tm-saved-pdf-item__cover {
+  display: flex;
+}
+.tm-saved-pdf-library--ebook .tm-saved-pdf-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+.tm-saved-pdf-library--ebook .tm-saved-pdf-item__name {
+  white-space: normal;
+}
+.tm-saved-pdf-library--ebook .tm-saved-pdf-item__actions {
+  flex-direction: column;
+}
+
 .tm-saved-pdf-item__name {
   min-width: 0;
   font-size: 0.78rem;
