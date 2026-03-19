@@ -997,15 +997,22 @@
 }
 
 .tm-btn-add-a4 {
-  flex: 1;
-  min-width: 140px;
-  padding: 0.75rem 1rem;
+  flex: none !important;
+  flex-shrink: 0 !important;
+  align-self: stretch;
+  width: 100%;
+  max-width: 100%;
+  height: 50px !important;
+  min-height: 50px !important;
+  margin-top: 15px !important;
+  padding: 0 1rem !important;
+  box-sizing: border-box;
   border: none;
-  border-radius: 14px;
+  border-radius: 12px;
   background: linear-gradient(135deg, #059669, #10b981);
   color: #fff;
   font-weight: 800;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   cursor: pointer;
   font-family: inherit;
   display: inline-flex;
@@ -1655,18 +1662,134 @@
   flex: 1;
   min-height: 0;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: stretch;
   overflow: hidden;
+}
+
+/* Word benzeri üst meta şeridi (TestMaker) */
+.tm-top-meta-ribbon {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  padding: 0.65rem 1rem 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, rgba(20, 20, 26, 0.98), rgba(12, 12, 16, 0.96));
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+
+.tm-top-meta-ribbon__fields {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem 0.75rem;
+}
+
+.tm-top-meta-ribbon__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0;
+  max-width: 100%;
+}
+
+.tm-top-meta-ribbon__group--grow {
+  flex: 1 1 200px;
+  min-width: min(100%, 180px);
+}
+
+.tm-top-meta-ribbon__group > span {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+}
+
+.tm-top-meta-ribbon__group input,
+.tm-top-meta-ribbon__group select {
+  width: 100%;
+  max-width: 220px;
+  box-sizing: border-box;
+  padding: 0.42rem 0.55rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 15, 18, 0.95);
+  color: #f4f4f5;
+  font-size: 0.82rem;
+  font-family: inherit;
+}
+
+.tm-top-meta-ribbon__group--grow input {
+  max-width: none;
+}
+
+.tm-top-meta-ribbon__export {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  margin-left: 0.15rem;
+}
+
+.tm-btn-export-pdf {
+  white-space: nowrap;
+  padding: 0.55rem 1rem !important;
+  font-size: 0.82rem !important;
+  box-shadow: 0 4px 18px rgba(234, 88, 12, 0.3) !important;
+}
+
+.tm-btn-export-lib {
+  white-space: nowrap;
+  padding: 0.55rem 0.95rem !important;
+  font-weight: 800 !important;
+  border-width: 1px !important;
+}
+
+.tm-btn-export-draft {
+  white-space: nowrap;
+  padding: 0.52rem 0.9rem !important;
+  border-radius: 11px !important;
+  background: rgba(124, 58, 237, 0.22) !important;
+  border: 1px solid rgba(167, 139, 250, 0.45) !important;
+  color: #e9d5ff !important;
+}
+
+.tm-btn-export-draft:hover {
+  background: rgba(124, 58, 237, 0.32) !important;
+}
+
+@media (max-width: 1100px) {
+  .tm-top-meta-ribbon {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .tm-top-meta-ribbon__export {
+    border-left: none;
+    margin-left: 0;
+    padding-left: 0;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    justify-content: flex-start;
+  }
 }
 
 .tm-creator-layout {
   flex: 1;
   min-width: 0;
-  display:flex;
+  min-height: 0;
+  display: flex;
   flex-direction: row;
   align-items: stretch;
-  min-height: 0;
 }
 
 .tm-creator-center {
@@ -1695,8 +1818,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0.5rem 0;
-  gap: 0.35rem;
+  justify-content: flex-start;
+  padding: 0.55rem 0;
+  gap: 0.4rem;
 }
 
 .tm-rail__spacer {
@@ -1932,6 +2056,7 @@
   flex-direction: column;
   min-height: 0;
   background: rgba(0, 0, 0, 0.2);
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .tm-canvas-meta {
@@ -1968,8 +2093,20 @@
 .tm-a4-preview-scroll--focus {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 1rem;
+}
+
+/* Orta tuval: flex ile doldurur; sabit 100vh boşluk hatası vermez */
+.tm-a4-workspace-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  background: #2a2a2e !important;
+  border-radius: 0;
+  box-sizing: border-box;
 }
 
 .tm-workspace__bar--compact {
@@ -1978,10 +2115,10 @@
 }
 
 .tm-source-panel {
-  flex: 0 0 350px;
-  width: 350px;
-  max-width: 100%;
-  min-width: 0;
+  flex: 0 0 350px !important;
+  width: 350px !important;
+  max-width: 350px !important;
+  min-width: 350px !important;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -2426,11 +2563,270 @@
   .tm-view-creator {
     flex-direction: column;
   }
+  .tm-creator-body {
+    flex-direction: column;
+  }
   .tm-source-panel {
-    flex: 0 0 auto;
-    width: 100%;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
     max-height: 38vh;
     border-left: none;
     border-top: 1px solid rgba(167, 139, 250, 0.12);
+  }
+  .tm-a4-workspace-scroll {
+    flex: 1;
+    min-height: 0;
+    max-height: min(62vh, calc(100vh - 160px));
+  }
+}
+
+/* ========== Word benzeri TestMaker Pro (üst şerit + yatay araçlar) ========== */
+.tm-top-meta-ribbon--word {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0;
+  padding: 0.45rem 0.65rem 0.55rem;
+}
+
+.tm-ribbon-groups {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.35rem 0;
+}
+
+.tm-ribbon-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0 0.75rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  min-width: 0;
+}
+
+.tm-ribbon-group:last-child {
+  border-right: none;
+}
+
+.tm-ribbon-group--test {
+  flex: 1 1 280px;
+}
+
+.tm-ribbon-group--file {
+  flex: 0 0 auto;
+}
+
+.tm-ribbon-group__title {
+  margin: 0;
+  font-size: 0.58rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+}
+
+.tm-ribbon-group__body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.4rem 0.55rem;
+}
+
+.tm-ribbon-group__body--wrap .tm-top-meta-ribbon__group--grow {
+  flex: 1 1 200px;
+  min-width: min(100%, 160px);
+}
+
+.tm-ribbon-group__body--actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.tm-btn-export-pdf--hero {
+  padding: 0.58rem 1.1rem !important;
+  font-size: 0.86rem !important;
+  font-weight: 800 !important;
+  border-radius: 12px !important;
+  border: 2px solid rgba(251, 146, 60, 0.55) !important;
+  background: linear-gradient(135deg, rgba(234, 88, 12, 0.5), rgba(185, 28, 28, 0.4)) !important;
+  color: #fff !important;
+  box-shadow: 0 6px 22px rgba(234, 88, 12, 0.32) !important;
+}
+
+.tm-btn-export-pdf--hero:hover {
+  filter: brightness(1.06);
+}
+
+.tm-creator-layout--word {
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+  gap: 0;
+  align-items: stretch;
+}
+
+.tm-format-ribbon-wrap {
+  position: relative;
+  flex-shrink: 0;
+  z-index: 8;
+  overflow: visible;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  background: linear-gradient(180deg, #15151c 0%, #0c0c10 100%);
+}
+
+.tm-view-creator.tm-view-creator--word-stack {
+  overflow-x: visible;
+  overflow-y: hidden;
+}
+
+.tm-format-ribbon {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.15rem 0;
+  padding: 0.32rem 0.5rem 0.42rem;
+}
+
+.tm-format-ribbon__chunk {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0 0.75rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.tm-format-ribbon__chunk:last-child {
+  border-right: none;
+}
+
+.tm-format-ribbon__chunk-title {
+  font-size: 0.56rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+}
+
+.tm-format-ribbon__tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: center;
+}
+
+.tm-ribbon-tile {
+  min-width: 56px;
+  max-width: 80px;
+  padding: 0.35rem 0.42rem 0.28rem;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.05);
+  color: #e4e4e7;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.18rem;
+  font-size: 0.58rem;
+  font-weight: 750;
+  line-height: 1.12;
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.tm-ribbon-tile i {
+  font-size: 1.02rem;
+  opacity: 0.92;
+}
+
+.tm-ribbon-tile:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(167, 139, 250, 0.4);
+  color: #fafafa;
+}
+
+.tm-ribbon-tile.is-active {
+  border-color: rgba(167, 139, 250, 0.7);
+  background: rgba(124, 58, 237, 0.3);
+  color: #f5f3ff;
+}
+
+.tm-flyout-anchor {
+  position: relative;
+  min-height: 0;
+}
+
+.tm-flyout-anchor .tm-flyout.tm-flyout--ribbon,
+.tm-flyout-anchor .tm-flyout {
+  position: absolute;
+  left: 8px;
+  top: calc(100% + 4px);
+  z-index: 45;
+}
+
+.tm-creator-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+}
+
+.tm-source-panel__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-right: 0.1rem;
+}
+
+.tm-source-panel__footer {
+  flex-shrink: 0;
+  padding-top: 0.45rem;
+  margin-top: 0.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tm-btn-add-a4--footer {
+  width: 100%;
+  height: auto !important;
+  min-height: 48px !important;
+  max-height: none !important;
+  margin-top: 0 !important;
+  flex: none !important;
+  align-self: stretch !important;
+  box-shadow: 0 4px 18px rgba(16, 185, 129, 0.25);
+}
+
+.app--testmaker-workspace .tm-source-panel {
+  overflow: hidden;
+}
+
+@media (max-width: 1100px) {
+  .tm-ribbon-groups {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .tm-ribbon-group {
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 0.45rem;
+  }
+  .tm-ribbon-group:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+  .tm-format-ribbon {
+    justify-content: flex-start;
   }
 }

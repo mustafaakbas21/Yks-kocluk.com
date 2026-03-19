@@ -348,7 +348,7 @@
   height: 100% !important;
 }
 
-/* Sağ panel asla alta yığılmasın (geniş ekranda) */
+/* TestMaker: üst şerit + gövde dikey; sağ kaynak paneli sabit genişlik */
 .app--testmaker-workspace .tm-view-creator {
   flex-direction: row !important;
   flex-wrap: nowrap !important;
@@ -356,14 +356,21 @@
   min-height: 0;
 }
 
+.app--testmaker-workspace .tm-view-creator.tm-view-creator--word-stack {
+  flex-direction: column !important;
+}
+
 .app--testmaker-workspace .tm-source-panel {
- flex: 0 0 340px !important;
- width: 340px !important;
- max-width: 340px !important;
- min-height: 0 !important;
- max-height: none !important;
- align-self: stretch;
- overflow-y: auto;
+  flex: 0 0 min(320px, 32vw) !important;
+  width: min(320px, 32vw) !important;
+  max-width: min(320px, 32vw) !important;
+  min-width: min(280px, 90vw) !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  align-self: stretch;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 @media (max-width: 900px) {
@@ -373,7 +380,10 @@
     -webkit-overflow-scrolling: touch;
   }
   .app--testmaker-workspace .tm-source-panel {
-    flex: 0 0 300px !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
     max-height: none !important;
   }
 }

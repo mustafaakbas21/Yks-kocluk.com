@@ -59,7 +59,7 @@
       position: relative;
       width: 100%;
       max-width: calc(100% - 3rem);
-      margin: 0 1.5rem 1.25rem;
+      margin: 0.5rem 1.5rem 1rem;
       box-sizing: border-box;
       border-radius: 20px;
       overflow: hidden;
@@ -141,6 +141,96 @@
       letter-spacing: 0.08em;
       color: #a5b4fc;
     }
+    /* Eski flip sayaç (cache / #yksCountdownHost) — yalnızca premium widget kalsın */
+    #view-dashboard .yks-countdown,
+    #view-dashboard #yksCountdownHost {
+      display: none !important;
+      visibility: hidden !important;
+      height: 0 !important;
+      max-height: 0 !important;
+      overflow: hidden !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      pointer-events: none !important;
+      border: none !important;
+    }
+    /* Koç paneli: etiketli sidebar + TestMaker hiyerarşisi (elite dar ikon modunu burada ezer) */
+    .app.app--elite-layout.app--sidebar-readable {
+      --sidebar-w: clamp(220px, 22vw, 270px);
+    }
+    .app--sidebar-readable .sidebar--elite {
+      padding: 0.65rem 0.55rem 1.25rem;
+    }
+    .app--sidebar-readable .sidebar--elite .sidebar__title,
+    .app--sidebar-readable .sidebar--elite .sidebar__section-label {
+      position: static !important;
+      width: auto !important;
+      height: auto !important;
+      clip: auto !important;
+      overflow: visible !important;
+      white-space: nowrap;
+    }
+    .app--sidebar-readable .sidebar--elite .sidebar__section-label {
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin: 0.35rem 0 0.5rem 0.35rem;
+    }
+    .app--sidebar-readable .sidebar--elite .sidebar__link span,
+    .app--sidebar-readable .sidebar--elite .sidebar__sublink span {
+      display: inline !important;
+      font-size: 0.78rem !important;
+      max-width: none !important;
+      text-align: left;
+      font-weight: 600;
+    }
+    .app--sidebar-readable .sidebar--elite .sidebar__link,
+    .app--sidebar-readable .sidebar--elite .sidebar__sublink {
+      justify-content: flex-start !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      gap: 0.5rem !important;
+      padding: 0.48rem 0.6rem !important;
+      font-size: 0.86rem !important;
+    }
+    .app--sidebar-readable .sidebar--elite .sidebar__sublink {
+      font-size: 0.82rem !important;
+    }
+    .app--sidebar-readable .sidebar--elite .sidebar__sublink i {
+      font-size: 0.92rem !important;
+      flex-shrink: 0;
+    }
+    .app--sidebar-readable .sidebar--elite .sidebar__brand-btn {
+      flex-direction: row;
+      text-align: left;
+      gap: 0.5rem;
+      padding: 0.35rem 0.45rem;
+      justify-content: flex-start;
+    }
+    .app--sidebar-readable .sidebar--elite .sidebar__submenu {
+      margin: 0.2rem 0 0.4rem 0.15rem !important;
+      padding-left: 0.65rem !important;
+      gap: 0.15rem;
+      border-left: 3px solid rgba(124, 58, 237, 0.38);
+    }
+    .app--sidebar-readable .sidebar--elite .sidebar__item--testmaker .sidebar__sublink {
+      flex-direction: row !important;
+      justify-content: flex-start !important;
+      align-items: center !important;
+      padding-left: 0.5rem !important;
+    }
+    .app--sidebar-readable .sidebar--elite .sidebar__item--testmaker .sidebar__sublink span {
+      font-weight: 700;
+      font-size: 0.74rem !important;
+    }
+    .app--sidebar-readable .sidebar__link--tm-accordion {
+      width: 100%;
+    }
+    .app--sidebar-readable .sidebar__link--tm-accordion .sidebar__tm-chevron {
+      margin-left: auto;
+    }
     .student-avatar-picker__hint { font-size: 0.72rem; color: #64748b; margin-top: 0.35rem; }
     /* [hidden] UA kuralını ezmeyin: flex toolbar/sheet DOM’da açık kalmasın */
     .avatar-gallery-sheet[hidden],
@@ -167,9 +257,8 @@
     }
     .avatar-gallery-sheet { position: fixed; inset: 0; z-index: 100050; display: flex; align-items: flex-end; justify-content: center; pointer-events: none; }
     .avatar-gallery-sheet:not([hidden]) { pointer-events: auto; }
-    /* Elite dar sidebar: TestMaker alt satırları görünür (ikon + kısa etiket) */
-    .sidebar--elite .sidebar__item--testmaker .sidebar__submenu {
-      display: flex !important;
+    /* Elite: alt menü yalnızca akordeon açıkken */
+    .sidebar--elite .sidebar__item--testmaker.sidebar__item--tm-open .sidebar__submenu {
       flex-direction: column;
       align-items: center;
       gap: 0.35rem;
@@ -197,6 +286,150 @@
     .sidebar--elite .sidebar__item--testmaker .sidebar__sublink i {
       font-size: 0.88rem !important;
     }
+    /* TestMaker akordeon: kapalıyken alt menü yok */
+    .sidebar__item--testmaker:not(.sidebar__item--tm-open) .sidebar__submenu {
+      display: none !important;
+    }
+    .sidebar__item--testmaker.sidebar__item--tm-open .sidebar__submenu {
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar--elite .sidebar__item--testmaker.sidebar__item--tm-open .sidebar__submenu {
+      display: flex !important;
+    }
+    .dashboard-elite-hero--cta-only {
+      margin: 0 1.5rem 1.2rem;
+      max-width: calc(100% - 3rem);
+    }
+    .dashboard-elite-hero--cta-only .dashboard-elite-hero__cta {
+      margin-top: 0;
+      justify-content: center;
+    }
+    .sidebar__link--tm-accordion {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      width: 100%;
+    }
+    .sidebar__tm-chevron {
+      margin-left: auto;
+      display: inline-flex;
+      transition: transform 0.22s ease;
+      font-size: 0.65rem;
+      opacity: 0.8;
+    }
+    .sidebar__item--testmaker.sidebar__item--tm-open .sidebar__tm-chevron {
+      transform: rotate(180deg);
+    }
+    .sidebar__submenu--tm-nested {
+      padding-left: 1.35rem !important;
+      margin-left: 0.35rem;
+      border-left: 2px solid rgba(124, 58, 237, 0.2);
+    }
+    /* PDF anotasyon — Acrobat tarzı (sadece bu sayfa, üstteki [hidden] kurallarından sonra) */
+    #viewPdfDuzenle:not([hidden]) .tm-annotate-sidebar {
+      flex: 0 0 clamp(380px, 30vw, 460px) !important;
+      width: clamp(380px, 30vw, 460px) !important;
+      max-width: none !important;
+      min-width: 360px !important;
+      padding: 0.75rem 0.9rem !important;
+      background: linear-gradient(180deg, rgba(12, 12, 18, 0.92), rgba(6, 6, 10, 0.88)) !important;
+      border: 1px solid rgba(255, 255, 255, 0.1) !important;
+      box-shadow: -8px 0 28px rgba(0, 0, 0, 0.35);
+    }
+    .tm-annotate-sidebar__head {
+      margin-bottom: 0.5rem;
+      padding-bottom: 0.55rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .tm-annotate-sidebar__title {
+      margin: 0;
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: #f4f4f5;
+      letter-spacing: -0.02em;
+    }
+    .tm-annotate-sidebar__hint {
+      margin: 0.25rem 0 0;
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: #94a3b8;
+      line-height: 1.35;
+    }
+    #viewPdfDuzenle:not([hidden]) .tm-editor__thumbs {
+      max-height: min(72vh, 640px) !important;
+      margin-top: 0.75rem !important;
+    }
+    #viewPdfDuzenle:not([hidden]) .tm-editor-thumb {
+      grid-template-columns: 76px 1fr auto !important;
+      padding: 0.5rem 0.45rem !important;
+      border-radius: 12px !important;
+    }
+    #viewPdfDuzenle:not([hidden]) .tm-editor-thumb img {
+      width: 72px !important;
+      height: 92px !important;
+      border-radius: 8px !important;
+    }
+    #viewPdfDuzenle:not([hidden]) .tm-editor-thumb__title {
+      font-size: 0.8rem !important;
+      font-weight: 700;
+    }
+    #viewPdfDuzenle:not([hidden]) .tm-editor-thumb__actions button {
+      width: 30px !important;
+      height: 30px !important;
+    }
+    @media (max-width: 900px) {
+      #viewPdfDuzenle:not([hidden]) .tm-annotate-body {
+        flex-direction: column-reverse;
+      }
+      #viewPdfDuzenle:not([hidden]) .tm-annotate-sidebar {
+        flex: 0 0 auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        max-height: min(42vh, 380px);
+      }
+      #viewPdfDuzenle:not([hidden]) .tm-editor__thumbs {
+        max-height: min(28vh, 240px) !important;
+      }
+    }
+    #viewPdfDuzenle:not([hidden]) .tm-annotate-topbar {
+      padding: 0.65rem 1.15rem !important;
+      gap: 0.75rem 1rem !important;
+      background: linear-gradient(180deg, rgba(22, 22, 28, 0.98), rgba(12, 12, 16, 0.96)) !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+    #viewPdfDuzenle:not([hidden]) .tm-annotate-tools {
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.45rem !important;
+      padding: 0.2rem 0.35rem;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    #viewPdfDuzenle:not([hidden]) .tm-annotate-tool {
+      width: 44px !important;
+      height: 44px !important;
+      border-radius: 11px !important;
+      font-size: 1.05rem !important;
+    }
+    #viewPdfDuzenle:not([hidden]) .tm-annotate-toolbar-sep {
+      width: 1px;
+      height: 28px;
+      background: rgba(255, 255, 255, 0.12);
+      margin: 0 0.15rem;
+      align-self: center;
+    }
+    #viewPdfDuzenle:not([hidden]) .tm-annotate-zoom {
+      display: flex;
+      gap: 0.35rem;
+      align-items: center;
+      padding: 0.2rem 0.35rem;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
     .avatar-gallery-sheet__backdrop { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(4px); }
     .avatar-gallery-sheet__panel { position: relative; z-index: 1; width: 100%; max-width: 520px; max-height: 85vh; margin: 0 auto; background: linear-gradient(180deg, #faf5ff, #fff); border-radius: 18px 18px 0 0; box-shadow: 0 -12px 40px rgba(0,0,0,0.25); display: flex; flex-direction: column; pointer-events: auto; border: 1px solid rgba(124,58,237,0.2); }
     .avatar-gallery-sheet__head { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.1rem; border-bottom: 1px solid #e9d5ff; }
@@ -218,7 +451,7 @@
   <!-- TestMaker: Cropper.js + pdf.js (head’de CSS); script’ler body sonunda (html2pdf, cropper, pdf) -->
 </head>
 <body>
-  <div class="app app--elite-layout">
+  <div class="app app--elite-layout app--sidebar-readable">
     <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
 
     <aside class="sidebar sidebar--elite" id="sidebar">
@@ -256,10 +489,11 @@
             </button>
           </li>
           <li class="sidebar__item--testmaker sidebar__item--tm-open">
-            <button type="button" class="sidebar__link" data-nav="testmaker" aria-expanded="true" aria-controls="sidebarTmSubmenu" id="sidebarTmToggle">
+            <button type="button" class="sidebar__link sidebar__link--tm-accordion" id="sidebarTmToggle" aria-expanded="true" aria-controls="sidebarTmSubmenu" title="TestMaker menüsünü aç/kapat">
               <i class="fa-solid fa-file-circle-check"></i><span>TestMaker</span>
+              <span class="sidebar__tm-chevron" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
             </button>
-            <div class="sidebar__submenu" id="sidebarTmSubmenu" role="group" aria-label="TestMaker alt menü">
+            <div class="sidebar__submenu sidebar__submenu--tm-nested" id="sidebarTmSubmenu" role="group" aria-label="TestMaker alt menü">
               <button type="button" class="sidebar__sublink" data-tm-nav-action="creator" data-testmaker-view="view-testmaker" title="Test Oluşturucu"><i class="fa-solid fa-pen-ruler"></i><span>Test Oluşturucu</span></button>
               <button type="button" class="sidebar__sublink" data-tm-nav-action="library" data-testmaker-view="view-library" title="Hazır Testler"><i class="fa-solid fa-layer-group"></i><span>Hazır Testler</span></button>
               <button type="button" class="sidebar__sublink" data-tm-nav-action="pdf-editor" data-testmaker-view="view-pdf-editor" title="PDF Düzenleyici"><i class="fa-solid fa-file-pen"></i><span>PDF Düzenleyici</span></button>
@@ -326,8 +560,7 @@
               </div>
             </div>
           </section>
-          <section class="dashboard-elite-hero" aria-label="YKS geri sayım">
-            <div id="yksCountdownHost" class="dashboard-yks-mount"></div>
+          <section class="dashboard-elite-hero dashboard-elite-hero--cta-only" aria-label="Hızlı işlem">
             <div class="dashboard-elite-hero__cta">
               <button type="button" class="btn--banner-elite" id="btnNewStudent">
                 <i class="fa-solid fa-user-plus"></i> Yeni Öğrenci Ekle
@@ -464,9 +697,6 @@
                   <i class="fa-solid fa-arrow-left"></i> Panele dön
                 </button>
                 <span class="tm-workspace__brand"><i class="fa-solid fa-wand-magic-sparkles"></i> TestMaker Pro</span>
-                <button type="button" class="tm-workspace__save-lib" id="tmBtnSaveToLibraryRibbon" title="Mizanpajı yerel kütüphaneye kaydet">
-                  <i class="fa-solid fa-layer-group"></i> Kütüphaneye Kaydet
-                </button>
               </div>
               <nav class="tm-word-ribbon" aria-label="Üst menü">
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard" title="Ana panel"><i class="fa-solid fa-house"></i> Giriş</button>
@@ -477,20 +707,78 @@
               </nav>
             </header>
 
-            <div id="tmViewCreator" class="tm-view-creator">
-              <div class="tm-creator-layout">
-                <div class="tm-rail-stack">
-                  <aside class="tm-rail" aria-label="Sol araç çubuğu">
-                    <button type="button" class="tm-rail__btn is-active" id="tmRailBtnTemplate" title="Şablon &amp; kurum" aria-pressed="true"><i class="fa-solid fa-file-lines"></i></button>
-                    <button type="button" class="tm-rail__btn" id="tmRailBtnColor" title="Renk çemberi" aria-pressed="false"><i class="fa-solid fa-palette"></i></button>
-                    <button type="button" class="tm-rail__btn" id="tmRailBtnLogo" title="Kurum logosu" aria-pressed="false"><i class="fa-solid fa-image"></i></button>
-                    <button type="button" class="tm-rail__btn" id="tmRailBtnText" title="Metin kutusu ekle" aria-pressed="false"><i class="fa-solid fa-font"></i></button>
-                    <button type="button" class="tm-rail__btn" id="tmRailBtnOptik" title="Optik şeridi" aria-pressed="false"><i class="fa-solid fa-barcode"></i></button>
-                    <button type="button" class="tm-rail__btn" id="tmRailBtnLayout" title="Mizanpaj (sayfa düzeni)" aria-pressed="false"><i class="fa-solid fa-table-cells-large"></i></button>
-                    <div class="tm-rail__spacer"></div>
-                    <button type="button" class="tm-rail__btn tm-rail__btn--primary" id="tmRailBtnPdf" title="PDF indir"><i class="fa-solid fa-file-pdf"></i></button>
-                  </aside>
-                  <div id="tmFlyoutTemplate" class="tm-flyout" hidden>
+            <div id="tmViewCreator" class="tm-view-creator tm-view-creator--word-stack">
+              <div class="tm-top-meta-ribbon tm-top-meta-ribbon--word" aria-label="Test bilgileri ve dışa aktar (Word şeridi)">
+                <div class="tm-ribbon-groups">
+                  <section class="tm-ribbon-group" aria-labelledby="tmRibbonLblGiris">
+                    <h3 class="tm-ribbon-group__title" id="tmRibbonLblGiris">Giriş</h3>
+                    <div class="tm-ribbon-group__body">
+                      <label class="tm-top-meta-ribbon__group"><span>Ders</span><input type="text" id="tmWsCourse" class="tm-input-elite" placeholder="Örn. Matematik" maxlength="80" autocomplete="off" /></label>
+                      <label class="tm-top-meta-ribbon__group"><span>Konu</span><input type="text" id="tmWsTopic" class="tm-input-elite" placeholder="Ünite / konu" maxlength="120" autocomplete="off" /></label>
+                    </div>
+                  </section>
+                  <section class="tm-ribbon-group tm-ribbon-group--test" aria-labelledby="tmRibbonLblTest">
+                    <h3 class="tm-ribbon-group__title" id="tmRibbonLblTest">Test bilgisi</h3>
+                    <div class="tm-ribbon-group__body tm-ribbon-group__body--wrap">
+                      <label class="tm-top-meta-ribbon__group tm-top-meta-ribbon__group--grow"><span>Test adı</span><input type="text" id="tmWsTitle" placeholder="Örn. Paraf TYT-7 Matematik" maxlength="200" /></label>
+                      <label class="tm-top-meta-ribbon__group"><span>VIP — öğrenci</span><input type="text" id="tmHdrStudentInput" placeholder="Ad Soyad" maxlength="80" /></label>
+                      <label class="tm-top-meta-ribbon__group"><span>VIP — net</span><input type="text" id="tmHdrNetInput" placeholder="Örn. 85,5" maxlength="12" /></label>
+                      <label class="tm-top-meta-ribbon__group"><span>Ders (liste)</span>
+                        <select id="tmWsSubject">
+                          <option value="Matematik">Matematik</option>
+                          <option value="Türkçe">Türkçe</option>
+                          <option value="Fizik">Fizik</option>
+                          <option value="Kimya">Kimya</option>
+                          <option value="Biyoloji">Biyoloji</option>
+                          <option value="Tarih">Tarih</option>
+                          <option value="Coğrafya">Coğrafya</option>
+                          <option value="TYT Genel">TYT Genel</option>
+                          <option value="Diğer">Diğer</option>
+                        </select>
+                      </label>
+                      <label class="tm-top-meta-ribbon__group"><span>Zorluk</span>
+                        <select id="tmWsDiff">
+                          <option value="Kolay">Kolay</option>
+                          <option value="Orta" selected>Orta</option>
+                          <option value="Zor">Zor</option>
+                          <option value="YKS tipi">YKS tipi</option>
+                        </select>
+                      </label>
+                      <label class="tm-top-meta-ribbon__group"><span>Test tarihi</span><input type="date" id="tmWsTestDate" /></label>
+                    </div>
+                  </section>
+                  <section class="tm-ribbon-group tm-ribbon-group--file" aria-labelledby="tmRibbonLblDosya">
+                    <h3 class="tm-ribbon-group__title" id="tmRibbonLblDosya">Dosya</h3>
+                    <div class="tm-ribbon-group__body tm-ribbon-group__body--actions" role="group" aria-label="Dışa aktar">
+                      <button type="button" class="tm-btn-pdf-dl tm-btn-export-pdf tm-btn-export-pdf--hero" id="tmBtnPdfDownload" title="PDF indir"><i class="fa-solid fa-file-pdf"></i> PDF İndir</button>
+                      <button type="button" class="tm-btn-library-save tm-btn-export-lib" id="tmBtnSaveToLibrary" title="Yerel kütüphaneye (IndexedDB) kaydeder"><i class="fa-solid fa-layer-group"></i> Kütüphaneye Kaydet</button>
+                      <button type="button" class="tm-btn-save-draft tm-btn-export-draft" id="tmBtnSaveFirestore"><i class="fa-solid fa-database"></i> Taslağı Kaydet</button>
+                    </div>
+                  </section>
+                </div>
+              </div>
+              <div class="tm-creator-layout tm-creator-layout--word">
+                <div class="tm-format-ribbon-wrap">
+                  <nav class="tm-format-ribbon" aria-label="Tasarım araçları (Word benzeri)">
+                    <div class="tm-format-ribbon__chunk">
+                      <span class="tm-format-ribbon__chunk-title">Sayfa</span>
+                      <div class="tm-format-ribbon__tiles">
+                        <button type="button" class="tm-ribbon-tile" id="tmRailBtnTemplate" title="Şablon ve kurum" aria-pressed="false"><i class="fa-solid fa-file-lines" aria-hidden="true"></i><span>Şablon</span></button>
+                        <button type="button" class="tm-ribbon-tile" id="tmRailBtnColor" title="Renk stüdyosu" aria-pressed="false"><i class="fa-solid fa-palette" aria-hidden="true"></i><span>Renk</span></button>
+                        <button type="button" class="tm-ribbon-tile" id="tmRailBtnLayout" title="Mizanpaj" aria-pressed="false"><i class="fa-solid fa-table-cells-large" aria-hidden="true"></i><span>Mizanpaj</span></button>
+                      </div>
+                    </div>
+                    <div class="tm-format-ribbon__chunk">
+                      <span class="tm-format-ribbon__chunk-title">Ekle</span>
+                      <div class="tm-format-ribbon__tiles">
+                        <button type="button" class="tm-ribbon-tile" id="tmRailBtnLogo" title="Kurum logosu" aria-pressed="false"><i class="fa-solid fa-image" aria-hidden="true"></i><span>Logo</span></button>
+                        <button type="button" class="tm-ribbon-tile" id="tmRailBtnText" title="Metin kutusu" aria-pressed="false"><i class="fa-solid fa-font" aria-hidden="true"></i><span>Metin</span></button>
+                        <button type="button" class="tm-ribbon-tile" id="tmRailBtnOptik" title="Optik şeridi" aria-pressed="false"><i class="fa-solid fa-barcode" aria-hidden="true"></i><span>Optik</span></button>
+                      </div>
+                    </div>
+                  </nav>
+                  <div class="tm-flyout-anchor">
+                  <div id="tmFlyoutTemplate" class="tm-flyout tm-flyout--ribbon" hidden>
                     <p class="tm-flyout__title">Şablon &amp; kurum</p>
                     <label class="tm-flyout__field"><span>Kurum adı</span>
                       <input type="text" id="tmWsInstitution" placeholder="Kurum adı" maxlength="120" autocomplete="organization" />
@@ -562,17 +850,15 @@
                     </div>
                     <button type="button" class="tm-flyout__close" data-tm-flyout-close="layout" aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
                   </div>
+                  </div>
                 </div>
 
                 <input type="file" id="tmLogoInput" accept="image/png,image/jpeg,image/jpg,image/webp" hidden />
 
+                <div class="tm-creator-body">
                 <div class="tm-creator-center">
                 <div class="tm-creator-main">
-                  <div class="tm-canvas-meta">
-                    <label><span>Ders</span><input type="text" id="tmWsCourse" class="tm-input-elite" placeholder="Örn. Matematik" maxlength="80" autocomplete="off" /></label>
-                    <label><span>Konu</span><input type="text" id="tmWsTopic" class="tm-input-elite" placeholder="Ünite / konu" maxlength="120" autocomplete="off" /></label>
-                  </div>
-                  <div class="tm-a4-preview-scroll tm-a4-preview-scroll--focus">
+                  <div class="tm-a4-preview-scroll tm-a4-preview-scroll--focus tm-a4-workspace-scroll">
                     <div class="tm-a4-pdf-shell" id="tmA4PdfShell">
                       <div id="a4-pages-container" class="a4-pages-container layout-4">
                       <div class="a4-paper tm-template-osym" id="tmA4Paper" data-tm-layout="osym" style="--tm-accent:#1a1a1a;--accent-color:#1a1a1a;--tm-accent-rgb:26,26,26;--tm-gutter:#c8c8c8;">
@@ -672,56 +958,10 @@
                     </div>
                   </div>
                 </div>
-                <footer class="tm-workspace__bar tm-workspace__bar--compact">
-                  <div class="tm-bar-fields">
-                    <label>Test adı
-                      <input type="text" id="tmWsTitle" placeholder="Örn. Paraf TYT-7 Matematik" maxlength="200" />
-                    </label>
-                    <label>VIP — öğrenci
-                      <input type="text" id="tmHdrStudentInput" placeholder="Ad Soyad" maxlength="80" />
-                    </label>
-                    <label>VIP — net
-                      <input type="text" id="tmHdrNetInput" placeholder="Örn. 85,5" maxlength="12" />
-                    </label>
-                    <label>Ders
-                      <select id="tmWsSubject">
-                        <option value="Matematik">Matematik</option>
-                        <option value="Türkçe">Türkçe</option>
-                        <option value="Fizik">Fizik</option>
-                        <option value="Kimya">Kimya</option>
-                        <option value="Biyoloji">Biyoloji</option>
-                        <option value="Tarih">Tarih</option>
-                        <option value="Coğrafya">Coğrafya</option>
-                        <option value="TYT Genel">TYT Genel</option>
-                        <option value="Diğer">Diğer</option>
-                      </select>
-                    </label>
-                    <label>Zorluk
-                      <select id="tmWsDiff">
-                        <option value="Kolay">Kolay</option>
-                        <option value="Orta" selected>Orta</option>
-                        <option value="Zor">Zor</option>
-                        <option value="YKS tipi">YKS tipi</option>
-                      </select>
-                    </label>
-                    <label>Test tarihi
-                      <input type="date" id="tmWsTestDate" />
-                    </label>
-                  </div>
-                  <div class="tm-bar-actions">
-                    <button type="button" class="tm-btn-library-save" id="tmBtnSaveToLibrary" title="Yerel kütüphaneye (IndexedDB) kaydeder">
-                      <i class="fa-solid fa-layer-group"></i> Kütüphaneye Kaydet
-                    </button>
-                    <button type="button" class="tm-btn-save-draft" id="tmBtnSaveFirestore">
-                      <i class="fa-solid fa-database"></i> Taslağı Kaydet
-                    </button>
-                    <button type="button" class="tm-btn-pdf-dl tm-visually-hidden-util" id="tmBtnPdfDownload" tabindex="-1" aria-hidden="true">PDF</button>
-                  </div>
-                </footer>
                 </div>
-              </div>
 
               <aside class="tm-source-panel" aria-label="Kaynak PDF ve kırpma">
+                <div class="tm-source-panel__scroll">
                 <div class="tm-source-panel__head">
                   <h3 class="tm-source-panel__title"><i class="fa-solid fa-file-import"></i> Kaynak &amp; kırpma</h3>
                 </div>
@@ -750,10 +990,15 @@
                 <div class="tm-crop-wrap" id="tmCropWrap">
                   <img id="tmCropImg" alt="Kırpma kaynağı" style="display:none;max-width:100%" />
                 </div>
-                <button type="button" class="tm-btn-add-a4" id="tmBtnAddToA4" disabled>
-                  <i class="fa-solid fa-scissors"></i> A4'e Ekle
+                </div>
+                <div class="tm-source-panel__footer">
+                <button type="button" class="tm-btn-add-a4 tm-btn-add-a4--footer" id="tmBtnAddToA4" disabled>
+                  <i class="fa-solid fa-scissors"></i> Seçimi A4’e ekle
                 </button>
+                </div>
               </aside>
+              </div>
+              </div>
             </div>
           </div>
         </div>
@@ -821,15 +1066,27 @@
 
         <div id="viewPdfDuzenle" class="tm-annotate-view tm-annotate-view--overlay" hidden>
           <header class="tm-annotate-topbar">
-            <span class="tm-annotate-topbar__title"><i class="fa-solid fa-file-pen"></i> PDF Anotasyon</span>
-            <div class="tm-annotate-tools">
+            <span class="tm-annotate-topbar__title"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</span>
+            <div class="tm-annotate-tools" role="toolbar" aria-label="Anotasyon araçları">
               <button type="button" class="tm-annotate-tool is-active" data-tm-annot="draw" title="Kalem"><i class="fa-solid fa-pen"></i></button>
-              <button type="button" class="tm-annotate-tool" data-tm-annot="highlight" title="Fosforlu"><i class="fa-solid fa-highlighter"></i></button>
+              <button type="button" class="tm-annotate-tool" data-tm-annot="highlight" title="Fosforlu kalem"><i class="fa-solid fa-highlighter"></i></button>
               <button type="button" class="tm-annotate-tool" data-tm-annot="text" title="Metin"><i class="fa-solid fa-font"></i></button>
+              <span class="tm-annotate-toolbar-sep" aria-hidden="true"></span>
+              <button type="button" class="tm-annotate-tool" data-tm-annot="rect" title="Dikdörtgen"><i class="fa-solid fa-square"></i></button>
+              <button type="button" class="tm-annotate-tool" data-tm-annot="circle" title="Daire / elips"><i class="fa-solid fa-circle"></i></button>
               <button type="button" class="tm-annotate-tool" data-tm-annot="erase" title="Silgi"><i class="fa-solid fa-eraser"></i></button>
+              <span class="tm-annotate-toolbar-sep" aria-hidden="true"></span>
+              <button type="button" class="tm-annotate-tool" id="tmAnnotUndoTool" title="Geri al"><i class="fa-solid fa-rotate-left"></i></button>
+              <button type="button" class="tm-annotate-tool" id="tmAnnotRedoTool" title="İleri al"><i class="fa-solid fa-rotate-right"></i></button>
+              <span class="tm-annotate-toolbar-sep" aria-hidden="true"></span>
+              <div class="tm-annotate-zoom" role="group" aria-label="Yakınlaştırma">
+                <button type="button" class="tm-annotate-tool" id="tmAnnotZoomOut" title="Uzaklaştır"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+                <button type="button" class="tm-annotate-tool" id="tmAnnotZoomIn" title="Yakınlaştır"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+              </div>
             </div>
             <div class="tm-annotate-topbar__actions">
-              <button type="button" class="tm-annotate-action" id="tmAnnotUndo"><i class="fa-solid fa-rotate-left"></i> Geri</button>
+              <button type="button" class="tm-annotate-action" id="tmAnnotUndo"><i class="fa-solid fa-rotate-left"></i> Geri al</button>
+              <button type="button" class="tm-annotate-action" id="tmAnnotRedo"><i class="fa-solid fa-rotate-right"></i> İleri al</button>
               <button type="button" class="tm-annotate-action tm-annotate-action--primary" id="tmEditorExportPdf"><i class="fa-solid fa-download"></i> Dışa Aktar</button>
               <button type="button" class="tm-annotate-action" id="tmAnnotClose" data-tm-annot-close><i class="fa-solid fa-xmark"></i></button>
             </div>
@@ -842,6 +1099,10 @@
               </div>
             </div>
             <aside class="tm-annotate-sidebar">
+              <div class="tm-annotate-sidebar__head">
+                <h3 class="tm-annotate-sidebar__title">Sayfalar</h3>
+                <p class="tm-annotate-sidebar__hint">Önizleme · Oklarla sıra · Çöp ile kaldır</p>
+              </div>
               <button type="button" class="tm-annotate-sidebtn" id="tmEditorClearCurrent"><i class="fa-solid fa-broom"></i> Sayfayı temizle</button>
               <div class="tm-editor__thumbs" id="tmEditorThumbs"></div>
             </aside>
@@ -1537,7 +1798,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5/dist/iro.min.js" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous"></script>
-  <script src="js/yks-sayaç.js"></script>
+  <!-- Eski flip sayaç (yksCountdownHost) kaldırıldı; tek sayaç: #yks-countdown-widget + initDashboardYksCountdownWidget -->
   <!-- Modülden önce: ilk boyamada bile Dashboard + kapalı avatar/PDF (eski cache / CSS yarışı) -->
   <script>
     (function kocPanelForceDashboardShell() {
@@ -1567,6 +1828,13 @@
           var nv = btn.getAttribute("data-nav");
           btn.classList.toggle("sidebar__link--active", nv === "dashboard");
         });
+        var tmLiF = document.querySelector(".sidebar__item--testmaker");
+        var tmAccF = document.getElementById("sidebarTmToggle");
+        if (tmLiF) tmLiF.classList.add("sidebar__item--tm-open");
+        if (tmAccF) {
+          tmAccF.setAttribute("aria-expanded", "true");
+          tmAccF.classList.remove("sidebar__link--active");
+        }
       } catch (e) {}
     })();
   </script>

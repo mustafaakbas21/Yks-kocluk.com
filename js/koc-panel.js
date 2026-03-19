@@ -122,9 +122,12 @@ let tmEditorPageOrder = [];
 let tmEditorCurrentIdx = 0;
 let tmEditorTool = "draw";
 let tmEditorDrawing = false;
+let tmEditorPdfScale = 1.45;
+let tmEditorShapeDraft = null;
 let tmEditorDirty = false;
 let tmEditorTempPoint = null;
 let tmEditorAnnotations = {};
+let tmEditorRedoStack = [];
 let tmAnnotReturnSubView = "testmaker";
 let tmOptikStripVisible = false;
 const TM_TEMPLATE_IDS = ["osym", "vip", "foy", "t01", "t02", "t03", "t04", "t05", "t06", "t07"];
@@ -2306,6 +2309,13 @@ function applySpaInitialShellState() {
     var nv = btn.getAttribute("data-nav");
     btn.classList.toggle("sidebar__link--active", nv === "dashboard");
   });
+  var tmLi0 = document.querySelector(".sidebar__item--testmaker");
+  var tmAcc0 = document.getElementById("sidebarTmToggle");
+  if (tmLi0) tmLi0.classList.add("sidebar__item--tm-open");
+  if (tmAcc0) {
+    tmAcc0.setAttribute("aria-expanded", "true");
+    tmAcc0.classList.remove("sidebar__link--active");
+  }
 }
 
 function openAvatarGallerySheet(target) {
@@ -3309,6 +3319,7 @@ function testmakerWorkspaceLeave() {
   tmWsPdfBytes = null;
   tmEditorPageOrder = [];
   tmEditorAnnotations = {};
+  tmEditorClearRedo();
   tmWsCurrentPdfPage = 1;
   tmWsPdfRendering = false;
   var addBtn = document.getElementById("tmBtnAddToA4");
@@ -3465,6 +3476,32 @@ function tmEditorReplayActions(ctx, actions, scale) {
       ctx.restore();
       return;
     }
+    if (a.type === "rect") {
+      ctx.save();
+      ctx.strokeStyle = "#22d3ee";
+      ctx.lineWidth = 2.4 * s;
+      ctx.strokeRect((a.x || 0) * s, (a.y || 0) * s, (a.w || 0) * s, (a.h || 0) * s);
+      ctx.restore();
+      return;
+    }
+    if (a.type === "circle") {
+      ctx.save();
+      ctx.strokeStyle = "#22d3ee";
+      ctx.lineWidth = 2.4 * s;
+      ctx.beginPath();
+      ctx.ellipse(
+        (a.cx || 0) * s,
+        (a.cy || 0) * s,
+        Math.max((a.rx || 0) * s, 0.5),
+        Math.max((a.ry || 0) * s, 0.5),
+        0,
+        0,
+        Math.PI * 2
+      );
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
     var pts = a.points;
     if (!pts || pts.length < 2) return;
     ctx.beginPath();
@@ -3498,12 +3535,51 @@ function tmEditorDrawOverlay() {
   var st = tmEditorGetPageState(pageNo);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   tmEditorReplayActions(ctx, st.actions, 1);
+  if (tmEditorShapeDraft) {
+    var d = tmEditorShapeDraft;
+    ctx.save();
+    ctx.setLineDash([6, 4]);
+    ctx.strokeStyle = "rgba(34, 211, 238, 0.9)";
+    ctx.lineWidth = 2;
+    if (d.type === "rect") {
+      var rx = Math.min(d.x, d.x2);
+      var ry = Math.min(d.y, d.y2);
+      var rw = Math.abs(d.x2 - d.x);
+      var rh = Math.abs(d.y2 - d.y);
+      ctx.strokeRect(rx, ry, rw, rh);
+    } else if (d.type === "circle") {
+      var cx = (d.x + d.x2) / 2;
+      var cy = (d.y + d.y2) / 2;
+      var rxx = Math.abs(d.x2 - d.x) / 2;
+      var ryy = Math.abs(d.y2 - d.y) / 2;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, Math.max(rxx, 2), Math.max(ryy, 2), 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+function tmEditorClearRedo() {
+  tmEditorRedoStack = [];
 }
 
 function tmEditorUndoLast() {
   if (!tmWsPdfDoc) return;
   var st = tmEditorGetPageState(tmEditorGetCurrentPageNo());
-  if (st.actions && st.actions.length) st.actions.pop();
+  if (st.actions && st.actions.length) {
+    var last = st.actions.pop();
+    if (last) tmEditorRedoStack.push(last);
+    tmEditorDirty = true;
+    tmEditorDrawOverlay();
+  }
+}
+
+function tmEditorRedoLast() {
+  if (!tmWsPdfDoc || !tmEditorRedoStack.length) return;
+  var st = tmEditorGetPageState(tmEditorGetCurrentPageNo());
+  st.actions.push(tmEditorRedoStack.pop());
+  tmEditorDirty = true;
   tmEditorDrawOverlay();
 }
 
@@ -3526,26 +3602,73 @@ function tmEditorBindCanvas() {
     var p = tmEditorCanvasPoint(ev, ov);
     if (tmEditorTool === "text") {
       var txt = window.prompt("Metin girin:", "Not");
-      if (txt && String(txt).trim()) st.actions.push({ type: "text", x: p.x, y: p.y, text: String(txt).trim().slice(0, 280) });
+      if (txt && String(txt).trim()) {
+        tmEditorClearRedo();
+        st.actions.push({ type: "text", x: p.x, y: p.y, text: String(txt).trim().slice(0, 280) });
+      }
       tmEditorDirty = true;
+      tmEditorDrawOverlay();
+      return;
+    }
+    if (tmEditorTool === "rect" || tmEditorTool === "circle") {
+      tmEditorDrawing = true;
+      tmEditorClearRedo();
+      tmEditorShapeDraft = { type: tmEditorTool === "rect" ? "rect" : "circle", x: p.x, y: p.y, x2: p.x, y2: p.y };
       tmEditorDrawOverlay();
       return;
     }
     tmEditorDrawing = true;
     var kind = tmEditorTool === "highlight" ? "hi" : tmEditorTool === "erase" ? "erase" : "draw";
+    tmEditorClearRedo();
     st.actions.push({ type: kind, points: [p] });
   });
   ov.addEventListener("pointermove", function (ev) {
-    if (!tmEditorDrawing || !tmWsPdfDoc) return;
+    if (!tmWsPdfDoc) return;
+    if (tmEditorShapeDraft && tmEditorDrawing) {
+      var p = tmEditorCanvasPoint(ev, ov);
+      tmEditorShapeDraft.x2 = p.x;
+      tmEditorShapeDraft.y2 = p.y;
+      tmEditorDrawOverlay();
+      return;
+    }
+    if (!tmEditorDrawing) return;
     var st = tmEditorGetPageState(tmEditorGetCurrentPageNo());
     var cur = st.actions[st.actions.length - 1];
     if (!cur || !cur.points) return;
-    var p = tmEditorCanvasPoint(ev, ov);
-    cur.points.push(p);
+    var p2 = tmEditorCanvasPoint(ev, ov);
+    cur.points.push(p2);
     tmEditorDrawOverlay();
   });
   ov.addEventListener("pointerup", function () {
-    if (!tmEditorDrawing || !tmWsPdfDoc) return;
+    if (!tmWsPdfDoc) return;
+    if (tmEditorShapeDraft && tmEditorDrawing) {
+      var st2 = tmEditorGetPageState(tmEditorGetCurrentPageNo());
+      var d = tmEditorShapeDraft;
+      tmEditorShapeDraft = null;
+      tmEditorDrawing = false;
+      var x0 = Math.min(d.x, d.x2);
+      var y0 = Math.min(d.y, d.y2);
+      var ww = Math.abs(d.x2 - d.x);
+      var hh = Math.abs(d.y2 - d.y);
+      if (ww >= 3 && hh >= 3) {
+        tmEditorClearRedo();
+        if (d.type === "rect") {
+          st2.actions.push({ type: "rect", x: x0, y: y0, w: ww, h: hh });
+        } else {
+          st2.actions.push({
+            type: "circle",
+            cx: (d.x + d.x2) / 2,
+            cy: (d.y + d.y2) / 2,
+            rx: ww / 2,
+            ry: hh / 2,
+          });
+        }
+        tmEditorDirty = true;
+      }
+      tmEditorDrawOverlay();
+      return;
+    }
+    if (!tmEditorDrawing) return;
     tmEditorDrawing = false;
     tmEditorTempPoint = null;
     tmEditorDirty = true;
@@ -3557,7 +3680,7 @@ async function tmEditorRenderCurrentPage() {
   if (!tmWsPdfDoc) return;
   var pageNo = tmEditorGetCurrentPageNo();
   var page = await tmWsPdfDoc.getPage(pageNo);
-  var vp = page.getViewport({ scale: 1.45 });
+  var vp = page.getViewport({ scale: tmEditorPdfScale });
   var base = document.getElementById("tmEditorBaseCanvas");
   var ov = document.getElementById("tmEditorOverlayCanvas");
   if (!base || !ov) return;
@@ -3605,6 +3728,7 @@ function tmEditorInitFromPdf() {
   if (!tmWsPdfDoc) return;
   tmEditorPageOrder = [];
   tmEditorAnnotations = {};
+  tmEditorClearRedo();
   for (var i = 1; i <= (tmWsPdfDoc.numPages || 1); i++) tmEditorPageOrder.push(i);
   tmEditorCurrentIdx = 0;
   tmEditorRenderThumbs();
@@ -3632,7 +3756,7 @@ async function tmEditorExportPdf() {
     var ctx = c.getContext("2d");
     await page.render({ canvasContext: ctx, viewport: vp }).promise;
     var st = tmEditorGetPageState(pno);
-    tmEditorReplayActions(ctx, st.actions || [], 2 / 1.45);
+    tmEditorReplayActions(ctx, st.actions || [], 2 / tmEditorPdfScale);
     var wmm = (c.width * 25.4) / 96;
     var hmm = (c.height * 25.4) / 96;
     if (!docOut) docOut = new jsPDFCtor({ orientation: wmm > hmm ? "landscape" : "portrait", unit: "mm", format: [wmm, hmm] });
@@ -3651,6 +3775,7 @@ function tmWsLoadImageFile(file) {
   tmWsPdfBytes = null;
   tmEditorPageOrder = [];
   tmEditorAnnotations = {};
+  tmEditorClearRedo();
   var th = document.getElementById("tmEditorThumbs");
   if (th) th.innerHTML = "";
   destroyTmWsCropper();
@@ -4247,8 +4372,6 @@ function bindTestMakerWorkspace() {
     });
   var saveLib = document.getElementById("tmBtnSaveToLibrary");
   if (saveLib) saveLib.addEventListener("click", tmSaveLayoutToLocalLibrary);
-  var saveLibRibbon = document.getElementById("tmBtnSaveToLibraryRibbon");
-  if (saveLibRibbon) saveLibRibbon.addEventListener("click", tmSaveLayoutToLocalLibrary);
   var railT = document.getElementById("tmRailBtnTemplate");
   var railC = document.getElementById("tmRailBtnColor");
   var railL = document.getElementById("tmRailBtnLayout");
@@ -4305,11 +4428,10 @@ function bindTestMakerWorkspace() {
   document.addEventListener("click", function (ev) {
     var t = ev.target;
     if (!t || !t.closest) return;
-    if (t.closest(".tm-flyout") || t.closest(".tm-rail")) return;
+    if (t.closest(".tm-flyout") || t.closest(".tm-rail") || t.closest(".tm-format-ribbon") || t.closest(".tm-ribbon-tile")) return;
     if (document.querySelector(".tm-flyout:not([hidden])")) tmCloseAllTmFlyouts();
   });
   var railLogo = document.getElementById("tmRailBtnLogo");
-  var railPdf = document.getElementById("tmRailBtnPdf");
   var railTxt = document.getElementById("tmRailBtnText");
   var railOpt = document.getElementById("tmRailBtnOptik");
   var logoInpEarly = document.getElementById("tmLogoInput");
@@ -4318,17 +4440,35 @@ function bindTestMakerWorkspace() {
       logoInpEarly.click();
     });
   }
-  if (railPdf) railPdf.addEventListener("click", tmWsDownloadPdf);
   if (railTxt) railTxt.addEventListener("click", tmAddFreeTextBoxToA4);
   if (railOpt) railOpt.addEventListener("click", tmToggleOptikStrip);
   var undoBtn = document.getElementById("tmAnnotUndo");
   if (undoBtn) undoBtn.addEventListener("click", tmEditorUndoLast);
+  var undoTool = document.getElementById("tmAnnotUndoTool");
+  if (undoTool) undoTool.addEventListener("click", tmEditorUndoLast);
+  var redoBtn = document.getElementById("tmAnnotRedo");
+  if (redoBtn) redoBtn.addEventListener("click", tmEditorRedoLast);
+  var redoTool = document.getElementById("tmAnnotRedoTool");
+  if (redoTool) redoTool.addEventListener("click", tmEditorRedoLast);
+  var zIn = document.getElementById("tmAnnotZoomIn");
+  var zOut = document.getElementById("tmAnnotZoomOut");
+  if (zIn)
+    zIn.addEventListener("click", function () {
+      tmEditorPdfScale = Math.min(2.35, Math.round((tmEditorPdfScale + 0.12) * 100) / 100);
+      tmEditorRenderCurrentPage();
+    });
+  if (zOut)
+    zOut.addEventListener("click", function () {
+      tmEditorPdfScale = Math.max(0.82, Math.round((tmEditorPdfScale - 0.12) * 100) / 100);
+      tmEditorRenderCurrentPage();
+    });
   var thumbHost = document.getElementById("tmEditorThumbs");
   if (thumbHost)
     thumbHost.addEventListener("click", function (ev) {
       var row = ev.target.closest && ev.target.closest(".tm-editor-thumb");
       if (row && row.hasAttribute("data-idx")) {
         tmEditorCurrentIdx = Math.max(0, Math.min(tmEditorPageOrder.length - 1, parseInt(row.getAttribute("data-idx"), 10) || 0));
+        tmEditorClearRedo();
         tmEditorRenderThumbs();
         tmEditorRenderCurrentPage();
       }
@@ -4342,6 +4482,7 @@ function bindTestMakerWorkspace() {
           tmEditorPageOrder[ui - 1] = tmEditorPageOrder[ui];
           tmEditorPageOrder[ui] = t;
           tmEditorCurrentIdx = ui - 1;
+          tmEditorClearRedo();
           tmEditorRenderThumbs();
           tmEditorRenderCurrentPage();
         }
@@ -4352,6 +4493,7 @@ function bindTestMakerWorkspace() {
           tmEditorPageOrder[di + 1] = tmEditorPageOrder[di];
           tmEditorPageOrder[di] = t2;
           tmEditorCurrentIdx = di + 1;
+          tmEditorClearRedo();
           tmEditorRenderThumbs();
           tmEditorRenderCurrentPage();
         }
@@ -4364,6 +4506,7 @@ function bindTestMakerWorkspace() {
         if (ri >= 0 && ri < tmEditorPageOrder.length) {
           tmEditorPageOrder.splice(ri, 1);
           if (tmEditorCurrentIdx >= tmEditorPageOrder.length) tmEditorCurrentIdx = tmEditorPageOrder.length - 1;
+          tmEditorClearRedo();
           tmEditorRenderThumbs();
           tmEditorRenderCurrentPage();
         }
@@ -4375,6 +4518,7 @@ function bindTestMakerWorkspace() {
       if (!tmWsPdfDoc) return;
       var pageNo = tmEditorGetCurrentPageNo();
       tmEditorAnnotations[pageNo] = { actions: [] };
+      tmEditorClearRedo();
       tmEditorDrawOverlay();
     });
   var expBtn = document.getElementById("tmEditorExportPdf");
@@ -4648,6 +4792,16 @@ function navigateTo(view) {
       (nv === "testmaker" && (view === "testmaker" || view === "library" || view === "pdf-editor"));
     btn.classList.toggle("sidebar__link--active", on);
   });
+  var tmLiNav = document.querySelector(".sidebar__item--testmaker");
+  var tmAccNav = document.getElementById("sidebarTmToggle");
+  if (tmLiNav && tmAccNav) {
+    var inTmNav = view === "testmaker" || view === "library" || view === "pdf-editor";
+    if (inTmNav) {
+      tmLiNav.classList.add("sidebar__item--tm-open");
+      tmAccNav.setAttribute("aria-expanded", "true");
+    }
+    tmAccNav.classList.toggle("sidebar__link--active", inTmNav);
+  }
   document.querySelectorAll("[data-tm-nav-action]").forEach(function (btn) {
     var a = btn.getAttribute("data-tm-nav-action");
     btn.classList.toggle(
@@ -4752,7 +4906,7 @@ function initNavigation() {
     });
   });
 
-  /* TestMaker (elite): ana satıra tıklanınca alt menüyü aç/kapat; çift tetiklemeyi önle */
+  /* TestMaker: ana satır yalnızca akordeon aç/kapat (alt linkler görünüme gider) */
   (function initTestmakerSidebarAccordion() {
     var li = document.querySelector(".sidebar__item--testmaker");
     var mainBtn = li && li.querySelector("#sidebarTmToggle");
@@ -4760,16 +4914,10 @@ function initNavigation() {
     mainBtn.addEventListener(
       "click",
       function (ev) {
-        var side = document.getElementById("sidebar");
-        if (!side || !side.classList.contains("sidebar--elite")) return;
-        var w = window.innerWidth;
-        if (w > 992) {
-          ev.preventDefault();
-          ev.stopImmediatePropagation();
-          li.classList.add("sidebar__item--tm-open");
-          mainBtn.setAttribute("aria-expanded", "true");
-          navigateTo("testmaker");
-        }
+        ev.preventDefault();
+        ev.stopPropagation();
+        var open = li.classList.toggle("sidebar__item--tm-open");
+        mainBtn.setAttribute("aria-expanded", open ? "true" : "false");
       },
       true
     );
