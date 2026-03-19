@@ -98,6 +98,11 @@
             <button type="button" class="sidebar__link" data-nav="testmaker">
               <i class="fa-solid fa-file-circle-check"></i><span>TestMaker</span>
             </button>
+            <div class="sidebar__submenu">
+              <button type="button" class="sidebar__sublink" data-tm-nav-action="edit"><i class="fa-solid fa-pen-ruler"></i><span>Test Düzenleme</span></button>
+              <button type="button" class="sidebar__sublink" data-tm-nav-action="saved"><i class="fa-solid fa-folder-open"></i><span>Hazır Oluşturulmuş Testler</span></button>
+              <button type="button" class="sidebar__sublink" data-tm-nav-action="create"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Test Oluşturucu PDF</span></button>
+            </div>
           </li>
           <li>
             <button type="button" class="sidebar__link" data-nav="muhasebe">
@@ -315,7 +320,13 @@
                         <option value="osym">ÖSYM Klasik</option>
                         <option value="vip">VIP Kurumsal</option>
                         <option value="foy">Föy / Yaprak Test</option>
+                        <option value="academy">Akademi Plus</option>
+                        <option value="minimal">Minimal Siyah</option>
                       </select>
+                    </label>
+                    <label class="tm-toolbar-field"><span>Kurum logosu</span>
+                      <button type="button" class="tm-logo-btn" id="tmBtnLogoUpload"><i class="fa-solid fa-image"></i> Logo PNG/JPG</button>
+                      <input type="file" id="tmLogoInput" accept="image/png,image/jpeg,image/jpg,image/webp" hidden />
                     </label>
                   </div>
                 </div>
@@ -333,7 +344,7 @@
                       </div>
                       <div class="tm-paper-header tm-paper-header--vip" id="tmHeaderVip">
                         <div class="tm-h-vip__row">
-                          <div class="tm-h-vip__logo"><i class="fa-solid fa-graduation-cap"></i><span id="tmH_vip_inst">Kurum</span></div>
+                          <div class="tm-h-vip__logo"><img class="tm-header-logo" hidden alt="Kurum logosu" /><i class="fa-solid fa-graduation-cap tm-header-logo-fallback"></i><span id="tmH_vip_inst">Kurum</span></div>
                           <div class="tm-h-vip__meta">
                             <div class="tm-h-vip__course" id="tmH_vip_course">Ders</div>
                             <div class="tm-h-vip__topic" id="tmH_vip_topic">Konu</div>
@@ -345,7 +356,7 @@
                       <div class="tm-paper-header tm-paper-header--foy" id="tmHeaderFoy">
                         <div class="tm-h-foy__head">
                           <div class="tm-h-foy__titles">
-                            <div class="tm-h-foy__inst" id="tmH_foy_inst"></div>
+                            <div class="tm-h-foy__inst"><img class="tm-header-logo" hidden alt="Kurum logosu" /><span id="tmH_foy_inst"></span></div>
                             <div class="tm-h-foy__sub"><span id="tmH_foy_course"></span> — <span id="tmH_foy_topic"></span></div>
                           </div>
                           <div class="tm-h-foy__boxes">
@@ -355,7 +366,7 @@
                         </div>
                       </div>
                       <div class="tm-a4-layout" id="tmA4Layout">
-                        <div class="tm-a4-empty tm-a4-empty--full" id="tmA4Empty">Kitaplıktan veya sağdan <strong>PDF</strong> açıp kırpın; <strong>A4’e Ekle</strong> ile ekleyin. <strong>ÖSYM</strong> şablonunda sorular iki sütunda (ortada çizgi) dizilir.</div>
+                        <div class="tm-a4-empty tm-a4-empty--full" id="tmA4Empty">Kitaplıktan veya sağdan <strong>PDF</strong> açıp kırpın; <strong>A4’e Ekle</strong> ile ekleyin. Tüm şablonlarda sorular kitap düzeninde iki sütunda (ortada çizgi) dizilir.</div>
                         <div class="test-content-area" id="testContentArea" hidden>
                           <div id="column-1" class="test-column"></div>
                           <div id="column-2" class="test-column test-column--with-rule"></div>
@@ -393,6 +404,29 @@
                     <i class="fa-solid fa-scissors"></i> A4'e Ekle
                   </button>
                 </div>
+                <section class="tm-pdf-editor-v2" id="tmPdfEditorV2">
+                  <p class="tm-tools__label"><i class="fa-solid fa-file-pen"></i> PDF Editör v2</p>
+                  <div class="tm-editor__toolbar">
+                    <button type="button" class="tm-editor-btn is-active" data-tm-tool="draw"><i class="fa-solid fa-pen"></i> Çizim</button>
+                    <button type="button" class="tm-editor-btn" data-tm-tool="highlight"><i class="fa-solid fa-highlighter"></i> Highlight</button>
+                    <button type="button" class="tm-editor-btn" data-tm-tool="signature"><i class="fa-solid fa-signature"></i> İmza</button>
+                  </div>
+                  <div class="tm-editor__canvas-wrap" id="tmEditorCanvasWrap">
+                    <canvas id="tmEditorBaseCanvas"></canvas>
+                    <canvas id="tmEditorOverlayCanvas"></canvas>
+                  </div>
+                  <label class="tm-editor__note-label">Not
+                    <textarea id="tmEditorNote" class="tm-editor__note" rows="2" placeholder="Bu sayfaya not..."></textarea>
+                  </label>
+                  <label class="tm-editor__note-label">İmza metni
+                    <input id="tmEditorSignText" class="tm-editor__sign" type="text" maxlength="48" placeholder="Ad Soyad" />
+                  </label>
+                  <div class="tm-editor__actions">
+                    <button type="button" class="tm-editor-action" id="tmEditorClearCurrent"><i class="fa-solid fa-eraser"></i> Sayfayı Temizle</button>
+                    <button type="button" class="tm-editor-action tm-editor-action--primary" id="tmEditorExportPdf"><i class="fa-solid fa-file-export"></i> Düzenlenmiş PDF Dışa Aktar</button>
+                  </div>
+                  <div class="tm-editor__thumbs" id="tmEditorThumbs"></div>
+                </section>
                 <section class="tm-theme-studio" aria-label="Renk ve şablon">
                   <p class="tm-tools__label"><i class="fa-solid fa-palette"></i> Renk &amp; şablon</p>
                   <label class="tm-studio-label">Sayfa renk şablonu
@@ -569,6 +603,20 @@
           <div class="student-erp-panel" role="tabpanel" id="studentTabPanel0" aria-labelledby="studentTabBtn0" data-student-panel="0">
             <div class="student-erp-grid">
               <p class="student-erp-section-title">Kişisel bilgiler</p>
+              <div class="form-group student-avatar-picker" style="grid-column: 1 / -1;">
+                <label class="form-required">Profil fotoğrafı</label>
+                <div class="student-avatar-picker__row">
+                  <img id="stAvatarPreview" class="student-avatar-picker__img" src="https://randomuser.me/api/portraits/men/1.jpg" alt="Profil önizleme" />
+                  <div class="student-avatar-picker__actions">
+                    <p class="student-avatar-picker__meta" id="stAvatarMeta">Erkek profil havuzu (40 seçenek)</p>
+                    <div class="student-avatar-picker__btns">
+                      <button type="button" class="btn-modal-secondary" id="btnStAvatarRandom"><i class="fa-solid fa-shuffle"></i> Rastgele</button>
+                      <button type="button" class="btn-modal-secondary" id="btnStAvatarUpload"><i class="fa-solid fa-image"></i> Resim değiştir</button>
+                    </div>
+                    <input id="stAvatarFile" type="file" accept="image/*" hidden />
+                  </div>
+                </div>
+              </div>
               <div class="form-group">
                 <label class="form-required" for="st_firstName">Ad</label>
                 <input id="st_firstName" name="firstName" required maxlength="60" placeholder="Ad" autocomplete="given-name" />

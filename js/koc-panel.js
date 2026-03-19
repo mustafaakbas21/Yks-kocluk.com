@@ -98,6 +98,15 @@ let tmColorStudioBound = false;
 let tmHue = 210;
 let tmSat = 85;
 let tmVal = 42;
+let tmHeaderLogoDataUrl = "";
+let tmWsPdfBytes = null;
+let tmEditorPageOrder = [];
+let tmEditorCurrentIdx = 0;
+let tmEditorTool = "draw";
+let tmEditorDrawing = false;
+let tmEditorDirty = false;
+let tmEditorTempPoint = null;
+let tmEditorAnnotations = {};
 const TM_IDB_NAME = "TestMakerProLibrary";
 const TM_IDB_VER = 1;
 const TM_IDB_STORE = "pdfs";
@@ -235,16 +244,14 @@ function tmLibraryRenderList() {
 }
 
 function tmRenumberTmQuestions() {
-  var paper = document.getElementById("tmA4Paper");
   var order = [];
-  if (paper && paper.classList.contains("tm-template-osym")) {
-    document.querySelectorAll("#column-1 .tm-a4-block").forEach(function (el) {
-      order.push(el);
-    });
-    document.querySelectorAll("#column-2 .tm-a4-block").forEach(function (el) {
-      order.push(el);
-    });
-  } else {
+  document.querySelectorAll("#column-1 .tm-a4-block").forEach(function (el) {
+    order.push(el);
+  });
+  document.querySelectorAll("#column-2 .tm-a4-block").forEach(function (el) {
+    order.push(el);
+  });
+  if (order.length === 0) {
     document.querySelectorAll("#tmA4Single .tm-a4-block").forEach(function (el) {
       order.push(el);
     });
@@ -269,24 +276,15 @@ function tmUpdateA4EmptyVisibility() {
     return;
   }
   empty.style.display = "none";
-  if (paper.classList.contains("tm-template-osym")) {
-    dual.hidden = false;
-    single.hidden = true;
-  } else {
-    dual.hidden = true;
-    single.hidden = false;
-  }
+  dual.hidden = false;
+  single.hidden = true;
 }
 
 function tmCollectBlocksFromCurrent(mode) {
-  var blocks = [];
-  if (mode === "osym") {
-    blocks = Array.prototype.slice.call(document.querySelectorAll("#column-1 .tm-a4-block")).concat(
-      Array.prototype.slice.call(document.querySelectorAll("#column-2 .tm-a4-block"))
-    );
-  } else {
-    blocks = Array.prototype.slice.call(document.querySelectorAll("#tmA4Single .tm-a4-block"));
-  }
+  var blocks = Array.prototype.slice.call(document.querySelectorAll("#column-1 .tm-a4-block")).concat(
+    Array.prototype.slice.call(document.querySelectorAll("#column-2 .tm-a4-block"))
+  );
+  if (!blocks.length) blocks = Array.prototype.slice.call(document.querySelectorAll("#tmA4Single .tm-a4-block"));
   return blocks;
 }
 
@@ -302,16 +300,10 @@ function tmMigrateLayoutForTemplate(fromMode, toMode) {
   blocks.forEach(function (b) {
     b.remove();
   });
-  if (toMode === "osym") {
-    var mid = Math.ceil(blocks.length / 2);
-    blocks.forEach(function (b, i) {
-      (i < mid ? L : R).appendChild(b);
-    });
-  } else {
-    blocks.forEach(function (b) {
-      S.appendChild(b);
-    });
-  }
+  var mid = Math.ceil(blocks.length / 2);
+  blocks.forEach(function (b, i) {
+    (i < mid ? L : R).appendChild(b);
+  });
   tmUpdateA4EmptyVisibility();
 }
 
@@ -322,21 +314,16 @@ function tmGetAppendParent() {
   var single = document.getElementById("tmA4Single");
   if (!paper || !empty || !dual || !single) return null;
   empty.style.display = "none";
-  if (paper.classList.contains("tm-template-osym")) {
-    dual.hidden = false;
-    single.hidden = true;
-    var c1 = document.getElementById("column-1");
-    var c2 = document.getElementById("column-2");
-    if (!c1 || !c2) return c1;
-    var mm = 96 / 25.4;
-    var maxColPx = Math.round(248 * mm);
-    if (c1.scrollHeight < maxColPx) return c1;
-    if (c2.scrollHeight < maxColPx) return c2;
-    return c1.scrollHeight <= c2.scrollHeight ? c1 : c2;
-  }
-  dual.hidden = true;
-  single.hidden = false;
-  return single;
+  dual.hidden = false;
+  single.hidden = true;
+  var c1 = document.getElementById("column-1");
+  var c2 = document.getElementById("column-2");
+  if (!c1 || !c2) return c1 || single;
+  var mm = 96 / 25.4;
+  var maxColPx = Math.round(248 * mm);
+  if (c1.scrollHeight < maxColPx) return c1;
+  if (c2.scrollHeight < maxColPx) return c2;
+  return c1.scrollHeight <= c2.scrollHeight ? c1 : c2;
 }
 
 var TM_COLOR_PRESETS = {
@@ -1441,21 +1428,155 @@ async function firestoreDeleteConfirmed(collectionName, docId) {
   }
 }
 
-/**
- * DiceBear 8.x — lokal dosya yok; sadece API URL.
- * Erkek: avataaars-neutral | Kadın: lorelei | Tesettür: avataaars + hijab
- */
+var MALE_AVATAR_POOL = Array.from({ length: 40 }, function (_, i) {
+  return "https://randomuser.me/api/portraits/men/" + (i + 1) + ".jpg";
+});
+var FEMALE_AVATAR_POOL = Array.from({ length: 40 }, function (_, i) {
+  return "https://randomuser.me/api/portraits/women/" + (i + 1) + ".jpg";
+});
+var HIJAB_AVATAR_POOL = Array.from({ length: 40 }, function (_, i) {
+  return "https://api.dicebear.com/8.x/avataaars/svg?seed=tesettur_" + (i + 1) + "&top=hijab";
+});
+var studentAddAvatarState = { mode: "preset", url: MALE_AVATAR_POOL[0], customDataUrl: "" };
+
+function normalizeGender(gender) {
+  if (gender === "Kadın" || gender === "Kadin") return "Kadın";
+  if (gender === "Tesettür") return "Tesettür";
+  return "Erkek";
+}
+
+function getAvatarPoolByGender(gender) {
+  var g = normalizeGender(gender);
+  if (g === "Kadın") return FEMALE_AVATAR_POOL;
+  if (g === "Tesettür") return HIJAB_AVATAR_POOL;
+  return MALE_AVATAR_POOL;
+}
+
+function hashSimple(str) {
+  var s = String(str || "");
+  var h = 0;
+  for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h >>> 0;
+}
+
+function pickDeterministicAvatar(fullName, gender) {
+  var pool = getAvatarPoolByGender(gender);
+  return pool[hashSimple(String(fullName || "ogrenci")) % pool.length];
+}
+
 function buildStudentAvatarUrl(fullName, gender) {
-  var n = String(fullName || "ogrenci").trim();
-  var seed = encodeURIComponent(n);
-  var g = gender === "Kadın" || gender === "Kadin" ? "Kadın" : gender === "Tesettür" ? "Tesettür" : "Erkek";
-  if (g === "Erkek") {
-    return "https://api.dicebear.com/8.x/avataaars-neutral/svg?seed=" + seed;
+  return pickDeterministicAvatar(fullName, gender);
+}
+
+function getSelectedAddGender() {
+  var el = document.querySelector('input[name="add_gender"]:checked');
+  return normalizeGender(el ? el.value : "Erkek");
+}
+
+function updateStudentAvatarMetaText(gender, isCustom) {
+  var meta = document.getElementById("stAvatarMeta");
+  if (!meta) return;
+  if (isCustom) {
+    meta.textContent = "Kişisel resim seçildi";
+    return;
   }
-  if (g === "Kadın") {
-    return "https://api.dicebear.com/8.x/lorelei/svg?seed=" + seed;
+  var g = normalizeGender(gender);
+  if (g === "Erkek") meta.textContent = "Erkek profil havuzu (40 seçenek)";
+  else if (g === "Kadın") meta.textContent = "Kadın profil havuzu (40 seçenek)";
+  else meta.textContent = "Tesettür profil havuzu (40 seçenek)";
+}
+
+function setStudentAvatarPreview(url, options) {
+  var img = document.getElementById("stAvatarPreview");
+  if (!img || !url) return;
+  img.src = url;
+  studentAddAvatarState.url = url;
+  studentAddAvatarState.mode = options && options.mode === "custom" ? "custom" : "preset";
+  if (studentAddAvatarState.mode !== "custom") studentAddAvatarState.customDataUrl = "";
+  updateStudentAvatarMetaText(getSelectedAddGender(), studentAddAvatarState.mode === "custom");
+}
+
+function pickRandomAvatarForAddForm() {
+  var pool = getAvatarPoolByGender(getSelectedAddGender());
+  if (!pool || !pool.length) return;
+  var next = pool[Math.floor(Math.random() * pool.length)];
+  if (pool.length > 1 && next === studentAddAvatarState.url) {
+    next = pool[(pool.indexOf(next) + 1) % pool.length];
   }
-  return "https://api.dicebear.com/8.x/avataaars/svg?seed=" + seed + "&top=hijab";
+  setStudentAvatarPreview(next, { mode: "preset" });
+}
+
+function fileToResizedDataUrl(file, sizePx, quality) {
+  return new Promise(function (resolve, reject) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var c = document.createElement("canvas");
+        c.width = sizePx;
+        c.height = sizePx;
+        var ctx = c.getContext("2d");
+        var ratio = Math.max(sizePx / img.width, sizePx / img.height);
+        var w = Math.round(img.width * ratio);
+        var h = Math.round(img.height * ratio);
+        var x = Math.round((sizePx - w) / 2);
+        var y = Math.round((sizePx - h) / 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, sizePx, sizePx);
+        ctx.drawImage(img, x, y, w, h);
+        resolve(c.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = function () {
+        reject(new Error("Gorsel okunamadi"));
+      };
+      img.src = reader.result;
+    };
+    reader.onerror = function () {
+      reject(new Error("Dosya okunamadi"));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function initStudentAvatarPicker() {
+  var randomBtn = document.getElementById("btnStAvatarRandom");
+  var uploadBtn = document.getElementById("btnStAvatarUpload");
+  var fileInput = document.getElementById("stAvatarFile");
+  if (!randomBtn || !uploadBtn || !fileInput) return;
+
+  randomBtn.addEventListener("click", function () {
+    pickRandomAvatarForAddForm();
+  });
+  uploadBtn.addEventListener("click", function () {
+    fileInput.click();
+  });
+  fileInput.addEventListener("change", async function () {
+    var f = fileInput.files && fileInput.files[0];
+    fileInput.value = "";
+    if (!f) return;
+    if (!/^image\//i.test(f.type || "")) {
+      showToast("Lutfen bir gorsel secin.");
+      return;
+    }
+    try {
+      var dataUrl = await fileToResizedDataUrl(f, 180, 0.85);
+      studentAddAvatarState.customDataUrl = dataUrl;
+      setStudentAvatarPreview(dataUrl, { mode: "custom" });
+    } catch (e) {
+      console.error(e);
+      showToast("Resim islenemedi.");
+    }
+  });
+
+  document.querySelectorAll('input[name="add_gender"]').forEach(function (r) {
+    r.addEventListener("change", function () {
+      if (studentAddAvatarState.mode === "custom") {
+        updateStudentAvatarMetaText(getSelectedAddGender(), true);
+        return;
+      }
+      pickRandomAvatarForAddForm();
+    });
+  });
 }
 
 function setStudentErpTab(index) {
@@ -1570,6 +1691,10 @@ function openStudentModal() {
   form.querySelectorAll('input[name="add_gender"]').forEach(function (r) {
     r.checked = r.value === "Erkek";
   });
+  studentAddAvatarState.mode = "preset";
+  studentAddAvatarState.customDataUrl = "";
+  studentAddAvatarState.url = MALE_AVATAR_POOL[0];
+  setStudentAvatarPreview(studentAddAvatarState.url, { mode: "preset" });
   openModal("studentModal");
 }
 
@@ -1673,7 +1798,10 @@ async function submitStudentAddForm(e) {
     var ins = parseInt(data.installmentCount, 10);
     if (!isNaN(ins)) data.installmentCount = Math.min(36, Math.max(1, ins));
   }
-  data.avatarUrl = buildStudentAvatarUrl(data.name, data.gender);
+  data.avatarUrl =
+    studentAddAvatarState.mode === "custom" && studentAddAvatarState.customDataUrl
+      ? studentAddAvatarState.customDataUrl
+      : studentAddAvatarState.url || buildStudentAvatarUrl(data.name, data.gender);
   data.track = data.examGroup && data.examGroup !== "" ? data.examGroup : "TYT + AYT";
   data.status = data.status || "Aktif";
   try {
@@ -1753,7 +1881,10 @@ async function submitStudentEditForm(e) {
     data.installmentCount = isNaN(ins2) ? null : Math.min(36, Math.max(1, ins2));
   } else data.installmentCount = null;
   data.track = data.examGroup && data.examGroup !== "" ? data.examGroup : "TYT + AYT";
-  data.avatarUrl = buildStudentAvatarUrl(data.name, data.gender);
+  var existing = cachedStudents.find(function (x) {
+    return x.id === editId;
+  });
+  data.avatarUrl = existing && existing.avatarUrl ? existing.avatarUrl : buildStudentAvatarUrl(data.name, data.gender);
   data.updatedAt = serverTimestamp();
   try {
     await updateDoc(doc(db, "students", editId), data);
@@ -2187,6 +2318,7 @@ function initModals() {
   if (fsAdd) {
     fsAdd.addEventListener("submit", submitStudentAddForm);
     initStudentErpTabs();
+    initStudentAvatarPicker();
   }
   var fsEdit = document.getElementById("formStudentEdit");
   if (fsEdit) fsEdit.addEventListener("submit", submitStudentEditForm);
@@ -2297,6 +2429,9 @@ function testmakerWorkspaceLeave() {
   if (app) app.classList.remove("app--testmaker-workspace");
   destroyTmWsCropper();
   tmWsPdfDoc = null;
+  tmWsPdfBytes = null;
+  tmEditorPageOrder = [];
+  tmEditorAnnotations = {};
   tmWsCurrentPdfPage = 1;
   tmWsPdfRendering = false;
   var addBtn = document.getElementById("tmBtnAddToA4");
@@ -2325,6 +2460,8 @@ function renderPDFPage(pageNum) {
   var total = tmWsPdfDoc.numPages || 1;
   var n = Math.max(1, Math.min(total, parseInt(pageNum, 10) || 1));
   tmWsCurrentPdfPage = n;
+  var orderIdx = tmEditorPageOrder.indexOf(n);
+  if (orderIdx >= 0) tmEditorCurrentIdx = orderIdx;
   var inp = document.getElementById("pdfPageInput");
   if (inp) inp.value = String(n);
   tmPdfNavUpdateDisabled();
@@ -2378,6 +2515,8 @@ function renderPDFPage(pageNum) {
           if (addBtn) addBtn.disabled = false;
           tmWsPdfRendering = false;
           tmPdfNavUpdateDisabled();
+          tmEditorRenderThumbs();
+          tmEditorRenderCurrentPage();
         }
         img.onerror = function () {
           if (pageReadyOnce) return;
@@ -2418,10 +2557,239 @@ function renderPDFPage(pageNum) {
     });
 }
 
+function tmEditorGetPageState(pageNo) {
+  if (!tmEditorAnnotations[pageNo]) {
+    tmEditorAnnotations[pageNo] = { drawings: [], highlights: [], notes: "", signatures: [] };
+  }
+  return tmEditorAnnotations[pageNo];
+}
+
+function tmEditorGetCurrentPageNo() {
+  return tmEditorPageOrder[tmEditorCurrentIdx] || 1;
+}
+
+function tmEditorDrawOverlay() {
+  var canvas = document.getElementById("tmEditorOverlayCanvas");
+  if (!canvas) return;
+  var ctx = canvas.getContext("2d");
+  var pageNo = tmEditorGetCurrentPageNo();
+  var st = tmEditorGetPageState(pageNo);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  st.highlights.forEach(function (h) {
+    ctx.fillStyle = "rgba(253,224,71,0.35)";
+    ctx.fillRect(h.x, h.y, h.w, h.h);
+  });
+  st.drawings.forEach(function (line) {
+    if (!line || line.length < 2) return;
+    ctx.strokeStyle = "#22d3ee";
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(line[0].x, line[0].y);
+    for (var i = 1; i < line.length; i++) ctx.lineTo(line[i].x, line[i].y);
+    ctx.stroke();
+  });
+  st.signatures.forEach(function (s) {
+    ctx.font = "italic 700 24px 'Brush Script MT', 'Segoe Script', cursive";
+    ctx.fillStyle = "#7c3aed";
+    ctx.fillText(s.text, s.x, s.y);
+  });
+}
+
+function tmEditorCanvasPoint(ev, canvas) {
+  var r = canvas.getBoundingClientRect();
+  var x = ((ev.clientX - r.left) / Math.max(1, r.width)) * canvas.width;
+  var y = ((ev.clientY - r.top) / Math.max(1, r.height)) * canvas.height;
+  return { x: x, y: y };
+}
+
+function tmEditorBindCanvas() {
+  var ov = document.getElementById("tmEditorOverlayCanvas");
+  if (!ov || ov._tmBound) return;
+  ov._tmBound = true;
+  ov.addEventListener("pointerdown", function (ev) {
+    if (!tmWsPdfDoc) return;
+    var pageNo = tmEditorGetCurrentPageNo();
+    var st = tmEditorGetPageState(pageNo);
+    var p = tmEditorCanvasPoint(ev, ov);
+    if (tmEditorTool === "signature") {
+      var txt = (document.getElementById("tmEditorSignText") || {}).value || "İmza";
+      txt = String(txt).trim() || "İmza";
+      st.signatures.push({ x: p.x, y: p.y, text: txt.slice(0, 48) });
+      tmEditorDirty = true;
+      tmEditorDrawOverlay();
+      return;
+    }
+    tmEditorDrawing = true;
+    tmEditorTempPoint = p;
+    if (tmEditorTool === "draw") st.drawings.push([p]);
+  });
+  ov.addEventListener("pointermove", function (ev) {
+    if (!tmEditorDrawing || !tmWsPdfDoc) return;
+    var pageNo = tmEditorGetCurrentPageNo();
+    var st = tmEditorGetPageState(pageNo);
+    var p = tmEditorCanvasPoint(ev, ov);
+    if (tmEditorTool === "draw") {
+      var line = st.drawings[st.drawings.length - 1];
+      if (line) line.push(p);
+      tmEditorDrawOverlay();
+    } else if (tmEditorTool === "highlight") {
+      tmEditorDrawOverlay();
+      var ctx = ov.getContext("2d");
+      var x = Math.min(tmEditorTempPoint.x, p.x);
+      var y = Math.min(tmEditorTempPoint.y, p.y);
+      var w = Math.abs(tmEditorTempPoint.x - p.x);
+      var h = Math.abs(tmEditorTempPoint.y - p.y);
+      ctx.fillStyle = "rgba(253,224,71,0.35)";
+      ctx.fillRect(x, y, w, h);
+    }
+  });
+  ov.addEventListener("pointerup", function (ev) {
+    if (!tmEditorDrawing || !tmWsPdfDoc) return;
+    var pageNo = tmEditorGetCurrentPageNo();
+    var st = tmEditorGetPageState(pageNo);
+    var p = tmEditorCanvasPoint(ev, ov);
+    if (tmEditorTool === "highlight") {
+      var x = Math.min(tmEditorTempPoint.x, p.x);
+      var y = Math.min(tmEditorTempPoint.y, p.y);
+      var w = Math.abs(tmEditorTempPoint.x - p.x);
+      var h = Math.abs(tmEditorTempPoint.y - p.y);
+      if (w > 3 && h > 3) st.highlights.push({ x: x, y: y, w: w, h: h });
+    }
+    tmEditorDrawing = false;
+    tmEditorTempPoint = null;
+    tmEditorDirty = true;
+    tmEditorDrawOverlay();
+  });
+}
+
+async function tmEditorRenderCurrentPage() {
+  if (!tmWsPdfDoc) return;
+  var pageNo = tmEditorGetCurrentPageNo();
+  var page = await tmWsPdfDoc.getPage(pageNo);
+  var vp = page.getViewport({ scale: 1.45 });
+  var base = document.getElementById("tmEditorBaseCanvas");
+  var ov = document.getElementById("tmEditorOverlayCanvas");
+  if (!base || !ov) return;
+  base.width = vp.width;
+  base.height = vp.height;
+  ov.width = vp.width;
+  ov.height = vp.height;
+  await page.render({ canvasContext: base.getContext("2d"), viewport: vp }).promise;
+  var note = document.getElementById("tmEditorNote");
+  if (note) note.value = tmEditorGetPageState(pageNo).notes || "";
+  tmEditorDrawOverlay();
+}
+
+async function tmEditorRenderThumbs() {
+  var host = document.getElementById("tmEditorThumbs");
+  if (!host) return;
+  host.innerHTML = "";
+  if (!tmWsPdfDoc || !tmEditorPageOrder.length) return;
+  for (var i = 0; i < tmEditorPageOrder.length; i++) {
+    var pno = tmEditorPageOrder[i];
+    var page = await tmWsPdfDoc.getPage(pno);
+    var vp = page.getViewport({ scale: 0.2 });
+    var c = document.createElement("canvas");
+    c.width = vp.width;
+    c.height = vp.height;
+    await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+    var row = document.createElement("div");
+    row.className = "tm-editor-thumb" + (i === tmEditorCurrentIdx ? " is-active" : "");
+    row.setAttribute("data-idx", String(i));
+    row.innerHTML =
+      '<img alt="Sayfa önizleme" src="' +
+      c.toDataURL("image/jpeg", 0.72) +
+      '"><div class="tm-editor-thumb__title">Sayfa ' +
+      pno +
+      '</div><div class="tm-editor-thumb__actions"><button type="button" title="Yukarı" data-tm-thumb-up="' +
+      i +
+      '"><i class="fa-solid fa-arrow-up"></i></button><button type="button" title="Aşağı" data-tm-thumb-down="' +
+      i +
+      '"><i class="fa-solid fa-arrow-down"></i></button><button type="button" title="Sil" data-tm-thumb-del="' +
+      i +
+      '"><i class="fa-solid fa-trash"></i></button></div>';
+    host.appendChild(row);
+  }
+}
+
+function tmEditorInitFromPdf() {
+  if (!tmWsPdfDoc) return;
+  tmEditorPageOrder = [];
+  tmEditorAnnotations = {};
+  for (var i = 1; i <= (tmWsPdfDoc.numPages || 1); i++) tmEditorPageOrder.push(i);
+  tmEditorCurrentIdx = 0;
+  tmEditorRenderThumbs();
+  tmEditorRenderCurrentPage();
+}
+
+async function tmEditorExportPdf() {
+  if (!tmWsPdfDoc || !tmEditorPageOrder.length) {
+    showToast("Önce bir PDF yükleyin.");
+    return;
+  }
+  if (!(window.jspdf && window.jspdf.jsPDF)) {
+    showToast("PDF export kütüphanesi yüklenemedi.");
+    return;
+  }
+  var jsPDFCtor = window.jspdf.jsPDF;
+  var docOut = null;
+  for (var i = 0; i < tmEditorPageOrder.length; i++) {
+    var pno = tmEditorPageOrder[i];
+    var page = await tmWsPdfDoc.getPage(pno);
+    var vp = page.getViewport({ scale: 2 });
+    var c = document.createElement("canvas");
+    c.width = vp.width;
+    c.height = vp.height;
+    var ctx = c.getContext("2d");
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    var st = tmEditorGetPageState(pno);
+    st.highlights.forEach(function (h) {
+      ctx.fillStyle = "rgba(253,224,71,0.35)";
+      ctx.fillRect(h.x * (2 / 1.45), h.y * (2 / 1.45), h.w * (2 / 1.45), h.h * (2 / 1.45));
+    });
+    st.drawings.forEach(function (line) {
+      if (!line || line.length < 2) return;
+      ctx.strokeStyle = "#0891b2";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(line[0].x * (2 / 1.45), line[0].y * (2 / 1.45));
+      for (var j = 1; j < line.length; j++) ctx.lineTo(line[j].x * (2 / 1.45), line[j].y * (2 / 1.45));
+      ctx.stroke();
+    });
+    st.signatures.forEach(function (s) {
+      ctx.font = "italic 700 44px 'Brush Script MT', 'Segoe Script', cursive";
+      ctx.fillStyle = "#6d28d9";
+      ctx.fillText(s.text, s.x * (2 / 1.45), s.y * (2 / 1.45));
+    });
+    if (st.notes) {
+      ctx.fillStyle = "rgba(15,23,42,0.8)";
+      ctx.fillRect(18, c.height - 60, c.width - 36, 44);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "16px Inter, Arial, sans-serif";
+      ctx.fillText(String(st.notes).slice(0, 160), 28, c.height - 31);
+    }
+    var wmm = (c.width * 25.4) / 96;
+    var hmm = (c.height * 25.4) / 96;
+    if (!docOut) docOut = new jsPDFCtor({ orientation: wmm > hmm ? "landscape" : "portrait", unit: "mm", format: [wmm, hmm] });
+    else docOut.addPage([wmm, hmm], wmm > hmm ? "landscape" : "portrait");
+    docOut.addImage(c.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, wmm, hmm);
+  }
+  var fn = ((document.getElementById("tmWsTitle") || {}).value || "duzenlenmis_pdf").trim().replace(/[\\/:*?"<>|]/g, "-");
+  docOut.save((fn || "duzenlenmis_pdf") + "_v2.pdf");
+  showToast("Düzenlenmiş PDF indirildi.");
+}
+
 function tmWsLoadImageFile(file) {
   var row = document.getElementById("tmPdfPageRow");
   if (row) row.hidden = true;
   tmWsPdfDoc = null;
+  tmWsPdfBytes = null;
+  tmEditorPageOrder = [];
+  tmEditorAnnotations = {};
+  var th = document.getElementById("tmEditorThumbs");
+  if (th) th.innerHTML = "";
   destroyTmWsCropper();
   var img = document.getElementById("tmCropImg");
   var url = URL.createObjectURL(file);
@@ -2449,6 +2817,7 @@ function tmWsLoadPdfFromBuffer(buf) {
     return Promise.resolve();
   }
   var u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  tmWsPdfBytes = u8;
   return pdfjsLib
     .getDocument({ data: u8 })
     .promise.then(function (doc) {
@@ -2464,7 +2833,9 @@ function tmWsLoadPdfFromBuffer(buf) {
         pin.max = String(Math.max(1, doc.numPages));
         pin.value = "1";
       }
-      return renderPDFPage(1);
+      return renderPDFPage(1).then(function () {
+        tmEditorInitFromPdf();
+      });
     })
     .catch(function (e) {
       console.error(e);
@@ -2814,6 +3185,23 @@ function tmSyncPaperHeaders() {
   var hnet = document.getElementById("tmHdrStudentNet");
   if (hsn) hsn.textContent = (sn && sn.value.trim()) || "—";
   if (hnet) hnet.textContent = (nn && nn.value.trim()) || "—";
+  tmApplyHeaderLogo();
+}
+
+function tmApplyHeaderLogo() {
+  var logos = document.querySelectorAll(".tm-header-logo");
+  logos.forEach(function (img) {
+    if (!tmHeaderLogoDataUrl) {
+      img.hidden = true;
+      img.removeAttribute("src");
+      return;
+    }
+    img.hidden = false;
+    img.src = tmHeaderLogoDataUrl;
+  });
+  document.querySelectorAll(".tm-header-logo-fallback").forEach(function (el) {
+    el.hidden = !!tmHeaderLogoDataUrl;
+  });
 }
 
 function tmApplyWorkspaceTemplate() {
@@ -2822,13 +3210,14 @@ function tmApplyWorkspaceTemplate() {
   if (!paper) return;
   var prev = paper.getAttribute("data-tm-layout") || "osym";
   var mode = (sel && sel.value) || "osym";
-  if (mode !== "osym" && mode !== "vip" && mode !== "foy") mode = "osym";
+  if (["osym", "vip", "foy", "academy", "minimal"].indexOf(mode) === -1) mode = "osym";
   if (prev !== mode && document.querySelectorAll("#tmA4Layout .tm-a4-block").length > 0) {
     tmMigrateLayoutForTemplate(prev, mode);
   }
   paper.setAttribute("data-tm-layout", mode);
+  var visualMode = mode === "academy" ? "vip" : mode === "minimal" ? "foy" : mode;
   paper.classList.remove("tm-template-osym", "tm-template-vip", "tm-template-foy");
-  paper.classList.add("tm-template-" + mode);
+  paper.classList.add("tm-template-" + visualMode);
   tmSyncPaperHeaders();
   tmUpdateA4EmptyVisibility();
   tmRenumberTmQuestions();
@@ -2912,6 +3301,81 @@ function bindTestMakerWorkspace() {
       else pdfInp.value = String(tmWsCurrentPdfPage);
     });
   }
+  tmEditorBindCanvas();
+  var noteInp = document.getElementById("tmEditorNote");
+  if (noteInp)
+    noteInp.addEventListener("input", function () {
+      if (!tmWsPdfDoc) return;
+      var st = tmEditorGetPageState(tmEditorGetCurrentPageNo());
+      st.notes = noteInp.value || "";
+      tmEditorDirty = true;
+    });
+  document.querySelectorAll("[data-tm-tool]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      tmEditorTool = btn.getAttribute("data-tm-tool") || "draw";
+      document.querySelectorAll("[data-tm-tool]").forEach(function (b2) {
+        b2.classList.toggle("is-active", b2 === btn);
+      });
+    });
+  });
+  var thumbHost = document.getElementById("tmEditorThumbs");
+  if (thumbHost)
+    thumbHost.addEventListener("click", function (ev) {
+      var row = ev.target.closest && ev.target.closest(".tm-editor-thumb");
+      if (row && row.hasAttribute("data-idx")) {
+        tmEditorCurrentIdx = Math.max(0, Math.min(tmEditorPageOrder.length - 1, parseInt(row.getAttribute("data-idx"), 10) || 0));
+        tmEditorRenderThumbs();
+        tmEditorRenderCurrentPage();
+      }
+      var up = ev.target.closest && ev.target.closest("[data-tm-thumb-up]");
+      var down = ev.target.closest && ev.target.closest("[data-tm-thumb-down]");
+      var del = ev.target.closest && ev.target.closest("[data-tm-thumb-del]");
+      if (up) {
+        var ui = parseInt(up.getAttribute("data-tm-thumb-up"), 10);
+        if (ui > 0) {
+          var t = tmEditorPageOrder[ui - 1];
+          tmEditorPageOrder[ui - 1] = tmEditorPageOrder[ui];
+          tmEditorPageOrder[ui] = t;
+          tmEditorCurrentIdx = ui - 1;
+          tmEditorRenderThumbs();
+          tmEditorRenderCurrentPage();
+        }
+      } else if (down) {
+        var di = parseInt(down.getAttribute("data-tm-thumb-down"), 10);
+        if (di >= 0 && di < tmEditorPageOrder.length - 1) {
+          var t2 = tmEditorPageOrder[di + 1];
+          tmEditorPageOrder[di + 1] = tmEditorPageOrder[di];
+          tmEditorPageOrder[di] = t2;
+          tmEditorCurrentIdx = di + 1;
+          tmEditorRenderThumbs();
+          tmEditorRenderCurrentPage();
+        }
+      } else if (del) {
+        var ri = parseInt(del.getAttribute("data-tm-thumb-del"), 10);
+        if (tmEditorPageOrder.length <= 1) {
+          showToast("Son sayfa silinemez.");
+          return;
+        }
+        if (ri >= 0 && ri < tmEditorPageOrder.length) {
+          tmEditorPageOrder.splice(ri, 1);
+          if (tmEditorCurrentIdx >= tmEditorPageOrder.length) tmEditorCurrentIdx = tmEditorPageOrder.length - 1;
+          tmEditorRenderThumbs();
+          tmEditorRenderCurrentPage();
+        }
+      }
+    });
+  var clrBtn = document.getElementById("tmEditorClearCurrent");
+  if (clrBtn)
+    clrBtn.addEventListener("click", function () {
+      if (!tmWsPdfDoc) return;
+      var pageNo = tmEditorGetCurrentPageNo();
+      tmEditorAnnotations[pageNo] = { drawings: [], highlights: [], notes: "", signatures: [] };
+      var ni = document.getElementById("tmEditorNote");
+      if (ni) ni.value = "";
+      tmEditorDrawOverlay();
+    });
+  var expBtn = document.getElementById("tmEditorExportPdf");
+  if (expBtn) expBtn.addEventListener("click", tmEditorExportPdf);
 
   var addA4 = document.getElementById("tmBtnAddToA4");
   if (addA4)
@@ -3099,7 +3563,32 @@ function bindTestMakerWorkspace() {
     td.addEventListener("change", tmSyncPaperHeaders);
     td.addEventListener("input", tmSyncPaperHeaders);
   }
+  var logoBtn = document.getElementById("tmBtnLogoUpload");
+  var logoInp = document.getElementById("tmLogoInput");
+  if (logoBtn && logoInp) {
+    logoBtn.addEventListener("click", function () {
+      logoInp.click();
+    });
+    logoInp.addEventListener("change", async function () {
+      var f = logoInp.files && logoInp.files[0];
+      logoInp.value = "";
+      if (!f) return;
+      if (!/^image\//i.test(f.type || "")) {
+        showToast("Logo için PNG/JPG görsel seçin.");
+        return;
+      }
+      try {
+        tmHeaderLogoDataUrl = await fileToResizedDataUrl(f, 220, 0.9);
+        tmApplyHeaderLogo();
+        showToast("Kurum logosu güncellendi.");
+      } catch (e) {
+        console.error(e);
+        showToast("Logo yüklenemedi.");
+      }
+    });
+  }
   tmApplyWorkspaceTemplate();
+  tmApplyHeaderLogo();
   initTmColorStudio();
 }
 
@@ -3172,6 +3661,25 @@ function initNavigation() {
   document.querySelectorAll("[data-nav]").forEach(function (el) {
     el.addEventListener("click", function () {
       navigateTo(el.getAttribute("data-nav"));
+    });
+  });
+  document.querySelectorAll("[data-tm-nav-action]").forEach(function (el) {
+    el.addEventListener("click", function () {
+      navigateTo("testmaker");
+      var action = el.getAttribute("data-tm-nav-action");
+      if (action === "saved") {
+        var p = document.getElementById("tmSavedListPanel");
+        if (p) {
+          p.hidden = false;
+          renderTestsTable();
+        }
+      } else if (action === "create") {
+        var p2 = document.getElementById("tmSavedListPanel");
+        if (p2) p2.hidden = true;
+      } else if (action === "edit") {
+        var dz = document.getElementById("tmDropzone");
+        if (dz) dz.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
     });
   });
 }

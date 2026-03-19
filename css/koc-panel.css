@@ -205,6 +205,34 @@ button.sidebar__link {
   font: inherit;
 }
 
+.sidebar__submenu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0.2rem 0 0.35rem 1.75rem;
+}
+
+button.sidebar__sublink {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font: inherit;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.46rem 0.65rem;
+  border-radius: 10px;
+  color: var(--gray-600);
+  font-size: 0.82rem;
+}
+
+button.sidebar__sublink:hover {
+  background: var(--white);
+  color: var(--purple-700);
+}
+
 .sidebar__menu--footer {
   margin-top: auto;
   padding-top: 1rem;

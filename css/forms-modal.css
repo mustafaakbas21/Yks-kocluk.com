@@ -275,6 +275,53 @@
   background: var(--gray-100);
 }
 
+.student-avatar-picker__row {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.7rem;
+  border: 1px solid #e9d5ff;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #faf5ff 0%, #ffffff 100%);
+}
+
+.student-avatar-picker__img {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #d8b4fe;
+  box-shadow: 0 8px 20px rgba(91, 33, 182, 0.14);
+  flex-shrink: 0;
+  background: #f8fafc;
+}
+
+.student-avatar-picker__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.student-avatar-picker__meta {
+  margin: 0;
+  color: #5b21b6;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.student-avatar-picker__btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.student-avatar-picker__btns .btn-modal-secondary {
+  padding: 0.42rem 0.7rem;
+  font-size: 0.76rem;
+  border-radius: 10px;
+}
+
 .form-row-check {
   display: flex;
   align-items: center;

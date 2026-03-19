@@ -264,6 +264,25 @@
   cursor: pointer;
 }
 
+.tm-logo-btn {
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(15, 15, 18, 0.9);
+  color: #f4f4f5;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.tm-logo-btn:hover {
+  border-color: rgba(167, 139, 250, 0.65);
+  color: #ddd6fe;
+}
+
 .tm-a4-preview-scroll {
   flex: 1;
   min-height: 0;
@@ -437,8 +456,8 @@
   box-sizing: border-box;
 }
 
-.tm-template-osym .test-column .tm-a4-block,
-.tm-template-osym .test-column .question-item {
+.test-column .tm-a4-block,
+.test-column .question-item {
   width: 100% !important;
   max-width: 100%;
   box-sizing: border-box;
@@ -488,6 +507,16 @@
 .tm-h-vip__logo i {
   font-size: 1.35rem;
   color: var(--tm-accent);
+}
+
+.tm-header-logo {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  object-fit: contain;
+  background: #fff;
+  border: 1px solid rgba(30, 58, 95, 0.16);
+  padding: 2px;
 }
 
 .tm-h-vip__meta {
@@ -875,6 +904,153 @@
 .tm-btn-add-a4:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.tm-pdf-editor-v2 {
+  margin-top: 0.8rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tm-editor__toolbar {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.tm-editor-btn {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(15, 15, 18, 0.92);
+  color: #e5e7eb;
+  border-radius: 10px;
+  padding: 0.32rem 0.55rem;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.tm-editor-btn.is-active {
+  border-color: rgba(167, 139, 250, 0.75);
+  color: #ddd6fe;
+}
+
+.tm-editor__canvas-wrap {
+  margin-top: 0.55rem;
+  position: relative;
+  width: 100%;
+  min-height: 160px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #101014;
+}
+
+#tmEditorBaseCanvas,
+#tmEditorOverlayCanvas {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+#tmEditorOverlayCanvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  cursor: crosshair;
+}
+
+.tm-editor__note-label {
+  display: block;
+  margin-top: 0.55rem;
+  color: #a5b4fc;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.tm-editor__note,
+.tm-editor__sign {
+  width: 100%;
+  margin-top: 0.28rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(11, 11, 14, 0.95);
+  color: #f8fafc;
+  padding: 0.45rem 0.55rem;
+  font-family: inherit;
+  font-size: 0.78rem;
+  box-sizing: border-box;
+}
+
+.tm-editor__actions {
+  margin-top: 0.5rem;
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.tm-editor-action {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(15, 15, 18, 0.92);
+  color: #e5e7eb;
+  border-radius: 10px;
+  padding: 0.34rem 0.58rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.tm-editor-action--primary {
+  border-color: rgba(167, 139, 250, 0.65);
+  color: #ddd6fe;
+}
+
+.tm-editor__thumbs {
+  margin-top: 0.6rem;
+  max-height: 170px;
+  overflow: auto;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.tm-editor-thumb {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(12, 12, 16, 0.7);
+}
+
+.tm-editor-thumb.is-active {
+  border-color: rgba(167, 139, 250, 0.75);
+}
+
+.tm-editor-thumb img {
+  width: 42px;
+  height: 54px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.tm-editor-thumb__title {
+  font-size: 0.72rem;
+  color: #e5e7eb;
+}
+
+.tm-editor-thumb__actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.tm-editor-thumb__actions button {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(15, 15, 18, 0.95);
+  color: #cbd5e1;
+  cursor: pointer;
 }
 
 /* Renk stüdyosu */
