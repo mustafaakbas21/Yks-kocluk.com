@@ -411,11 +411,11 @@
   font-family: "Inter", system-ui, sans-serif;
 }
 
-.tm-a4-dual {
+/* Kitap gibi iki sütun — sorular yalnızca kendi havuzunda */
+.test-content-area {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  justify-content: center;
   width: 100%;
   box-sizing: border-box;
   padding: 0 10mm 10mm;
@@ -423,27 +423,25 @@
   min-height: 200mm;
 }
 
-.tm-a4-dual__col {
-  flex: 0 0 92.5mm;
-  width: 92.5mm;
-  max-width: 92.5mm;
+.test-column {
+  flex: 1;
   min-width: 0;
+  max-width: 50%;
+  width: 50%;
   box-sizing: border-box;
 }
 
-.tm-a4-dual__gutter {
-  flex: 0 0 3mm;
-  width: 3mm;
-  min-height: 195mm;
-  align-self: stretch;
-  background: linear-gradient(90deg, transparent, var(--tm-gutter) 35%, var(--tm-gutter) 65%, transparent);
-  border-left: 1px solid var(--tm-gutter);
-  border-right: 1px solid var(--tm-gutter);
+.test-column--with-rule {
+  border-left: 2px solid var(--tm-gutter);
+  padding-left: 4mm;
   box-sizing: border-box;
-  opacity: 0.95;
 }
 
-.tm-template-osym .tm-a4-dual__col .tm-a4-block {
+.tm-template-osym .test-column .tm-a4-block,
+.tm-template-osym .test-column .question-item {
+  width: 100% !important;
+  max-width: 100%;
+  box-sizing: border-box;
   break-inside: avoid;
   page-break-inside: avoid;
 }
