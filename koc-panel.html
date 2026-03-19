@@ -99,9 +99,8 @@
               <i class="fa-solid fa-file-circle-check"></i><span>TestMaker</span>
             </button>
             <div class="sidebar__submenu">
-              <button type="button" class="sidebar__sublink" data-tm-nav-action="edit"><i class="fa-solid fa-pen-ruler"></i><span>Test Düzenleme</span></button>
-              <button type="button" class="sidebar__sublink" data-tm-nav-action="saved"><i class="fa-solid fa-folder-open"></i><span>Hazır Oluşturulmuş Testler</span></button>
-              <button type="button" class="sidebar__sublink" data-tm-nav-action="create"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Test Oluşturucu PDF</span></button>
+              <button type="button" class="sidebar__sublink" data-tm-nav-action="creator"><i class="fa-solid fa-pen-ruler"></i><span>Test Oluşturucu</span></button>
+              <button type="button" class="sidebar__sublink" data-tm-nav-action="library"><i class="fa-solid fa-layer-group"></i><span>Hazır Testler (Kütüphane)</span></button>
             </div>
           </li>
           <li>
@@ -274,48 +273,50 @@
 
         <div class="main-view tm-workspace-view" data-view="testmaker" id="view-testmaker" hidden>
           <div id="tmWorkspaceRoot" class="tm-workspace">
-            <header class="tm-workspace__header">
+            <header class="tm-workspace__header tm-workspace__header--saas">
               <button type="button" class="tm-back-dashboard" data-nav="dashboard" title="Ana panele dön">
                 <i class="fa-solid fa-arrow-left"></i> Panele dön
               </button>
-              <span class="tm-workspace__brand"><i class="fa-solid fa-wand-magic-sparkles"></i> TestMaker Pro — Sınav Çalışma Alanı</span>
-              <button type="button" class="tm-back-dashboard" id="btnTmToggleList" style="border-style:dashed">
-                <i class="fa-solid fa-list"></i> Kayıtlı testler
-              </button>
+              <span class="tm-workspace__brand"><i class="fa-solid fa-wand-magic-sparkles"></i> TestMaker Pro</span>
+              <nav class="tm-saas-tabs" aria-label="TestMaker görünümü">
+                <button type="button" class="tm-saas-tab is-active" id="tmTabCreator" data-tm-mode-tab="creator"><i class="fa-solid fa-pen-ruler"></i> Test Oluşturucu</button>
+                <button type="button" class="tm-saas-tab" id="tmTabLibrary" data-tm-mode-tab="library"><i class="fa-solid fa-layer-group"></i> Hazır Testler</button>
+              </nav>
             </header>
-            <div id="tmSavedListPanel" class="tm-saved-panel" hidden>
-              <div class="table-wrap" style="border:none;background:transparent">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Başlık</th>
-                      <th>Ders</th>
-                      <th>Soru</th>
-                      <th>Durum</th>
-                      <th style="min-width:130px">İşlem</th>
-                    </tr>
-                  </thead>
-                  <tbody id="testsTableBody"><tr><td colspan="5" class="table-empty">Yükleniyor…</td></tr></tbody>
-                </table>
+
+            <div id="tmViewLibrary" class="tm-view-library" hidden>
+              <div class="tm-library-hero">
+                <h2 class="tm-library-hero__title">Hazır Testler <span class="tm-library-hero__tag">Kütüphane</span></h2>
+                <p class="tm-library-hero__desc">Firestore kayıtlarınızı kart olarak yönetin. Yerel PDF arşivinizi aşağıda düzenleyin.</p>
               </div>
+              <div id="tmTestsGrid" class="tm-tests-grid" aria-live="polite"></div>
+              <table class="visually-hidden" aria-hidden="true"><tbody id="testsTableBody"></tbody></table>
+              <section class="tm-local-pdf-zone">
+                <h3 class="tm-local-pdf-zone__title"><i class="fa-solid fa-hard-drive"></i> Yerel PDF arşivi (IndexedDB)</h3>
+                <p class="tm-local-pdf-zone__hint">Düzenle — anotasyon editörünü açar · Sil — cihazdan kaldırır</p>
+                <ul class="tm-saved-pdf-library" id="tmSavedPdfLibrary"></ul>
+              </section>
             </div>
-            <div class="tm-workspace__body tm-workspace__body--pro">
-              <aside class="tm-library" id="tmLibraryPanel" aria-label="PDF kitaplığı">
-                <div class="tm-library__head">
-                  <h3 class="tm-library__title"><i class="fa-solid fa-book-open"></i> Kitaplığım</h3>
-                  <button type="button" class="tm-lib-upload" id="tmLibUploadBtn"><i class="fa-solid fa-plus"></i> PDF ekle</button>
-                  <input type="file" id="tmLibFileInput" accept="application/pdf" hidden />
-                </div>
-                <ul class="tm-library__list" id="tmLibraryList"></ul>
-                <p class="tm-library__foot">PDF’ler IndexedDB’de saklanır (Firebase kotası kullanılmaz).</p>
-              </aside>
-              <div class="tm-workspace__center">
-                <div class="tm-a4-toolbar">
-                  <div class="tm-a4-toolbar__inner">
-                    <label class="tm-toolbar-field"><span>Kurum adı</span><input type="text" id="tmWsInstitution" placeholder="Kurum adı" maxlength="120" autocomplete="organization" /></label>
-                    <label class="tm-toolbar-field"><span>Ders</span><input type="text" id="tmWsCourse" placeholder="Örn. Matematik" maxlength="80" /></label>
-                    <label class="tm-toolbar-field"><span>Konu</span><input type="text" id="tmWsTopic" placeholder="Ünite / konu" maxlength="120" /></label>
-                    <label class="tm-toolbar-field tm-toolbar-field--select"><span>Şablon</span>
+
+            <div id="tmViewCreator" class="tm-view-creator">
+              <div class="tm-creator-layout">
+                <div class="tm-rail-stack">
+                  <aside class="tm-rail" aria-label="Sol araç çubuğu">
+                    <button type="button" class="tm-rail__btn is-active" id="tmRailBtnTemplate" title="Şablon &amp; kurum" aria-pressed="true"><i class="fa-solid fa-file-lines"></i></button>
+                    <button type="button" class="tm-rail__btn" id="tmRailBtnColor" title="Renk çemberi" aria-pressed="false"><i class="fa-solid fa-palette"></i></button>
+                    <button type="button" class="tm-rail__btn" id="tmRailBtnLogo" title="Kurum logosu" aria-pressed="false"><i class="fa-solid fa-image"></i></button>
+                    <button type="button" class="tm-rail__btn" id="tmRailBtnText" title="Metin kutusu ekle" aria-pressed="false"><i class="fa-solid fa-font"></i></button>
+                    <button type="button" class="tm-rail__btn" id="tmRailBtnOptik" title="Optik şeridi" aria-pressed="false"><i class="fa-solid fa-barcode"></i></button>
+                    <button type="button" class="tm-rail__btn" id="tmRailBtnLayout" title="Mizanpaj (sayfa düzeni)" aria-pressed="false"><i class="fa-solid fa-table-cells-large"></i></button>
+                    <div class="tm-rail__spacer"></div>
+                    <button type="button" class="tm-rail__btn tm-rail__btn--primary" id="tmRailBtnPdf" title="PDF indir"><i class="fa-solid fa-file-pdf"></i></button>
+                  </aside>
+                  <div id="tmFlyoutTemplate" class="tm-flyout" hidden>
+                    <p class="tm-flyout__title">Şablon &amp; kurum</p>
+                    <label class="tm-flyout__field"><span>Kurum adı</span>
+                      <input type="text" id="tmWsInstitution" placeholder="Kurum adı" maxlength="120" autocomplete="organization" />
+                    </label>
+                    <label class="tm-flyout__field"><span>Şablon</span>
                       <select id="tmTemplate" title="Sayfa şablonu">
                         <option value="osym">ÖSYM Klasik</option>
                         <option value="vip">VIP Kurumsal</option>
@@ -324,15 +325,70 @@
                         <option value="minimal">Minimal Siyah</option>
                       </select>
                     </label>
-                    <label class="tm-toolbar-field"><span>Kurum logosu</span>
-                      <button type="button" class="tm-logo-btn" id="tmBtnLogoUpload"><i class="fa-solid fa-image"></i> Logo PNG/JPG</button>
-                      <input type="file" id="tmLogoInput" accept="image/png,image/jpeg,image/jpg,image/webp" hidden />
-                    </label>
+                    <button type="button" class="tm-flyout__close" data-tm-flyout-close="template" aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
+                  </div>
+                  <div id="tmFlyoutColor" class="tm-flyout tm-flyout--wide tm-flyout--color-studio" hidden>
+                    <p class="tm-flyout__title">Yayıncılık Renk Stüdyosu</p>
+                    <div id="color-settings-panel" class="color-settings-panel" aria-label="Renk ayarları">
+                      <div class="color-settings-panel__tabs" role="tablist" aria-label="Renk modu">
+                        <button type="button" class="color-tab is-active" id="tmColorTabPreset" role="tab" aria-selected="true" aria-controls="tmHazirRenklerView" data-tm-color-tab="preset">Hazır Renkler</button>
+                        <button type="button" class="color-tab" id="tmColorTabPanel" role="tab" aria-selected="false" aria-controls="tmRenkPaneliView" data-tm-color-tab="panel">Renk Paneli</button>
+                      </div>
+                      <div id="tmHazirRenklerView" class="hazir-renkler-view" role="tabpanel" aria-labelledby="tmColorTabPreset">
+                        <section class="tm-palette-block">
+                          <h4 class="tm-palette-block__heading">Pastel renkler</h4>
+                          <div class="tm-swatch-grid tm-swatch-grid--studio" id="tmPastelSwatchGrid"></div>
+                        </section>
+                        <section class="tm-palette-block">
+                          <h4 class="tm-palette-block__heading">Canlı renkler</h4>
+                          <div class="tm-swatch-grid tm-swatch-grid--studio" id="tmVividSwatchGrid"></div>
+                        </section>
+                      </div>
+                      <div id="tmRenkPaneliView" class="renk-paneli-view" role="tabpanel" aria-labelledby="tmColorTabPanel" hidden>
+                        <p class="tm-studio-sub tm-studio-sub--panel">Profesyonel seçici</p>
+                        <div class="tm-iro-wrap">
+                          <div id="tmIroPickerHost" class="tm-iro-host"></div>
+                        </div>
+                        <div class="tm-advanced-values">
+                          <div class="tm-hex-row">
+                            <label>HEX <input type="text" id="tmColorHex" class="tm-studio-input" maxlength="7" placeholder="#000000" autocomplete="off" /></label>
+                          </div>
+                          <div class="tm-rgb-row">
+                            <label>R <input type="number" id="tmColorR" class="tm-studio-input tm-studio-input--sm" min="0" max="255" /></label>
+                            <label>G <input type="number" id="tmColorG" class="tm-studio-input tm-studio-input--sm" min="0" max="255" /></label>
+                            <label>B <input type="number" id="tmColorB" class="tm-studio-input tm-studio-input--sm" min="0" max="255" /></label>
+                          </div>
+                        </div>
+                        <p class="tm-studio-sub">Tamamlayıcı öneriler</p>
+                        <div class="tm-comp-row" id="tmCompSwatches"></div>
+                      </div>
+                    </div>
+                    <button type="button" class="tm-flyout__close" data-tm-flyout-close="color" aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
+                  </div>
+                  <div id="tmFlyoutLayout" class="tm-flyout" hidden>
+                    <p class="tm-flyout__title">Mizanpaj (Sayfa Düzeni)</p>
+                    <p class="tm-flyout__hint">Sayfa başına yerleşen soru sayısı — dolunca yeni A4 açılır.</p>
+                    <div class="tm-layout-picker" role="group" aria-label="Sayfa başına soru">
+                      <button type="button" class="tm-layout-choice is-active" data-tm-q-layout="4">Sayfada 4 Soru</button>
+                      <button type="button" class="tm-layout-choice" data-tm-q-layout="6">Sayfada 6 Soru</button>
+                    </div>
+                    <button type="button" class="tm-flyout__close" data-tm-flyout-close="layout" aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
                   </div>
                 </div>
-                <div class="tm-a4-preview-scroll">
-                  <div class="tm-a4-pdf-shell" id="tmA4PdfShell">
-                    <div class="a4-paper tm-template-osym" id="tmA4Paper" style="--tm-accent:#1a1a1a;--tm-accent-rgb:26,26,26;--tm-gutter:#c8c8c8;">
+
+                <input type="file" id="tmLogoInput" accept="image/png,image/jpeg,image/jpg,image/webp" hidden />
+
+                <div class="tm-creator-center">
+                <div class="tm-creator-main">
+                  <div class="tm-canvas-meta">
+                    <label><span>Ders</span><input type="text" id="tmWsCourse" placeholder="Örn. Matematik" maxlength="80" /></label>
+                    <label><span>Konu</span><input type="text" id="tmWsTopic" placeholder="Ünite / konu" maxlength="120" /></label>
+                  </div>
+                  <div class="tm-a4-preview-scroll tm-a4-preview-scroll--focus">
+                    <div class="tm-a4-pdf-shell" id="tmA4PdfShell">
+                      <div id="a4-pages-container" class="a4-pages-container layout-4">
+                      <div class="a4-paper tm-template-osym" id="tmA4Paper" style="--tm-accent:#1a1a1a;--accent-color:#1a1a1a;--tm-accent-rgb:26,26,26;--tm-gutter:#c8c8c8;">
+                      <div id="tmA4Watermark" class="tm-a4-watermark" hidden aria-hidden="true"></div>
                       <div class="tm-paper-header tm-paper-header--osym" id="tmHeaderOsym">
                         <div class="tm-h-osym__top">
                           <span class="tm-h-osym__inst" id="tmH_osym_inst"></span>
@@ -368,140 +424,128 @@
                       <div class="tm-a4-layout" id="tmA4Layout">
                         <div class="tm-a4-empty tm-a4-empty--full" id="tmA4Empty">Kitaplıktan veya sağdan <strong>PDF</strong> açıp kırpın; <strong>A4’e Ekle</strong> ile ekleyin. Tüm şablonlarda sorular kitap düzeninde iki sütunda (ortada çizgi) dizilir.</div>
                         <div class="test-content-area" id="testContentArea" hidden>
-                          <div id="column-1" class="test-column"></div>
-                          <div id="column-2" class="test-column test-column--with-rule"></div>
+                          <div id="column-1" class="test-column" data-tm-col="1"></div>
+                          <div id="column-2" class="test-column test-column--with-rule" data-tm-col="2"></div>
                         </div>
                         <div class="tm-a4-single" id="tmA4Single" hidden></div>
+                      </div>
+                      <div id="tmOptikStrip" class="tm-optik-strip" hidden aria-label="Optik form şeridi"></div>
+                      </div>
                       </div>
                     </div>
                   </div>
                 </div>
+                </div>
+                <footer class="tm-workspace__bar tm-workspace__bar--compact">
+                  <div class="tm-bar-fields">
+                    <label>Test adı
+                      <input type="text" id="tmWsTitle" placeholder="Örn. Paraf TYT-7 Matematik" maxlength="200" />
+                    </label>
+                    <label>VIP — öğrenci
+                      <input type="text" id="tmHdrStudentInput" placeholder="Ad Soyad" maxlength="80" />
+                    </label>
+                    <label>VIP — net
+                      <input type="text" id="tmHdrNetInput" placeholder="Örn. 85,5" maxlength="12" />
+                    </label>
+                    <label>Ders
+                      <select id="tmWsSubject">
+                        <option value="Matematik">Matematik</option>
+                        <option value="Türkçe">Türkçe</option>
+                        <option value="Fizik">Fizik</option>
+                        <option value="Kimya">Kimya</option>
+                        <option value="Biyoloji">Biyoloji</option>
+                        <option value="Tarih">Tarih</option>
+                        <option value="Coğrafya">Coğrafya</option>
+                        <option value="TYT Genel">TYT Genel</option>
+                        <option value="Diğer">Diğer</option>
+                      </select>
+                    </label>
+                    <label>Zorluk
+                      <select id="tmWsDiff">
+                        <option value="Kolay">Kolay</option>
+                        <option value="Orta" selected>Orta</option>
+                        <option value="Zor">Zor</option>
+                        <option value="YKS tipi">YKS tipi</option>
+                      </select>
+                    </label>
+                    <label>Test tarihi
+                      <input type="date" id="tmWsTestDate" />
+                    </label>
+                  </div>
+                  <div class="tm-bar-actions">
+                    <button type="button" class="tm-btn-save-draft" id="tmBtnSaveFirestore">
+                      <i class="fa-solid fa-database"></i> Taslağı Kaydet
+                    </button>
+                    <button type="button" class="tm-btn-pdf-dl tm-visually-hidden-util" id="tmBtnPdfDownload" tabindex="-1" aria-hidden="true">PDF</button>
+                  </div>
+                </footer>
+                </div>
               </div>
-              <aside class="tm-workspace__tools">
-                <p class="tm-tools__label"><i class="fa-solid fa-crop"></i> Okuyucu &amp; kırpma</p>
+
+              <aside class="tm-source-panel" aria-label="Kaynak PDF ve kırpma">
+                <div class="tm-source-panel__head">
+                  <h3 class="tm-source-panel__title"><i class="fa-solid fa-file-import"></i> Kaynak &amp; kırpma</h3>
+                </div>
+                <div class="tm-source-panel__lib">
+                  <div class="tm-source-panel__lib-row">
+                    <span class="tm-source-panel__lib-lbl">Kitaplık</span>
+                    <button type="button" class="tm-lib-upload tm-lib-upload--inline" id="tmLibUploadBtn"><i class="fa-solid fa-plus"></i> PDF</button>
+                    <input type="file" id="tmLibFileInput" accept="application/pdf" hidden />
+                  </div>
+                  <ul class="tm-library__list tm-library__list--compact" id="tmLibraryList"></ul>
+                </div>
+                <p class="tm-tools__label"><i class="fa-solid fa-crop"></i> İçe aktar</p>
                 <div class="tm-dropzone" id="tmDropzone" tabindex="0">
                   <input type="file" id="tmFileInput" accept="image/png,image/jpeg,image/jpg,application/pdf" />
-                  <i class="fa-solid fa-cloud-arrow-up fa-2x" style="opacity:0.9"></i>
-                  <p><strong>Görsel / PDF</strong> veya soldan kitap seçin</p>
+                  <i class="fa-solid fa-cloud-arrow-up fa-2x"></i>
+                  <p><strong>Görsel / PDF</strong> sürükleyin veya tıklayın</p>
                 </div>
                 <div class="tm-pdf-nav-wrap" id="tmPdfPageRow" hidden>
                   <div class="tm-pdf-nav" role="group" aria-label="PDF sayfa gezgini">
-                    <button type="button" class="tm-pdf-nav__arrow" id="tmPdfPagePrev" aria-label="Önceki sayfa" title="Önceki">
-                      <i class="fa-solid fa-chevron-left"></i>
-                    </button>
+                    <button type="button" class="tm-pdf-nav__arrow" id="tmPdfPagePrev" aria-label="Önceki sayfa"><i class="fa-solid fa-chevron-left"></i></button>
                     <input type="number" id="pdfPageInput" class="tm-pdf-nav__input" min="1" value="1" inputmode="numeric" aria-label="Sayfa numarası" />
-                    <button type="button" class="tm-pdf-nav__arrow" id="tmPdfPageNext" aria-label="Sonraki sayfa" title="Sonraki">
-                      <i class="fa-solid fa-chevron-right"></i>
-                    </button>
+                    <button type="button" class="tm-pdf-nav__arrow" id="tmPdfPageNext" aria-label="Sonraki sayfa"><i class="fa-solid fa-chevron-right"></i></button>
                   </div>
-                  <span class="tm-pdf-nav__total" aria-hidden="true">/ <strong id="pdfPageTotal">0</strong> <span class="tm-pdf-nav__total-label">sayfa</span></span>
+                  <span class="tm-pdf-nav__total">/ <strong id="pdfPageTotal">0</strong> sayfa</span>
                 </div>
                 <div class="tm-crop-wrap" id="tmCropWrap">
                   <img id="tmCropImg" alt="Kırpma kaynağı" style="display:none;max-width:100%" />
                 </div>
-                <div class="tm-tool-actions">
-                  <button type="button" class="tm-btn-add-a4" id="tmBtnAddToA4" disabled>
-                    <i class="fa-solid fa-scissors"></i> A4'e Ekle
-                  </button>
+                <button type="button" class="tm-btn-add-a4" id="tmBtnAddToA4" disabled>
+                  <i class="fa-solid fa-scissors"></i> A4'e Ekle
+                </button>
+              </aside>
+            </div>
+          </div>
+
+            <div id="viewPdfDuzenle" class="tm-annotate-view" hidden>
+              <header class="tm-annotate-topbar">
+                <span class="tm-annotate-topbar__title"><i class="fa-solid fa-file-pen"></i> PDF Anotasyon</span>
+                <div class="tm-annotate-tools">
+                  <button type="button" class="tm-annotate-tool is-active" data-tm-annot="draw" title="Kalem"><i class="fa-solid fa-pen"></i></button>
+                  <button type="button" class="tm-annotate-tool" data-tm-annot="highlight" title="Fosforlu"><i class="fa-solid fa-highlighter"></i></button>
+                  <button type="button" class="tm-annotate-tool" data-tm-annot="text" title="Metin"><i class="fa-solid fa-font"></i></button>
+                  <button type="button" class="tm-annotate-tool" data-tm-annot="erase" title="Silgi"><i class="fa-solid fa-eraser"></i></button>
                 </div>
-                <section class="tm-pdf-editor-v2" id="tmPdfEditorV2">
-                  <p class="tm-tools__label"><i class="fa-solid fa-file-pen"></i> PDF Editör v2</p>
-                  <div class="tm-editor__toolbar">
-                    <button type="button" class="tm-editor-btn is-active" data-tm-tool="draw"><i class="fa-solid fa-pen"></i> Çizim</button>
-                    <button type="button" class="tm-editor-btn" data-tm-tool="highlight"><i class="fa-solid fa-highlighter"></i> Highlight</button>
-                    <button type="button" class="tm-editor-btn" data-tm-tool="signature"><i class="fa-solid fa-signature"></i> İmza</button>
-                  </div>
-                  <div class="tm-editor__canvas-wrap" id="tmEditorCanvasWrap">
+                <div class="tm-annotate-topbar__actions">
+                  <button type="button" class="tm-annotate-action" id="tmAnnotUndo"><i class="fa-solid fa-rotate-left"></i> Geri</button>
+                  <button type="button" class="tm-annotate-action tm-annotate-action--primary" id="tmEditorExportPdf"><i class="fa-solid fa-download"></i> Dışa Aktar</button>
+                  <button type="button" class="tm-annotate-action" id="tmAnnotClose" data-tm-annot-close><i class="fa-solid fa-xmark"></i></button>
+                </div>
+              </header>
+              <div class="tm-annotate-body">
+                <div class="tm-annotate-stage">
+                  <div class="tm-editor__canvas-wrap tm-editor__canvas-wrap--large" id="tmEditorCanvasWrap">
                     <canvas id="tmEditorBaseCanvas"></canvas>
                     <canvas id="tmEditorOverlayCanvas"></canvas>
                   </div>
-                  <label class="tm-editor__note-label">Not
-                    <textarea id="tmEditorNote" class="tm-editor__note" rows="2" placeholder="Bu sayfaya not..."></textarea>
-                  </label>
-                  <label class="tm-editor__note-label">İmza metni
-                    <input id="tmEditorSignText" class="tm-editor__sign" type="text" maxlength="48" placeholder="Ad Soyad" />
-                  </label>
-                  <div class="tm-editor__actions">
-                    <button type="button" class="tm-editor-action" id="tmEditorClearCurrent"><i class="fa-solid fa-eraser"></i> Sayfayı Temizle</button>
-                    <button type="button" class="tm-editor-action tm-editor-action--primary" id="tmEditorExportPdf"><i class="fa-solid fa-file-export"></i> Düzenlenmiş PDF Dışa Aktar</button>
-                  </div>
+                </div>
+                <aside class="tm-annotate-sidebar">
+                  <button type="button" class="tm-annotate-sidebtn" id="tmEditorClearCurrent"><i class="fa-solid fa-broom"></i> Sayfayı temizle</button>
                   <div class="tm-editor__thumbs" id="tmEditorThumbs"></div>
-                </section>
-                <section class="tm-theme-studio" aria-label="Renk ve şablon">
-                  <p class="tm-tools__label"><i class="fa-solid fa-palette"></i> Renk &amp; şablon</p>
-                  <label class="tm-studio-label">Sayfa renk şablonu
-                    <select id="tmColorPreset" class="tm-studio-select">
-                      <option value="yks">YKS Klasik</option>
-                      <option value="pastel">Pastel Takım</option>
-                      <option value="vivid">Canlı Takım</option>
-                    </select>
-                  </label>
-                  <div class="tm-swatch-grid" id="tmSwatchGrid"></div>
-                  <div class="tm-wheel-studio">
-                    <p class="tm-studio-sub">Vurgu rengi</p>
-                    <div class="tm-wheel-row">
-                      <canvas id="tmHueWheel" width="108" height="108" class="tm-hue-wheel" aria-label="Renk çemberi"></canvas>
-                      <canvas id="tmSatVal" width="100" height="100" class="tm-satval" aria-label="Doygunluk ve parlaklık"></canvas>
-                    </div>
-                    <div class="tm-hex-row">
-                      <label>HEX <input type="text" id="tmColorHex" class="tm-studio-input" maxlength="7" placeholder="#000000" /></label>
-                    </div>
-                    <div class="tm-rgb-row">
-                      <label>R <input type="number" id="tmColorR" class="tm-studio-input tm-studio-input--sm" min="0" max="255" /></label>
-                      <label>G <input type="number" id="tmColorG" class="tm-studio-input tm-studio-input--sm" min="0" max="255" /></label>
-                      <label>B <input type="number" id="tmColorB" class="tm-studio-input tm-studio-input--sm" min="0" max="255" /></label>
-                    </div>
-                    <p class="tm-studio-sub">Tamamlayıcı öneriler</p>
-                    <div class="tm-comp-row" id="tmCompSwatches"></div>
-                  </div>
-                </section>
-              </aside>
+                </aside>
+              </div>
             </div>
-            <footer class="tm-workspace__bar">
-              <div class="tm-bar-fields">
-                <label>Test adı (dosya / kayıt)
-                  <input type="text" id="tmWsTitle" placeholder="Örn. Paraf TYT-7 Matematik" maxlength="200" />
-                </label>
-                <label>VIP — öğrenci
-                  <input type="text" id="tmHdrStudentInput" placeholder="Ad Soyad" maxlength="80" />
-                </label>
-                <label>VIP — net
-                  <input type="text" id="tmHdrNetInput" placeholder="Örn. 85,5" maxlength="12" />
-                </label>
-                <label>Ders
-                  <select id="tmWsSubject">
-                    <option value="Matematik">Matematik</option>
-                    <option value="Türkçe">Türkçe</option>
-                    <option value="Fizik">Fizik</option>
-                    <option value="Kimya">Kimya</option>
-                    <option value="Biyoloji">Biyoloji</option>
-                    <option value="Tarih">Tarih</option>
-                    <option value="Coğrafya">Coğrafya</option>
-                    <option value="TYT Genel">TYT Genel</option>
-                    <option value="Diğer">Diğer</option>
-                  </select>
-                </label>
-                <label>Zorluk
-                  <select id="tmWsDiff">
-                    <option value="Kolay">Kolay</option>
-                    <option value="Orta" selected>Orta</option>
-                    <option value="Zor">Zor</option>
-                    <option value="YKS tipi">YKS tipi</option>
-                  </select>
-                </label>
-                <label>Test tarihi
-                  <input type="date" id="tmWsTestDate" />
-                </label>
-              </div>
-              <div class="tm-bar-actions">
-                <button type="button" class="tm-btn-save-draft" id="tmBtnSaveFirestore">
-                  <i class="fa-solid fa-database"></i> Taslağı Kaydet (Firestore)
-                </button>
-                <button type="button" class="tm-btn-pdf-dl" id="tmBtnPdfDownload">
-                  <i class="fa-solid fa-download"></i> PDF İndir
-                </button>
-              </div>
-            </footer>
           </div>
         </div>
 
@@ -1163,6 +1207,8 @@
     }
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5/dist/iro.min.js" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous"></script>
   <script type="module" src="js/koc-panel.js"></script>
 </body>
