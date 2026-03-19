@@ -89,6 +89,8 @@ let cachedPayments = [];
 let cachedTests = [];
 let tmWsCropper = null;
 let tmWsPdfDoc = null;
+let tmWsCurrentPdfPage = 1;
+let tmWsPdfRendering = false;
 let tmWsWorkspaceBound = false;
 let tmActiveLibId = null;
 let tmWsDragBlock = null;
@@ -1843,6 +1845,8 @@ function testmakerWorkspaceLeave() {
   if (app) app.classList.remove("app--testmaker-workspace");
   destroyTmWsCropper();
   tmWsPdfDoc = null;
+  tmWsCurrentPdfPage = 1;
+  tmWsPdfRendering = false;
   var addBtn = document.getElementById("tmBtnAddToA4");
   if (addBtn) addBtn.disabled = true;
 }
@@ -1854,34 +1858,112 @@ function testmakerWorkspaceEnter() {
   tmLibraryRenderList();
 }
 
-function tmWsRenderPdfPage(pageNum) {
+function tmPdfNavUpdateDisabled() {
+  if (!tmWsPdfDoc) return;
+  var t = tmWsPdfDoc.numPages || 1;
+  var prev = document.getElementById("tmPdfPagePrev");
+  var next = document.getElementById("tmPdfPageNext");
+  if (prev) prev.disabled = tmWsCurrentPdfPage <= 1 || tmWsPdfRendering;
+  if (next) next.disabled = tmWsCurrentPdfPage >= t || tmWsPdfRendering;
+}
+
+/** Önce Cropper destroy; canvas render; img hazır olunca Cropper yeniden. */
+function renderPDFPage(pageNum) {
   if (!tmWsPdfDoc || typeof pdfjsLib === "undefined") return Promise.resolve();
+  var total = tmWsPdfDoc.numPages || 1;
+  var n = Math.max(1, Math.min(total, parseInt(pageNum, 10) || 1));
+  tmWsCurrentPdfPage = n;
+  var inp = document.getElementById("pdfPageInput");
+  if (inp) inp.value = String(n);
+  tmPdfNavUpdateDisabled();
+
   destroyTmWsCropper();
-  return tmWsPdfDoc.getPage(pageNum).then(function (page) {
-    var scale = 2;
-    var vp = page.getViewport({ scale: scale });
-    var canvas = document.createElement("canvas");
-    canvas.width = vp.width;
-    canvas.height = vp.height;
-    return page
-      .render({ canvasContext: canvas.getContext("2d"), viewport: vp })
-      .promise.then(function () {
-        var img = document.getElementById("tmCropImg");
-        img.src = canvas.toDataURL("image/png");
-        img.style.display = "block";
-        if (typeof Cropper !== "undefined") {
-          tmWsCropper = new Cropper(img, {
-            viewMode: 1,
-            dragMode: "crop",
-            autoCropArea: 0.55,
-            responsive: true,
-            restore: false,
-          });
+
+  var img = document.getElementById("tmCropImg");
+  var addBtn = document.getElementById("tmBtnAddToA4");
+  if (!img) return Promise.resolve();
+
+  img.onload = null;
+  img.onerror = null;
+  img.removeAttribute("src");
+  img.style.display = "none";
+  if (addBtn) addBtn.disabled = true;
+
+  tmWsPdfRendering = true;
+  tmPdfNavUpdateDisabled();
+
+  return tmWsPdfDoc
+    .getPage(n)
+    .then(function (page) {
+      var scale = 2;
+      var vp = page.getViewport({ scale: scale });
+      var canvas = document.createElement("canvas");
+      canvas.width = vp.width;
+      canvas.height = vp.height;
+      return page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise.then(function () {
+        var dataUrl = canvas.toDataURL("image/png");
+        var pageReadyOnce = false;
+        function afterImageReady() {
+          if (pageReadyOnce) return;
+          pageReadyOnce = true;
+          img.onload = null;
+          img.onerror = null;
+          img.style.display = "block";
+          try {
+            if (typeof Cropper !== "undefined") {
+              tmWsCropper = new Cropper(img, {
+                viewMode: 1,
+                dragMode: "crop",
+                autoCropArea: 0.55,
+                responsive: true,
+                restore: false,
+              });
+            }
+          } catch (err) {
+            console.error(err);
+            showToast("Kırpma aracı başlatılamadı.");
+          }
+          if (addBtn) addBtn.disabled = false;
+          tmWsPdfRendering = false;
+          tmPdfNavUpdateDisabled();
         }
-        var b = document.getElementById("tmBtnAddToA4");
-        if (b) b.disabled = false;
+        img.onerror = function () {
+          if (pageReadyOnce) return;
+          pageReadyOnce = true;
+          img.onerror = null;
+          tmWsPdfRendering = false;
+          if (addBtn) addBtn.disabled = false;
+          tmPdfNavUpdateDisabled();
+          showToast("Sayfa görüntüsü yüklenemedi.");
+        };
+        img.src = dataUrl;
+        if (typeof img.decode === "function") {
+          img
+            .decode()
+            .then(function () {
+              afterImageReady();
+            })
+            .catch(function () {
+              img.onload = function () {
+                afterImageReady();
+              };
+              if (img.complete && img.naturalWidth) requestAnimationFrame(afterImageReady);
+            });
+        } else {
+          img.onload = function () {
+            afterImageReady();
+          };
+          if (img.complete && img.naturalWidth) requestAnimationFrame(afterImageReady);
+        }
       });
-  });
+    })
+    .catch(function (e) {
+      console.error(e);
+      tmWsPdfRendering = false;
+      if (addBtn) addBtn.disabled = false;
+      tmPdfNavUpdateDisabled();
+      showToast("PDF sayfası çizilemedi.");
+    });
 }
 
 function tmWsLoadImageFile(file) {
@@ -1919,19 +2001,18 @@ function tmWsLoadPdfFromBuffer(buf) {
     .getDocument({ data: u8 })
     .promise.then(function (doc) {
       tmWsPdfDoc = doc;
-      var sel = document.getElementById("tmPdfPageSelect");
-      if (sel) {
-        sel.innerHTML = "";
-        for (var i = 1; i <= doc.numPages; i++) {
-          var o = document.createElement("option");
-          o.value = String(i);
-          o.textContent = "Sayfa " + i;
-          sel.appendChild(o);
-        }
-      }
+      tmWsCurrentPdfPage = 1;
       var pr = document.getElementById("tmPdfPageRow");
-      if (pr) pr.hidden = doc.numPages < 2;
-      return tmWsRenderPdfPage(1);
+      if (pr) pr.hidden = false;
+      var tot = document.getElementById("pdfPageTotal");
+      if (tot) tot.textContent = String(doc.numPages);
+      var pin = document.getElementById("pdfPageInput");
+      if (pin) {
+        pin.min = "1";
+        pin.max = String(Math.max(1, doc.numPages));
+        pin.value = "1";
+      }
+      return renderPDFPage(1);
     })
     .catch(function (e) {
       console.error(e);
@@ -2184,13 +2265,40 @@ function bindTestMakerWorkspace() {
     });
   }
 
-  var btnPdfPage = document.getElementById("tmPdfPageApply");
-  if (btnPdfPage)
-    btnPdfPage.addEventListener("click", function () {
-      var sel = document.getElementById("tmPdfPageSelect");
-      var n = sel ? parseInt(sel.value, 10) : 1;
-      if (n >= 1) tmWsRenderPdfPage(n);
+  var btnPrev = document.getElementById("tmPdfPagePrev");
+  var btnNext = document.getElementById("tmPdfPageNext");
+  var pdfInp = document.getElementById("pdfPageInput");
+  if (btnPrev)
+    btnPrev.addEventListener("click", function () {
+      if (!tmWsPdfDoc || tmWsPdfRendering) return;
+      if (tmWsCurrentPdfPage > 1) renderPDFPage(tmWsCurrentPdfPage - 1);
     });
+  if (btnNext)
+    btnNext.addEventListener("click", function () {
+      if (!tmWsPdfDoc || tmWsPdfRendering) return;
+      var t = tmWsPdfDoc.numPages || 1;
+      if (tmWsCurrentPdfPage < t) renderPDFPage(tmWsCurrentPdfPage + 1);
+    });
+  if (pdfInp) {
+    pdfInp.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        pdfInp.blur();
+      }
+    });
+    pdfInp.addEventListener("blur", function () {
+      if (!tmWsPdfDoc) return;
+      var t = tmWsPdfDoc.numPages || 1;
+      var v = parseInt(pdfInp.value, 10);
+      if (isNaN(v) || v < 1) {
+        pdfInp.value = String(tmWsCurrentPdfPage);
+        return;
+      }
+      if (v > t) v = t;
+      if (v !== tmWsCurrentPdfPage) renderPDFPage(v);
+      else pdfInp.value = String(tmWsCurrentPdfPage);
+    });
+  }
 
   var addA4 = document.getElementById("tmBtnAddToA4");
   if (addA4)

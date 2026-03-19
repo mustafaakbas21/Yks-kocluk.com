@@ -368,10 +368,17 @@
                   <i class="fa-solid fa-cloud-arrow-up fa-2x" style="opacity:0.9"></i>
                   <p><strong>Görsel / PDF</strong> veya soldan kitap seçin</p>
                 </div>
-                <div class="tm-pdf-page" id="tmPdfPageRow" hidden>
-                  <span>PDF sayfa:</span>
-                  <select id="tmPdfPageSelect" aria-label="PDF sayfa numarası"></select>
-                  <button type="button" class="btn btn--sm btn--purple" id="tmPdfPageApply">Sayfayı yükle</button>
+                <div class="tm-pdf-nav-wrap" id="tmPdfPageRow" hidden>
+                  <div class="tm-pdf-nav" role="group" aria-label="PDF sayfa gezgini">
+                    <button type="button" class="tm-pdf-nav__arrow" id="tmPdfPagePrev" aria-label="Önceki sayfa" title="Önceki">
+                      <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <input type="number" id="pdfPageInput" class="tm-pdf-nav__input" min="1" value="1" inputmode="numeric" aria-label="Sayfa numarası" />
+                    <button type="button" class="tm-pdf-nav__arrow" id="tmPdfPageNext" aria-label="Sonraki sayfa" title="Sonraki">
+                      <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                  </div>
+                  <span class="tm-pdf-nav__total" aria-hidden="true">/ <strong id="pdfPageTotal">0</strong> <span class="tm-pdf-nav__total-label">sayfa</span></span>
                 </div>
                 <div class="tm-crop-wrap" id="tmCropWrap">
                   <img id="tmCropImg" alt="Kırpma kaynağı" style="display:none;max-width:100%" />
