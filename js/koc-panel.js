@@ -107,6 +107,28 @@ let tmEditorDrawing = false;
 let tmEditorDirty = false;
 let tmEditorTempPoint = null;
 let tmEditorAnnotations = {};
+let tmAnnotReturnSubView = "creator";
+let tmOptikStripVisible = false;
+const TM_TEMPLATE_IDS = [
+  "osym",
+  "vip",
+  "foy",
+  "t01",
+  "t02",
+  "t03",
+  "t04",
+  "t05",
+  "t06",
+  "t07",
+  "t08",
+  "t09",
+  "t10",
+];
+function tmTemplatePaperClasses() {
+  return TM_TEMPLATE_IDS.map(function (id) {
+    return "tm-template-" + id;
+  });
+}
 const TM_IDB_NAME = "TestMakerProLibrary";
 const TM_IDB_VER = 1;
 const TM_IDB_STORE = "pdfs";
@@ -154,7 +176,12 @@ function tmLibGetAllMeta() {
       cur.onsuccess = function (e) {
         var c = e.target.result;
         if (c) {
-          out.push({ id: c.value.id, name: c.value.name, addedAt: c.value.addedAt });
+          out.push({
+            id: c.value.id,
+            name: c.value.name,
+            addedAt: c.value.addedAt,
+            kind: c.value.kind || "pdf",
+          });
           c.continue();
         } else {
           db.close();
@@ -230,12 +257,16 @@ function tmLibraryRenderList() {
             '<span class="tm-library__item-name">' +
             escapeHtml(it.name) +
             '</span>' +
+            '<button type="button" class="tm-library__item-del" data-lib-edit="' +
+            escapeHtml(it.id) +
+            '" aria-label="Düzenle"><i class="fa-solid fa-pen"></i></button>' +
             '<button type="button" class="tm-library__item-del" data-lib-del="' +
             escapeHtml(it.id) +
             '" aria-label="Sil"><i class="fa-solid fa-trash"></i></button></li>'
           );
         })
         .join("");
+      tmRenderSavedPdfLibrary(items);
     })
     .catch(function (e) {
       console.error(e);
@@ -243,16 +274,525 @@ function tmLibraryRenderList() {
     });
 }
 
+function tmRenderSavedPdfLibrary(items) {
+  var host = document.getElementById("tmSavedPdfLibrary");
+  if (!host) return;
+  var list = Array.isArray(items) ? items : [];
+  if (!list.length) {
+    host.innerHTML = '<li class="tm-library__empty">Hazır PDF yok.</li>';
+    return;
+  }
+  host.innerHTML = list
+    .map(function (it) {
+      var kind = it.kind || "pdf";
+      var tag =
+        kind === "layout"
+          ? ' <span class="tm-library__item-kind">Mizanpaj</span>'
+          : "";
+      return (
+        '<li class="tm-saved-pdf-item" data-lib-id="' +
+        escapeHtml(it.id) +
+        '" data-lib-kind="' +
+        escapeHtml(kind) +
+        '"><span class="tm-saved-pdf-item__name">' +
+        escapeHtml(it.name) +
+        tag +
+        '</span><div class="tm-saved-pdf-item__actions"><button type="button" class="is-edit" data-lib-edit="' +
+        escapeHtml(it.id) +
+        '"><i class="fa-solid fa-pen"></i> Düzenle</button><button type="button" class="is-del" data-lib-del="' +
+        escapeHtml(it.id) +
+        '"><i class="fa-solid fa-trash"></i> Sil</button></div></li>'
+      );
+    })
+    .join("");
+}
+
+function tmAnnotatorOpen() {
+  var ann = document.getElementById("viewPdfDuzenle");
+  var lib = document.getElementById("view-library");
+  var cre = document.getElementById("tmViewCreator");
+  var headTest = document.querySelector("#tmWorkspaceRoot .tm-workspace__header");
+  var headLib = document.querySelector("#view-library .tm-workspace__header");
+  if (lib && !lib.hidden) tmAnnotReturnSubView = "library";
+  else tmAnnotReturnSubView = "creator";
+  if (ann) ann.hidden = false;
+  document.body.classList.add("tm-annotate-open");
+  if (lib) lib.hidden = true;
+  if (cre) cre.hidden = true;
+  if (headTest) headTest.hidden = true;
+  if (headLib) headLib.hidden = true;
+  tmAnnotToolSync();
+  tmEditorBindCanvas();
+}
+
+function tmAnnotatorClose() {
+  var ann = document.getElementById("viewPdfDuzenle");
+  if (ann) ann.hidden = true;
+  document.body.classList.remove("tm-annotate-open");
+  navigateTo(tmAnnotReturnSubView === "library" ? "library" : "testmaker");
+}
+
+function testmakerSetSubView(mode) {
+  navigateTo(mode === "library" ? "library" : "testmaker");
+}
+
+function tmSyncRibbonActive(view) {
+  document.querySelectorAll("[data-tm-ribbon-nav]").forEach(function (btn) {
+    var v = btn.getAttribute("data-tm-ribbon-nav");
+    btn.classList.toggle("is-active", v === view);
+  });
+}
+
+function tmEnsureOptikStripBuilt() {
+  var s = document.getElementById("tmOptikStrip");
+  if (!s || s.getAttribute("data-tm-built") === "1") return;
+  var n = 12;
+  var rows = "";
+  for (var i = 1; i <= n; i++) {
+    rows += '<div class="tm-optik-row"><span class="tm-optik-no">' + i + '</span>';
+    ["A", "B", "C", "D", "E"].forEach(function (L) {
+      rows += '<span class="tm-optik-cell" data-optik-letter>' + L + "</span>";
+    });
+    rows += "</div>";
+  }
+  s.innerHTML = '<div class="tm-optik-strip__inner">' + rows + "</div>";
+  s.setAttribute("data-tm-built", "1");
+}
+
+function tmToggleOptikStrip() {
+  var s = document.getElementById("tmOptikStrip");
+  var btn = document.getElementById("tmRailBtnOptik");
+  if (!s) return;
+  tmEnsureOptikStripBuilt();
+  tmOptikStripVisible = !tmOptikStripVisible;
+  s.hidden = !tmOptikStripVisible;
+  if (btn) btn.classList.toggle("is-active", tmOptikStripVisible);
+}
+
+function tmAddFreeTextBoxToA4() {
+  var papers = tmGetAllPapers();
+  var paper = papers.length ? papers[papers.length - 1] : null;
+  if (!paper) return;
+  var area = paper.querySelector(".test-content-area") || paper.querySelector("#testContentArea");
+  var col = paper.querySelector('[data-tm-col="1"]') || paper.querySelector("#column-1");
+  if (!area || !col) return;
+  var empty = paper.querySelector(".tm-a4-empty") || document.getElementById("tmA4Empty");
+  if (empty) empty.style.display = "none";
+  area.hidden = false;
+  var wrap = document.createElement("div");
+  wrap.className = "tm-a4-freetext";
+  wrap.contentEditable = "true";
+  wrap.setAttribute("role", "textbox");
+  wrap.setAttribute("aria-label", "Serbest metin");
+  wrap.innerHTML = "Metin yazın…";
+  var xb = document.createElement("button");
+  xb.type = "button";
+  xb.className = "tm-a4-freetext__x";
+  xb.setAttribute("aria-label", "Kaldır");
+  xb.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+  xb.addEventListener("click", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    wrap.remove();
+    tmUpdateA4EmptyVisibility();
+    tmRenumberTmQuestions();
+  });
+  wrap.appendChild(xb);
+  col.appendChild(wrap);
+  try {
+    wrap.focus();
+    var r = document.createRange();
+    r.selectNodeContents(wrap);
+    r.collapse(false);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(r);
+  } catch (e) {}
+  tmRenumberTmQuestions();
+}
+
+function tmSyncWatermarkLayer() {
+  var wm = document.getElementById("tmA4Watermark");
+  if (!wm) return;
+  var inst =
+    (document.getElementById("tmWsInstitution") && document.getElementById("tmWsInstitution").value.trim()) || "";
+  var hasLogo = !!tmHeaderLogoDataUrl;
+  var show = hasLogo || !!inst;
+  wm.hidden = !show;
+  wm.setAttribute("aria-hidden", show ? "false" : "true");
+  wm.classList.toggle("tm-a4-watermark--logo", hasLogo);
+  wm.classList.toggle("tm-a4-watermark--text", !hasLogo && !!inst);
+  if (hasLogo) {
+    wm.style.backgroundImage = 'url("' + String(tmHeaderLogoDataUrl).replace(/"/g, '\\"') + '")';
+    wm.textContent = "";
+  } else if (inst) {
+    wm.style.backgroundImage = "none";
+    wm.textContent = inst;
+  } else {
+    wm.style.backgroundImage = "none";
+    wm.textContent = "";
+  }
+}
+
+async function tmOpenFirestoreTestInAnnotator(testId) {
+  var t = cachedTests.filter(function (x) {
+    return x.id === testId;
+  })[0];
+  if (!t || !t.questionImages || !t.questionImages.length) {
+    showToast("Test görseli bulunamadı.");
+    return;
+  }
+  if (!(window.jspdf && window.jspdf.jsPDF)) {
+    showToast("jsPDF yüklenemedi; sayfayı yenileyin.");
+    return;
+  }
+  try {
+    var J = window.jspdf.jsPDF;
+    var doc = new J({ unit: "pt", format: "a4", compress: true });
+    var pageW = doc.internal.pageSize.getWidth();
+    var pageH = doc.internal.pageSize.getHeight();
+    var margin = 28;
+    for (var i = 0; i < t.questionImages.length; i++) {
+      if (i > 0) doc.addPage();
+      var dataUrl = t.questionImages[i];
+      var fmt = "JPEG";
+      if (typeof dataUrl === "string" && /data:image\/png/i.test(dataUrl)) fmt = "PNG";
+      var iw = pageW - margin * 2;
+      var ih = pageH - margin * 2;
+      try {
+        var prop = doc.getImageProperties(dataUrl);
+        var rw = prop.width || iw;
+        var rh = prop.height || ih;
+        var ratio = Math.min(iw / rw, ih / rh);
+        var w = rw * ratio;
+        var h = rh * ratio;
+        var x = (pageW - w) / 2;
+        var y = (pageH - h) / 2;
+        doc.addImage(dataUrl, fmt, x, y, w, h, undefined, fmt === "PNG" ? "FAST" : "MEDIUM");
+      } catch (e1) {
+        doc.addImage(dataUrl, fmt, margin, margin, iw, ih);
+      }
+    }
+    var buf = doc.output("arraybuffer");
+    await tmWsLoadPdfFromBuffer(buf);
+    tmAnnotatorOpen();
+    showToast("Test PDF anotasyon editöründe açıldı.");
+  } catch (err) {
+    console.error(err);
+    showToast("Test PDF oluşturulamadı.");
+  }
+}
+
+function tmCloseAllTmFlyouts() {
+  document.querySelectorAll(".tm-flyout").forEach(function (el) {
+    el.hidden = true;
+  });
+  ["tmRailBtnTemplate", "tmRailBtnColor", "tmRailBtnLayout"].forEach(function (rid) {
+    var b = document.getElementById(rid);
+    if (b) {
+      b.classList.remove("is-active");
+      b.setAttribute("aria-pressed", "false");
+    }
+  });
+}
+
+function tmLoadLayoutFromLibrary(rec) {
+  if (!rec || !rec.payload) return;
+  navigateTo("testmaker");
+  tmGetAllPapers().forEach(function (paper) {
+    paper.querySelectorAll("[data-tm-col]").forEach(function (col) {
+      col.innerHTML = "";
+    });
+  });
+  tmRemoveExtraA4Pages();
+  var p = rec.payload;
+  var c = document.getElementById("a4-pages-container");
+  if (c && p.layoutContainerClass) {
+    tmSetPageLayout(p.layoutContainerClass.indexOf("layout-6") !== -1 ? 6 : 4);
+  }
+  if (p.template && document.getElementById("tmTemplate")) {
+    var tmSel0 = document.getElementById("tmTemplate");
+    var tv0 = String(p.template);
+    if (TM_TEMPLATE_IDS.indexOf(tv0) === -1) tv0 = "osym";
+    tmSel0.value = tv0;
+  }
+  tmApplyWorkspaceTemplate();
+  if (p.meta) {
+    var M = p.meta;
+    if (M.institution && document.getElementById("tmWsInstitution")) document.getElementById("tmWsInstitution").value = M.institution;
+    if (M.course && document.getElementById("tmWsCourse")) document.getElementById("tmWsCourse").value = M.course;
+    if (M.topic && document.getElementById("tmWsTopic")) document.getElementById("tmWsTopic").value = M.topic;
+    if (M.testDate && document.getElementById("tmWsTestDate")) document.getElementById("tmWsTestDate").value = M.testDate;
+  }
+  (p.questionImages || []).forEach(function (src) {
+    tmAddQuestionToA4(src);
+  });
+  if (document.getElementById("tmWsTitle")) document.getElementById("tmWsTitle").value = rec.name || "";
+  tmSyncPaperHeaders();
+}
+
+async function tmSaveLayoutToLocalLibrary() {
+  if (tmTotalQuestionBlocks() === 0) {
+    showToast("Önce en az bir soru ekleyin.");
+    return;
+  }
+  var title =
+    (document.getElementById("tmWsTitle") && document.getElementById("tmWsTitle").value.trim()) ||
+    "Mizanpaj " + new Date().toLocaleString("tr-TR");
+  var imgs = [];
+  document.querySelectorAll("#a4-pages-container .tm-a4-block.question-item img").forEach(function (im) {
+    imgs.push(im.src);
+  });
+  var thumb = imgs[0] || "";
+  var payload = {
+    template: (document.getElementById("tmTemplate") && document.getElementById("tmTemplate").value) || "osym",
+    layoutContainerClass: document.getElementById("a4-pages-container")
+      ? document.getElementById("a4-pages-container").className
+      : "a4-pages-container layout-4",
+    meta: {
+      institution:
+        (document.getElementById("tmWsInstitution") && document.getElementById("tmWsInstitution").value) || "",
+      course: (document.getElementById("tmWsCourse") && document.getElementById("tmWsCourse").value) || "",
+      topic: (document.getElementById("tmWsTopic") && document.getElementById("tmWsTopic").value) || "",
+      testDate: (document.getElementById("tmWsTestDate") && document.getElementById("tmWsTestDate").value) || "",
+    },
+    questionImages: imgs,
+  };
+  var id = "layout_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+  try {
+    await tmLibPut({
+      id: id,
+      name: title.slice(0, 180),
+      addedAt: Date.now(),
+      kind: "layout",
+      thumbnail: thumb,
+      payload: payload,
+    });
+    showToast("Kütüphaneye kaydedildi (yerel).");
+    tmLibraryRenderList();
+    tmLibGetAllMeta().then(tmRenderSavedPdfLibrary);
+  } catch (e) {
+    console.error(e);
+    showToast("Kaydedilemedi.");
+  }
+}
+
+function tmOpenPdfEditorFromLib(lid) {
+  if (!lid) return;
+  tmActiveLibId = lid;
+  tmLibraryRenderList();
+  tmLibGetFull(lid).then(function (rec) {
+    if (!rec) {
+      showToast("Kayıt bulunamadı.");
+      return;
+    }
+    if (rec.kind === "layout") {
+      tmLoadLayoutFromLibrary(rec);
+      showToast("Mizanpaj Test Tasarımı’na yüklendi.");
+      return;
+    }
+    if (!rec.buffer) {
+      showToast("PDF bulunamadı.");
+      return;
+    }
+    tmWsLoadPdfFromBuffer(rec.buffer).then(function () {
+      tmAnnotatorOpen();
+      showToast("PDF anotasyon editöründe açıldı.");
+    });
+  });
+}
+
+/* ========== A4 yayıncılık motoru: sayfa başına 4/6 soru + otomatik sayfa ========== */
+
+function tmGetQuestionsPerPage() {
+  var c = document.getElementById("a4-pages-container");
+  if (c && c.classList.contains("layout-6")) return 6;
+  return 4;
+}
+
+function tmGetAllPapers() {
+  var c = document.getElementById("a4-pages-container");
+  if (c) return Array.prototype.slice.call(c.querySelectorAll(".a4-paper"));
+  var p = document.getElementById("tmA4Paper");
+  return p ? [p] : [];
+}
+
+function tmCountQuestionsOnPaper(paper) {
+  if (!paper) return 0;
+  return paper.querySelectorAll(".tm-a4-block.question-item").length;
+}
+
+function tmTotalQuestionBlocks() {
+  var c = document.getElementById("a4-pages-container");
+  if (c) return c.querySelectorAll(".tm-a4-block.question-item").length;
+  return document.querySelectorAll("#tmA4Paper .tm-a4-block.question-item, #tmA4Layout .tm-a4-block.question-item").length;
+}
+
+function tmGetTargetColumnForSlot(paper, slotIndex0, perPage) {
+  var half = perPage / 2;
+  var colKey = slotIndex0 < half ? "1" : "2";
+  return paper.querySelector('[data-tm-col="' + colKey + '"]');
+}
+
+function tmRehomeOptikStrip() {
+  var strip = document.getElementById("tmOptikStrip");
+  if (!strip) return;
+  var papers = tmGetAllPapers();
+  if (!papers.length) return;
+  var last = papers[papers.length - 1];
+  var layout = last.querySelector(".tm-a4-layout");
+  if (layout) layout.appendChild(strip);
+}
+
+function tmStripCloneIds(root) {
+  root.removeAttribute("id");
+  root.querySelectorAll("[id]").forEach(function (n) {
+    n.removeAttribute("id");
+  });
+}
+
+function tmRemoveExtraA4Pages() {
+  var c = document.getElementById("a4-pages-container");
+  if (!c) return;
+  var papers = c.querySelectorAll(".a4-paper");
+  for (var i = papers.length - 1; i >= 1; i--) {
+    papers[i].remove();
+  }
+  tmRehomeOptikStrip();
+}
+
+function tmCreateNewA4Page() {
+  var container = document.getElementById("a4-pages-container");
+  var tmpl = document.getElementById("tmA4Paper");
+  if (!container || !tmpl) return null;
+  var clone = tmpl.cloneNode(true);
+  tmStripCloneIds(clone);
+  clone.classList.add("tm-a4-page--sub");
+  var empty = clone.querySelector(".tm-a4-empty");
+  if (empty) empty.style.display = "none";
+  var tca = clone.querySelector(".test-content-area");
+  if (tca) {
+    tca.removeAttribute("hidden");
+    tca.hidden = false;
+    tca.querySelectorAll("[data-tm-col]").forEach(function (col) {
+      col.innerHTML = "";
+    });
+  }
+  var single = clone.querySelector(".tm-a4-single");
+  if (single) {
+    single.innerHTML = "";
+    single.hidden = true;
+  }
+  var dupOptik = clone.querySelector(".tm-optik-strip");
+  if (dupOptik) dupOptik.remove();
+  var st = tmpl.getAttribute("style") || "";
+  clone.setAttribute("style", st);
+  var mode = tmpl.getAttribute("data-tm-layout") || "osym";
+  clone.setAttribute("data-tm-layout", mode);
+  tmTemplatePaperClasses().forEach(function (tcl) {
+    clone.classList.remove(tcl);
+    if (tmpl.classList.contains(tcl)) clone.classList.add(tcl);
+  });
+  container.appendChild(clone);
+  tmSyncPaperHeaders();
+  tmRehomeOptikStrip();
+  return clone;
+}
+
+function tmAppendBlockToPaginatedColumns(block) {
+  var limit = tmGetQuestionsPerPage();
+  var papers = tmGetAllPapers();
+  if (!papers.length) return;
+  var last = papers[papers.length - 1];
+  var count = tmCountQuestionsOnPaper(last);
+  if (count >= limit) {
+    last = tmCreateNewA4Page();
+    if (!last) return;
+  }
+  var col = tmGetTargetColumnForSlot(last, tmCountQuestionsOnPaper(last), limit);
+  if (!col) return;
+  col.appendChild(block);
+}
+
+function tmAddQuestionToA4(imageSrc) {
+  if (!imageSrc) return;
+  var wrap = document.createElement("div");
+  wrap.className = "tm-a4-block question-item";
+  wrap.draggable = true;
+  wrap.setAttribute("data-tm-drag", "1");
+  var badge = document.createElement("div");
+  badge.className = "tm-q-badge";
+  badge.textContent = "Soru …)";
+  var imgW = document.createElement("div");
+  imgW.className = "tm-a4-block__imgwrap";
+  var img = document.createElement("img");
+  img.src = imageSrc;
+  img.alt = "";
+  img.draggable = false;
+  imgW.appendChild(img);
+  var xb = document.createElement("button");
+  xb.type = "button";
+  xb.className = "tm-a4-block__x";
+  xb.setAttribute("aria-label", "Kaldır");
+  xb.draggable = false;
+  xb.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+  wrap.appendChild(badge);
+  wrap.appendChild(imgW);
+  wrap.appendChild(xb);
+  tmAppendBlockToPaginatedColumns(wrap);
+  tmUpdateA4EmptyVisibility();
+  tmRenumberTmQuestions();
+}
+
+function tmRedistributeAllQuestions() {
+  var blocks = [];
+  tmGetAllPapers().forEach(function (paper) {
+    ["1", "2"].forEach(function (k) {
+      var col = paper.querySelector('[data-tm-col="' + k + '"]');
+      if (!col) return;
+      col.querySelectorAll(".tm-a4-block.question-item").forEach(function (b) {
+        blocks.push(b);
+      });
+    });
+  });
+  blocks.forEach(function (b) {
+    b.remove();
+  });
+  tmRemoveExtraA4Pages();
+  blocks.forEach(function (b) {
+    tmAppendBlockToPaginatedColumns(b);
+  });
+  tmUpdateA4EmptyVisibility();
+  tmRenumberTmQuestions();
+}
+
+function tmSetPageLayout(n) {
+  n = n === 6 ? 6 : 4;
+  var c = document.getElementById("a4-pages-container");
+  if (!c) return;
+  c.classList.remove("layout-4", "layout-6");
+  c.classList.add(n === 6 ? "layout-6" : "layout-4");
+  document.querySelectorAll("[data-tm-q-layout]").forEach(function (btn) {
+    var v = parseInt(btn.getAttribute("data-tm-q-layout"), 10);
+    btn.classList.toggle("is-active", v === n);
+  });
+  if (tmTotalQuestionBlocks() > 0) tmRedistributeAllQuestions();
+}
+
 function tmRenumberTmQuestions() {
   var order = [];
-  document.querySelectorAll("#column-1 .tm-a4-block").forEach(function (el) {
-    order.push(el);
-  });
-  document.querySelectorAll("#column-2 .tm-a4-block").forEach(function (el) {
-    order.push(el);
+  tmGetAllPapers().forEach(function (paper) {
+    var c1 = paper.querySelector('[data-tm-col="1"]');
+    var c2 = paper.querySelector('[data-tm-col="2"]');
+    if (c1) c1.querySelectorAll(".tm-a4-block.question-item").forEach(function (el) {
+      order.push(el);
+    });
+    if (c2) c2.querySelectorAll(".tm-a4-block.question-item").forEach(function (el) {
+      order.push(el);
+    });
   });
   if (order.length === 0) {
-    document.querySelectorAll("#tmA4Single .tm-a4-block").forEach(function (el) {
+    document.querySelectorAll("#tmA4Single .tm-a4-block.question-item").forEach(function (el) {
       order.push(el);
     });
   }
@@ -263,7 +803,7 @@ function tmRenumberTmQuestions() {
 }
 
 function tmUpdateA4EmptyVisibility() {
-  var n = document.querySelectorAll("#tmA4Layout .tm-a4-block").length;
+  var n = tmTotalQuestionBlocks();
   var empty = document.getElementById("tmA4Empty");
   var dual = document.getElementById("testContentArea");
   var single = document.getElementById("tmA4Single");
@@ -273,6 +813,7 @@ function tmUpdateA4EmptyVisibility() {
     empty.style.display = "flex";
     dual.hidden = true;
     single.hidden = true;
+    tmRemoveExtraA4Pages();
     return;
   }
   empty.style.display = "none";
@@ -281,32 +822,43 @@ function tmUpdateA4EmptyVisibility() {
 }
 
 function tmCollectBlocksFromCurrent(mode) {
-  var blocks = Array.prototype.slice.call(document.querySelectorAll("#column-1 .tm-a4-block")).concat(
-    Array.prototype.slice.call(document.querySelectorAll("#column-2 .tm-a4-block"))
-  );
-  if (!blocks.length) blocks = Array.prototype.slice.call(document.querySelectorAll("#tmA4Single .tm-a4-block"));
+  var blocks = [];
+  tmGetAllPapers().forEach(function (paper) {
+    ["1", "2"].forEach(function (k) {
+      var col = paper.querySelector('[data-tm-col="' + k + '"]');
+      if (!col) return;
+      col.querySelectorAll(".tm-a4-block").forEach(function (el) {
+        blocks.push(el);
+      });
+    });
+    var s = paper.querySelector(".tm-a4-single");
+    if (s)
+      s.querySelectorAll(".tm-a4-block").forEach(function (el) {
+        blocks.push(el);
+      });
+  });
   return blocks;
 }
 
 function tmMigrateLayoutForTemplate(fromMode, toMode) {
   var blocks = tmCollectBlocksFromCurrent(fromMode);
-  var L = document.getElementById("column-1");
-  var R = document.getElementById("column-2");
-  var S = document.getElementById("tmA4Single");
-  if (!L || !R || !S) return;
-  L.innerHTML = "";
-  R.innerHTML = "";
-  S.innerHTML = "";
+  tmGetAllPapers().forEach(function (paper) {
+    paper.querySelectorAll('[data-tm-col="1"], [data-tm-col="2"]').forEach(function (col) {
+      col.innerHTML = "";
+    });
+    var s = paper.querySelector(".tm-a4-single");
+    if (s) s.innerHTML = "";
+  });
+  tmRemoveExtraA4Pages();
   blocks.forEach(function (b) {
     b.remove();
-  });
-  var mid = Math.ceil(blocks.length / 2);
-  blocks.forEach(function (b, i) {
-    (i < mid ? L : R).appendChild(b);
+    tmAppendBlockToPaginatedColumns(b);
   });
   tmUpdateA4EmptyVisibility();
+  tmRenumberTmQuestions();
 }
 
+/** @deprecated — yayıncılık motoru tmAddQuestionToA4 kullanır */
 function tmGetAppendParent() {
   var paper = document.getElementById("tmA4Paper");
   var empty = document.getElementById("tmA4Empty");
@@ -316,21 +868,11 @@ function tmGetAppendParent() {
   empty.style.display = "none";
   dual.hidden = false;
   single.hidden = true;
-  var c1 = document.getElementById("column-1");
-  var c2 = document.getElementById("column-2");
-  if (!c1 || !c2) return c1 || single;
-  var mm = 96 / 25.4;
-  var maxColPx = Math.round(248 * mm);
-  if (c1.scrollHeight < maxColPx) return c1;
-  if (c2.scrollHeight < maxColPx) return c2;
-  return c1.scrollHeight <= c2.scrollHeight ? c1 : c2;
+  return document.getElementById("column-1");
 }
 
-var TM_COLOR_PRESETS = {
-  yks: { swatches: ["#1a1a1a", "#374151", "#0f172a", "#1e40af", "#991b1b"], def: "#1a1a1a" },
-  pastel: { swatches: ["#B3E5FC", "#C8E6C9", "#F8BBD0", "#81D4FA", "#A5D6A7"], def: "#0288D1" },
-  vivid: { swatches: ["#673AB7", "#00BCD4", "#FF5722", "#E91E63", "#FFC107"], def: "#673AB7" },
-};
+let tmIroPicker = null;
+let tmIroSyncingFromInputs = false;
 
 function tmNormalizeHex(h) {
   h = String(h || "").trim();
@@ -363,6 +905,63 @@ function tmRgbToHex(r, g, b) {
       .join("")
       .toUpperCase()
   );
+}
+
+/** HSL (H:0–360, S/L:0–100) → RGB — yayıncılık paleti üretimi */
+function tmHslToRgb(h, s, l) {
+  function hue2rgb(p, q, t) {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  }
+  h = ((Number(h) % 360) + 360) % 360;
+  h = h / 360;
+  s = Math.max(0, Math.min(100, Number(s))) / 100;
+  l = Math.max(0, Math.min(100, Number(l))) / 100;
+  var r, g, b;
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    var p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1 / 3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1 / 3);
+  }
+  return {
+    r: Math.round(r * 255),
+    g: Math.round(g * 255),
+    b: Math.round(b * 255),
+  };
+}
+
+function tmRandRange(min, max) {
+  return min + Math.random() * (max - min);
+}
+
+/**
+ * Benzersiz HEX listesi: Pastel S%40–60 L%85–95; Canlı S%90–100 L%50–60
+ */
+function tmGenerateUniqueHslHexes(count, sMin, sMax, lMin, lMax) {
+  var seen = new Set();
+  var out = [];
+  var guard = 0;
+  var maxIter = Math.max(count * 80, 400);
+  while (out.length < count && guard < maxIter) {
+    guard++;
+    var hue = Math.random() * 360;
+    var sat = tmRandRange(sMin, sMax);
+    var light = tmRandRange(lMin, lMax);
+    var rgb = tmHslToRgb(hue, sat, light);
+    var hex = tmRgbToHex(rgb.r, rgb.g, rgb.b);
+    if (seen.has(hex)) continue;
+    seen.add(hex);
+    out.push(hex);
+  }
+  return out;
 }
 
 function tmHsvToRgb(h, s, v) {
@@ -423,15 +1022,17 @@ function tmApplyAccentHex(hex) {
   if (!x) return;
   var rgb = tmHexToRgb(x);
   if (!rgb) return;
-  var paper = document.getElementById("tmA4Paper");
-  if (paper) {
+  var rgbStr = rgb.r + "," + rgb.g + "," + rgb.b;
+  tmGetAllPapers().forEach(function (paper) {
     paper.style.setProperty("--tm-accent", x);
-    paper.style.setProperty("--tm-accent-rgb", rgb.r + "," + rgb.g + "," + rgb.b);
-  }
+    paper.style.setProperty("--accent-color", x);
+    paper.style.setProperty("--tm-accent-rgb", rgbStr);
+  });
   document.documentElement.style.setProperty("--tm-studio-accent", x);
 }
 
-function tmSyncColorInputsFromHex(hex) {
+/** skipIro: true ise ColorPicker güncellenmez (iro kaynaklı input döngüsü önleme) */
+function tmSyncColorInputsFromHex(hex, skipIro) {
   var x = tmNormalizeHex(hex);
   if (!x) return;
   var rgb = tmHexToRgb(x);
@@ -448,69 +1049,128 @@ function tmSyncColorInputsFromHex(hex) {
   if (ri) ri.value = String(rgb.r);
   if (gi) gi.value = String(rgb.g);
   if (bi) bi.value = String(rgb.b);
+  if (!skipIro && tmIroPicker && !tmIroSyncingFromInputs) {
+    tmIroSyncingFromInputs = true;
+    try {
+      tmIroPicker.color.hexString = x;
+    } catch (e) {}
+    tmIroSyncingFromInputs = false;
+  }
 }
 
-function tmDrawHueWheel() {
-  var c = document.getElementById("tmHueWheel");
-  if (!c) return;
-  var ctx = c.getContext("2d");
-  var w = c.width;
-  var h = c.height;
-  var cx = w / 2;
-  var cy = h / 2;
-  var rOut = Math.min(cx, cy) - 2;
-  var rIn = rOut * 0.55;
-  ctx.clearRect(0, 0, w, h);
-  for (var ang = 0; ang < 360; ang += 1) {
-    ctx.beginPath();
-    ctx.strokeStyle = "hsl(" + ang + ",100%,50%)";
-    ctx.lineWidth = rOut - rIn + 1;
-    ctx.arc(cx, cy, (rOut + rIn) / 2, ((ang - 1) * Math.PI) / 180, (ang * Math.PI) / 180);
-    ctx.stroke();
-  }
-  var mr = 6;
-  var rad = ((tmHue - 90) * Math.PI) / 180;
-  var pr = (rOut + rIn) / 2;
-  ctx.beginPath();
-  ctx.fillStyle = "#fff";
-  ctx.arc(cx + Math.cos(rad) * pr, cy + Math.sin(rad) * pr, mr, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = "#222";
-  ctx.lineWidth = 2;
-  ctx.stroke();
+function tmMarkActivePaletteSwatch(hex) {
+  var x = tmNormalizeHex(hex);
+  if (!x) return;
+  document.querySelectorAll(".tm-swatch--studio").forEach(function (btn) {
+    var dh = btn.getAttribute("data-hex");
+    btn.classList.toggle("is-active", !!(dh && tmNormalizeHex(dh) === x));
+  });
 }
 
-function tmDrawSatVal() {
-  var c = document.getElementById("tmSatVal");
-  if (!c) return;
-  var ctx = c.getContext("2d");
-  var w = c.width;
-  var h = c.height;
-  var img = ctx.createImageData(w, h);
-  var hu = tmHue;
-  for (var y = 0; y < h; y++) {
-    for (var x = 0; x < w; x++) {
-      var s = (x / w) * 100;
-      var v = (1 - y / h) * 100;
-      var rgb = tmHsvToRgb(hu, s, v);
-      var i = (y * w + x) * 4;
-      img.data[i] = rgb.r;
-      img.data[i + 1] = rgb.g;
-      img.data[i + 2] = rgb.b;
-      img.data[i + 3] = 255;
-    }
+function tmApplyAccentFromStudio(hex, skipIroSync) {
+  var x = tmNormalizeHex(hex);
+  if (!x) return;
+  tmApplyAccentHex(x);
+  tmSyncColorInputsFromHex(x, !!skipIroSync);
+  tmMarkActivePaletteSwatch(x);
+  tmUpdateCompSwatches();
+}
+
+function tmSetColorStudioTab(mode) {
+  var presetView = document.getElementById("tmHazirRenklerView");
+  var panelView = document.getElementById("tmRenkPaneliView");
+  var tabPreset = document.getElementById("tmColorTabPreset");
+  var tabPanel = document.getElementById("tmColorTabPanel");
+  var isPreset = mode !== "panel";
+  if (presetView) {
+    presetView.hidden = !isPreset;
   }
-  ctx.putImageData(img, 0, 0);
-  var px = (tmSat / 100) * w;
-  var py = (1 - tmVal / 100) * h;
-  ctx.beginPath();
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 2;
-  ctx.arc(px, py, 5, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.strokeStyle = "#000";
-  ctx.lineWidth = 1;
-  ctx.stroke();
+  if (panelView) {
+    panelView.hidden = isPreset;
+  }
+  if (tabPreset) {
+    tabPreset.classList.toggle("is-active", isPreset);
+    tabPreset.setAttribute("aria-selected", isPreset ? "true" : "false");
+  }
+  if (tabPanel) {
+    tabPanel.classList.toggle("is-active", !isPreset);
+    tabPanel.setAttribute("aria-selected", !isPreset ? "true" : "false");
+  }
+  if (!isPreset) {
+    tmEnsureIroPicker();
+    requestAnimationFrame(function () {
+      try {
+        if (tmIroPicker && typeof tmIroPicker.resize === "function") tmIroPicker.resize(undefined);
+      } catch (e) {}
+    });
+  }
+}
+
+function tmFillStudioPaletteGrids() {
+  var pastelBox = document.getElementById("tmPastelSwatchGrid");
+  var vividBox = document.getElementById("tmVividSwatchGrid");
+  if (!pastelBox || !vividBox) return;
+  var pastels = tmGenerateUniqueHslHexes(40, 40, 60, 85, 95);
+  var vivids = tmGenerateUniqueHslHexes(40, 90, 100, 50, 60);
+  function fill(box, colors) {
+    box.innerHTML = "";
+    colors.forEach(function (col) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "tm-swatch tm-swatch--studio";
+      btn.setAttribute("data-hex", col);
+      btn.style.background = col;
+      btn.title = col;
+      btn.addEventListener("click", function () {
+        tmApplyAccentFromStudio(col, false);
+      });
+      box.appendChild(btn);
+    });
+  }
+  fill(pastelBox, pastels);
+  fill(vividBox, vivids);
+}
+
+function tmEnsureIroPicker() {
+  if (tmIroPicker) return;
+  if (typeof window.iro === "undefined") return;
+  var host = document.getElementById("tmIroPickerHost");
+  if (!host || host.childNodes.length > 0) return;
+  var Iro = window.iro;
+  try {
+    var startHex =
+      (document.getElementById("tmColorHex") && tmNormalizeHex(document.getElementById("tmColorHex").value)) || "#1A1A1A";
+    tmIroPicker = new Iro.ColorPicker(host, {
+      width: 228,
+      color: startHex,
+      borderWidth: 2,
+      borderColor: "rgba(255,255,255,0.12)",
+      layoutDirection: "vertical",
+      wheelLightness: false,
+      layout: [
+        { component: Iro.ui.Wheel },
+        { component: Iro.ui.Box, options: {} },
+        { component: Iro.ui.Slider, options: { sliderType: "hue" } },
+      ],
+    });
+    tmIroPicker.on("color:change", function (changes, color) {
+      if (tmIroSyncingFromInputs) return;
+      var col = color && color.hexString ? color : changes;
+      if (!col || !col.hexString) return;
+      var hx = (col.hexString || "").toUpperCase();
+      if (!tmNormalizeHex(hx)) return;
+      tmApplyAccentHex(hx);
+      tmSyncColorInputsFromHex(hx, true);
+      tmMarkActivePaletteSwatch(hx);
+      tmUpdateCompSwatches();
+    });
+  } catch (err) {
+    console.error("iro.js ColorPicker:", err);
+    try {
+      host.innerHTML = "";
+    } catch (e) {}
+    tmIroPicker = null;
+  }
 }
 
 function tmUpdateCompSwatches() {
@@ -536,126 +1196,36 @@ function tmUpdateCompSwatches() {
     b.style.background = ch;
     b.title = ch;
     b.addEventListener("click", function () {
-      tmApplyAccentHex(ch);
-      tmSyncColorInputsFromHex(ch);
-      tmDrawHueWheel();
-      tmDrawSatVal();
-      tmUpdateCompSwatches();
+      tmApplyAccentFromStudio(ch, false);
     });
     box.appendChild(b);
   });
 }
 
-function tmApplyHsvToAccent() {
-  var rgb = tmHsvToRgb(tmHue, tmSat, tmVal);
-  var hex = tmRgbToHex(rgb.r, rgb.g, rgb.b);
-  tmApplyAccentHex(hex);
-  tmSyncColorInputsFromHex(hex);
-  tmDrawHueWheel();
-  tmUpdateCompSwatches();
-}
-
 function initTmColorStudio() {
   if (tmColorStudioBound) return;
-  var preset = document.getElementById("tmColorPreset");
-  var grid = document.getElementById("tmSwatchGrid");
-  var wheel = document.getElementById("tmHueWheel");
-  var sat = document.getElementById("tmSatVal");
-  if (!preset || !grid || !wheel || !sat) return;
+  var panel = document.getElementById("color-settings-panel");
+  var pastelG = document.getElementById("tmPastelSwatchGrid");
+  var vividG = document.getElementById("tmVividSwatchGrid");
+  if (!panel || !pastelG || !vividG) return;
   tmColorStudioBound = true;
 
-  function refillSwatches() {
-    var key = preset.value || "yks";
-    var p = TM_COLOR_PRESETS[key] || TM_COLOR_PRESETS.yks;
-    grid.innerHTML = "";
-    p.swatches.forEach(function (col) {
-      var btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "tm-swatch";
-      btn.style.background = col;
-      btn.title = col;
-      btn.addEventListener("click", function () {
-        grid.querySelectorAll(".tm-swatch").forEach(function (x) {
-          x.classList.remove("is-active");
-        });
-        btn.classList.add("is-active");
-        tmApplyAccentHex(col);
-        tmSyncColorInputsFromHex(col);
-        tmDrawHueWheel();
-        tmDrawSatVal();
-        tmUpdateCompSwatches();
-      });
-      grid.appendChild(btn);
+  tmFillStudioPaletteGrids();
+
+  document.querySelectorAll("[data-tm-color-tab]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var mode = btn.getAttribute("data-tm-color-tab") === "panel" ? "panel" : "preset";
+      tmSetColorStudioTab(mode);
     });
-    tmApplyAccentHex(p.def);
-    tmSyncColorInputsFromHex(p.def);
-    tmDrawHueWheel();
-    tmDrawSatVal();
-    tmUpdateCompSwatches();
-    var first = grid.querySelector(".tm-swatch");
-    if (first) first.classList.add("is-active");
-  }
-
-  preset.addEventListener("change", refillSwatches);
-
-  function wheelPick(e) {
-    var rect = wheel.getBoundingClientRect();
-    var cx = rect.left + rect.width / 2;
-    var cy = rect.top + rect.height / 2;
-    var dx = e.clientX - cx;
-    var dy = e.clientY - cy;
-    var dist = Math.sqrt(dx * dx + dy * dy);
-    var rOut = Math.min(rect.width, rect.height) / 2 - 2;
-    var rIn = rOut * 0.55;
-    if (dist >= rIn && dist <= rOut + 8) {
-      tmHue = (Math.round((Math.atan2(dy, dx) * 180) / Math.PI) + 450) % 360;
-      tmApplyHsvToAccent();
-      tmDrawSatVal();
-    }
-  }
-  wheel.addEventListener("mousedown", function (e) {
-    wheelPick(e);
-    function mm(ev) {
-      wheelPick(ev);
-    }
-    function mu() {
-      document.removeEventListener("mousemove", mm);
-      document.removeEventListener("mouseup", mu);
-    }
-    document.addEventListener("mousemove", mm);
-    document.addEventListener("mouseup", mu);
   });
 
-  function svPick(e) {
-    var rect = sat.getBoundingClientRect();
-    tmSat = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-    tmVal = Math.max(0, Math.min(100, (1 - (e.clientY - rect.top) / rect.height) * 100));
-    tmApplyHsvToAccent();
-    tmDrawSatVal();
+  var hexIn = document.getElementById("tmColorHex");
+  if (hexIn) {
+    hexIn.addEventListener("change", function () {
+      var x = tmNormalizeHex(hexIn.value);
+      if (x) tmApplyAccentFromStudio(x, false);
+    });
   }
-  sat.addEventListener("mousedown", function (e) {
-    svPick(e);
-    function mm(ev) {
-      svPick(ev);
-    }
-    function mu() {
-      document.removeEventListener("mousemove", mm);
-      document.removeEventListener("mouseup", mu);
-    }
-    document.addEventListener("mousemove", mm);
-    document.addEventListener("mouseup", mu);
-  });
-
-  document.getElementById("tmColorHex").addEventListener("change", function () {
-    var x = tmNormalizeHex(document.getElementById("tmColorHex").value);
-    if (x) {
-      tmApplyAccentHex(x);
-      tmSyncColorInputsFromHex(x);
-      tmDrawHueWheel();
-      tmDrawSatVal();
-      tmUpdateCompSwatches();
-    }
-  });
   ["tmColorR", "tmColorG", "tmColorB"].forEach(function (id) {
     var el = document.getElementById(id);
     if (el)
@@ -663,16 +1233,16 @@ function initTmColorStudio() {
         var r = parseInt(document.getElementById("tmColorR").value, 10) || 0;
         var g = parseInt(document.getElementById("tmColorG").value, 10) || 0;
         var b = parseInt(document.getElementById("tmColorB").value, 10) || 0;
-        var hex = tmRgbToHex(r, g, b);
-        tmApplyAccentHex(hex);
-        tmSyncColorInputsFromHex(hex);
-        tmDrawHueWheel();
-        tmDrawSatVal();
-        tmUpdateCompSwatches();
+        tmApplyAccentFromStudio(tmRgbToHex(r, g, b), false);
       });
   });
 
-  refillSwatches();
+  var paper = document.getElementById("tmA4Paper");
+  var initial =
+    (paper && tmNormalizeHex(getComputedStyle(paper).getPropertyValue("--tm-accent").trim())) || "#1A1A1A";
+  tmApplyAccentFromStudio(initial, true);
+  tmEnsureIroPicker();
+  tmSetColorStudioTab("preset");
 }
 
 let apptCarouselOffset = 0;
@@ -1385,36 +1955,54 @@ function updateMuhasebeStats() {
   if (inc) inc.textContent = monthTotal > 0 ? monthTotal.toLocaleString("tr-TR") + " ₺" : "—";
 }
 
+function tmFormatFirestoreDate(val) {
+  if (!val) return "—";
+  if (typeof val.toDate === "function") {
+    try {
+      return val.toDate().toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" });
+    } catch (e) {}
+  }
+  if (typeof val === "string") return val;
+  return "—";
+}
+
 function renderTestsTable() {
+  var grid = document.getElementById("tmTestsGrid");
   var tbody = document.getElementById("testsTableBody");
-  if (!tbody) return;
   if (cachedTests.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" class="table-empty">Test kaydı yok.</td></tr>';
+    if (grid) grid.innerHTML = '<p class="tm-tests-grid__empty">Henüz kayıtlı test yok. Test Oluşturucu ile taslak kaydedin.</p>';
+    if (tbody) tbody.innerHTML = "";
     return;
   }
   var sorted = cachedTests.slice().reverse();
-  tbody.innerHTML = sorted
-    .map(function (t) {
-      var tid = escapeHtml(t.id);
-      return (
-        "<tr><td>" +
-        escapeHtml(t.title || "—") +
-        "</td><td>" +
-        escapeHtml(t.subject || "—") +
-        "</td><td>" +
-        escapeHtml(t.questionCount != null ? String(t.questionCount) : "—") +
-        "</td><td>" +
-        escapeHtml(t.status || "—") +
-        '</td><td><span class="crud-cell">' +
-        '<button type="button" class="btn-crud btn-crud--edit" data-edit-test="' +
-        tid +
-        '"><i class="fa-solid fa-pen"></i> Düzenle</button>' +
-        '<button type="button" class="btn-crud btn-crud--del" data-del-test="' +
-        tid +
-        '"><i class="fa-solid fa-trash"></i> Sil</button></span></td></tr>'
-      );
-    })
-    .join("");
+  if (grid) {
+    grid.innerHTML = sorted
+      .map(function (t) {
+        var tid = escapeHtml(t.id);
+        var thumb =
+          t.questionImages && t.questionImages[0]
+            ? t.questionImages[0]
+            : "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="160" fill="none"><rect width="120" height="160" rx="12" fill="#1e1e24"/><text x="60" y="88" text-anchor="middle" fill="#71717a" font-size="11" font-family="system-ui">Test</text></svg>');
+        var dateLabel = tmFormatFirestoreDate(t.testDate) !== "—" ? tmFormatFirestoreDate(t.testDate) : tmFormatFirestoreDate(t.createdAt);
+        return (
+          '<article class="tm-test-card" data-tm-test-id="' +
+          tid +
+          '"><div class="tm-test-card__thumb"><img src="' +
+          thumb +
+          '" alt="" loading="lazy" /></div><div class="tm-test-card__body"><h3 class="tm-test-card__title">' +
+          escapeHtml(t.title || "Adsız test") +
+          '</h3><p class="tm-test-card__meta"><i class="fa-regular fa-calendar"></i> ' +
+          escapeHtml(dateLabel) +
+          '</p><div class="tm-test-card__actions"><button type="button" class="tm-test-card__btn tm-test-card__btn--edit" data-tm-acrobat-test="' +
+          tid +
+          '"><i class="fa-solid fa-file-pen"></i> Düzenle</button><button type="button" class="tm-test-card__btn tm-test-card__btn--del" data-del-test="' +
+          tid +
+          '"><i class="fa-solid fa-trash"></i> Sil</button></div></div></article>'
+        );
+      })
+      .join("");
+  }
+  if (tbody) tbody.innerHTML = "";
 }
 
 async function firestoreDeleteConfirmed(collectionName, docId) {
@@ -2427,6 +3015,13 @@ function destroyTmWsCropper() {
 function testmakerWorkspaceLeave() {
   var app = document.querySelector(".app");
   if (app) app.classList.remove("app--testmaker-workspace");
+  var ann = document.getElementById("viewPdfDuzenle");
+  var head = document.querySelector("#tmWorkspaceRoot .tm-workspace__header");
+  var headLib = document.querySelector("#view-library .tm-workspace__header");
+  document.body.classList.remove("tm-annotate-open");
+  if (ann) ann.hidden = true;
+  if (head) head.hidden = false;
+  if (headLib) headLib.hidden = false;
   destroyTmWsCropper();
   tmWsPdfDoc = null;
   tmWsPdfBytes = null;
@@ -2559,13 +3154,58 @@ function renderPDFPage(pageNum) {
 
 function tmEditorGetPageState(pageNo) {
   if (!tmEditorAnnotations[pageNo]) {
-    tmEditorAnnotations[pageNo] = { drawings: [], highlights: [], notes: "", signatures: [] };
+    tmEditorAnnotations[pageNo] = { actions: [] };
   }
   return tmEditorAnnotations[pageNo];
 }
 
 function tmEditorGetCurrentPageNo() {
   return tmEditorPageOrder[tmEditorCurrentIdx] || 1;
+}
+
+function tmAnnotToolSync() {
+  var b = document.querySelector("[data-tm-annot].is-active");
+  tmEditorTool = b ? b.getAttribute("data-tm-annot") || "draw" : "draw";
+}
+
+function tmEditorReplayActions(ctx, actions, scale) {
+  var s = scale == null ? 1 : scale;
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  actions.forEach(function (a) {
+    if (!a) return;
+    if (a.type === "text") {
+      ctx.save();
+      ctx.font = "600 18px Inter, system-ui, sans-serif";
+      ctx.fillStyle = "#0f172a";
+      ctx.fillText(String(a.text || ""), (a.x || 0) * s, (a.y || 0) * s);
+      ctx.restore();
+      return;
+    }
+    var pts = a.points;
+    if (!pts || pts.length < 2) return;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x * s, pts[0].y * s);
+    for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x * s, pts[i].y * s);
+    if (a.type === "erase") {
+      ctx.save();
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.strokeStyle = "rgba(0,0,0,1)";
+      ctx.lineWidth = 22 * s;
+      ctx.stroke();
+      ctx.restore();
+    } else if (a.type === "hi") {
+      ctx.strokeStyle = "rgba(253, 224, 71, 0.55)";
+      ctx.lineWidth = 14 * s;
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = "#22d3ee";
+      ctx.lineWidth = 2.4 * s;
+      ctx.stroke();
+    }
+  });
+  ctx.restore();
 }
 
 function tmEditorDrawOverlay() {
@@ -2575,26 +3215,14 @@ function tmEditorDrawOverlay() {
   var pageNo = tmEditorGetCurrentPageNo();
   var st = tmEditorGetPageState(pageNo);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.lineJoin = "round";
-  ctx.lineCap = "round";
-  st.highlights.forEach(function (h) {
-    ctx.fillStyle = "rgba(253,224,71,0.35)";
-    ctx.fillRect(h.x, h.y, h.w, h.h);
-  });
-  st.drawings.forEach(function (line) {
-    if (!line || line.length < 2) return;
-    ctx.strokeStyle = "#22d3ee";
-    ctx.lineWidth = 2.4;
-    ctx.beginPath();
-    ctx.moveTo(line[0].x, line[0].y);
-    for (var i = 1; i < line.length; i++) ctx.lineTo(line[i].x, line[i].y);
-    ctx.stroke();
-  });
-  st.signatures.forEach(function (s) {
-    ctx.font = "italic 700 24px 'Brush Script MT', 'Segoe Script', cursive";
-    ctx.fillStyle = "#7c3aed";
-    ctx.fillText(s.text, s.x, s.y);
-  });
+  tmEditorReplayActions(ctx, st.actions, 1);
+}
+
+function tmEditorUndoLast() {
+  if (!tmWsPdfDoc) return;
+  var st = tmEditorGetPageState(tmEditorGetCurrentPageNo());
+  if (st.actions && st.actions.length) st.actions.pop();
+  tmEditorDrawOverlay();
 }
 
 function tmEditorCanvasPoint(ev, canvas) {
@@ -2610,53 +3238,32 @@ function tmEditorBindCanvas() {
   ov._tmBound = true;
   ov.addEventListener("pointerdown", function (ev) {
     if (!tmWsPdfDoc) return;
+    tmAnnotToolSync();
     var pageNo = tmEditorGetCurrentPageNo();
     var st = tmEditorGetPageState(pageNo);
     var p = tmEditorCanvasPoint(ev, ov);
-    if (tmEditorTool === "signature") {
-      var txt = (document.getElementById("tmEditorSignText") || {}).value || "İmza";
-      txt = String(txt).trim() || "İmza";
-      st.signatures.push({ x: p.x, y: p.y, text: txt.slice(0, 48) });
+    if (tmEditorTool === "text") {
+      var txt = window.prompt("Metin girin:", "Not");
+      if (txt && String(txt).trim()) st.actions.push({ type: "text", x: p.x, y: p.y, text: String(txt).trim().slice(0, 280) });
       tmEditorDirty = true;
       tmEditorDrawOverlay();
       return;
     }
     tmEditorDrawing = true;
-    tmEditorTempPoint = p;
-    if (tmEditorTool === "draw") st.drawings.push([p]);
+    var kind = tmEditorTool === "highlight" ? "hi" : tmEditorTool === "erase" ? "erase" : "draw";
+    st.actions.push({ type: kind, points: [p] });
   });
   ov.addEventListener("pointermove", function (ev) {
     if (!tmEditorDrawing || !tmWsPdfDoc) return;
-    var pageNo = tmEditorGetCurrentPageNo();
-    var st = tmEditorGetPageState(pageNo);
+    var st = tmEditorGetPageState(tmEditorGetCurrentPageNo());
+    var cur = st.actions[st.actions.length - 1];
+    if (!cur || !cur.points) return;
     var p = tmEditorCanvasPoint(ev, ov);
-    if (tmEditorTool === "draw") {
-      var line = st.drawings[st.drawings.length - 1];
-      if (line) line.push(p);
-      tmEditorDrawOverlay();
-    } else if (tmEditorTool === "highlight") {
-      tmEditorDrawOverlay();
-      var ctx = ov.getContext("2d");
-      var x = Math.min(tmEditorTempPoint.x, p.x);
-      var y = Math.min(tmEditorTempPoint.y, p.y);
-      var w = Math.abs(tmEditorTempPoint.x - p.x);
-      var h = Math.abs(tmEditorTempPoint.y - p.y);
-      ctx.fillStyle = "rgba(253,224,71,0.35)";
-      ctx.fillRect(x, y, w, h);
-    }
+    cur.points.push(p);
+    tmEditorDrawOverlay();
   });
-  ov.addEventListener("pointerup", function (ev) {
+  ov.addEventListener("pointerup", function () {
     if (!tmEditorDrawing || !tmWsPdfDoc) return;
-    var pageNo = tmEditorGetCurrentPageNo();
-    var st = tmEditorGetPageState(pageNo);
-    var p = tmEditorCanvasPoint(ev, ov);
-    if (tmEditorTool === "highlight") {
-      var x = Math.min(tmEditorTempPoint.x, p.x);
-      var y = Math.min(tmEditorTempPoint.y, p.y);
-      var w = Math.abs(tmEditorTempPoint.x - p.x);
-      var h = Math.abs(tmEditorTempPoint.y - p.y);
-      if (w > 3 && h > 3) st.highlights.push({ x: x, y: y, w: w, h: h });
-    }
     tmEditorDrawing = false;
     tmEditorTempPoint = null;
     tmEditorDirty = true;
@@ -2677,8 +3284,6 @@ async function tmEditorRenderCurrentPage() {
   ov.width = vp.width;
   ov.height = vp.height;
   await page.render({ canvasContext: base.getContext("2d"), viewport: vp }).promise;
-  var note = document.getElementById("tmEditorNote");
-  if (note) note.value = tmEditorGetPageState(pageNo).notes || "";
   tmEditorDrawOverlay();
 }
 
@@ -2745,31 +3350,7 @@ async function tmEditorExportPdf() {
     var ctx = c.getContext("2d");
     await page.render({ canvasContext: ctx, viewport: vp }).promise;
     var st = tmEditorGetPageState(pno);
-    st.highlights.forEach(function (h) {
-      ctx.fillStyle = "rgba(253,224,71,0.35)";
-      ctx.fillRect(h.x * (2 / 1.45), h.y * (2 / 1.45), h.w * (2 / 1.45), h.h * (2 / 1.45));
-    });
-    st.drawings.forEach(function (line) {
-      if (!line || line.length < 2) return;
-      ctx.strokeStyle = "#0891b2";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(line[0].x * (2 / 1.45), line[0].y * (2 / 1.45));
-      for (var j = 1; j < line.length; j++) ctx.lineTo(line[j].x * (2 / 1.45), line[j].y * (2 / 1.45));
-      ctx.stroke();
-    });
-    st.signatures.forEach(function (s) {
-      ctx.font = "italic 700 44px 'Brush Script MT', 'Segoe Script', cursive";
-      ctx.fillStyle = "#6d28d9";
-      ctx.fillText(s.text, s.x * (2 / 1.45), s.y * (2 / 1.45));
-    });
-    if (st.notes) {
-      ctx.fillStyle = "rgba(15,23,42,0.8)";
-      ctx.fillRect(18, c.height - 60, c.width - 36, 44);
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "16px Inter, Arial, sans-serif";
-      ctx.fillText(String(st.notes).slice(0, 160), 28, c.height - 31);
-    }
+    tmEditorReplayActions(ctx, st.actions || [], 2 / 1.45);
     var wmm = (c.width * 25.4) / 96;
     var hmm = (c.height * 25.4) / 96;
     if (!docOut) docOut = new jsPDFCtor({ orientation: wmm > hmm ? "landscape" : "portrait", unit: "mm", format: [wmm, hmm] });
@@ -2889,7 +3470,10 @@ async function tmWsSaveFirestoreDraft() {
     showToast("Test başlığı girin.");
     return;
   }
-  var blocks = document.querySelectorAll("#tmA4Paper .tm-a4-block img");
+  var c = document.getElementById("a4-pages-container");
+  var blocks = c
+    ? c.querySelectorAll(".tm-a4-block.question-item img")
+    : document.querySelectorAll("#tmA4Paper .tm-a4-block.question-item img, #tmA4Layout .tm-a4-block.question-item img");
   if (blocks.length === 0) {
     showToast("A4'e en az bir soru ekleyin.");
     return;
@@ -2956,6 +3540,7 @@ function tmPreparePrintClone(clone, livePaper, widthPx, mm) {
     widthPx +
     "px;margin:0!important;padding:0;box-sizing:border-box;background:#fff;color:#111;position:relative;left:0;top:0;overflow:visible;-webkit-print-color-adjust:exact;print-color-adjust:exact;";
   clone.style.setProperty("--tm-accent", acc);
+  clone.style.setProperty("--accent-color", acc);
   clone.style.setProperty("--tm-accent-rgb", accRgb);
   clone.style.setProperty("--tm-gutter", gut);
 
@@ -2973,8 +3558,8 @@ function tmPreparePrintClone(clone, livePaper, widthPx, mm) {
   var emp = clone.querySelector(".tm-a4-empty");
   if (emp) emp.style.display = "none";
 
-  var liveDual = livePaper.querySelector("#testContentArea");
-  var liveSingle = livePaper.querySelector("#tmA4Single");
+  var liveDual = livePaper.querySelector("#testContentArea") || livePaper.querySelector(".test-content-area");
+  var liveSingle = livePaper.querySelector("#tmA4Single") || livePaper.querySelector(".tm-a4-single");
   var cDual = clone.querySelector(".test-content-area");
   var cSingle = clone.querySelector(".tm-a4-single");
 
@@ -3038,8 +3623,8 @@ function tmPreparePrintClone(clone, livePaper, widthPx, mm) {
 }
 
 function tmWsDownloadPdf() {
-  var paper = document.getElementById("tmA4Paper");
-  if (!paper || !paper.querySelector(".tm-a4-block")) {
+  var papers = tmGetAllPapers();
+  if (!papers.length || tmTotalQuestionBlocks() === 0) {
     showToast("Önce A4'e soru ekleyin.");
     return;
   }
@@ -3061,16 +3646,21 @@ function tmWsDownloadPdf() {
   area.style.cssText =
     "position:fixed;left:0;top:0;width:" +
     W +
-    "px;min-height:" +
-    H +
     "px;margin:0;padding:0;background:#ffffff;color:#111111;overflow:visible;box-sizing:border-box;visibility:hidden;z-index:-1;pointer-events:none;";
 
-  var clone = paper.cloneNode(true);
-  tmPreparePrintClone(clone, paper, W, mm);
-  clone.style.position = "relative";
-  clone.style.left = "0";
-  clone.style.top = "0";
-  area.appendChild(clone);
+  papers.forEach(function (paper, idx) {
+    var clone = paper.cloneNode(true);
+    tmPreparePrintClone(clone, paper, W, mm);
+    clone.style.position = "relative";
+    clone.style.left = "0";
+    clone.style.top = "0";
+    clone.style.boxSizing = "border-box";
+    if (idx < papers.length - 1) {
+      clone.style.pageBreakAfter = "always";
+      clone.classList.add("tm-pdf-page-break-after");
+    }
+    area.appendChild(clone);
+  });
   document.body.appendChild(area);
 
   var fname =
@@ -3089,23 +3679,25 @@ function tmWsDownloadPdf() {
 
   requestAnimationFrame(function () {
     requestAnimationFrame(function () {
-      var dualEl = clone.querySelector(".test-content-area");
-      if (dualEl && dualEl.style.display !== "none") {
-        var mh = 120;
-        dualEl.querySelectorAll(".test-column").forEach(function (c) {
-          mh = Math.max(mh, c.scrollHeight);
-        });
-        dualEl.querySelectorAll(".test-column").forEach(function (c) {
-          c.style.minHeight = mh + "px";
-        });
-      }
-      var contentH = Math.max(clone.scrollHeight, clone.offsetHeight, H);
+      area.querySelectorAll(".a4-paper").forEach(function (clonePaper) {
+        var dualEl = clonePaper.querySelector(".test-content-area");
+        if (dualEl && dualEl.style.display !== "none") {
+          var mh = 120;
+          dualEl.querySelectorAll(".test-column").forEach(function (c) {
+            mh = Math.max(mh, c.scrollHeight);
+          });
+          dualEl.querySelectorAll(".test-column").forEach(function (c) {
+            c.style.minHeight = mh + "px";
+          });
+        }
+      });
+      var contentH = Math.max(area.scrollHeight || 0, H);
       html2pdf()
         .set({
           margin: 0,
           filename: fname + ".pdf",
           image: { type: "jpeg", quality: 1.0 },
-          pagebreak: { mode: ["avoid-all", "css"] },
+          pagebreak: { mode: ["avoid-all", "css", "legacy"], after: ".tm-pdf-page-break-after" },
           html2canvas: {
             scale: 2,
             useCORS: true,
@@ -3120,7 +3712,7 @@ function tmWsDownloadPdf() {
           },
           jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
         })
-        .from(clone)
+        .from(area)
         .save()
         .then(function () {
           tmPdfCleanup();
@@ -3155,37 +3747,82 @@ function tmSyncPaperHeaders() {
           year: "numeric",
         });
 
-  var el;
-  el = document.getElementById("tmH_osym_inst");
-  if (el) el.textContent = inst || "KURUM ADI";
-  el = document.getElementById("tmH_osym_date");
-  if (el) el.textContent = dateStr;
-  el = document.getElementById("tmH_osym_course");
-  if (el) el.textContent = course || "DERS ADI";
-  el = document.getElementById("tmH_osym_topic");
-  if (el) el.textContent = topic || "Konu / ünite";
-
-  el = document.getElementById("tmH_vip_inst");
-  if (el) el.textContent = inst || "Kurum Adı";
-  el = document.getElementById("tmH_vip_course");
-  if (el) el.textContent = course || "Ders";
-  el = document.getElementById("tmH_vip_topic");
-  if (el) el.textContent = topic || "Konu";
-
-  el = document.getElementById("tmH_foy_inst");
-  if (el) el.textContent = inst || "Kurum";
-  el = document.getElementById("tmH_foy_course");
-  if (el) el.textContent = course || "Ders";
-  el = document.getElementById("tmH_foy_topic");
-  if (el) el.textContent = topic || "Konu";
-
   var sn = document.getElementById("tmHdrStudentInput");
   var nn = document.getElementById("tmHdrNetInput");
-  var hsn = document.getElementById("tmHdrStudentName");
-  var hnet = document.getElementById("tmHdrStudentNet");
-  if (hsn) hsn.textContent = (sn && sn.value.trim()) || "—";
-  if (hnet) hnet.textContent = (nn && nn.value.trim()) || "—";
+  var studentVal = (sn && sn.value.trim()) || "—";
+  var netVal = (nn && nn.value.trim()) || "—";
+
+  tmGetAllPapers().forEach(function (paper) {
+    var defI = inst || "KURUM ADI";
+    var defC = course || "DERS ADI";
+    var defT = topic || "Konu / ünite";
+    paper.querySelectorAll(".tm-h-field--inst").forEach(function (el) {
+      el.textContent = inst || defI;
+    });
+    paper.querySelectorAll(".tm-h-field--date").forEach(function (el) {
+      el.textContent = dateStr;
+    });
+    paper.querySelectorAll(".tm-h-field--course").forEach(function (el) {
+      el.textContent = defC;
+    });
+    paper.querySelectorAll(".tm-h-field--topic").forEach(function (el) {
+      el.textContent = defT;
+    });
+    paper.querySelectorAll(".tm-h-field--student").forEach(function (el) {
+      el.textContent = studentVal;
+    });
+    paper.querySelectorAll(".tm-h-field--net").forEach(function (el) {
+      el.textContent = netVal;
+    });
+
+    var hOsym = paper.querySelector(".tm-paper-header--osym");
+    if (hOsym) {
+      var elx = hOsym.querySelector(".tm-h-osym__inst");
+      if (elx) elx.textContent = inst || "KURUM ADI";
+      elx = hOsym.querySelector(".tm-h-osym__date");
+      if (elx) elx.textContent = dateStr;
+      elx = hOsym.querySelector(".tm-h-osym__course");
+      if (elx) elx.textContent = defC;
+      elx = hOsym.querySelector(".tm-h-osym__topic");
+      if (elx) elx.textContent = defT;
+    }
+    var hVip = paper.querySelector(".tm-paper-header--vip");
+    if (hVip) {
+      var logo = hVip.querySelector(".tm-h-vip__logo span");
+      if (logo) logo.textContent = inst || "Kurum Adı";
+      var el2 = hVip.querySelector(".tm-h-vip__course");
+      if (el2) el2.textContent = course || "Ders";
+      el2 = hVip.querySelector(".tm-h-vip__topic");
+      if (el2) el2.textContent = topic || "Konu";
+      var strs = hVip.querySelectorAll(".tm-h-vip__student strong");
+      if (strs.length >= 2) {
+        strs[0].textContent = studentVal;
+        strs[1].textContent = netVal;
+      }
+    }
+    var hFoy = paper.querySelector(".tm-paper-header--foy");
+    if (hFoy) {
+      var instWrap = hFoy.querySelector(".tm-h-foy__inst");
+      if (instWrap) {
+        var isp = instWrap.querySelector("span");
+        if (isp) isp.textContent = inst || "Kurum";
+        else instWrap.textContent = inst || "Kurum";
+      }
+      var sub = hFoy.querySelector(".tm-h-foy__sub");
+      if (sub) {
+        var spans = sub.querySelectorAll("span");
+        if (spans.length >= 2) {
+          spans[0].textContent = course || "Ders";
+          spans[1].textContent = topic || "Konu";
+        } else {
+          sub.textContent = (course || "Ders") + " — " + (topic || "Konu");
+        }
+      }
+    }
+  });
+
   tmApplyHeaderLogo();
+  tmSyncWatermarkLayer();
 }
 
 function tmApplyHeaderLogo() {
@@ -3205,19 +3842,23 @@ function tmApplyHeaderLogo() {
 }
 
 function tmApplyWorkspaceTemplate() {
-  var paper = document.getElementById("tmA4Paper");
+  var paper0 = document.getElementById("tmA4Paper");
   var sel = document.getElementById("tmTemplate");
-  if (!paper) return;
-  var prev = paper.getAttribute("data-tm-layout") || "osym";
+  if (!paper0) return;
+  var prev = paper0.getAttribute("data-tm-layout") || "osym";
   var mode = (sel && sel.value) || "osym";
-  if (["osym", "vip", "foy", "academy", "minimal"].indexOf(mode) === -1) mode = "osym";
-  if (prev !== mode && document.querySelectorAll("#tmA4Layout .tm-a4-block").length > 0) {
+  if (TM_TEMPLATE_IDS.indexOf(mode) === -1) mode = "osym";
+  if (prev !== mode && tmTotalQuestionBlocks() > 0) {
     tmMigrateLayoutForTemplate(prev, mode);
   }
-  paper.setAttribute("data-tm-layout", mode);
-  var visualMode = mode === "academy" ? "vip" : mode === "minimal" ? "foy" : mode;
-  paper.classList.remove("tm-template-osym", "tm-template-vip", "tm-template-foy");
-  paper.classList.add("tm-template-" + visualMode);
+  var tclasses = tmTemplatePaperClasses();
+  tmGetAllPapers().forEach(function (paper) {
+    paper.setAttribute("data-tm-layout", mode);
+    tclasses.forEach(function (c) {
+      paper.classList.remove(c);
+    });
+    paper.classList.add("tm-template-" + mode);
+  });
   tmSyncPaperHeaders();
   tmUpdateA4EmptyVisibility();
   tmRenumberTmQuestions();
@@ -3302,14 +3943,6 @@ function bindTestMakerWorkspace() {
     });
   }
   tmEditorBindCanvas();
-  var noteInp = document.getElementById("tmEditorNote");
-  if (noteInp)
-    noteInp.addEventListener("input", function () {
-      if (!tmWsPdfDoc) return;
-      var st = tmEditorGetPageState(tmEditorGetCurrentPageNo());
-      st.notes = noteInp.value || "";
-      tmEditorDirty = true;
-    });
   document.querySelectorAll("[data-tm-tool]").forEach(function (btn) {
     btn.addEventListener("click", function () {
       tmEditorTool = btn.getAttribute("data-tm-tool") || "draw";
@@ -3318,6 +3951,95 @@ function bindTestMakerWorkspace() {
       });
     });
   });
+  document.querySelectorAll("[data-tm-annot]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      document.querySelectorAll("[data-tm-annot]").forEach(function (b2) {
+        b2.classList.toggle("is-active", b2 === btn);
+      });
+      tmAnnotToolSync();
+    });
+  });
+  var annotClose = document.getElementById("tmAnnotClose");
+  if (annotClose)
+    annotClose.addEventListener("click", function () {
+      tmAnnotatorClose();
+    });
+  var saveLib = document.getElementById("tmBtnSaveToLibrary");
+  if (saveLib) saveLib.addEventListener("click", tmSaveLayoutToLocalLibrary);
+  var railT = document.getElementById("tmRailBtnTemplate");
+  var railC = document.getElementById("tmRailBtnColor");
+  var railL = document.getElementById("tmRailBtnLayout");
+  var ft = document.getElementById("tmFlyoutTemplate");
+  var fc = document.getElementById("tmFlyoutColor");
+  var fl = document.getElementById("tmFlyoutLayout");
+  if (railT && ft) {
+    railT.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var open = ft.hidden;
+      tmCloseAllTmFlyouts();
+      ft.hidden = !open;
+      if (!ft.hidden) {
+        railT.classList.add("is-active");
+        railT.setAttribute("aria-pressed", "true");
+      }
+    });
+  }
+  if (railC && fc) {
+    railC.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var open = fc.hidden;
+      tmCloseAllTmFlyouts();
+      fc.hidden = !open;
+      if (!fc.hidden) {
+        railC.classList.add("is-active");
+        railC.setAttribute("aria-pressed", "true");
+      }
+    });
+  }
+  if (railL && fl) {
+    railL.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var open = fl.hidden;
+      tmCloseAllTmFlyouts();
+      fl.hidden = !open;
+      if (!fl.hidden) {
+        railL.classList.add("is-active");
+        railL.setAttribute("aria-pressed", "true");
+      }
+    });
+  }
+  document.querySelectorAll("[data-tm-q-layout]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var v = parseInt(btn.getAttribute("data-tm-q-layout"), 10);
+      tmSetPageLayout(v);
+    });
+  });
+  document.querySelectorAll("[data-tm-flyout-close]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      tmCloseAllTmFlyouts();
+    });
+  });
+  document.addEventListener("click", function (ev) {
+    var t = ev.target;
+    if (!t || !t.closest) return;
+    if (t.closest(".tm-flyout") || t.closest(".tm-rail")) return;
+    if (document.querySelector(".tm-flyout:not([hidden])")) tmCloseAllTmFlyouts();
+  });
+  var railLogo = document.getElementById("tmRailBtnLogo");
+  var railPdf = document.getElementById("tmRailBtnPdf");
+  var railTxt = document.getElementById("tmRailBtnText");
+  var railOpt = document.getElementById("tmRailBtnOptik");
+  var logoInpEarly = document.getElementById("tmLogoInput");
+  if (railLogo && logoInpEarly) {
+    railLogo.addEventListener("click", function () {
+      logoInpEarly.click();
+    });
+  }
+  if (railPdf) railPdf.addEventListener("click", tmWsDownloadPdf);
+  if (railTxt) railTxt.addEventListener("click", tmAddFreeTextBoxToA4);
+  if (railOpt) railOpt.addEventListener("click", tmToggleOptikStrip);
+  var undoBtn = document.getElementById("tmAnnotUndo");
+  if (undoBtn) undoBtn.addEventListener("click", tmEditorUndoLast);
   var thumbHost = document.getElementById("tmEditorThumbs");
   if (thumbHost)
     thumbHost.addEventListener("click", function (ev) {
@@ -3369,9 +4091,7 @@ function bindTestMakerWorkspace() {
     clrBtn.addEventListener("click", function () {
       if (!tmWsPdfDoc) return;
       var pageNo = tmEditorGetCurrentPageNo();
-      tmEditorAnnotations[pageNo] = { drawings: [], highlights: [], notes: "", signatures: [] };
-      var ni = document.getElementById("tmEditorNote");
-      if (ni) ni.value = "";
+      tmEditorAnnotations[pageNo] = { actions: [] };
       tmEditorDrawOverlay();
     });
   var expBtn = document.getElementById("tmEditorExportPdf");
@@ -3390,40 +4110,12 @@ function bindTestMakerWorkspace() {
         return;
       }
       var dataUrl = canvas.toDataURL("image/png");
-      var a4b = tmGetAppendParent();
-      if (!a4b) return;
-      var wrap = document.createElement("div");
-      wrap.className = "tm-a4-block question-item";
-      wrap.draggable = true;
-      wrap.setAttribute("data-tm-drag", "1");
-      var badge = document.createElement("div");
-      badge.className = "tm-q-badge";
-      var n = document.querySelectorAll("#tmA4Layout .tm-a4-block").length + 1;
-      badge.textContent = "Soru " + n + ")";
-      var imgW = document.createElement("div");
-      imgW.className = "tm-a4-block__imgwrap";
-      var img = document.createElement("img");
-      img.src = dataUrl;
-      img.alt = "";
-      img.draggable = false;
-      imgW.appendChild(img);
-      var xb = document.createElement("button");
-      xb.type = "button";
-      xb.className = "tm-a4-block__x";
-      xb.setAttribute("aria-label", "Kaldır");
-      xb.draggable = false;
-      xb.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-      wrap.appendChild(badge);
-      wrap.appendChild(imgW);
-      wrap.appendChild(xb);
-      a4b.appendChild(wrap);
-      tmRenumberTmQuestions();
+      tmAddQuestionToA4(dataUrl);
     });
 
-  var paper = document.getElementById("tmA4Paper");
-  var a4layout = document.getElementById("tmA4Layout");
-  if (paper)
-    paper.addEventListener("click", function (ev) {
+  var pagesHost = document.getElementById("a4-pages-container");
+  if (pagesHost)
+    pagesHost.addEventListener("click", function (ev) {
       var x = ev.target.closest && ev.target.closest(".tm-a4-block__x");
       if (!x) return;
       ev.preventDefault();
@@ -3433,32 +4125,36 @@ function bindTestMakerWorkspace() {
       tmRenumberTmQuestions();
     });
 
-  if (a4layout) {
-    a4layout.addEventListener("dragstart", function (e) {
-      var t = e.target.closest && e.target.closest(".tm-a4-block");
-      if (!t || !a4layout.contains(t)) return;
+  if (pagesHost) {
+    pagesHost.addEventListener("dragstart", function (e) {
+      var t = e.target.closest && e.target.closest(".tm-a4-block.question-item");
+      if (!t || !pagesHost.contains(t)) return;
       tmWsDragBlock = t;
       t.classList.add("tm-dragging");
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", "tm");
     });
-    a4layout.addEventListener("dragend", function () {
+    pagesHost.addEventListener("dragend", function () {
       if (tmWsDragBlock) {
         tmWsDragBlock.classList.remove("tm-dragging");
         tmWsDragBlock = null;
       }
-      a4layout.querySelectorAll(".tm-drag-over").forEach(function (n) {
+      pagesHost.querySelectorAll(".tm-drag-over").forEach(function (n) {
         n.classList.remove("tm-drag-over");
       });
       tmRenumberTmQuestions();
     });
-    a4layout.addEventListener("dragover", function (e) {
-      if (!tmWsDragBlock || !a4layout.contains(tmWsDragBlock)) return;
-      var col = e.target.closest && e.target.closest("#column-1, #column-2, #tmA4Single");
-      if (!col) return;
+    pagesHost.addEventListener("dragover", function (e) {
+      if (!tmWsDragBlock || !pagesHost.contains(tmWsDragBlock)) return;
+      var col =
+        e.target.closest &&
+        e.target.closest(
+          '[data-tm-col="1"], [data-tm-col="2"], #column-1, #column-2, #tmA4Single'
+        );
+      if (!col || !pagesHost.contains(col)) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
-      var blocks = Array.prototype.slice.call(col.querySelectorAll(".tm-a4-block"));
+      var blocks = Array.prototype.slice.call(col.querySelectorAll(".tm-a4-block.question-item"));
       var y = e.clientY;
       var insertBefore = null;
       for (var i = 0; i < blocks.length; i++) {
@@ -3510,6 +4206,13 @@ function bindTestMakerWorkspace() {
   var libList = document.getElementById("tmLibraryList");
   if (libList) {
     libList.addEventListener("click", function (ev) {
+      var ed = ev.target.closest && ev.target.closest("[data-lib-edit]");
+      if (ed) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        tmOpenPdfEditorFromLib(ed.getAttribute("data-lib-edit"));
+        return;
+      }
       var del = ev.target.closest && ev.target.closest("[data-lib-del]");
       if (del) {
         ev.preventDefault();
@@ -3535,6 +4238,25 @@ function bindTestMakerWorkspace() {
         }
         tmWsLoadPdfFromBuffer(rec.buffer);
       });
+    });
+  }
+  var savedLib = document.getElementById("tmSavedPdfLibrary");
+  if (savedLib) {
+    savedLib.addEventListener("click", function (ev) {
+      var del = ev.target.closest && ev.target.closest("[data-lib-del]");
+      if (del) {
+        var did = del.getAttribute("data-lib-del");
+        if (!did || !confirm("Bu PDF kitaplıktan silinsin mi?")) return;
+        tmLibDelete(did).then(function () {
+          if (tmActiveLibId === did) tmActiveLibId = null;
+          tmLibraryRenderList();
+        });
+        return;
+      }
+      var editBtn = ev.target.closest && ev.target.closest("[data-lib-edit]");
+      if (editBtn) {
+        tmOpenPdfEditorFromLib(editBtn.getAttribute("data-lib-edit"));
+      }
     });
   }
 
@@ -3563,12 +4285,8 @@ function bindTestMakerWorkspace() {
     td.addEventListener("change", tmSyncPaperHeaders);
     td.addEventListener("input", tmSyncPaperHeaders);
   }
-  var logoBtn = document.getElementById("tmBtnLogoUpload");
   var logoInp = document.getElementById("tmLogoInput");
-  if (logoBtn && logoInp) {
-    logoBtn.addEventListener("click", function () {
-      logoInp.click();
-    });
+  if (logoInp) {
     logoInp.addEventListener("change", async function () {
       var f = logoInp.files && logoInp.files[0];
       logoInp.value = "";
@@ -3580,6 +4298,7 @@ function bindTestMakerWorkspace() {
       try {
         tmHeaderLogoDataUrl = await fileToResizedDataUrl(f, 220, 0.9);
         tmApplyHeaderLogo();
+        tmSyncWatermarkLayer();
         showToast("Kurum logosu güncellendi.");
       } catch (e) {
         console.error(e);
@@ -3589,13 +4308,16 @@ function bindTestMakerWorkspace() {
   }
   tmApplyWorkspaceTemplate();
   tmApplyHeaderLogo();
+  tmSyncWatermarkLayer();
   initTmColorStudio();
 }
 
 function navigateTo(view) {
   if (!view) return;
   var previous = currentView;
-  if (previous === "testmaker" && view !== "testmaker") testmakerWorkspaceLeave();
+  var wasTm = previous === "testmaker" || previous === "library";
+  var nowTm = view === "testmaker" || view === "library";
+  if (wasTm && !nowTm) testmakerWorkspaceLeave();
   currentView = view;
   document.querySelectorAll(".main-view").forEach(function (el) {
     const v = el.getAttribute("data-view");
@@ -3604,8 +4326,18 @@ function navigateTo(view) {
     el.hidden = !on;
   });
   document.querySelectorAll("button.sidebar__link[data-nav]").forEach(function (btn) {
-    btn.classList.toggle("sidebar__link--active", btn.getAttribute("data-nav") === view);
+    var nv = btn.getAttribute("data-nav");
+    var on = nv === view || (nv === "testmaker" && (view === "testmaker" || view === "library"));
+    btn.classList.toggle("sidebar__link--active", on);
   });
+  document.querySelectorAll("[data-tm-nav-action]").forEach(function (btn) {
+    var a = btn.getAttribute("data-tm-nav-action");
+    btn.classList.toggle(
+      "is-active",
+      (a === "library" && view === "library") || (a === "creator" && view === "testmaker")
+    );
+  });
+  tmSyncRibbonActive(view);
   var brand = document.querySelector(".sidebar__brand-btn");
   if (brand) brand.classList.toggle("sidebar__brand-btn--active", view === "dashboard");
   navigateCallbacks.forEach(function (fn) {
@@ -3625,10 +4357,14 @@ function navigateTo(view) {
   if (view === "denemeler") renderExamsFullPage();
   if (view === "ogrenciler") renderStudentsPage();
   if (view === "randevu") renderAppointmentsPage();
-  if (view === "testmaker") {
+  if (view === "testmaker" || view === "library") {
     testmakerWorkspaceEnter();
     renderTestsTable();
+    tmLibraryRenderList();
   }
+  if (view === "library") tmLibGetAllMeta().then(tmRenderSavedPdfLibrary);
+  var cre = document.getElementById("tmViewCreator");
+  if (cre) cre.hidden = view !== "testmaker";
   if (view === "muhasebe") renderPaymentsTable();
   window.dispatchEvent(new CustomEvent("yks:navigate", { detail: { view: view } }));
 }
@@ -3658,28 +4394,23 @@ function initSidebar() {
 }
 
 function initNavigation() {
+  document.body.addEventListener("click", function (ev) {
+    var rib = ev.target.closest && ev.target.closest("[data-tm-ribbon-nav]");
+    if (!rib) return;
+    ev.preventDefault();
+    var m = rib.getAttribute("data-tm-ribbon-nav");
+    if (m) navigateTo(m);
+  });
   document.querySelectorAll("[data-nav]").forEach(function (el) {
     el.addEventListener("click", function () {
       navigateTo(el.getAttribute("data-nav"));
     });
   });
   document.querySelectorAll("[data-tm-nav-action]").forEach(function (el) {
-    el.addEventListener("click", function () {
-      navigateTo("testmaker");
+    el.addEventListener("click", function (e) {
+      e.stopPropagation();
       var action = el.getAttribute("data-tm-nav-action");
-      if (action === "saved") {
-        var p = document.getElementById("tmSavedListPanel");
-        if (p) {
-          p.hidden = false;
-          renderTestsTable();
-        }
-      } else if (action === "create") {
-        var p2 = document.getElementById("tmSavedListPanel");
-        if (p2) p2.hidden = true;
-      } else if (action === "edit") {
-        var dz = document.getElementById("tmDropzone");
-        if (dz) dz.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
+      navigateTo(action === "library" ? "library" : "testmaker");
     });
   });
 }
@@ -3878,6 +4609,12 @@ function initAllButtons() {
     if (edPay) {
       e.preventDefault();
       openPaymentModalEdit(edPay.getAttribute("data-edit-payment"));
+      return;
+    }
+    var acrobatT = t.closest && t.closest("[data-tm-acrobat-test]");
+    if (acrobatT) {
+      e.preventDefault();
+      tmOpenFirestoreTestInAnnotator(acrobatT.getAttribute("data-tm-acrobat-test"));
       return;
     }
     var delTest = t.closest && t.closest("[data-del-test]");

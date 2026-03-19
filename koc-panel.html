@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="css/forms-modal.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" crossorigin="anonymous" />
   <link rel="stylesheet" href="css/testmaker-workspace.css" />
+  <link rel="stylesheet" href="css/tm-elite-saas.css" />
   <style>
     /* Öğrenci ERP modal — sekme + grid (yalnızca bu sayfa) */
     .student-erp-tabs { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 2px solid #e9d5ff; padding: 0 1rem; background: linear-gradient(180deg, #faf5ff 0%, #f3e8ff 100%); flex-shrink: 0; border-radius: 0; }
@@ -57,10 +58,10 @@
   <!-- TestMaker: Cropper.js + pdf.js (head’de CSS); script’ler body sonunda (html2pdf, cropper, pdf) -->
 </head>
 <body>
-  <div class="app">
+  <div class="app app--elite-layout">
     <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
 
-    <aside class="sidebar" id="sidebar">
+    <aside class="sidebar sidebar--elite" id="sidebar">
       <div class="sidebar__brand">
         <button type="button" class="sidebar__brand-btn" data-nav="dashboard" title="Ana sayfa">
           <div class="sidebar__logo"><i class="fa-solid fa-graduation-cap"></i></div>
@@ -136,17 +137,12 @@
 
       <div class="main-views" id="mainViews">
         <div class="main-view is-active" data-view="dashboard" id="view-dashboard">
-          <section class="banner">
-            <div class="banner__content">
-              <span class="banner__tag">YKS KOÇLUK</span>
-              <h1 class="banner__title">YKS 2026 Sürecini Yönetin</h1>
-              <button type="button" class="btn btn--banner" id="btnNewStudent">
-                <span class="btn__play"><i class="fa-solid fa-user-plus"></i></span>
-                Yeni Öğrenci Ekle
+          <section class="dashboard-elite-hero" aria-label="YKS geri sayım">
+            <div id="yksCountdownHost" class="dashboard-yks-mount"></div>
+            <div class="dashboard-elite-hero__cta">
+              <button type="button" class="btn--banner-elite" id="btnNewStudent">
+                <i class="fa-solid fa-user-plus"></i> Yeni Öğrenci Ekle
               </button>
-            </div>
-            <div class="banner__decor" aria-hidden="true">
-              <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-wand-magic-sparkles"></i>
             </div>
           </section>
 
@@ -273,30 +269,20 @@
 
         <div class="main-view tm-workspace-view" data-view="testmaker" id="view-testmaker" hidden>
           <div id="tmWorkspaceRoot" class="tm-workspace">
-            <header class="tm-workspace__header tm-workspace__header--saas">
-              <button type="button" class="tm-back-dashboard" data-nav="dashboard" title="Ana panele dön">
-                <i class="fa-solid fa-arrow-left"></i> Panele dön
-              </button>
-              <span class="tm-workspace__brand"><i class="fa-solid fa-wand-magic-sparkles"></i> TestMaker Pro</span>
-              <nav class="tm-saas-tabs" aria-label="TestMaker görünümü">
-                <button type="button" class="tm-saas-tab is-active" id="tmTabCreator" data-tm-mode-tab="creator"><i class="fa-solid fa-pen-ruler"></i> Test Oluşturucu</button>
-                <button type="button" class="tm-saas-tab" id="tmTabLibrary" data-tm-mode-tab="library"><i class="fa-solid fa-layer-group"></i> Hazır Testler</button>
+            <header class="tm-workspace__header tm-workspace__header--ribbon">
+              <div class="tm-workspace__header-row">
+                <button type="button" class="tm-back-dashboard" data-nav="dashboard" title="Ana panele dön">
+                  <i class="fa-solid fa-arrow-left"></i> Panele dön
+                </button>
+                <span class="tm-workspace__brand"><i class="fa-solid fa-wand-magic-sparkles"></i> TestMaker Pro</span>
+              </div>
+              <nav class="tm-word-ribbon" aria-label="Üst menü">
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard" title="Ana panel"><i class="fa-solid fa-house"></i> Giriş</button>
+                <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="testmaker" title="Test oluştur"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library" title="Kütüphane"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler" title="Analiz"><i class="fa-solid fa-chart-line"></i> Analiz</button>
               </nav>
             </header>
-
-            <div id="tmViewLibrary" class="tm-view-library" hidden>
-              <div class="tm-library-hero">
-                <h2 class="tm-library-hero__title">Hazır Testler <span class="tm-library-hero__tag">Kütüphane</span></h2>
-                <p class="tm-library-hero__desc">Firestore kayıtlarınızı kart olarak yönetin. Yerel PDF arşivinizi aşağıda düzenleyin.</p>
-              </div>
-              <div id="tmTestsGrid" class="tm-tests-grid" aria-live="polite"></div>
-              <table class="visually-hidden" aria-hidden="true"><tbody id="testsTableBody"></tbody></table>
-              <section class="tm-local-pdf-zone">
-                <h3 class="tm-local-pdf-zone__title"><i class="fa-solid fa-hard-drive"></i> Yerel PDF arşivi (IndexedDB)</h3>
-                <p class="tm-local-pdf-zone__hint">Düzenle — anotasyon editörünü açar · Sil — cihazdan kaldırır</p>
-                <ul class="tm-saved-pdf-library" id="tmSavedPdfLibrary"></ul>
-              </section>
-            </div>
 
             <div id="tmViewCreator" class="tm-view-creator">
               <div class="tm-creator-layout">
@@ -318,11 +304,23 @@
                     </label>
                     <label class="tm-flyout__field"><span>Şablon</span>
                       <select id="tmTemplate" title="Sayfa şablonu">
-                        <option value="osym">ÖSYM Klasik</option>
-                        <option value="vip">VIP Kurumsal</option>
-                        <option value="foy">Föy / Yaprak Test</option>
-                        <option value="academy">Akademi Plus</option>
-                        <option value="minimal">Minimal Siyah</option>
+                        <optgroup label="Klasik">
+                          <option value="osym" selected>ÖSYM Klasik</option>
+                          <option value="vip">VIP Kurumsal</option>
+                          <option value="foy">Föy / Yaprak Test</option>
+                        </optgroup>
+                        <optgroup label="Yayınevi &amp; özel">
+                        <option value="t01">Limit — Lacivert şerit</option>
+                        <option value="t02">Endemik — Yeşil çizgi</option>
+                        <option value="t03">Paraf — Kontrast blok</option>
+                        <option value="t04">345 — Minimal üst bilgi</option>
+                        <option value="t05">Bilgi Sarmal — Turuncu</option>
+                        <option value="t06">Acil Yayınları — Kırmızı bant</option>
+                        <option value="t07">Fen Bilimleri — Teal</option>
+                        <option value="t08">TYT Master — Mor şerit</option>
+                        <option value="t09">Apotemi — Serif çift çizgi</option>
+                        <option value="t10">ÖSYM Neo — Kutu resmi</option>
+                        </optgroup>
                       </select>
                     </label>
                     <button type="button" class="tm-flyout__close" data-tm-flyout-close="template" aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
@@ -381,13 +379,13 @@
                 <div class="tm-creator-center">
                 <div class="tm-creator-main">
                   <div class="tm-canvas-meta">
-                    <label><span>Ders</span><input type="text" id="tmWsCourse" placeholder="Örn. Matematik" maxlength="80" /></label>
-                    <label><span>Konu</span><input type="text" id="tmWsTopic" placeholder="Ünite / konu" maxlength="120" /></label>
+                    <label><span>Ders</span><input type="text" id="tmWsCourse" class="tm-input-elite" placeholder="Örn. Matematik" maxlength="80" autocomplete="off" /></label>
+                    <label><span>Konu</span><input type="text" id="tmWsTopic" class="tm-input-elite" placeholder="Ünite / konu" maxlength="120" autocomplete="off" /></label>
                   </div>
                   <div class="tm-a4-preview-scroll tm-a4-preview-scroll--focus">
                     <div class="tm-a4-pdf-shell" id="tmA4PdfShell">
                       <div id="a4-pages-container" class="a4-pages-container layout-4">
-                      <div class="a4-paper tm-template-osym" id="tmA4Paper" style="--tm-accent:#1a1a1a;--accent-color:#1a1a1a;--tm-accent-rgb:26,26,26;--tm-gutter:#c8c8c8;">
+                      <div class="a4-paper tm-template-osym" id="tmA4Paper" data-tm-layout="osym" style="--tm-accent:#1a1a1a;--accent-color:#1a1a1a;--tm-accent-rgb:26,26,26;--tm-gutter:#c8c8c8;">
                       <div id="tmA4Watermark" class="tm-a4-watermark" hidden aria-hidden="true"></div>
                       <div class="tm-paper-header tm-paper-header--osym" id="tmHeaderOsym">
                         <div class="tm-h-osym__top">
@@ -421,6 +419,55 @@
                           </div>
                         </div>
                       </div>
+                      <div class="tm-paper-header tm-paper-header--t01">
+                        <div class="tm-h-t01-navy"><span class="tm-h-field tm-h-field--inst">KURUM</span><span class="tm-h-field tm-h-field--date">—</span></div>
+                        <div class="tm-h-t01-main"><div class="tm-h-field tm-h-field--course">Ders</div><div class="tm-h-field tm-h-field--topic">Konu</div></div>
+                      </div>
+                      <div class="tm-paper-header tm-paper-header--t02">
+                        <div class="tm-h-t02-body">
+                          <div class="tm-h-field tm-h-field--inst">Kurum</div>
+                          <div class="tm-h-field tm-h-field--course">Ders</div>
+                          <div class="tm-h-field tm-h-field--topic">Konu</div>
+                          <div class="tm-h-t02-meta"><span class="tm-h-field tm-h-field--date">—</span></div>
+                        </div>
+                      </div>
+                      <div class="tm-paper-header tm-paper-header--t03">
+                        <div class="tm-h-t03-grid"><span class="tm-h-field tm-h-field--inst">KURUM</span><span class="tm-h-field tm-h-field--date">—</span></div>
+                        <div class="tm-h-t03-sub"><div class="tm-h-field tm-h-field--course">Ders</div><div class="tm-h-field tm-h-field--topic">Konu</div></div>
+                      </div>
+                      <div class="tm-paper-header tm-paper-header--t04">
+                        <div class="tm-h-t04-mini"><span>Yaprak test</span><span class="tm-h-field tm-h-field--date">—</span></div>
+                        <div class="tm-h-t04-title"><div class="tm-h-field tm-h-field--course">Ders</div><div class="tm-h-field tm-h-field--topic">Konu</div></div>
+                      </div>
+                      <div class="tm-paper-header tm-paper-header--t05">
+                        <div class="tm-h-t05-top"><span class="tm-h-field tm-h-field--inst">Kurum</span><span class="tm-h-field tm-h-field--date">—</span></div>
+                        <div class="tm-h-t05-mid"><div class="tm-h-field tm-h-field--course">Ders</div><div class="tm-h-field tm-h-field--topic">Konu</div></div>
+                      </div>
+                      <div class="tm-paper-header tm-paper-header--t06">
+                        <div class="tm-h-t06-row"><span class="tm-h-field tm-h-field--inst">Kurum</span><span class="tm-h-field tm-h-field--date">—</span></div>
+                        <div class="tm-h-t06-title"><div class="tm-h-field tm-h-field--course">Ders</div><div class="tm-h-field tm-h-field--topic">Konu</div></div>
+                      </div>
+                      <div class="tm-paper-header tm-paper-header--t07">
+                        <div class="tm-h-t07-band"><span class="tm-h-field tm-h-field--inst">FEN</span><span class="tm-h-field tm-h-field--date">—</span></div>
+                        <div class="tm-h-t07-main"><div class="tm-h-field tm-h-field--course">Ders</div><div class="tm-h-field tm-h-field--topic">Konu</div></div>
+                      </div>
+                      <div class="tm-paper-header tm-paper-header--t08">
+                        <div class="tm-h-t08-hero">
+                          <div class="tm-h-t08-line1"><span class="tm-h-field tm-h-field--inst">Kurum</span><span class="tm-h-field tm-h-field--date">—</span></div>
+                          <div class="tm-h-t08-line2"><div class="tm-h-field tm-h-field--course">Ders</div><div class="tm-h-field tm-h-field--topic">Konu</div></div>
+                        </div>
+                        <div class="tm-h-t08-stu"><span>Öğrenci</span> <span class="tm-h-field tm-h-field--student">—</span> <span>Net</span> <span class="tm-h-field tm-h-field--net">—</span></div>
+                      </div>
+                      <div class="tm-paper-header tm-paper-header--t09">
+                        <div class="tm-h-t09-row"><span class="tm-h-field tm-h-field--inst">Kurum</span><span class="tm-h-field tm-h-field--date">—</span></div>
+                        <div class="tm-h-t09-center"><div class="tm-h-field tm-h-field--course">Ders</div><div class="tm-h-field tm-h-field--topic">Konu</div></div>
+                      </div>
+                      <div class="tm-paper-header tm-paper-header--t10">
+                        <div class="tm-h-t10-box">
+                          <div class="tm-h-t10-top"><span class="tm-h-field tm-h-field--inst">Kurum</span><span class="tm-h-field tm-h-field--date">—</span></div>
+                          <div class="tm-h-t10-mid"><div class="tm-h-field tm-h-field--course">Ders</div><div class="tm-h-field tm-h-field--topic">Konu</div></div>
+                        </div>
+                      </div>
                       <div class="tm-a4-layout" id="tmA4Layout">
                         <div class="tm-a4-empty tm-a4-empty--full" id="tmA4Empty">Kitaplıktan veya sağdan <strong>PDF</strong> açıp kırpın; <strong>A4’e Ekle</strong> ile ekleyin. Tüm şablonlarda sorular kitap düzeninde iki sütunda (ortada çizgi) dizilir.</div>
                         <div class="test-content-area" id="testContentArea" hidden>
@@ -434,7 +481,6 @@
                       </div>
                     </div>
                   </div>
-                </div>
                 </div>
                 <footer class="tm-workspace__bar tm-workspace__bar--compact">
                   <div class="tm-bar-fields">
@@ -473,6 +519,9 @@
                     </label>
                   </div>
                   <div class="tm-bar-actions">
+                    <button type="button" class="tm-btn-library-save" id="tmBtnSaveToLibrary" title="Yerel kütüphaneye (IndexedDB) kaydeder">
+                      <i class="fa-solid fa-layer-group"></i> Kütüphaneye Kaydet
+                    </button>
                     <button type="button" class="tm-btn-save-draft" id="tmBtnSaveFirestore">
                       <i class="fa-solid fa-database"></i> Taslağı Kaydet
                     </button>
@@ -517,35 +566,65 @@
               </aside>
             </div>
           </div>
+        </div>
 
-            <div id="viewPdfDuzenle" class="tm-annotate-view" hidden>
-              <header class="tm-annotate-topbar">
-                <span class="tm-annotate-topbar__title"><i class="fa-solid fa-file-pen"></i> PDF Anotasyon</span>
-                <div class="tm-annotate-tools">
-                  <button type="button" class="tm-annotate-tool is-active" data-tm-annot="draw" title="Kalem"><i class="fa-solid fa-pen"></i></button>
-                  <button type="button" class="tm-annotate-tool" data-tm-annot="highlight" title="Fosforlu"><i class="fa-solid fa-highlighter"></i></button>
-                  <button type="button" class="tm-annotate-tool" data-tm-annot="text" title="Metin"><i class="fa-solid fa-font"></i></button>
-                  <button type="button" class="tm-annotate-tool" data-tm-annot="erase" title="Silgi"><i class="fa-solid fa-eraser"></i></button>
-                </div>
-                <div class="tm-annotate-topbar__actions">
-                  <button type="button" class="tm-annotate-action" id="tmAnnotUndo"><i class="fa-solid fa-rotate-left"></i> Geri</button>
-                  <button type="button" class="tm-annotate-action tm-annotate-action--primary" id="tmEditorExportPdf"><i class="fa-solid fa-download"></i> Dışa Aktar</button>
-                  <button type="button" class="tm-annotate-action" id="tmAnnotClose" data-tm-annot-close><i class="fa-solid fa-xmark"></i></button>
-                </div>
-              </header>
-              <div class="tm-annotate-body">
-                <div class="tm-annotate-stage">
-                  <div class="tm-editor__canvas-wrap tm-editor__canvas-wrap--large" id="tmEditorCanvasWrap">
-                    <canvas id="tmEditorBaseCanvas"></canvas>
-                    <canvas id="tmEditorOverlayCanvas"></canvas>
-                  </div>
-                </div>
-                <aside class="tm-annotate-sidebar">
-                  <button type="button" class="tm-annotate-sidebtn" id="tmEditorClearCurrent"><i class="fa-solid fa-broom"></i> Sayfayı temizle</button>
-                  <div class="tm-editor__thumbs" id="tmEditorThumbs"></div>
-                </aside>
+        <div class="main-view tm-workspace-view" data-view="library" id="view-library" hidden>
+          <header class="tm-workspace__header tm-workspace__header--ribbon">
+            <div class="tm-workspace__header-row">
+              <button type="button" class="tm-back-dashboard" data-nav="dashboard" title="Ana panele dön">
+                <i class="fa-solid fa-arrow-left"></i> Panele dön
+              </button>
+              <span class="tm-workspace__brand"><i class="fa-solid fa-layer-group"></i> E-Kitap Kütüphanesi</span>
+            </div>
+            <nav class="tm-word-ribbon" aria-label="Üst menü">
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
+              <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>
+            </nav>
+          </header>
+          <div class="tm-library-page">
+            <p class="tm-library-page__ribbon-hint">Firestore taslaklarınız ve cihazınızdaki PDF / mizanpaj taslakları aşağıda. <strong>Düzenle</strong> — PDF için anotasyon editörü (canvas).</p>
+            <div class="tm-library-hero">
+              <h2 class="tm-library-hero__title">Hazır Testler <span class="tm-library-hero__tag">Kütüphane</span></h2>
+              <p class="tm-library-hero__desc">Kart görünümü — her öğede Düzenle veya Sil.</p>
+            </div>
+            <div id="tmTestsGrid" class="tm-tests-grid" aria-live="polite"></div>
+            <table class="visually-hidden" aria-hidden="true"><tbody id="testsTableBody"></tbody></table>
+            <section class="tm-local-pdf-zone">
+              <h3 class="tm-local-pdf-zone__title"><i class="fa-solid fa-hard-drive"></i> Yerel arşiv (IndexedDB)</h3>
+              <p class="tm-local-pdf-zone__hint">PDF: düzenleme canvas ile açılır · Mizanpaj: Test Tasarımı’nda yüklenir</p>
+              <ul class="tm-saved-pdf-library" id="tmSavedPdfLibrary"></ul>
+            </section>
+          </div>
+        </div>
+
+        <div id="viewPdfDuzenle" class="tm-annotate-view tm-annotate-view--overlay" hidden>
+          <header class="tm-annotate-topbar">
+            <span class="tm-annotate-topbar__title"><i class="fa-solid fa-file-pen"></i> PDF Anotasyon</span>
+            <div class="tm-annotate-tools">
+              <button type="button" class="tm-annotate-tool is-active" data-tm-annot="draw" title="Kalem"><i class="fa-solid fa-pen"></i></button>
+              <button type="button" class="tm-annotate-tool" data-tm-annot="highlight" title="Fosforlu"><i class="fa-solid fa-highlighter"></i></button>
+              <button type="button" class="tm-annotate-tool" data-tm-annot="text" title="Metin"><i class="fa-solid fa-font"></i></button>
+              <button type="button" class="tm-annotate-tool" data-tm-annot="erase" title="Silgi"><i class="fa-solid fa-eraser"></i></button>
+            </div>
+            <div class="tm-annotate-topbar__actions">
+              <button type="button" class="tm-annotate-action" id="tmAnnotUndo"><i class="fa-solid fa-rotate-left"></i> Geri</button>
+              <button type="button" class="tm-annotate-action tm-annotate-action--primary" id="tmEditorExportPdf"><i class="fa-solid fa-download"></i> Dışa Aktar</button>
+              <button type="button" class="tm-annotate-action" id="tmAnnotClose" data-tm-annot-close><i class="fa-solid fa-xmark"></i></button>
+            </div>
+          </header>
+          <div class="tm-annotate-body">
+            <div class="tm-annotate-stage">
+              <div class="tm-editor__canvas-wrap tm-editor__canvas-wrap--large" id="tmEditorCanvasWrap">
+                <canvas id="tmEditorBaseCanvas"></canvas>
+                <canvas id="tmEditorOverlayCanvas"></canvas>
               </div>
             </div>
+            <aside class="tm-annotate-sidebar">
+              <button type="button" class="tm-annotate-sidebtn" id="tmEditorClearCurrent"><i class="fa-solid fa-broom"></i> Sayfayı temizle</button>
+              <div class="tm-editor__thumbs" id="tmEditorThumbs"></div>
+            </aside>
           </div>
         </div>
 
@@ -1210,6 +1289,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5/dist/iro.min.js" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous"></script>
+  <script src="js/yks-sayaç.js"></script>
   <script type="module" src="js/koc-panel.js"></script>
 </body>
 </html>

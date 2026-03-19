@@ -1,0 +1,852 @@
+/* ========== Elite SaaS — ribbon, sayaç, sidebar dar, şablonlar, panel düzeltme ========== */
+:root {
+  --tm-text-primary: #f4f4f5;
+  --tm-text-muted: #a1a1aa;
+  --tm-hover-accent: rgba(167, 139, 250, 0.18);
+  --tm-surface-1: #141418;
+  --tm-surface-2: #0e0e12;
+  --tm-border: rgba(255, 255, 255, 0.09);
+}
+
+/* --- YKS flip sayaç (dashboard) --- */
+.dashboard-yks-mount {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto 1rem;
+}
+
+.yks-countdown {
+  font-family: "Inter", system-ui, sans-serif;
+  background: linear-gradient(145deg, #1a1625 0%, #12101a 50%, #0d0c12 100%);
+  border: 1px solid rgba(167, 139, 250, 0.22);
+  border-radius: 20px;
+  padding: 1.25rem 1.5rem 1.35rem;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.yks-countdown__head {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.yks-countdown__badge {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: #c4b5fd;
+  background: rgba(124, 58, 237, 0.2);
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  margin-bottom: 0.45rem;
+}
+
+.yks-countdown__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #fafafa;
+  letter-spacing: -0.02em;
+}
+
+.yks-countdown__sub {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.yks-countdown__body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem 1rem;
+  flex-wrap: wrap;
+}
+
+.yks-countdown__block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.yks-flip-row {
+  display: flex;
+  gap: 0.28rem;
+}
+
+.yks-flip-row--sm .yks-flip {
+  min-width: 2rem;
+  font-size: 1.15rem;
+}
+
+.yks-flip {
+  perspective: 180px;
+  min-width: 2.35rem;
+  height: 2.85rem;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #2a2635 0%, #1f1c28 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.35);
+}
+
+.yks-flip__inner {
+  font-weight: 800;
+  font-size: 1.45rem;
+  color: #f8fafc;
+  font-variant-numeric: tabular-nums;
+  transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.yks-flip__inner[data-roll="1"] {
+  animation: yks-flip-roll 0.45s ease;
+}
+
+@keyframes yks-flip-roll {
+  0% {
+    transform: rotateX(-90deg);
+    opacity: 0.4;
+  }
+  45% {
+    transform: rotateX(8deg);
+  }
+  100% {
+    transform: rotateX(0);
+    opacity: 1;
+  }
+}
+
+.yks-countdown__sep {
+  font-weight: 800;
+  font-size: 1.6rem;
+  color: #7c3aed;
+  opacity: 0.85;
+  padding: 0 0.15rem;
+}
+
+.yks-countdown__unit {
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #71717a;
+}
+
+/* Dashboard elite hero */
+.dashboard-elite-hero {
+  margin: 0 1.5rem 1.25rem;
+  max-width: calc(100% - 3rem);
+}
+
+.dashboard-elite-hero__cta {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.65rem;
+}
+
+.btn--banner-elite {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: 999px;
+  border: none;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: #fff;
+  box-shadow: 0 8px 28px rgba(109, 40, 217, 0.35);
+}
+
+.btn--banner-elite:hover {
+  filter: brightness(1.06);
+}
+
+/* --- Word ribbon --- */
+.tm-workspace__header--ribbon {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  gap: 0;
+  background: linear-gradient(180deg, #0a0a0d 0%, #060607 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tm-workspace__header-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.5rem 0.75rem 0.45rem;
+  flex-wrap: wrap;
+}
+
+.tm-workspace__header-row .tm-workspace__brand {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-size: 0.92rem;
+}
+
+.tm-word-ribbon {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  padding: 0 0.5rem 0.45rem 0.65rem;
+  background: #050506;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.tm-word-ribbon__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.42rem 0.85rem;
+  border-radius: 8px 8px 0 0;
+  border: 1px solid transparent;
+  border-bottom: none;
+  background: transparent;
+  color: var(--tm-text-muted);
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 0.74rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+
+.tm-word-ribbon__tab:hover {
+  color: var(--tm-text-primary);
+  background: var(--tm-hover-accent);
+}
+
+.tm-word-ribbon__tab.is-active {
+  color: #fafafa;
+  background: rgba(124, 58, 237, 0.22);
+  border-color: rgba(167, 139, 250, 0.35);
+  border-bottom: 1px solid rgba(124, 58, 237, 0.35);
+}
+
+.tm-word-ribbon__tab i {
+  opacity: 0.85;
+  font-size: 0.85rem;
+}
+
+/* --- Dar ikon sidebar --- */
+.app--elite-layout {
+  --sidebar-w: 76px;
+}
+
+.sidebar--elite {
+  padding: 0.65rem 0.45rem 1.25rem;
+}
+
+.sidebar--elite .sidebar__brand {
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.35rem 0.15rem 1rem;
+}
+
+.sidebar--elite .sidebar__brand-btn {
+  flex-direction: column;
+  text-align: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.15rem;
+}
+
+.sidebar--elite .sidebar__title,
+.sidebar--elite .sidebar__section-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.sidebar--elite .sidebar__link span,
+.sidebar--elite .sidebar__sublink span {
+  display: none;
+}
+
+.sidebar--elite .sidebar__link,
+.sidebar--elite .sidebar__sublink {
+  justify-content: center;
+  padding: 0.62rem 0.5rem;
+}
+
+.sidebar--elite .sidebar__submenu {
+  margin: 0.25rem 0 0;
+  padding-left: 0;
+  gap: 0.15rem;
+}
+
+.sidebar--elite .sidebar__sublink {
+  font-size: 0;
+}
+
+.sidebar--elite .sidebar__sublink i {
+  font-size: 0.85rem;
+}
+
+.sidebar__sublink.is-active {
+  background: rgba(124, 58, 237, 0.18);
+  color: var(--purple-700);
+}
+
+/* Kütüphane tam sayfa */
+.tm-library-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  padding: 0.75rem 1rem 1.5rem;
+}
+
+.tm-library-page__ribbon-hint {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  margin: 0 0 0.85rem;
+  font-weight: 600;
+}
+
+/* E-kitap kart ızgarası */
+.tm-tests-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Sağ panel asla alta yığılmasın (geniş ekranda) */
+.app--testmaker-workspace .tm-view-creator {
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: stretch !important;
+  min-height: 0;
+}
+
+.app--testmaker-workspace .tm-source-panel {
+ flex: 0 0 340px !important;
+ width: 340px !important;
+ max-width: 340px !important;
+ min-height: 0 !important;
+ max-height: none !important;
+ align-self: stretch;
+ overflow-y: auto;
+}
+
+@media (max-width: 900px) {
+  .app--testmaker-workspace .tm-view-creator {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .app--testmaker-workspace .tm-source-panel {
+    flex: 0 0 300px !important;
+    max-height: none !important;
+  }
+}
+
+/* PDF anotasyon tam ekran overlay */
+.tm-annotate-view--overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 400 !important;
+  background: #0c0c0f !important;
+}
+
+body.tm-annotate-open {
+  overflow: hidden;
+}
+
+/* Üst form alanları — Inter */
+.tm-canvas-meta label span {
+  color: #cbd5e1 !important;
+}
+
+.tm-canvas-meta input.tm-input-elite {
+  font-family: "Inter", system-ui, sans-serif !important;
+  font-weight: 500;
+}
+
+.tm-workspace__bar--compact .tm-bar-fields input,
+.tm-workspace__bar--compact .tm-bar-fields select {
+  font-family: "Inter", system-ui, sans-serif;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(18, 18, 22, 0.95);
+  color: #f4f4f5;
+  padding: 0.45rem 0.55rem;
+}
+
+.tm-btn-library-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.62rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  background: rgba(16, 185, 129, 0.18);
+  color: #a7f3d0;
+  font-weight: 750;
+  font-size: 0.82rem;
+  cursor: pointer;
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+.tm-btn-library-save:hover {
+  background: rgba(16, 185, 129, 0.28);
+}
+
+/* ========== 10 yayınevi şablonu — görünürlük ========== */
+.tm-paper-header--t01,
+.tm-paper-header--t02,
+.tm-paper-header--t03,
+.tm-paper-header--t04,
+.tm-paper-header--t05,
+.tm-paper-header--t06,
+.tm-paper-header--t07,
+.tm-paper-header--t08,
+.tm-paper-header--t09,
+.tm-paper-header--t10 {
+  display: none !important;
+}
+
+.tm-template-t01 .tm-paper-header--t01 {
+  display: block !important;
+}
+.tm-template-t02 .tm-paper-header--t02 {
+  display: block !important;
+}
+.tm-template-t03 .tm-paper-header--t03 {
+  display: block !important;
+}
+.tm-template-t04 .tm-paper-header--t04 {
+  display: block !important;
+}
+.tm-template-t05 .tm-paper-header--t05 {
+  display: block !important;
+}
+.tm-template-t06 .tm-paper-header--t06 {
+  display: block !important;
+}
+.tm-template-t07 .tm-paper-header--t07 {
+  display: block !important;
+}
+.tm-template-t08 .tm-paper-header--t08 {
+  display: block !important;
+}
+.tm-template-t09 .tm-paper-header--t09 {
+  display: block !important;
+}
+.tm-template-t10 .tm-paper-header--t10 {
+  display: block !important;
+}
+
+/* Klasik: ÖSYM / VIP / Föy — !important ile yayınevi kurallarından sonra tutarlı */
+.tm-paper-header--osym,
+.tm-paper-header--vip,
+.tm-paper-header--foy {
+  display: none !important;
+}
+.tm-template-osym .tm-paper-header--osym {
+  display: block !important;
+}
+.tm-template-vip .tm-paper-header--vip {
+  display: block !important;
+}
+.tm-template-foy .tm-paper-header--foy {
+  display: block !important;
+}
+
+.tm-h-field {
+  font-family: "Inter", system-ui, sans-serif;
+  color: #111;
+}
+
+/* t01 — Limit (lacivert şerit) */
+.tm-paper-header--t01 {
+  padding: 0;
+  background: #fff;
+}
+.tm-h-t01-navy {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #0f172a;
+  color: #fff;
+  padding: 3mm 8mm;
+  font-size: 8.5pt;
+  font-weight: 700;
+}
+.tm-h-t01-navy .tm-h-field--inst {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.tm-h-t01-main {
+  text-align: center;
+  padding: 4mm 8mm 3mm;
+  border-bottom: 3px solid var(--tm-accent, #1e3a5f);
+}
+.tm-h-t01-main .tm-h-field--course {
+  font-weight: 800;
+  font-size: 13pt;
+  color: #0f172a;
+}
+.tm-h-t01-main .tm-h-field--topic {
+  font-size: 10pt;
+  color: #475569;
+  margin-top: 1mm;
+}
+
+/* t02 — Endemik (yeşil dikey) */
+.tm-paper-header--t02 {
+  padding: 0;
+  background: #fff;
+  border-left: 4mm solid #0d9488;
+}
+.tm-h-t02-body {
+  padding: 4mm 7mm 4mm 5mm;
+}
+.tm-h-t02-body .tm-h-field--inst {
+  font-weight: 900;
+  font-size: 11pt;
+  color: #134e4a;
+}
+.tm-h-t02-body .tm-h-field--course {
+  font-weight: 800;
+  font-size: 12pt;
+  margin-top: 2mm;
+  color: #0f172a;
+}
+.tm-h-t02-body .tm-h-field--topic {
+  font-size: 10pt;
+  color: #64748b;
+}
+.tm-h-t02-meta {
+  margin-top: 3mm;
+  font-size: 9pt;
+  color: #64748b;
+  border-top: 1px dashed #cbd5e1;
+  padding-top: 2mm;
+}
+
+/* t03 — Paraf (siyah blok) */
+.tm-paper-header--t03 {
+  background: #0a0a0a;
+  color: #fff;
+  padding: 4mm 8mm;
+}
+.tm-h-t03-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3mm;
+  align-items: start;
+}
+.tm-h-t03-grid .tm-h-field--inst {
+  font-weight: 900;
+  font-size: 12pt;
+  letter-spacing: 0.04em;
+}
+.tm-h-t03-grid .tm-h-field--date {
+  font-size: 9pt;
+  opacity: 0.85;
+}
+.tm-h-t03-sub {
+  margin-top: 3mm;
+  padding-top: 3mm;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+.tm-h-t03-sub .tm-h-field--course {
+  font-size: 13pt;
+  font-weight: 800;
+}
+.tm-h-t03-sub .tm-h-field--topic {
+  font-size: 10pt;
+  opacity: 0.9;
+  margin-top: 1mm;
+}
+
+/* t04 — 345 (minimal) */
+.tm-paper-header--t04 {
+  padding: 5mm 8mm;
+  background: #fff;
+  border-bottom: 2px solid #e2e8f0;
+}
+.tm-h-t04-mini {
+  display: flex;
+  justify-content: space-between;
+  font-size: 7.5pt;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #64748b;
+  margin-bottom: 3mm;
+}
+.tm-h-t04-title {
+  text-align: center;
+}
+.tm-h-t04-title .tm-h-field--course {
+  font-weight: 800;
+  font-size: 12pt;
+  color: #1e293b;
+}
+.tm-h-t04-title .tm-h-field--topic {
+  font-size: 9.5pt;
+  color: #64748b;
+  margin-top: 1mm;
+}
+
+/* t05 — Bilgi Sarmal (turuncu) */
+.tm-paper-header--t05 {
+  padding: 0;
+  background: #fff;
+}
+.tm-h-t05-top {
+  border-bottom: 4px solid #ea580c;
+  padding: 3mm 8mm;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.tm-h-t05-top .tm-h-field--inst {
+  font-weight: 900;
+  color: #9a3412;
+  font-size: 10pt;
+}
+.tm-h-t05-top .tm-h-field--date {
+  font-size: 9pt;
+  color: #78716c;
+}
+.tm-h-t05-mid {
+  padding: 3mm 8mm;
+  text-align: center;
+}
+.tm-h-t05-mid .tm-h-field--course {
+  font-weight: 800;
+  font-size: 12pt;
+  color: #1c1917;
+}
+.tm-h-t05-mid .tm-h-field--topic {
+  font-size: 10pt;
+  color: #57534e;
+}
+
+/* t06 — Acil (kırmızı vurgu) */
+.tm-paper-header--t06 {
+  padding: 4mm 8mm;
+  background: linear-gradient(180deg, #fff 0%, #fef2f2 100%);
+  border-top: 5px solid #dc2626;
+}
+.tm-h-t06-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9pt;
+  font-weight: 700;
+  color: #991b1b;
+}
+.tm-h-t06-title {
+  text-align: center;
+  margin-top: 3mm;
+}
+.tm-h-t06-title .tm-h-field--course {
+  font-size: 13pt;
+  font-weight: 900;
+  color: #450a0a;
+}
+.tm-h-t06-title .tm-h-field--topic {
+  font-size: 10pt;
+  color: #7f1d1d;
+  margin-top: 1mm;
+}
+
+/* t07 — Fen (teal) */
+.tm-paper-header--t07 {
+  padding: 0;
+  background: #fff;
+}
+.tm-h-t07-band {
+  background: linear-gradient(90deg, #0e7490, #155e75);
+  color: #ecfeff;
+  padding: 3mm 8mm;
+  display: flex;
+  justify-content: space-between;
+  font-size: 9pt;
+  font-weight: 700;
+}
+.tm-h-t07-main {
+  padding: 4mm 8mm;
+  text-align: center;
+}
+.tm-h-t07-main .tm-h-field--course {
+  font-weight: 800;
+  font-size: 12pt;
+  color: #164e63;
+}
+.tm-h-t07-main .tm-h-field--topic {
+  font-size: 10pt;
+  color: #0e7490;
+  margin-top: 1mm;
+}
+
+/* t08 — TYT Master (mor) */
+.tm-paper-header--t08 {
+  padding: 0;
+  background: #faf5ff;
+}
+.tm-h-t08-hero {
+  background: linear-gradient(120deg, #4c1d95, #7c3aed 55%, #5b21b6);
+  color: #fff;
+  padding: 4mm 8mm;
+}
+.tm-h-t08-line1 {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9pt;
+  font-weight: 700;
+}
+.tm-h-t08-line2 {
+  text-align: center;
+  margin-top: 2mm;
+}
+.tm-h-t08-line2 .tm-h-field--course {
+  font-size: 14pt;
+  font-weight: 900;
+}
+.tm-h-t08-line2 .tm-h-field--topic {
+  font-size: 10pt;
+  opacity: 0.92;
+  margin-top: 1mm;
+}
+.tm-h-t08-stu {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2mm 8mm;
+  font-size: 8.5pt;
+  color: #4b5563;
+  border-top: 1px solid #e9d5ff;
+}
+
+/* t09 — Apotemi (serif çift çizgi) */
+.tm-paper-header--t09 {
+  padding: 5mm 10mm;
+  background: #fff;
+  border-top: 3px double #1e293b;
+  border-bottom: 3px double #1e293b;
+  font-family: "Merriweather", Georgia, serif;
+}
+.tm-h-t09-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9pt;
+  color: #334155;
+  font-family: "Inter", sans-serif;
+}
+.tm-h-t09-center {
+  text-align: center;
+  margin: 4mm 0;
+}
+.tm-h-t09-center .tm-h-field--course {
+  font-weight: 700;
+  font-size: 13pt;
+  color: #0f172a;
+}
+.tm-h-t09-center .tm-h-field--topic {
+  font-style: italic;
+  font-size: 10pt;
+  color: #475569;
+  margin-top: 1mm;
+}
+
+/* t10 — ÖSYM Neo */
+.tm-paper-header--t10 {
+  padding: 4mm 8mm;
+  background: #f8fafc;
+}
+.tm-h-t10-box {
+  border: 2px solid #0f172a;
+  border-radius: 2mm;
+  padding: 3mm 5mm;
+}
+.tm-h-t10-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 8.5pt;
+  font-weight: 700;
+  color: #0f172a;
+}
+.tm-h-t10-mid {
+  text-align: center;
+  margin-top: 3mm;
+  padding-top: 3mm;
+  border-top: 1px solid #cbd5e1;
+}
+.tm-h-t10-mid .tm-h-field--course {
+  font-size: 12pt;
+  font-weight: 800;
+}
+.tm-h-t10-mid .tm-h-field--topic {
+  font-size: 9.5pt;
+  color: #475569;
+  margin-top: 1mm;
+}
+
+/* Şablon bazlı tipografi — gövde */
+.tm-template-t01 .tm-a4-layout,
+.tm-template-t04 .tm-a4-layout,
+.tm-template-t09 .tm-a4-layout,
+.tm-template-t10 .tm-a4-layout {
+  font-family: "Times New Roman", Times, serif;
+}
+.tm-template-t02 .tm-a4-layout,
+.tm-template-t03 .tm-a4-layout,
+.tm-template-t05 .tm-a4-layout,
+.tm-template-t06 .tm-a4-layout,
+.tm-template-t07 .tm-a4-layout,
+.tm-template-t08 .tm-a4-layout {
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+/* Badge çeşitleri */
+.tm-template-t03 .tm-q-badge {
+  background: #0a0a0a;
+  color: #fff;
+  border-radius: 4px;
+}
+.tm-template-t05 .tm-q-badge {
+  background: #fff7ed;
+  color: #9a3412;
+  border-left: 4px solid #ea580c;
+}
+.tm-template-t07 .tm-q-badge {
+  background: #ecfeff;
+  color: #155e75;
+}
+.tm-template-t08 .tm-q-badge {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.tm-library__item-kind {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #34d399;
+  margin-left: 0.25rem;
+}
+
+/* Boş A4 ipucu — tüm yeni şablonlarda okunaklı */
+.a4-paper .tm-a4-empty--full {
+  font-family: "Inter", system-ui, sans-serif !important;
+  color: #64748b !important;
+}
