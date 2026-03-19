@@ -4010,14 +4010,17 @@ function tmPreparePrintClone(clone, livePaper, widthPx, mm) {
     }
   }
 
-  clone.querySelectorAll(".tm-paper-header").forEach(function (h) {
-    var st = window.getComputedStyle(h);
+  var liveHeaders = livePaper.querySelectorAll(".tm-paper-header");
+  clone.querySelectorAll(".tm-paper-header").forEach(function (h, i) {
+    var liveH = liveHeaders[i];
+    var st = liveH ? window.getComputedStyle(liveH) : window.getComputedStyle(h);
     if (st.display === "none") {
       h.style.display = "none";
       return;
     }
     h.style.display = st.display;
     h.style.visibility = "visible";
+    h.style.opacity = "1";
     h.style.width = "100%";
     h.style.boxSizing = "border-box";
   });
@@ -4035,102 +4038,187 @@ function tmWsDownloadPdf() {
     showToast("Önce A4'e soru ekleyin.");
     return;
   }
-  if (typeof html2pdf === "undefined") {
-    alert("html2pdf yüklenmedi. Sayfayı yenileyin.");
+  if (!(window.jspdf && window.jspdf.jsPDF)) {
+    showToast("jsPDF yüklenemedi; sayfayı yenileyin.");
+    return;
+  }
+  if (typeof html2canvas === "undefined") {
+    showToast("html2canvas yüklenemedi; sayfayı yenileyin.");
     return;
   }
 
-  var prev = document.getElementById("tempPrintArea");
-  if (prev && prev.parentNode) prev.parentNode.removeChild(prev);
+  ["tempPrintArea", "tmPdfBlocker", "tmPdfSinglePageHost"].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el && el.parentNode) {
+      try {
+        el.parentNode.removeChild(el);
+      } catch (e) {}
+    }
+  });
 
   var mm = 96 / 25.4;
   var W = Math.round(210 * mm);
   var H = Math.round(297 * mm);
-
-  var area = document.createElement("div");
-  area.id = "tempPrintArea";
-  area.setAttribute("aria-hidden", "true");
-  area.style.cssText =
-    "position:fixed;left:0;top:0;width:" +
-    W +
-    "px;margin:0;padding:0;background:#ffffff;color:#111111;overflow:visible;box-sizing:border-box;visibility:hidden;z-index:-1;pointer-events:none;";
-
-  papers.forEach(function (paper, idx) {
-    var clone = paper.cloneNode(true);
-    tmPreparePrintClone(clone, paper, W, mm);
-    clone.style.position = "relative";
-    clone.style.left = "0";
-    clone.style.top = "0";
-    clone.style.boxSizing = "border-box";
-    if (idx < papers.length - 1) {
-      clone.style.pageBreakAfter = "always";
-      clone.classList.add("tm-pdf-page-break-after");
-    }
-    area.appendChild(clone);
-  });
-  document.body.appendChild(area);
-
+  var J = window.jspdf.jsPDF;
   var fname =
     ((document.getElementById("tmWsTitle") && document.getElementById("tmWsTitle").value) || "Deneme_Sinavi")
       .trim()
       .replace(/[\\/:*?"<>|]/g, "-") || "Deneme_Sinavi";
 
-  function tmPdfCleanup() {
-    var a = document.getElementById("tempPrintArea");
-    if (a && a.parentNode) {
-      try {
-        a.parentNode.removeChild(a);
-      } catch (e) {}
+  function tmWaitImages(root, timeoutMs) {
+    var imgs = root.querySelectorAll("img");
+    if (!imgs.length) return Promise.resolve();
+    var deadline = Date.now() + (timeoutMs || 12000);
+    return Promise.all(
+      Array.prototype.map.call(imgs, function (img) {
+        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+        return new Promise(function (resolve) {
+          function done() {
+            resolve();
+          }
+          img.addEventListener("load", done, { once: true });
+          img.addEventListener("error", done, { once: true });
+          var t = setInterval(function () {
+            if (img.complete || Date.now() > deadline) {
+              clearInterval(t);
+              done();
+            }
+          }, 80);
+        });
+      })
+    );
+  }
+
+  function tmPdfCleanupAll() {
+    ["tmPdfBlocker", "tmPdfSinglePageHost", "tempPrintArea"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el && el.parentNode) {
+        try {
+          el.parentNode.removeChild(el);
+        } catch (e) {}
+      }
+    });
+  }
+
+  function tmBalanceCloneColumns(clonePaper) {
+    var dualEl = clonePaper.querySelector(".test-content-area");
+    if (dualEl && dualEl.style.display !== "none") {
+      var mh = 120;
+      dualEl.querySelectorAll(".test-column").forEach(function (c) {
+        mh = Math.max(mh, c.scrollHeight);
+      });
+      dualEl.querySelectorAll(".test-column").forEach(function (c) {
+        c.style.minHeight = mh + "px";
+      });
     }
   }
 
-  requestAnimationFrame(function () {
-    requestAnimationFrame(function () {
-      area.querySelectorAll(".a4-paper").forEach(function (clonePaper) {
-        var dualEl = clonePaper.querySelector(".test-content-area");
-        if (dualEl && dualEl.style.display !== "none") {
-          var mh = 120;
-          dualEl.querySelectorAll(".test-column").forEach(function (c) {
-            mh = Math.max(mh, c.scrollHeight);
+  var blocker = document.createElement("div");
+  blocker.id = "tmPdfBlocker";
+  blocker.setAttribute("aria-live", "polite");
+  blocker.style.cssText =
+    "position:fixed;inset:0;background:rgba(15,23,42,0.58);z-index:2147483646;display:flex;align-items:center;justify-content:center;padding:1.5rem;";
+  blocker.innerHTML =
+    '<p style="margin:0;color:#f8fafc;font:600 15px system-ui,Segoe UI,sans-serif;text-align:center;max-width:22rem;line-height:1.45">PDF oluşturuluyor…<br><span style="font-size:12px;font-weight:500;opacity:0.9">Her sayfa ayrı işlenir; birkaç saniye sürebilir.</span></p>';
+  document.body.appendChild(blocker);
+
+  var pdf = null;
+  var anyPageOk = false;
+
+  function capturePageAtIndex(idx) {
+    var paper = papers[idx];
+    return new Promise(function (resolve) {
+      var prev = document.getElementById("tmPdfSinglePageHost");
+      if (prev && prev.parentNode) prev.parentNode.removeChild(prev);
+      var clone = paper.cloneNode(true);
+      tmPreparePrintClone(clone, paper, W, mm);
+      clone.style.position = "relative";
+      clone.style.left = "0";
+      clone.style.top = "0";
+      clone.style.boxSizing = "border-box";
+      var host = document.createElement("div");
+      host.id = "tmPdfSinglePageHost";
+      /* Görünür alan içinde: html2canvas / Opera ekran dışı öğeyi boş döndürebiliyor */
+      host.style.cssText =
+        "position:fixed;left:16px;top:16px;width:" +
+        W +
+        "px;margin:0;padding:0;background:#ffffff;color:#111111;overflow:visible;box-sizing:border-box;z-index:2147483647;pointer-events:none;";
+      host.appendChild(clone);
+      document.body.appendChild(host);
+      tmBalanceCloneColumns(clone);
+      tmWaitImages(host, 12000)
+        .then(function () {
+          return new Promise(function (rafDone) {
+            requestAnimationFrame(function () {
+              requestAnimationFrame(function () {
+                setTimeout(rafDone, 80);
+              });
+            });
           });
-          dualEl.querySelectorAll(".test-column").forEach(function (c) {
-            c.style.minHeight = mh + "px";
-          });
-        }
-      });
-      var contentH = Math.max(area.scrollHeight || 0, H);
-      html2pdf()
-        .set({
-          margin: 0,
-          filename: fname + ".pdf",
-          image: { type: "jpeg", quality: 1.0 },
-          pagebreak: { mode: ["avoid-all", "css", "legacy"], after: ".tm-pdf-page-break-after" },
-          html2canvas: {
+        })
+        .then(function () {
+          /* width/height vermeden ölç — sabit px bazen boş tuval (Opera / yüksek DPI) */
+          return html2canvas(host, {
             scale: 2,
             useCORS: true,
             allowTaint: true,
             logging: false,
-            letterRendering: true,
             backgroundColor: "#ffffff",
             scrollX: 0,
             scrollY: 0,
-            width: W,
-            height: contentH,
-          },
-          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+            foreignObjectRendering: false,
+          });
         })
-        .from(area)
-        .save()
-        .then(function () {
-          tmPdfCleanup();
+        .then(function (canvas) {
+          try {
+            var imgData = canvas.toDataURL("image/jpeg", 0.92);
+            if (!pdf) {
+              pdf = new J({ unit: "mm", format: "a4", orientation: "portrait" });
+            } else {
+              pdf.addPage();
+            }
+            pdf.addImage(imgData, "JPEG", 0, 0, 210, 297);
+            anyPageOk = true;
+          } catch (err) {
+            console.error("tmWsDownloadPdf sayfa", idx + 1, err);
+          }
+          if (host.parentNode) host.parentNode.removeChild(host);
+          resolve();
         })
         .catch(function (e) {
-          tmPdfCleanup();
-          console.error(e);
-          showToast("PDF oluşturulamadı.");
+          console.error("tmWsDownloadPdf html2canvas", idx + 1, e);
+          if (host.parentNode) host.parentNode.removeChild(host);
+          resolve();
         });
     });
-  });
+  }
+
+  function runSequential(i) {
+    if (i >= papers.length) return Promise.resolve();
+    return capturePageAtIndex(i).then(function () {
+      return runSequential(i + 1);
+    });
+  }
+
+  var fontReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+  fontReady
+    .then(function () {
+      return runSequential(0);
+    })
+    .then(function () {
+      tmPdfCleanupAll();
+      if (pdf && anyPageOk) {
+        pdf.save(fname + ".pdf");
+        showToast("PDF indirildi.");
+      } else {
+        showToast("PDF oluşturulamadı. Konsolu kontrol edin.");
+      }
+    })
+    .catch(function (e) {
+      console.error(e);
+      tmPdfCleanupAll();
+      showToast("PDF oluşturulamadı.");
+    });
 }
 
 function tmSyncPaperHeaders() {
