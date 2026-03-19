@@ -149,6 +149,22 @@
       display: none !important;
       pointer-events: none !important;
     }
+    /*
+      testmaker-workspace.css içindeki
+      .main-view.tm-workspace-view.is-active { display:flex !important }
+      [,hidden]’dan daha güçlü olabiliyor — kapalı görünümü her zaman gizle.
+    */
+    .main-view.tm-workspace-view[hidden],
+    .main-view.tm-workspace-view.is-active[hidden] {
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+      position: absolute !important;
+      inset: 0 !important;
+      width: 0 !important;
+      height: 0 !important;
+      overflow: hidden !important;
+    }
     .avatar-gallery-sheet { position: fixed; inset: 0; z-index: 100050; display: flex; align-items: flex-end; justify-content: center; pointer-events: none; }
     .avatar-gallery-sheet:not([hidden]) { pointer-events: auto; }
     /* Elite dar sidebar: TestMaker alt satırları görünür (ikon + kısa etiket) */
@@ -1522,6 +1538,38 @@
   <script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5/dist/iro.min.js" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous"></script>
   <script src="js/yks-sayaç.js"></script>
+  <!-- Modülden önce: ilk boyamada bile Dashboard + kapalı avatar/PDF (eski cache / CSS yarışı) -->
+  <script>
+    (function kocPanelForceDashboardShell() {
+      try {
+        document.body.classList.remove("tm-annotate-open");
+        var sh = document.getElementById("avatarGallerySheet");
+        if (sh) {
+          sh.hidden = true;
+          sh.setAttribute("aria-hidden", "true");
+        }
+        var ann = document.getElementById("viewPdfDuzenle");
+        if (ann) {
+          ann.hidden = true;
+          ann.setAttribute("hidden", "");
+        }
+        var app = document.querySelector(".app");
+        if (app) app.classList.remove("app--testmaker-workspace");
+        document.querySelectorAll(".main-view").forEach(function (el) {
+          var v = el.getAttribute("data-view");
+          var on = v === "dashboard";
+          el.classList.toggle("is-active", on);
+          el.hidden = !on;
+        });
+        var cre = document.getElementById("tmViewCreator");
+        if (cre) cre.hidden = true;
+        document.querySelectorAll(".sidebar__link[data-nav]").forEach(function (btn) {
+          var nv = btn.getAttribute("data-nav");
+          btn.classList.toggle("sidebar__link--active", nv === "dashboard");
+        });
+      } catch (e) {}
+    })();
+  </script>
   <script type="module" src="js/koc-panel.js"></script>
 </body>
 </html>

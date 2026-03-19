@@ -2309,6 +2309,10 @@ function applySpaInitialShellState() {
 }
 
 function openAvatarGallerySheet(target) {
+  var stModal = document.getElementById("studentModal");
+  if (!stModal || stModal.hidden) {
+    return;
+  }
   window.__avatarPickTarget = target === "edit" ? "edit" : "add";
   var sheet = document.getElementById("avatarGallerySheet");
   var grid = document.getElementById("avatarGalleryGrid");

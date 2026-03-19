@@ -13,6 +13,10 @@ yks-kocluk/
 └── README.md
 ```
 
+## GitHub Pages
+
+Koç panelinde güncellemeler görünmüyorsa (eski “PDF + Avatar” açılışı vb.) değişiklikleri repoya **push** ettiğinizden emin olun. Yayın sonrası tarayıcıda **Ctrl+F5** (zorla yenile) veya önbelleği temizleyin; eski `koc-panel.html` / `js/koc-panel.js` cache’lenebilir.
+
 ## Çalıştırma
 
 **Önemli:** `koc-panel.html` ve `index.html` dosyalarını **HTTP üzerinden** açın (Live Server, `npx serve` vb.). `file://` ile ES modülleri ve Firebase sorun çıkarabilir.
