@@ -41,6 +41,24 @@ const auth = getAuth(app);
 
 let kocPanelBootstrapped = false;
 
+/** SPA: script yüklendiği anda (auth beklemeden) gizli olması gereken katmanları kapat */
+(function kocPanelSpaShellEarly() {
+  try {
+    if (!document.body) return;
+    document.body.classList.remove("tm-annotate-open");
+    var sh = document.getElementById("avatarGallerySheet");
+    if (sh) {
+      sh.hidden = true;
+      sh.setAttribute("aria-hidden", "true");
+    }
+    var ann = document.getElementById("viewPdfDuzenle");
+    if (ann) {
+      ann.hidden = true;
+      ann.setAttribute("hidden", "");
+    }
+  } catch (e) {}
+})();
+
 function getCoachId() {
   try {
     var imp = sessionStorage.getItem("superAdminViewAsCoach");
@@ -2262,6 +2280,32 @@ function closeAvatarGallerySheet() {
     sheet.hidden = true;
     sheet.setAttribute("aria-hidden", "true");
   }
+}
+
+/** Oturum açıldıktan sonra shell: yalnızca Dashboard, avatar/PDF katmanları kapalı */
+function applySpaInitialShellState() {
+  closeAvatarGallerySheet();
+  document.body.classList.remove("tm-annotate-open");
+  var ann = document.getElementById("viewPdfDuzenle");
+  if (ann) {
+    ann.hidden = true;
+    ann.setAttribute("hidden", "");
+  }
+  var app = document.querySelector(".app");
+  if (app) app.classList.remove("app--testmaker-workspace");
+  currentView = "dashboard";
+  document.querySelectorAll(".main-view").forEach(function (el) {
+    var v = el.getAttribute("data-view");
+    var on = v === "dashboard";
+    el.classList.toggle("is-active", on);
+    el.hidden = !on;
+  });
+  var cre = document.getElementById("tmViewCreator");
+  if (cre) cre.hidden = true;
+  document.querySelectorAll(".sidebar__link[data-nav]").forEach(function (btn) {
+    var nv = btn.getAttribute("data-nav");
+    btn.classList.toggle("sidebar__link--active", nv === "dashboard");
+  });
 }
 
 function openAvatarGallerySheet(target) {
@@ -4640,6 +4684,18 @@ function navigateTo(view) {
   window.dispatchEvent(new CustomEvent("yks:navigate", { detail: { view: view } }));
 }
 
+/** TestMaker alt menüsü: görünüm kimliği → navigateTo (sidebar SPA) */
+function displayTestmakerView(viewDomId) {
+  if (!viewDomId) return;
+  var map = {
+    "view-testmaker": "testmaker",
+    "view-library": "library",
+    "view-pdf-editor": "pdf-editor",
+  };
+  var route = map[viewDomId];
+  if (route) navigateTo(route);
+}
+
 function initSidebar() {
   const sidebar = document.getElementById("sidebar");
   const overlay = document.getElementById("sidebarOverlay");
@@ -4680,12 +4736,40 @@ function initNavigation() {
   document.querySelectorAll("[data-tm-nav-action]").forEach(function (el) {
     el.addEventListener("click", function (e) {
       e.stopPropagation();
+      var vid = el.getAttribute("data-testmaker-view");
+      if (vid) {
+        displayTestmakerView(vid);
+        return;
+      }
       var action = el.getAttribute("data-tm-nav-action");
       if (action === "library") navigateTo("library");
       else if (action === "pdf-editor") navigateTo("pdf-editor");
       else navigateTo("testmaker");
     });
   });
+
+  /* TestMaker (elite): ana satıra tıklanınca alt menüyü aç/kapat; çift tetiklemeyi önle */
+  (function initTestmakerSidebarAccordion() {
+    var li = document.querySelector(".sidebar__item--testmaker");
+    var mainBtn = li && li.querySelector("#sidebarTmToggle");
+    if (!li || !mainBtn) return;
+    mainBtn.addEventListener(
+      "click",
+      function (ev) {
+        var side = document.getElementById("sidebar");
+        if (!side || !side.classList.contains("sidebar--elite")) return;
+        var w = window.innerWidth;
+        if (w > 992) {
+          ev.preventDefault();
+          ev.stopImmediatePropagation();
+          li.classList.add("sidebar__item--tm-open");
+          mainBtn.setAttribute("aria-expanded", "true");
+          navigateTo("testmaker");
+        }
+      },
+      true
+    );
+  })();
 }
 
 function cycleExamFilter() {
@@ -4907,6 +4991,7 @@ function initAllButtons() {
 
 window.YKSPanel = {
   navigate: navigateTo,
+  displayTestmakerView: displayTestmakerView,
   getView: function () {
     return currentView;
   },
@@ -4936,6 +5021,7 @@ function showLoadTimeoutWarning() {
 function bootstrapKocPanelAfterAuth() {
   if (kocPanelBootstrapped) return;
   kocPanelBootstrapped = true;
+  applySpaInitialShellState();
   initSidebar();
   initNavigation();
   initModals();

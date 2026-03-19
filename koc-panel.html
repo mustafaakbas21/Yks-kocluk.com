@@ -142,8 +142,45 @@
       color: #a5b4fc;
     }
     .student-avatar-picker__hint { font-size: 0.72rem; color: #64748b; margin-top: 0.35rem; }
+    /* [hidden] UA kuralını ezmeyin: flex toolbar/sheet DOM’da açık kalmasın */
+    .avatar-gallery-sheet[hidden],
+    #viewPdfDuzenle[hidden],
+    .tm-annotate-view[hidden] {
+      display: none !important;
+      pointer-events: none !important;
+    }
     .avatar-gallery-sheet { position: fixed; inset: 0; z-index: 100050; display: flex; align-items: flex-end; justify-content: center; pointer-events: none; }
     .avatar-gallery-sheet:not([hidden]) { pointer-events: auto; }
+    /* Elite dar sidebar: TestMaker alt satırları görünür (ikon + kısa etiket) */
+    .sidebar--elite .sidebar__item--testmaker .sidebar__submenu {
+      display: flex !important;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+      margin: 0.35rem 0 0.15rem;
+      padding: 0 0 0.35rem;
+      width: 100%;
+    }
+    .sidebar--elite .sidebar__item--testmaker .sidebar__sublink {
+      flex-direction: column !important;
+      justify-content: center !important;
+      align-items: center !important;
+      gap: 0.2rem !important;
+      padding: 0.42rem 0.2rem !important;
+      font-size: inherit !important;
+    }
+    .sidebar--elite .sidebar__item--testmaker .sidebar__sublink span {
+      display: block !important;
+      font-size: 0.55rem !important;
+      line-height: 1.05;
+      font-weight: 800;
+      text-align: center;
+      max-width: 72px;
+      color: inherit;
+    }
+    .sidebar--elite .sidebar__item--testmaker .sidebar__sublink i {
+      font-size: 0.88rem !important;
+    }
     .avatar-gallery-sheet__backdrop { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(4px); }
     .avatar-gallery-sheet__panel { position: relative; z-index: 1; width: 100%; max-width: 520px; max-height: 85vh; margin: 0 auto; background: linear-gradient(180deg, #faf5ff, #fff); border-radius: 18px 18px 0 0; box-shadow: 0 -12px 40px rgba(0,0,0,0.25); display: flex; flex-direction: column; pointer-events: auto; border: 1px solid rgba(124,58,237,0.2); }
     .avatar-gallery-sheet__head { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.1rem; border-bottom: 1px solid #e9d5ff; }
@@ -202,14 +239,14 @@
               <i class="fa-solid fa-calendar-days"></i><span>Randevu &amp; Takvim</span>
             </button>
           </li>
-          <li>
-            <button type="button" class="sidebar__link" data-nav="testmaker">
+          <li class="sidebar__item--testmaker sidebar__item--tm-open">
+            <button type="button" class="sidebar__link" data-nav="testmaker" aria-expanded="true" aria-controls="sidebarTmSubmenu" id="sidebarTmToggle">
               <i class="fa-solid fa-file-circle-check"></i><span>TestMaker</span>
             </button>
-            <div class="sidebar__submenu">
-              <button type="button" class="sidebar__sublink" data-tm-nav-action="creator" title="Test Oluşturucu"><i class="fa-solid fa-pen-ruler"></i><span>Test Oluşturucu</span></button>
-              <button type="button" class="sidebar__sublink" data-tm-nav-action="library" title="Hazır Testler (Kütüphane)"><i class="fa-solid fa-layer-group"></i><span>Hazır Testler (Kütüphane)</span></button>
-              <button type="button" class="sidebar__sublink" data-tm-nav-action="pdf-editor" title="PDF Düzenleyici"><i class="fa-solid fa-file-pen"></i><span>PDF Düzenleyici</span></button>
+            <div class="sidebar__submenu" id="sidebarTmSubmenu" role="group" aria-label="TestMaker alt menü">
+              <button type="button" class="sidebar__sublink" data-tm-nav-action="creator" data-testmaker-view="view-testmaker" title="Test Oluşturucu"><i class="fa-solid fa-pen-ruler"></i><span>Test Oluşturucu</span></button>
+              <button type="button" class="sidebar__sublink" data-tm-nav-action="library" data-testmaker-view="view-library" title="Hazır Testler"><i class="fa-solid fa-layer-group"></i><span>Hazır Testler</span></button>
+              <button type="button" class="sidebar__sublink" data-tm-nav-action="pdf-editor" data-testmaker-view="view-pdf-editor" title="PDF Düzenleyici"><i class="fa-solid fa-file-pen"></i><span>PDF Düzenleyici</span></button>
             </div>
           </li>
           <li>
