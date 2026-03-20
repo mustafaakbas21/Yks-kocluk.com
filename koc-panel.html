@@ -1272,32 +1272,67 @@
             </nav>
           </header>
           <div class="tm-pdf-cropper-page">
-            <p class="tm-pdf-cropper-lead">PDF yükleyin; sayfalar aşağı kaydırarak gezin (Adobe Reader gibi). Soru alanını fareyle seçin; önizlemeyi etiketleyip yerel havuza kaydedin. Sayfa kutusuna tıklayıp numara yazarak atlayabilirsiniz.</p>
-            <div class="tm-pdf-cropper-toolbar">
-              <label class="tm-pdf-cropper-file-btn">
-                <input type="file" id="pdf-upload" accept=".pdf,application/pdf" />
-                <span><i class="fa-solid fa-file-arrow-up"></i> PDF Yükle</span>
-              </label>
-              <div class="tm-pdf-cropper-page-nav" role="group" aria-label="Sayfa">
-                <button type="button" class="tm-pdf-cropper-iconbtn" id="tmPdfCropPrev" title="Önceki sayfa" disabled>
-                  <i class="fa-solid fa-chevron-left"></i> Önceki
-                </button>
-                <label class="tm-pdf-cropper-page-go" id="tmPdfCropPageGo" title="Sayfa numarası — tıklayıp yazın, Enter">
-                  <span class="tm-pdf-cropper-page-go__prefix">Sayfa</span>
-                  <input type="text" class="tm-pdf-cropper-page-input" id="tmPdfCropPageInput" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="Sayfa numarası" />
-                  <span class="tm-pdf-cropper-page-go__total" id="tmPdfCropPageTotal">/ —</span>
-                </label>
-                <button type="button" class="tm-pdf-cropper-iconbtn" id="tmPdfCropNext" title="Sonraki sayfa" disabled>
-                  Sonraki <i class="fa-solid fa-chevron-right"></i>
-                </button>
-              </div>
+            <p class="tm-pdf-cropper-lead">Manuel modda PDF’de fareyle seçim yapın; AI modunda PDF’yi sunucuya gönderip otomatik soru görselleri alın. Sağdan sınav/ders/konu etiketleyip havuza kaydedin.</p>
+            <div class="tm-pdf-cropper-mode-bar" role="tablist" aria-label="Kırpma modu">
+              <button type="button" class="tm-pdf-cropper-mode-btn is-active" id="tmPdfModeManual" data-tm-pdf-mode="manual">Manuel kırpma</button>
+              <button type="button" class="tm-pdf-cropper-mode-btn" id="tmPdfModeAi" data-tm-pdf-mode="ai">AI Otonom Kırpıcı</button>
             </div>
             <div class="tm-pdf-cropper-body">
-              <div class="tm-pdf-cropper-stage">
-                <div class="tm-pdf-cropper-canvas-wrap" id="tmPdfCropCanvasWrap">
-                  <div class="tm-pdf-cropper-scroll-inner" id="tmPdfCropScrollInner" aria-label="PDF sayfaları — sürekli kaydırma"></div>
+              <div class="tm-pdf-cropper-main-col">
+                <div id="tmPdfCropperManualPane" class="tm-pdf-cropper-manual-pane">
+                  <div class="tm-pdf-cropper-toolbar">
+                    <label class="tm-pdf-cropper-file-btn">
+                      <input type="file" id="pdf-upload" accept=".pdf,application/pdf" />
+                      <span><i class="fa-solid fa-file-arrow-up"></i> PDF Yükle</span>
+                    </label>
+                    <div class="tm-pdf-cropper-page-nav" role="group" aria-label="Sayfa">
+                      <button type="button" class="tm-pdf-cropper-iconbtn" id="tmPdfCropPrev" title="Önceki sayfa" disabled>
+                        <i class="fa-solid fa-chevron-left"></i> Önceki
+                      </button>
+                      <label class="tm-pdf-cropper-page-go" id="tmPdfCropPageGo" title="Sayfa numarası — tıklayıp yazın, Enter">
+                        <span class="tm-pdf-cropper-page-go__prefix">Sayfa</span>
+                        <input type="text" class="tm-pdf-cropper-page-input" id="tmPdfCropPageInput" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="Sayfa numarası" />
+                        <span class="tm-pdf-cropper-page-go__total" id="tmPdfCropPageTotal">/ —</span>
+                      </label>
+                      <button type="button" class="tm-pdf-cropper-iconbtn" id="tmPdfCropNext" title="Sonraki sayfa" disabled>
+                        Sonraki <i class="fa-solid fa-chevron-right"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="tm-pdf-cropper-stage">
+                    <div class="tm-pdf-cropper-canvas-wrap" id="tmPdfCropCanvasWrap">
+                      <div class="tm-pdf-cropper-scroll-inner" id="tmPdfCropScrollInner" aria-label="PDF sayfaları — sürekli kaydırma"></div>
+                    </div>
+                    <p class="tm-pdf-cropper-hint"><i class="fa-solid fa-crosshairs"></i> İmleci soru köşelerinden sürükleyerek dikdörtgen seçin.</p>
+                  </div>
                 </div>
-                <p class="tm-pdf-cropper-hint"><i class="fa-solid fa-crosshairs"></i> İmleci soru köşelerinden sürükleyerek dikdörtgen seçin.</p>
+                <div id="view-ai-parser" class="tm-ai-parser" hidden>
+                  <div class="tm-ai-parser__wrap">
+                    <div id="tmAiParserStage1" class="tm-ai-parser-stage1">
+                      <p class="tm-ai-parser__lead"><i class="fa-solid fa-robot"></i> PDF’yi buraya sürükleyin veya tıklayın — yerel FastAPI sunucusu sayfaları analiz eder.</p>
+                      <label class="tm-ai-parser-dropzone tm-dropzone" id="tmAiParserDropzone">
+                        <input type="file" id="tmAiParserFile" accept=".pdf,application/pdf" />
+                        <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i>
+                        <span class="tm-ai-parser-dropzone__title">Deneme PDF’i seçin</span>
+                        <span class="tm-ai-parser-dropzone__sub">POST → 127.0.0.1:8000</span>
+                      </label>
+                    </div>
+                    <div id="tmAiParserStage2" class="tm-ai-parser-analyzing" hidden aria-live="polite">
+                      <div class="tm-ai-parser-analyzing__card">
+                        <div class="tm-ai-gen-spinner" aria-hidden="true"></div>
+                        <p class="tm-ai-gen-overlay__title">Analiz ediliyor…</p>
+                        <p class="tm-ai-gen-overlay__sub">Sunucu PDF’i işliyor; soru bölgeleri çıkarılıyor.</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div id="tmAiParserStage3" class="tm-ai-parser-stage3" hidden>
+                    <div class="tm-ai-parser-stage3__head">
+                      <h3 class="tm-ai-parser-stage3__title">Onay galerisi</h3>
+                      <button type="button" class="tm-pdf-cropper-iconbtn" id="tmAiParserReset"><i class="fa-solid fa-rotate-left"></i> Yeni PDF</button>
+                    </div>
+                    <div class="tm-ai-parser-gallery" id="tmAiParserGallery"></div>
+                  </div>
+                </div>
               </div>
               <aside class="tm-pdf-cropper-side">
                 <div class="tm-pdf-cropper-preview">
