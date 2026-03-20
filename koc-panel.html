@@ -441,7 +441,7 @@
     .tm-pdf-editor-hero { margin-bottom: 1.25rem; }
     .tm-saved-pdf-library.tm-saved-pdf-library--ebook { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 1.15rem; list-style: none; padding: 0; margin: 0; }
     .tm-saved-pdf-library.tm-saved-pdf-library--ebook .tm-saved-pdf-item { flex-direction: column; align-items: stretch; border-radius: 14px; padding: 0; overflow: hidden; background: linear-gradient(180deg, #fff, #faf5ff); border: 1px solid rgba(124,58,237,0.18); box-shadow: 0 10px 28px rgba(30,27,75,0.12); min-height: 220px; }
-    .tm-saved-pdf-library.tm-saved-pdf-library--ebook .tm-saved-pdf-item__name { padding: 0.65rem 0.75rem 0.35rem; font-weight: 700; font-size: 0.82rem; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .tm-saved-pdf-library.tm-saved-pdf-library--ebook .tm-saved-pdf-item__name { padding: 0.65rem 0.75rem 0.35rem; font-weight: 700; font-size: 0.82rem; line-height: 1.25; color: #0f172a; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .tm-saved-pdf-library.tm-saved-pdf-library--ebook .tm-saved-pdf-item__actions { margin-top: auto; padding: 0.5rem 0.6rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
     .tm-saved-pdf-library.tm-saved-pdf-library--ebook .tm-saved-pdf-item__actions button { width: 100%; justify-content: center; border-radius: 10px; }
     .tm-workspace__save-lib { margin-left: auto; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.85rem; font-size: 0.78rem; font-weight: 700; border-radius: 10px; border: 1px solid rgba(16,185,129,0.45); background: rgba(16,185,129,0.12); color: #047857; cursor: pointer; font-family: inherit; }
@@ -476,6 +476,11 @@
           <li>
             <button type="button" class="sidebar__link" data-nav="ogrenciler">
               <i class="fa-solid fa-user-graduate"></i><span>Öğrencilerim</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="sidebar__link" data-nav="gorev-takibi">
+              <i class="fa-solid fa-list-check"></i><span>Görev Takibi</span>
             </button>
           </li>
           <li>
@@ -655,7 +660,59 @@
           <div class="student-grid" id="studentsPageGrid"></div>
         </div>
 
-        <div class="main-view" data-view="denemeler" id="view-denemeler" hidden>
+        <div class="main-view" data-view="gorev-takibi" id="view-gorev-takibi" hidden>
+          <div class="page-head">
+            <h1 class="page-head__title">Görev Takibi</h1>
+            <button type="button" class="btn btn--sm btn--purple" id="btnGorevTakibiAdd">
+              <i class="fa-solid fa-plus"></i> Yeni Görev Ekle
+            </button>
+          </div>
+          <p class="page-desc">Kartları sütunlar arasında <strong>sürükleyip bırakın</strong>. Veriler bu tarayıcıda saklanır.</p>
+
+          <div class="gorev-composer" id="gorevTakibiComposer" hidden>
+            <div class="gorev-composer__inner">
+              <label class="gorev-composer__label" for="gorevTakibiInput">Görev metni</label>
+              <input
+                type="text"
+                id="gorevTakibiInput"
+                class="gorev-composer__input"
+                maxlength="200"
+                placeholder="Örn. Paragraf 30 soru çözülecek"
+                autocomplete="off"
+              />
+              <div class="gorev-composer__actions">
+                <button type="button" class="btn btn--purple btn--sm" id="gorevTakibiConfirm"><i class="fa-solid fa-check"></i> Ekle</button>
+                <button type="button" class="btn btn--sm" id="gorevTakibiCancel" style="background: var(--gray-200); color: var(--gray-700)">İptal</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="kanban-board" id="kanbanBoard" role="region" aria-label="Görev panosu">
+            <section class="kanban-col" data-kanban-col="todo">
+              <header class="kanban-col__head">
+                <h2 class="kanban-col__title">Yapılacaklar</h2>
+                <span class="kanban-col__badge" id="kanbanBadgeTodo">0</span>
+              </header>
+              <div class="kanban-col__cards" id="kanbanTodo" data-drop-zone="todo"></div>
+            </section>
+            <section class="kanban-col" data-kanban-col="doing">
+              <header class="kanban-col__head">
+                <h2 class="kanban-col__title">Devam Edenler</h2>
+                <span class="kanban-col__badge" id="kanbanBadgeDoing">0</span>
+              </header>
+              <div class="kanban-col__cards" id="kanbanDoing" data-drop-zone="doing"></div>
+            </section>
+            <section class="kanban-col" data-kanban-col="done">
+              <header class="kanban-col__head">
+                <h2 class="kanban-col__title">Bitenler</h2>
+                <span class="kanban-col__badge" id="kanbanBadgeDone">0</span>
+              </header>
+              <div class="kanban-col__cards" id="kanbanDone" data-drop-zone="done"></div>
+            </section>
+          </div>
+        </div>
+
+        <div class="main-view" data-view="denemeler" id="view-deneme-analiz" hidden>
           <div class="page-head">
             <h1 class="page-head__title">Deneme Analizleri</h1>
             <div class="page-head__actions">
@@ -663,6 +720,46 @@
               <button type="button" class="btn btn--sm btn--purple" id="btnExamsFilter"><i class="fa-solid fa-filter"></i> Filtre: Tümü</button>
             </div>
           </div>
+
+          <section class="deneme-analiz-panel" aria-label="Hızlı net girişi ve trend">
+            <form class="deneme-analiz-form" id="formDenemeAnaliz" autocomplete="off">
+              <div class="deneme-analiz-form__grid">
+                <label class="deneme-analiz-field">
+                  <span>Öğrenci seç</span>
+                  <select id="daStudentSelect" required>
+                    <option value="">— Öğrenci seçin —</option>
+                  </select>
+                </label>
+                <label class="deneme-analiz-field">
+                  <span>Deneme adı</span>
+                  <input type="text" id="daDenemeName" placeholder="Örn. Paraf TYT-5" maxlength="120" required />
+                </label>
+                <label class="deneme-analiz-field deneme-analiz-field--narrow">
+                  <span>TYT neti</span>
+                  <input type="number" id="daTytNet" inputmode="decimal" step="0.25" min="0" max="120" placeholder="0" required />
+                </label>
+                <label class="deneme-analiz-field deneme-analiz-field--narrow">
+                  <span>AYT neti</span>
+                  <input type="number" id="daAytNet" inputmode="decimal" step="0.25" min="0" max="120" placeholder="0" required />
+                </label>
+                <div class="deneme-analiz-form__submit">
+                  <button type="submit" class="btn btn--purple deneme-analiz-save-btn"><i class="fa-solid fa-floppy-disk"></i> Kaydet</button>
+                </div>
+              </div>
+            </form>
+
+            <div class="deneme-analiz-chart-card">
+              <div class="deneme-analiz-chart-card__head">
+                <h2 class="deneme-analiz-chart-card__title"><i class="fa-solid fa-chart-line"></i> Net trendi</h2>
+                <p class="deneme-analiz-chart-card__hint">Kayıtlar bu cihazda saklanır; seçili öğrenci için TYT / AYT çizgileri güncellenir.</p>
+              </div>
+              <div class="deneme-analiz-chart-wrap">
+                <canvas id="denemeAnalizChart" aria-label="TYT ve AYT net grafiği"></canvas>
+              </div>
+            </div>
+          </section>
+
+          <h2 class="deneme-analiz-table-heading">Firestore deneme kayıtları</h2>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
@@ -753,6 +850,7 @@
                       <button type="button" class="tm-btn-pdf-dl tm-btn-export-pdf tm-btn-export-pdf--hero" id="tmBtnPdfDownload" title="PDF indir"><i class="fa-solid fa-file-pdf"></i> PDF İndir</button>
                       <button type="button" class="tm-btn-library-save tm-btn-export-lib" id="tmBtnSaveToLibrary" title="Yerel kütüphaneye (IndexedDB) kaydeder"><i class="fa-solid fa-layer-group"></i> Kütüphaneye Kaydet</button>
                       <button type="button" class="tm-btn-save-draft tm-btn-export-draft" id="tmBtnSaveFirestore"><i class="fa-solid fa-database"></i> Taslağı Kaydet</button>
+                      <button type="button" class="tm-btn-workspace-refresh" id="tmBtnWorkspaceRefresh" title="Soruları sil, boş şablona dön"><i class="fa-solid fa-rotate-right"></i> Yenile</button>
                     </div>
                   </section>
                 </div>
@@ -987,14 +1085,14 @@
                   </div>
                   <span class="tm-pdf-nav__total">/ <strong id="pdfPageTotal">0</strong> sayfa</span>
                 </div>
+                <div class="tm-add-a4-toolbar">
+                  <button type="button" class="tm-btn-add-a4 tm-btn-add-a4--below-nav" id="tmBtnAddToA4" disabled>
+                    <i class="fa-solid fa-scissors"></i> Seçimi A4’e ekle
+                  </button>
+                </div>
                 <div class="tm-crop-wrap" id="tmCropWrap">
                   <img id="tmCropImg" alt="Kırpma kaynağı" style="display:none;max-width:100%" />
                 </div>
-                </div>
-                <div class="tm-source-panel__footer">
-                <button type="button" class="tm-btn-add-a4 tm-btn-add-a4--footer" id="tmBtnAddToA4" disabled>
-                  <i class="fa-solid fa-scissors"></i> Seçimi A4’e ekle
-                </button>
                 </div>
               </aside>
               </div>

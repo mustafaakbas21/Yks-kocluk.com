@@ -881,3 +881,350 @@ body.tm-annotate-open {
   font-family: "Inter", system-ui, sans-serif !important;
   color: #64748b !important;
 }
+
+/* ========== TestMaker (3 görünüm): açık tema — arka plan + kontrastlı metin ========== */
+.app--testmaker-workspace .tm-workspace-view {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
+}
+
+.app--testmaker-workspace .tm-workspace {
+  color: #0f172a;
+}
+
+.app--testmaker-workspace .tm-workspace__header {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.app--testmaker-workspace .tm-workspace__brand {
+  background: none !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
+  color: #5b21b6 !important;
+}
+
+.app--testmaker-workspace .tm-back-dashboard {
+  border-color: #cbd5e1 !important;
+  background: #f8fafc !important;
+  color: #334155 !important;
+}
+
+.app--testmaker-workspace .tm-back-dashboard:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.app--testmaker-workspace .tm-word-ribbon {
+  background: #f1f5f9 !important;
+  border-top: 1px solid #e2e8f0 !important;
+}
+
+.app--testmaker-workspace .tm-word-ribbon__tab {
+  color: #475569 !important;
+}
+
+.app--testmaker-workspace .tm-word-ribbon__tab:hover {
+  color: #0f172a !important;
+  background: rgba(124, 58, 237, 0.1) !important;
+}
+
+.app--testmaker-workspace .tm-word-ribbon__tab.is-active {
+  color: #5b21b6 !important;
+  background: rgba(124, 58, 237, 0.14) !important;
+  border-color: rgba(124, 58, 237, 0.35) !important;
+}
+
+.app--testmaker-workspace .tm-view-library {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
+}
+
+.app--testmaker-workspace .tm-library-page__ribbon-hint {
+  color: #64748b !important;
+}
+
+.app--testmaker-workspace .tm-library-hero {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+}
+
+.app--testmaker-workspace .tm-library-hero__title {
+  color: #0f172a !important;
+}
+
+.app--testmaker-workspace .tm-library-hero__tag {
+  background: rgba(124, 58, 237, 0.12) !important;
+  color: #5b21b6 !important;
+}
+
+.app--testmaker-workspace .tm-library-hero__desc {
+  color: #475569 !important;
+}
+
+.app--testmaker-workspace .tm-tests-grid__empty {
+  color: #64748b !important;
+  border-color: #cbd5e1 !important;
+  background: #ffffff !important;
+}
+
+.app--testmaker-workspace .tm-test-card__title {
+  color: #0f172a !important;
+}
+
+.app--testmaker-workspace .tm-test-card__meta {
+  color: #64748b !important;
+}
+
+.app--testmaker-workspace .tm-test-card__btn {
+  border-color: #cbd5e1 !important;
+  background: #f8fafc !important;
+  color: #334155 !important;
+}
+
+.app--testmaker-workspace .tm-test-card__btn--edit {
+  color: #5b21b6 !important;
+  border-color: rgba(124, 58, 237, 0.45) !important;
+  background: rgba(124, 58, 237, 0.08) !important;
+}
+
+.app--testmaker-workspace .tm-test-card__btn--del {
+  color: #b91c1c !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+  background: rgba(254, 226, 226, 0.65) !important;
+}
+
+.app--testmaker-workspace .tm-local-pdf-zone__title {
+  color: #0f172a !important;
+}
+
+.app--testmaker-workspace .tm-local-pdf-zone__hint {
+  color: #475569 !important;
+}
+
+.app--testmaker-workspace .tm-saved-pdf-item {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+.app--testmaker-workspace .tm-saved-pdf-item__name {
+  color: #0f172a !important;
+}
+
+.app--testmaker-workspace .tm-saved-pdf-library--ebook .tm-saved-pdf-item__name {
+  color: #0f172a !important;
+}
+
+.app--testmaker-workspace .tm-saved-pdf-item__actions button {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+.app--testmaker-workspace .tm-saved-pdf-item__actions .is-edit {
+  color: #5b21b6 !important;
+  border-color: rgba(124, 58, 237, 0.45) !important;
+}
+
+.app--testmaker-workspace .tm-saved-pdf-item__actions .is-del {
+  color: #b91c1c !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
+/* Test oluşturucu — üst şerit ve araç çubuğu */
+.app--testmaker-workspace .tm-top-meta-ribbon {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+  border-bottom-color: #e2e8f0 !important;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
+}
+
+.app--testmaker-workspace .tm-ribbon-group {
+  border-right-color: #e2e8f0 !important;
+}
+
+.app--testmaker-workspace .tm-ribbon-group__title {
+  color: #64748b !important;
+}
+
+.app--testmaker-workspace .tm-top-meta-ribbon__group > span {
+  color: #64748b !important;
+}
+
+.app--testmaker-workspace .tm-top-meta-ribbon__group input,
+.app--testmaker-workspace .tm-top-meta-ribbon__group select,
+.app--testmaker-workspace .tm-top-meta-ribbon .tm-input-elite {
+  border-color: #cbd5e1 !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.app--testmaker-workspace .tm-top-meta-ribbon__export {
+  border-left-color: #e2e8f0 !important;
+}
+
+.app--testmaker-workspace .tm-format-ribbon-wrap {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
+  border-bottom-color: #e2e8f0 !important;
+}
+
+.app--testmaker-workspace .tm-format-ribbon__chunk {
+  border-right-color: #e2e8f0 !important;
+}
+
+.app--testmaker-workspace .tm-format-ribbon__chunk-title {
+  color: #64748b !important;
+}
+
+.app--testmaker-workspace .tm-ribbon-tile {
+  border-color: #d1d5db !important;
+  background: #ffffff !important;
+  color: #334155 !important;
+}
+
+.app--testmaker-workspace .tm-ribbon-tile:hover {
+  background: #f8fafc !important;
+  border-color: rgba(124, 58, 237, 0.45) !important;
+  color: #0f172a !important;
+}
+
+.app--testmaker-workspace .tm-ribbon-tile.is-active {
+  border-color: rgba(124, 58, 237, 0.65) !important;
+  background: rgba(124, 58, 237, 0.12) !important;
+  color: #5b21b6 !important;
+}
+
+.app--testmaker-workspace .tm-creator-main {
+  background: #e8edf3 !important;
+  border-right-color: #e2e8f0 !important;
+}
+
+.app--testmaker-workspace .tm-a4-workspace-scroll,
+.app--testmaker-workspace .tm-a4-preview-scroll {
+  background: #e2e8f0 !important;
+}
+
+.app--testmaker-workspace .tm-source-panel {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+  border-left-color: #e2e8f0 !important;
+}
+
+.app--testmaker-workspace .tm-source-panel__title {
+  color: #0f172a !important;
+}
+
+.app--testmaker-workspace .tm-source-panel__lib-lbl,
+.app--testmaker-workspace .tm-tools__label {
+  color: #5b21b6 !important;
+}
+
+.app--testmaker-workspace .tm-library__item {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: transparent !important;
+}
+
+.app--testmaker-workspace .tm-library__item:hover {
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  background: rgba(16, 185, 129, 0.08) !important;
+}
+
+.app--testmaker-workspace .tm-library__item.is-active {
+  border-color: #10b981 !important;
+  background: rgba(16, 185, 129, 0.12) !important;
+}
+
+.app--testmaker-workspace .tm-library__foot {
+  color: #64748b !important;
+}
+
+.app--testmaker-workspace .tm-dropzone {
+  border-color: rgba(124, 58, 237, 0.35) !important;
+  background: rgba(124, 58, 237, 0.06) !important;
+}
+
+.app--testmaker-workspace .tm-dropzone p {
+  color: #475569 !important;
+}
+
+.app--testmaker-workspace .tm-pdf-nav {
+  border-color: #cbd5e1 !important;
+  background: #ffffff !important;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
+}
+
+.app--testmaker-workspace .tm-pdf-nav__arrow {
+  background: rgba(124, 58, 237, 0.12) !important;
+  color: #5b21b6 !important;
+}
+
+.app--testmaker-workspace .tm-pdf-nav__arrow:hover:not(:disabled) {
+  background: rgba(124, 58, 237, 0.22) !important;
+  color: #4c1d95 !important;
+}
+
+.app--testmaker-workspace .tm-pdf-nav__input {
+  color: #0f172a !important;
+}
+
+.app--testmaker-workspace .tm-pdf-nav__input:focus {
+  background: rgba(124, 58, 237, 0.06) !important;
+}
+
+.app--testmaker-workspace .tm-pdf-nav__total {
+  color: #64748b !important;
+}
+
+.app--testmaker-workspace .tm-pdf-nav__total strong {
+  color: #334155 !important;
+}
+
+.app--testmaker-workspace .tm-crop-wrap {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+
+.app--testmaker-workspace .tm-btn-workspace-refresh {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+.app--testmaker-workspace .tm-btn-workspace-refresh:hover {
+  background: #e2e8f0 !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
+}
+
+.app--testmaker-workspace .tm-flyout {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.12) !important;
+}
+
+.app--testmaker-workspace .tm-flyout__title {
+  color: #5b21b6 !important;
+}
+
+.app--testmaker-workspace .tm-flyout__field {
+  color: #475569 !important;
+}
+
+.app--testmaker-workspace .tm-flyout__field input,
+.app--testmaker-workspace .tm-flyout__field select {
+  border-color: #cbd5e1 !important;
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+.app--testmaker-workspace .tm-flyout__close {
+  background: #f1f5f9 !important;
+  color: #64748b !important;
+}
+
+.app--testmaker-workspace .tm-flyout__close:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.app--testmaker-workspace .tm-flyout__hint {
+  color: #64748b !important;
+}

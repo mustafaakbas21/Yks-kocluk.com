@@ -2504,12 +2504,12 @@ function initStudentErpTabs() {
 }
 
 function fillStudentSelects() {
-  ["ap_student", "pay_student", "ex_student"].forEach(function (sid) {
+  ["ap_student", "pay_student", "ex_student", "daStudentSelect"].forEach(function (sid) {
     var sel = document.getElementById(sid);
     if (!sel) return;
     var keep = sel.value;
     sel.innerHTML =
-      sid === "ap_student"
+      sid === "ap_student" || sid === "daStudentSelect"
         ? '<option value="">— Öğrenci seçin —</option>'
         : '<option value="">— Seçin —</option>';
     cachedStudents.forEach(function (s) {
@@ -2520,6 +2520,369 @@ function fillStudentSelects() {
     });
     if (keep) sel.value = keep;
   });
+}
+
+/* --- Deneme Analizleri: yerel trend grafiği (Chart.js) --- */
+var DA_CHART_STORAGE_KEY = "yks_deneme_analiz_chart_v1";
+var denemeAnalizFormBound = false;
+
+function daLoadChartStore() {
+  try {
+    var raw = localStorage.getItem(DA_CHART_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function daSaveChartStore(obj) {
+  try {
+    localStorage.setItem(DA_CHART_STORAGE_KEY, JSON.stringify(obj));
+  } catch (e) {}
+}
+
+function daGetSeries(studentId) {
+  if (!studentId) return [];
+  var all = daLoadChartStore();
+  return Array.isArray(all[studentId]) ? all[studentId] : [];
+}
+
+function daAppendChartPoint(studentId, label, tyt, ayt) {
+  var all = daLoadChartStore();
+  if (!all[studentId]) all[studentId] = [];
+  all[studentId].push({
+    label: label,
+    tyt: tyt,
+    ayt: ayt,
+    at: Date.now(),
+  });
+  daSaveChartStore(all);
+  return all[studentId];
+}
+
+function denemeAnalizChartBaseOptions() {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: "index", intersect: false },
+    plugins: {
+      legend: {
+        position: "top",
+        labels: {
+          color: "#d1fae5",
+          font: { size: 12, weight: "600" },
+          usePointStyle: true,
+          padding: 16,
+        },
+      },
+      tooltip: {
+        backgroundColor: "rgba(15, 23, 42, 0.94)",
+        titleColor: "#f8fafc",
+        bodyColor: "#a7f3d0",
+        borderColor: "rgba(52, 211, 153, 0.45)",
+        borderWidth: 1,
+        padding: 12,
+      },
+    },
+    scales: {
+      x: {
+        ticks: { color: "#94a3b8", maxRotation: 45, minRotation: 0 },
+        grid: { color: "rgba(52, 211, 153, 0.14)" },
+      },
+      y: {
+        beginAtZero: true,
+        ticks: { color: "#94a3b8" },
+        grid: { color: "rgba(52, 211, 153, 0.1)" },
+      },
+    },
+  };
+}
+
+function renderDenemeAnalizChart() {
+  var canvas = document.getElementById("denemeAnalizChart");
+  if (!canvas || typeof Chart === "undefined") return;
+  var existing = Chart.getChart(canvas);
+  if (existing) existing.destroy();
+  var sel = document.getElementById("daStudentSelect");
+  var sid = sel && sel.value;
+  var series = daGetSeries(sid);
+  var labels = series.map(function (p) {
+    return (p.label && String(p.label).trim()) || "Kayıt";
+  });
+  var tytData = series.map(function (p) {
+    return p.tyt != null ? Number(p.tyt) : null;
+  });
+  var aytData = series.map(function (p) {
+    return p.ayt != null ? Number(p.ayt) : null;
+  });
+  new Chart(canvas, {
+    type: "line",
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: "TYT neti",
+          data: tytData,
+          borderColor: "#34d399",
+          backgroundColor: "rgba(52, 211, 153, 0.22)",
+          borderWidth: 3,
+          tension: 0.35,
+          fill: true,
+          pointRadius: 5,
+          pointBackgroundColor: "#6ee7b7",
+          pointBorderColor: "#ecfdf5",
+          pointBorderWidth: 2,
+          pointHoverRadius: 8,
+          pointHoverBorderWidth: 2,
+          pointHoverBackgroundColor: "#a7f3d0",
+        },
+        {
+          label: "AYT neti",
+          data: aytData,
+          borderColor: "#10b981",
+          backgroundColor: "rgba(16, 185, 129, 0.18)",
+          borderWidth: 3,
+          tension: 0.35,
+          fill: true,
+          pointRadius: 5,
+          pointBackgroundColor: "#34d399",
+          pointBorderColor: "#d1fae5",
+          pointBorderWidth: 2,
+          pointHoverRadius: 8,
+          pointHoverBorderWidth: 2,
+          pointHoverBackgroundColor: "#6ee7b7",
+        },
+      ],
+    },
+    options: denemeAnalizChartBaseOptions(),
+  });
+}
+
+function initDenemeAnalizPage() {
+  fillStudentSelects();
+  renderDenemeAnalizChart();
+}
+
+function bindDenemeAnalizForm() {
+  if (denemeAnalizFormBound) return;
+  var form = document.getElementById("formDenemeAnaliz");
+  var sel = document.getElementById("daStudentSelect");
+  if (!form || !sel) return;
+  denemeAnalizFormBound = true;
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var sid = sel.value;
+    if (!sid) {
+      showToast("Öğrenci seçin.");
+      return;
+    }
+    var nameIn = document.getElementById("daDenemeName");
+    var tytIn = document.getElementById("daTytNet");
+    var aytIn = document.getElementById("daAytNet");
+    var name = (nameIn && nameIn.value.trim()) || "Deneme";
+    var tyt = tytIn ? parseFloat(tytIn.value) : NaN;
+    var ayt = aytIn ? parseFloat(aytIn.value) : NaN;
+    if (isNaN(tyt) || isNaN(ayt)) {
+      showToast("TYT ve AYT için geçerli net girin.");
+      return;
+    }
+    daAppendChartPoint(sid, name, tyt, ayt);
+    renderDenemeAnalizChart();
+    showToast("Net kaydı grafiğe eklendi.");
+    form.reset();
+    sel.value = sid;
+  });
+  sel.addEventListener("change", function () {
+    renderDenemeAnalizChart();
+  });
+}
+
+/* --- Görev Takibi — Kanban + HTML5 Drag & Drop --- */
+var GOREV_KANBAN_STORAGE_KEY = "yks_gorev_kanban_v1";
+var gorevKanbanState = null;
+var gorevComposerBound = false;
+
+function loadGorevKanbanStateRaw() {
+  try {
+    var raw = localStorage.getItem(GOREV_KANBAN_STORAGE_KEY);
+    if (!raw) return { todo: [], doing: [], done: [] };
+    var o = JSON.parse(raw);
+    return {
+      todo: Array.isArray(o.todo) ? o.todo : [],
+      doing: Array.isArray(o.doing) ? o.doing : [],
+      done: Array.isArray(o.done) ? o.done : [],
+    };
+  } catch (e) {
+    return { todo: [], doing: [], done: [] };
+  }
+}
+
+function saveGorevKanbanState() {
+  if (!gorevKanbanState) return;
+  try {
+    localStorage.setItem(GOREV_KANBAN_STORAGE_KEY, JSON.stringify(gorevKanbanState));
+  } catch (e) {}
+}
+
+function findGorevTaskLocation(taskId) {
+  if (!gorevKanbanState) return null;
+  var keys = ["todo", "doing", "done"];
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    var ix = gorevKanbanState[k].findIndex(function (t) {
+      return t.id === taskId;
+    });
+    if (ix >= 0) return { col: k, index: ix };
+  }
+  return null;
+}
+
+function renderGorevKanbanCards() {
+  if (!gorevKanbanState) return;
+  var map = { todo: "kanbanTodo", doing: "kanbanDoing", done: "kanbanDone" };
+  Object.keys(map).forEach(function (key) {
+    var host = document.getElementById(map[key]);
+    if (!host) return;
+    host.innerHTML = "";
+    gorevKanbanState[key].forEach(function (task) {
+      var card = document.createElement("div");
+      card.className = "kanban-card";
+      card.setAttribute("draggable", "true");
+      card.setAttribute("data-task-id", task.id);
+      var p = document.createElement("p");
+      p.className = "kanban-card__text";
+      p.textContent = task.text || "";
+      card.appendChild(p);
+      host.appendChild(card);
+    });
+  });
+  var bTodo = document.getElementById("kanbanBadgeTodo");
+  var bDoing = document.getElementById("kanbanBadgeDoing");
+  var bDone = document.getElementById("kanbanBadgeDone");
+  if (bTodo) bTodo.textContent = String(gorevKanbanState.todo.length);
+  if (bDoing) bDoing.textContent = String(gorevKanbanState.doing.length);
+  if (bDone) bDone.textContent = String(gorevKanbanState.done.length);
+}
+
+function moveGorevKanbanTask(taskId, toCol) {
+  if (!gorevKanbanState || (toCol !== "todo" && toCol !== "doing" && toCol !== "done")) return;
+  var loc = findGorevTaskLocation(taskId);
+  if (!loc) return;
+  if (loc.col === toCol) return;
+  var task = gorevKanbanState[loc.col].splice(loc.index, 1)[0];
+  gorevKanbanState[toCol].push(task);
+  saveGorevKanbanState();
+  renderGorevKanbanCards();
+}
+
+function addGorevKanbanTask(text) {
+  var t = String(text || "").trim();
+  if (!t) {
+    showToast("Görev metni girin.");
+    return;
+  }
+  if (!gorevKanbanState) gorevKanbanState = loadGorevKanbanStateRaw();
+  gorevKanbanState.todo.push({
+    id: "gt_" + Date.now() + "_" + Math.random().toString(36).slice(2, 9),
+    text: t,
+  });
+  saveGorevKanbanState();
+  renderGorevKanbanCards();
+  showToast("Görev eklendi.");
+}
+
+function clearKanbanDropOver() {
+  document.querySelectorAll(".kanban-col__cards--over").forEach(function (z) {
+    z.classList.remove("kanban-col__cards--over");
+  });
+}
+
+function setupGorevKanbanDragDrop() {
+  var board = document.getElementById("view-gorev-takibi");
+  if (!board || board.getAttribute("data-kanban-dnd") === "1") return;
+  board.setAttribute("data-kanban-dnd", "1");
+  board.addEventListener("dragstart", function (e) {
+    var card = e.target.closest(".kanban-card");
+    if (!card || !board.contains(card)) return;
+    e.dataTransfer.setData("text/plain", card.getAttribute("data-task-id") || "");
+    e.dataTransfer.effectAllowed = "move";
+    card.classList.add("kanban-card--dragging");
+  });
+  board.addEventListener("dragend", function (e) {
+    var card = e.target.closest(".kanban-card");
+    if (card) card.classList.remove("kanban-card--dragging");
+    clearKanbanDropOver();
+  });
+  board.addEventListener("dragover", function (e) {
+    var zone = e.target.closest(".kanban-col__cards");
+    if (!zone || !board.contains(zone)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    clearKanbanDropOver();
+    zone.classList.add("kanban-col__cards--over");
+  });
+  board.addEventListener("dragleave", function (e) {
+    var zone = e.target.closest(".kanban-col__cards");
+    if (!zone || !board.contains(zone)) return;
+    if (!e.relatedTarget || !zone.contains(e.relatedTarget)) {
+      zone.classList.remove("kanban-col__cards--over");
+    }
+  });
+  board.addEventListener("drop", function (e) {
+    var zone = e.target.closest(".kanban-col__cards");
+    if (!zone || !board.contains(zone)) return;
+    e.preventDefault();
+    clearKanbanDropOver();
+    var id = e.dataTransfer.getData("text/plain");
+    var colEl = zone.closest("[data-kanban-col]");
+    var toCol = colEl && colEl.getAttribute("data-kanban-col");
+    if (!id || !toCol) return;
+    moveGorevKanbanTask(id, toCol);
+  });
+}
+
+function bindGorevTakibiComposerOnce() {
+  if (gorevComposerBound) return;
+  var addBtn = document.getElementById("btnGorevTakibiAdd");
+  var composer = document.getElementById("gorevTakibiComposer");
+  var input = document.getElementById("gorevTakibiInput");
+  var confirmBtn = document.getElementById("gorevTakibiConfirm");
+  var cancelBtn = document.getElementById("gorevTakibiCancel");
+  if (!addBtn || !composer || !input || !confirmBtn || !cancelBtn) return;
+  gorevComposerBound = true;
+
+  function openComposer() {
+    composer.hidden = false;
+    input.focus();
+  }
+  function closeComposer() {
+    composer.hidden = true;
+    input.value = "";
+  }
+
+  addBtn.addEventListener("click", function () {
+    if (composer.hidden) openComposer();
+    else closeComposer();
+  });
+  cancelBtn.addEventListener("click", closeComposer);
+  confirmBtn.addEventListener("click", function () {
+    addGorevKanbanTask(input.value);
+    closeComposer();
+  });
+  input.addEventListener("keydown", function (ev) {
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      addGorevKanbanTask(input.value);
+      closeComposer();
+    }
+  });
+}
+
+function initGorevTakibiPage() {
+  gorevKanbanState = loadGorevKanbanStateRaw();
+  renderGorevKanbanCards();
+  setupGorevKanbanDragDrop();
+  bindGorevTakibiComposerOnce();
 }
 
 /** Tek seferde yalnızca bir modal açık — HTML id'leri ile eşleşir */
@@ -3363,6 +3726,134 @@ function testmakerWorkspaceEnter() {
   if (app) app.classList.add("app--testmaker-workspace");
   bindTestMakerWorkspace();
   tmLibraryRenderList();
+}
+
+/** Test Tasarımı: sorular, ek A4 sayfaları, kaynak PDF/görsel, üst şerit ve logo sıfırlanır (ilk girişe yakın). */
+function tmResetTestCreatorWorkspace() {
+  tmCloseAllTmFlyouts();
+
+  var container = document.getElementById("a4-pages-container");
+  if (container) {
+    container.querySelectorAll(".a4-paper").forEach(function (paper) {
+      paper.querySelectorAll('[data-tm-col="1"], [data-tm-col="2"]').forEach(function (col) {
+        col.innerHTML = "";
+      });
+      var sing = paper.querySelector(".tm-a4-single");
+      if (sing) {
+        sing.innerHTML = "";
+        sing.hidden = true;
+      }
+    });
+  }
+  tmRemoveExtraA4Pages();
+
+  destroyTmWsCropper();
+  var img = document.getElementById("tmCropImg");
+  if (img) {
+    img.onload = null;
+    img.onerror = null;
+    img.removeAttribute("src");
+    img.style.display = "none";
+  }
+  var row = document.getElementById("tmPdfPageRow");
+  if (row) row.hidden = true;
+  var tot = document.getElementById("pdfPageTotal");
+  if (tot) tot.textContent = "0";
+  var pin = document.getElementById("pdfPageInput");
+  if (pin) {
+    pin.value = "1";
+    pin.removeAttribute("max");
+  }
+  tmWsPdfDoc = null;
+  tmWsPdfBytes = null;
+  tmEditorPageOrder = [];
+  tmEditorAnnotations = {};
+  tmEditorClearRedo();
+  tmWsCurrentPdfPage = 1;
+  tmWsPdfRendering = false;
+  var th = document.getElementById("tmEditorThumbs");
+  if (th) th.innerHTML = "";
+
+  tmActiveLibId = null;
+
+  var addBtn = document.getElementById("tmBtnAddToA4");
+  if (addBtn) addBtn.disabled = true;
+
+  var fin = document.getElementById("tmFileInput");
+  if (fin) fin.value = "";
+  var libInp = document.getElementById("tmLibFileInput");
+  if (libInp) libInp.value = "";
+
+  function setVal(id, v) {
+    var el = document.getElementById(id);
+    if (el) el.value = v;
+  }
+  setVal("tmWsTitle", "");
+  setVal("tmWsCourse", "");
+  setVal("tmWsTopic", "");
+  setVal("tmHdrStudentInput", "");
+  setVal("tmHdrNetInput", "");
+  setVal("tmWsInstitution", "");
+
+  var subj = document.getElementById("tmWsSubject");
+  if (subj) subj.selectedIndex = 0;
+  var diff = document.getElementById("tmWsDiff");
+  if (diff) {
+    for (var di = 0; di < diff.options.length; di++) {
+      if (diff.options[di].value === "Orta") {
+        diff.selectedIndex = di;
+        break;
+      }
+    }
+  }
+  var dateInp = document.getElementById("tmWsTestDate");
+  if (dateInp) dateInp.value = new Date().toISOString().slice(0, 10);
+
+  var tmpl = document.getElementById("tmTemplate");
+  if (tmpl) tmpl.value = "osym";
+
+  tmSetPageLayout(4);
+
+  tmHeaderLogoDataUrl = "";
+
+  var strip = document.getElementById("tmOptikStrip");
+  var optBtn = document.getElementById("tmRailBtnOptik");
+  tmOptikStripVisible = false;
+  if (strip) strip.hidden = true;
+  if (optBtn) {
+    optBtn.classList.remove("is-active");
+    optBtn.setAttribute("aria-pressed", "false");
+  }
+
+  tmApplyWorkspaceTemplate();
+  try {
+    tmApplyAccentFromStudio("#1A1A1A", true);
+  } catch (eAcc) {}
+
+  tmSyncPaperHeaders();
+  tmApplyHeaderLogo();
+  tmSyncWatermarkLayer();
+  tmUpdateA4EmptyVisibility();
+  tmRenumberTmQuestions();
+  tmLibraryRenderList();
+  showToast("Tasarım sıfırlandı.");
+}
+
+function tmOnWorkspaceRefreshClick() {
+  var n = tmTotalQuestionBlocks();
+  var imgEl = document.getElementById("tmCropImg");
+  var hasSrc = !!tmWsPdfDoc || !!(imgEl && imgEl.getAttribute("src"));
+  var metaTouched =
+    (document.getElementById("tmWsTitle") && document.getElementById("tmWsTitle").value.trim()) ||
+    (document.getElementById("tmWsCourse") && document.getElementById("tmWsCourse").value.trim()) ||
+    (document.getElementById("tmWsTopic") && document.getElementById("tmWsTopic").value.trim()) ||
+    (document.getElementById("tmWsInstitution") && document.getElementById("tmWsInstitution").value.trim()) ||
+    (document.getElementById("tmHdrStudentInput") && document.getElementById("tmHdrStudentInput").value.trim()) ||
+    (document.getElementById("tmHdrNetInput") && document.getElementById("tmHdrNetInput").value.trim());
+  if (n > 0 || hasSrc || metaTouched) {
+    if (!confirm("Tüm sorular, açık PDF/görsel ve test bilgileri silinecek. Devam edilsin mi?")) return;
+  }
+  tmResetTestCreatorWorkspace();
 }
 
 function tmPdfNavUpdateDisabled() {
@@ -4867,6 +5358,8 @@ function bindTestMakerWorkspace() {
   if (sav) sav.addEventListener("click", tmWsSaveFirestoreDraft);
   var pdf = document.getElementById("tmBtnPdfDownload");
   if (pdf) pdf.addEventListener("click", tmWsDownloadPdf);
+  var refreshWs = document.getElementById("tmBtnWorkspaceRefresh");
+  if (refreshWs) refreshWs.addEventListener("click", tmOnWorkspaceRefreshClick);
 
   var tmpl = document.getElementById("tmTemplate");
   if (tmpl) tmpl.addEventListener("change", tmApplyWorkspaceTemplate);
@@ -4971,8 +5464,13 @@ function navigateTo(view) {
     overlay.classList.remove("is-open");
     document.body.style.overflow = "";
   }
-  if (view === "denemeler") renderExamsFullPage();
+  if (view === "denemeler") {
+    renderExamsFullPage();
+    initDenemeAnalizPage();
+    bindDenemeAnalizForm();
+  }
   if (view === "ogrenciler") renderStudentsPage();
+  if (view === "gorev-takibi") initGorevTakibiPage();
   if (view === "randevu") renderAppointmentsPage();
   if (view === "testmaker" || view === "library" || view === "pdf-editor") {
     testmakerWorkspaceEnter();

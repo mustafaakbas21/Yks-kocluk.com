@@ -132,6 +132,8 @@
 }
 .tm-saved-pdf-library--ebook .tm-saved-pdf-item__name {
   white-space: normal;
+  /* Açık kart gövdesinde okunaklı (varsayılan #f4f4f5 beyaz zeminde kayboluyordu) */
+  color: #0f172a !important;
 }
 .tm-saved-pdf-library--ebook .tm-saved-pdf-item__actions {
   flex-direction: column;
@@ -1768,6 +1770,32 @@
   background: rgba(124, 58, 237, 0.32) !important;
 }
 
+/* Dosya grubu: diğer export butonlarının altında tam satır */
+.tm-btn-workspace-refresh {
+  flex: 1 1 100%;
+  justify-content: center;
+  white-space: nowrap;
+  padding: 0.48rem 0.95rem !important;
+  border-radius: 10px !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.15rem;
+  background: rgba(51, 65, 85, 0.55) !important;
+  border: 1px solid rgba(148, 163, 184, 0.35) !important;
+  color: #e2e8f0 !important;
+}
+
+.tm-btn-workspace-refresh:hover {
+  background: rgba(71, 85, 105, 0.65) !important;
+  border-color: rgba(148, 163, 184, 0.5) !important;
+  color: #f8fafc !important;
+}
+
 @media (max-width: 1100px) {
   .tm-top-meta-ribbon {
     flex-direction: column;
@@ -2790,17 +2818,17 @@
   padding-right: 0.1rem;
 }
 
-.tm-source-panel__footer {
+/* A4 ekle: sayfa numarası çubuğunun hemen altında, kırpma alanının üstünde */
+.tm-add-a4-toolbar {
   flex-shrink: 0;
-  padding-top: 0.45rem;
-  margin-top: 0.25rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 0.15rem;
+  margin-bottom: 0.35rem;
 }
 
-.tm-btn-add-a4--footer {
+.tm-btn-add-a4--below-nav {
   width: 100%;
   height: auto !important;
-  min-height: 48px !important;
+  min-height: 46px !important;
   max-height: none !important;
   margin-top: 0 !important;
   flex: none !important;

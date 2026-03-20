@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="css/koc-panel.css" />
   <link rel="stylesheet" href="css/forms-modal.css" />
@@ -40,6 +41,11 @@
           <li>
             <button type="button" class="sidebar__link" data-nav="ogrenciler">
               <i class="fa-solid fa-user-graduate"></i><span>Öğrencilerim</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="sidebar__link" data-nav="gorev-takibi">
+              <i class="fa-solid fa-list-check"></i><span>Görev Takibi</span>
             </button>
           </li>
           <li>
@@ -151,7 +157,59 @@
           <div class="student-grid" id="studentsPageGrid"></div>
         </div>
 
-        <div class="main-view" data-view="denemeler" id="view-denemeler" hidden>
+        <div class="main-view" data-view="gorev-takibi" id="view-gorev-takibi" hidden>
+          <div class="page-head">
+            <h1 class="page-head__title">Görev Takibi</h1>
+            <button type="button" class="btn btn--sm btn--purple" id="btnGorevTakibiAdd">
+              <i class="fa-solid fa-plus"></i> Yeni Görev Ekle
+            </button>
+          </div>
+          <p class="page-desc">Kartları sütunlar arasında <strong>sürükleyip bırakın</strong>. Veriler bu tarayıcıda saklanır.</p>
+
+          <div class="gorev-composer" id="gorevTakibiComposer" hidden>
+            <div class="gorev-composer__inner">
+              <label class="gorev-composer__label" for="gorevTakibiInput">Görev metni</label>
+              <input
+                type="text"
+                id="gorevTakibiInput"
+                class="gorev-composer__input"
+                maxlength="200"
+                placeholder="Örn. Paragraf 30 soru çözülecek"
+                autocomplete="off"
+              />
+              <div class="gorev-composer__actions">
+                <button type="button" class="btn btn--purple btn--sm" id="gorevTakibiConfirm"><i class="fa-solid fa-check"></i> Ekle</button>
+                <button type="button" class="btn btn--sm" id="gorevTakibiCancel" style="background: var(--gray-200); color: var(--gray-700)">İptal</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="kanban-board" id="kanbanBoard" role="region" aria-label="Görev panosu">
+            <section class="kanban-col" data-kanban-col="todo">
+              <header class="kanban-col__head">
+                <h2 class="kanban-col__title">Yapılacaklar</h2>
+                <span class="kanban-col__badge" id="kanbanBadgeTodo">0</span>
+              </header>
+              <div class="kanban-col__cards" id="kanbanTodo" data-drop-zone="todo"></div>
+            </section>
+            <section class="kanban-col" data-kanban-col="doing">
+              <header class="kanban-col__head">
+                <h2 class="kanban-col__title">Devam Edenler</h2>
+                <span class="kanban-col__badge" id="kanbanBadgeDoing">0</span>
+              </header>
+              <div class="kanban-col__cards" id="kanbanDoing" data-drop-zone="doing"></div>
+            </section>
+            <section class="kanban-col" data-kanban-col="done">
+              <header class="kanban-col__head">
+                <h2 class="kanban-col__title">Bitenler</h2>
+                <span class="kanban-col__badge" id="kanbanBadgeDone">0</span>
+              </header>
+              <div class="kanban-col__cards" id="kanbanDone" data-drop-zone="done"></div>
+            </section>
+          </div>
+        </div>
+
+        <div class="main-view" data-view="denemeler" id="view-deneme-analiz" hidden>
           <div class="page-head">
             <h1 class="page-head__title">Deneme Analizleri</h1>
             <div class="page-head__actions">
@@ -159,6 +217,46 @@
               <button type="button" class="btn btn--sm btn--purple" id="btnExamsFilter"><i class="fa-solid fa-filter"></i> Filtre: Tümü</button>
             </div>
           </div>
+
+          <section class="deneme-analiz-panel" aria-label="Hızlı net girişi ve trend">
+            <form class="deneme-analiz-form" id="formDenemeAnaliz" autocomplete="off">
+              <div class="deneme-analiz-form__grid">
+                <label class="deneme-analiz-field">
+                  <span>Öğrenci seç</span>
+                  <select id="daStudentSelect" required>
+                    <option value="">— Öğrenci seçin —</option>
+                  </select>
+                </label>
+                <label class="deneme-analiz-field">
+                  <span>Deneme adı</span>
+                  <input type="text" id="daDenemeName" placeholder="Örn. Paraf TYT-5" maxlength="120" required />
+                </label>
+                <label class="deneme-analiz-field deneme-analiz-field--narrow">
+                  <span>TYT neti</span>
+                  <input type="number" id="daTytNet" inputmode="decimal" step="0.25" min="0" max="120" placeholder="0" required />
+                </label>
+                <label class="deneme-analiz-field deneme-analiz-field--narrow">
+                  <span>AYT neti</span>
+                  <input type="number" id="daAytNet" inputmode="decimal" step="0.25" min="0" max="120" placeholder="0" required />
+                </label>
+                <div class="deneme-analiz-form__submit">
+                  <button type="submit" class="btn btn--purple deneme-analiz-save-btn"><i class="fa-solid fa-floppy-disk"></i> Kaydet</button>
+                </div>
+              </div>
+            </form>
+
+            <div class="deneme-analiz-chart-card">
+              <div class="deneme-analiz-chart-card__head">
+                <h2 class="deneme-analiz-chart-card__title"><i class="fa-solid fa-chart-line"></i> Net trendi</h2>
+                <p class="deneme-analiz-chart-card__hint">Kayıtlar bu cihazda saklanır; seçili öğrenci için TYT / AYT çizgileri güncellenir.</p>
+              </div>
+              <div class="deneme-analiz-chart-wrap">
+                <canvas id="denemeAnalizChart" aria-label="TYT ve AYT net grafiği"></canvas>
+              </div>
+            </div>
+          </section>
+
+          <h2 class="deneme-analiz-table-heading">Firestore deneme kayıtları</h2>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
