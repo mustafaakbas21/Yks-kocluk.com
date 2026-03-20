@@ -6091,6 +6091,14 @@ function bindTestMakerWorkspace() {
 
 function navigateTo(view) {
   if (!view) return;
+  var hasMainView = false;
+  document.querySelectorAll(".main-view").forEach(function (el) {
+    if (el.getAttribute("data-view") === view) hasMainView = true;
+  });
+  if (!hasMainView) {
+    console.warn("[YKSPanel] Geçersiz görünüm (main-view bulunamadı):", view);
+    return;
+  }
   var previous = currentView;
   if (tmAiGenNavigateTimer != null && previous === "auto-test" && view !== "auto-test") {
     clearTimeout(tmAiGenNavigateTimer);
@@ -6112,13 +6120,14 @@ function navigateTo(view) {
     view === "auto-test" ||
     view === "pdf-cropper";
   if (wasTm && !nowTm) testmakerWorkspaceLeave();
-  currentView = view;
+  try {
   document.querySelectorAll(".main-view").forEach(function (el) {
     const v = el.getAttribute("data-view");
     const on = v === view;
     el.classList.toggle("is-active", on);
     el.hidden = !on;
   });
+  currentView = view;
   document.querySelectorAll("button.sidebar__link[data-nav]").forEach(function (btn) {
     var nv = btn.getAttribute("data-nav");
     var on =
@@ -6198,6 +6207,20 @@ function navigateTo(view) {
   if (cre) cre.hidden = view !== "testmaker";
   if (view === "muhasebe") renderPaymentsTable();
   window.dispatchEvent(new CustomEvent("yks:navigate", { detail: { view: view } }));
+  } catch (err) {
+    console.error("[YKSPanel] navigateTo:", err);
+    try {
+      currentView = previous;
+      document.querySelectorAll(".main-view").forEach(function (el) {
+        var v = el.getAttribute("data-view");
+        var on = v === previous;
+        el.classList.toggle("is-active", on);
+        el.hidden = !on;
+      });
+    } catch (e2) {
+      console.error(e2);
+    }
+  }
 }
 
 /** TestMaker alt menüsü: görünüm kimliği → navigateTo (sidebar SPA) */
@@ -6211,7 +6234,11 @@ function displayTestmakerView(viewDomId) {
     "view-pdf-cropper": "pdf-cropper",
   };
   var route = map[viewDomId];
-  if (route) navigateTo(route);
+  if (route) {
+    navigateTo(route);
+    return;
+  }
+  console.warn("[YKSPanel] displayTestmakerView: eşleşmeyen DOM id:", viewDomId);
 }
 
 function initSidebar() {
@@ -6251,10 +6278,16 @@ function initNavigation() {
       navigateTo(el.getAttribute("data-nav"));
     });
   });
-  document.querySelectorAll("[data-tm-nav-action]").forEach(function (el) {
-    el.addEventListener("click", function (e) {
+  var tmSubmenu = document.getElementById("sidebarTmSubmenu");
+  if (tmSubmenu) {
+    tmSubmenu.addEventListener("click", function (e) {
+      var el = e.target && e.target.closest && e.target.closest(".sidebar__sublink[data-tm-nav-action]");
+      if (!el || !tmSubmenu.contains(el)) return;
+      e.preventDefault();
       e.stopPropagation();
-      var vid = el.getAttribute("data-testmaker-view");
+      var vid =
+        el.getAttribute("data-testmaker-view") ||
+        el.getAttribute("data-target");
       if (vid) {
         displayTestmakerView(vid);
         return;
@@ -6262,10 +6295,11 @@ function initNavigation() {
       var action = el.getAttribute("data-tm-nav-action");
       if (action === "library") navigateTo("library");
       else if (action === "pdf-editor") navigateTo("pdf-editor");
+      else if (action === "auto-test") navigateTo("auto-test");
       else if (action === "pdf-cropper") navigateTo("pdf-cropper");
       else navigateTo("testmaker");
     });
-  });
+  }
 
   /* TestMaker: ana satır yalnızca akordeon aç/kapat (alt linkler görünüme gider) */
   (function initTestmakerSidebarAccordion() {
