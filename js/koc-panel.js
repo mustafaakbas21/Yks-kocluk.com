@@ -426,44 +426,91 @@ var yksAiCurriculum = {
 
 var tmAiGenWizardBound = false;
 
+/** Demo soru havuzu — gerçek görsel URL’leri; istenirse genişletilebilir */
+var miniSoruBankasi = [
+  { id: 1, ders: "Matematik", konu: "Sayı Problemleri", zorluk: "Orta", image: "https://i.ibb.co/3dMvD6q/soru1.png" },
+  { id: 2, ders: "Matematik", konu: "Sayı Problemleri", zorluk: "Zor", image: "https://i.ibb.co/kMz3y7g/soru2.png" },
+  { id: 3, ders: "Matematik", konu: "Üslü Sayılar", zorluk: "Kolay", image: "https://i.ibb.co/Ttxp3vC/soru3.png" },
+  { id: 4, ders: "Türkçe", konu: "Paragraf", zorluk: "Orta", image: "https://i.ibb.co/YPXKq1z/soru4.png" },
+  { id: 5, ders: "Matematik", konu: "Sayı Problemleri", zorluk: "Orta", image: "https://i.ibb.co/4WH7n1B/soru5.png" },
+];
+
+function tmShuffleArrayInPlace(arr) {
+  for (var i = arr.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = arr[i];
+    arr[i] = arr[j];
+    arr[j] = t;
+  }
+  return arr;
+}
+
+function tmBankItemToQuestion(s, uniqueKey) {
+  return {
+    id: uniqueKey != null ? String(uniqueKey) : String(s.id),
+    ders: s.ders,
+    konu: s.konu,
+    zorluk: s.zorluk,
+    image: s.image,
+  };
+}
+
 /**
- * Sahte AI API: rastgele soru objeleri + placehold.co ile görsel kanıt URL’si.
+ * Mini soru havuzundan filtre + eksikleri rastgele tamamlama (mock API).
  * @param {string} ders
  * @param {string} konu
- * @param {string} zorluk
+ * @param {string} zorluk  — "Karma" ise eşleşmede zorluk filtresi uygulanmaz
  * @param {number} miktar
- * @returns {Promise<Array<{id:string,ders:string,konu:string,zorluk:string,imageUrl:string}>>}
+ * @returns {Promise<Array<{id:string,ders:string,konu:string,zorluk:string,image:string}>>}
  */
 function fetchAIGeneratedQuestions(ders, konu, zorluk, miktar) {
   return new Promise(function (resolve, reject) {
     var n = Math.max(1, Math.min(80, parseInt(miktar, 10) || 1));
-    var dersStr = String(ders || "").trim() || "Ders";
-    var konuStr = String(konu || "").trim() || "Konu";
-    var zStr = String(zorluk || "").trim() || "Orta";
+    var d = String(ders || "").trim();
+    var k = String(konu || "").trim();
+    var z = String(zorluk || "").trim();
     window.setTimeout(function () {
       try {
-        var used = {};
-        var list = [];
-        for (var i = 0; i < n; i++) {
-          var rid;
-          do {
-            rid = Math.floor(1000 + Math.random() * 90000);
-          } while (used[rid]);
-          used[rid] = true;
-          var idTag = "#Q-" + rid;
-          var textBody =
-            dersStr + "\n" + konuStr + "\n" + "Zorluk: " + zStr + "\n" + "ID: " + rid;
-          var imageUrl =
-            "https://placehold.co/800x400/ffffff/1f2937?text=" + encodeURIComponent(textBody);
-          list.push({
-            id: idTag,
-            ders: dersStr,
-            konu: konuStr,
-            zorluk: zStr,
-            imageUrl: imageUrl,
-          });
+        var bank = miniSoruBankasi;
+        if (!bank.length) {
+          resolve([]);
+          return;
         }
-        resolve(list);
+        var zEsnek = z === "Karma";
+        var filtered = bank.filter(function (s) {
+          if (s.ders !== d || s.konu !== k) return false;
+          if (zEsnek) return true;
+          return s.zorluk === z;
+        });
+        var havuz = bank.slice();
+        tmShuffleArrayInPlace(filtered);
+        tmShuffleArrayInPlace(havuz);
+        var result = [];
+        var usedBankId = {};
+        var fi = 0;
+        while (fi < filtered.length && result.length < n) {
+          var it = filtered[fi++];
+          if (!usedBankId[it.id]) {
+            usedBankId[it.id] = true;
+            result.push(tmBankItemToQuestion(it, "#Q-" + it.id));
+          }
+        }
+        var guard = 0;
+        while (result.length < n && guard < n * 200) {
+          guard++;
+          var pick = havuz[Math.floor(Math.random() * havuz.length)];
+          if (!usedBankId[pick.id]) {
+            usedBankId[pick.id] = true;
+            result.push(tmBankItemToQuestion(pick, "#Q-" + pick.id));
+          }
+        }
+        var dupN = 0;
+        while (result.length < n) {
+          dupN++;
+          var p2 = havuz[Math.floor(Math.random() * havuz.length)];
+          result.push(tmBankItemToQuestion(p2, "#Q-" + p2.id + "-x" + dupN));
+        }
+        resolve(result.slice(0, n));
       } catch (e) {
         reject(e);
       }
@@ -506,9 +553,10 @@ function tmRemoveAllQuestionItemsFromA4() {
   tmRenumberTmQuestions();
 }
 
-/** Mock API’den gelen tek soru: placehold.co img — PDF/html2canvas ile uyumlu */
+/** Havuzdan gelen soru: gerçek görsel URL + ince meta etiket (açık tema) */
 function tmAppendAiMockQuestionBlock(q) {
-  if (!q || !q.imageUrl) return;
+  var src = (q && (q.image || q.imageUrl)) || "";
+  if (!q || !src) return;
   var wrap = document.createElement("div");
   wrap.className = "tm-a4-block question-item tm-a4-block--ai-mock";
   if (q.id) wrap.setAttribute("data-tm-ai-qid", q.id);
@@ -517,24 +565,22 @@ function tmAppendAiMockQuestionBlock(q) {
   var badge = document.createElement("div");
   badge.className = "tm-q-badge";
   badge.textContent = "Soru …)";
+  var meta = document.createElement("div");
+  meta.className = "tm-ai-soru-meta";
+  meta.textContent =
+    (q.ders || "—") + " — " + (q.konu || "—") + " — Zorluk: " + (q.zorluk || "—");
   var imgW = document.createElement("div");
   imgW.className = "tm-a4-block__imgwrap";
   var img = document.createElement("img");
   img.className = "tm-ai-mock-q-img";
-  img.src = q.imageUrl;
+  img.src = src;
   img.alt = (q.id || "Soru") + " — " + (q.ders || "") + " / " + (q.konu || "");
   img.draggable = false;
-  try {
-    img.crossOrigin = "anonymous";
-  } catch (eCr) {}
   img.setAttribute(
     "style",
-    "width:100%;height:auto;border-radius:4px;border:1px solid #e5e7eb;display:block;"
+    "width:100%;height:auto;display:block;object-fit:contain;border-radius:4px;border:1px solid #e5e7eb;"
   );
   imgW.appendChild(img);
-  var cap = document.createElement("p");
-  cap.className = "tm-ai-q-placeholder-caption";
-  cap.textContent = "AI tarafından seçilen soru";
   var xb = document.createElement("button");
   xb.type = "button";
   xb.className = "tm-a4-block__x";
@@ -542,8 +588,8 @@ function tmAppendAiMockQuestionBlock(q) {
   xb.draggable = false;
   xb.innerHTML = '<i class="fa-solid fa-xmark"></i>';
   wrap.appendChild(badge);
+  wrap.appendChild(meta);
   wrap.appendChild(imgW);
-  wrap.appendChild(cap);
   wrap.appendChild(xb);
   tmAppendBlockToPaginatedColumns(wrap);
 }
@@ -4898,6 +4944,57 @@ function tmPreparePrintClone(clone, livePaper, widthPx, mm) {
   });
 }
 
+/**
+ * PDF (html2canvas → canvas.toDataURL) harici origin img yüzünden "tainted canvas" ile patlar.
+ * Yakalamadan önce http(s) görselleri fetch+CORS ile data URL yaparız; sonra src geri yüklenir.
+ */
+function tmPdfInlineRemoteImages(paper) {
+  if (!paper) return Promise.resolve();
+  var imgs = paper.querySelectorAll("img[src]");
+  if (!imgs.length) return Promise.resolve();
+  return Promise.all(
+    Array.prototype.map.call(imgs, function (img) {
+      var src = (img.getAttribute("src") || "").trim();
+      if (!src || /^data:/i.test(src) || /^blob:/i.test(src)) return Promise.resolve();
+      return fetch(src, { mode: "cors", credentials: "omit", cache: "force-cache" })
+        .then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.blob();
+        })
+        .then(function (blob) {
+          return new Promise(function (resolve) {
+            var fr = new FileReader();
+            fr.onloadend = function () {
+              var du = fr.result;
+              if (du && typeof du === "string") {
+                img.setAttribute("data-tm-pdf-src-backup", src);
+                img.src = du;
+                img.removeAttribute("crossorigin");
+              }
+              resolve();
+            };
+            fr.onerror = function () {
+              resolve();
+            };
+            fr.readAsDataURL(blob);
+          });
+        })
+        .catch(function () {
+          /* CORS / ağ: orijinal src kalır; toDataURL yine hata verebilir */
+        });
+    })
+  );
+}
+
+function tmPdfRestorePaperImages(paper) {
+  if (!paper || !paper.querySelectorAll) return;
+  paper.querySelectorAll("img[data-tm-pdf-src-backup]").forEach(function (img) {
+    var b = img.getAttribute("data-tm-pdf-src-backup");
+    if (b) img.src = b;
+    img.removeAttribute("data-tm-pdf-src-backup");
+  });
+}
+
 function tmWsDownloadPdf() {
   tmUpdateA4EmptyVisibility();
   var papers = tmGetAllPapers();
@@ -5026,12 +5123,24 @@ function tmWsDownloadPdf() {
           });
         })
         .then(function () {
-          /* Canlı DOM — klon/hidden hataları yok; her sayfa önizleme alanında ortalanır */
+          return tmPdfInlineRemoteImages(paper);
+        })
+        .then(function () {
+          return new Promise(function (afterInline) {
+            requestAnimationFrame(function () {
+              requestAnimationFrame(function () {
+                setTimeout(afterInline, 80);
+              });
+            });
+          });
+        })
+        .then(function () {
+          /* Harici img → data URL sonrası taint yok; toDataURL güvenli */
           var scaleCap = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
           return html2canvas(paper, {
             scale: scaleCap,
             useCORS: true,
-            allowTaint: true,
+            allowTaint: false,
             logging: false,
             backgroundColor: "#ffffff",
             scrollX: 0,
@@ -5050,13 +5159,16 @@ function tmWsDownloadPdf() {
             pdf.addImage(imgData, "JPEG", 0, 0, 210, 297);
             anyPageOk = true;
           } catch (err) {
-            console.error("tmWsDownloadPdf sayfa", idx + 1, err);
+            console.error("tmWsDownloadPdf toDataURL / addImage", idx + 1, err);
           }
         })
         .catch(function (e) {
           console.error("tmWsDownloadPdf html2canvas", idx + 1, e);
         })
         .then(function () {
+          try {
+            tmPdfRestorePaperImages(paper);
+          } catch (eRestore) {}
           paper.classList.remove("tm-pdf-live-capture");
           resolve();
         });
@@ -5087,7 +5199,9 @@ function tmWsDownloadPdf() {
         pdf.save(fname + ".pdf");
         showToast("PDF indirildi.");
       } else {
-        showToast("PDF oluşturulamadı. Konsolu kontrol edin.");
+        showToast(
+          "PDF oluşturulamadı. İnternet bağlantınızı kontrol edin; harici görseller yüklenememiş olabilir. Ayrıntı için tarayıcı konsoluna (F12) bakın."
+        );
       }
     })
     .catch(function (e) {
