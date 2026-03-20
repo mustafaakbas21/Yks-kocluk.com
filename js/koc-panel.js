@@ -659,10 +659,27 @@ function tmGetQuestionsPerPage() {
 function tmGetAllPapers() {
   var c = document.getElementById("a4-pages-container");
   if (c) {
-    /* Yalnızca doğrudan çocuklar — iç içe .a4-paper yanlış sıra / tekrar önlenir */
-    return Array.prototype.filter.call(c.children, function (el) {
-      return el.classList && el.classList.contains("a4-paper");
+    /* Her zaman kapsayıcı içi "kök" kağıtlar: üst üste .a4-paper yoksa tek liste.
+       Sadece :scope > .a4-paper + need karşılaştırması, need az kalınca 3. sayfayı PDF'ten düşürebiliyordu. */
+    var all = Array.prototype.slice.call(c.querySelectorAll(".a4-paper"));
+    var roots = all.filter(function (el) {
+      var x = el.parentElement;
+      while (x && x !== c) {
+        if (x.classList && x.classList.contains("a4-paper")) return false;
+        x = x.parentElement;
+      }
+      return true;
     });
+    if (roots.length) return roots;
+    var list = [];
+    try {
+      list = Array.prototype.slice.call(c.querySelectorAll(":scope > .a4-paper"));
+    } catch (e) {
+      list = Array.prototype.filter.call(c.children, function (el) {
+        return el.classList && el.classList.contains("a4-paper");
+      });
+    }
+    return list;
   }
   var p = document.getElementById("tmA4Paper");
   return p ? [p] : [];
@@ -870,8 +887,8 @@ function tmUpdateA4EmptyVisibility() {
     return;
   }
   empty.style.display = "none";
-  /* Önceden yalnızca #testContentArea (1. sayfa) açılıyordu; 2+ sayfa hidden kalınca PDF son sayfayı atlıyordu */
-  tmGetAllPapers().forEach(function (p) {
+  /* tmGetAllPapers() dışında kalan .a4-paper satırlarında hidden kalmasın (PDF / ekran) */
+  container.querySelectorAll(".a4-paper").forEach(function (p) {
     var ta = p.querySelector(".test-content-area");
     if (ta) {
       ta.hidden = false;
@@ -4079,9 +4096,6 @@ function tmWsDownloadPdf() {
     }
   });
 
-  var mm = 96 / 25.4;
-  var W = Math.round(210 * mm);
-  var H = Math.round(297 * mm);
   var J = window.jspdf.jsPDF;
   var fname =
     ((document.getElementById("tmWsTitle") && document.getElementById("tmWsTitle").value) || "Deneme_Sinavi")
@@ -4123,18 +4137,21 @@ function tmWsDownloadPdf() {
     });
   }
 
-  function tmBalanceCloneColumns(clonePaper) {
-    var dualEl = clonePaper.querySelector(".test-content-area");
-    if (dualEl && dualEl.style.display !== "none") {
-      var mh = 120;
-      dualEl.querySelectorAll(".test-column").forEach(function (c) {
-        mh = Math.max(mh, c.scrollHeight);
-      });
-      dualEl.querySelectorAll(".test-column").forEach(function (c) {
-        c.style.minHeight = mh + "px";
-      });
-    }
+  if (!document.getElementById("tmPdfCaptureUi")) {
+    var stCap = document.createElement("style");
+    stCap.id = "tmPdfCaptureUi";
+    stCap.textContent =
+      ".tm-pdf-live-capture .tm-a4-block__x{display:none!important;pointer-events:none!important;}";
+    document.head.appendChild(stCap);
   }
+
+  var scrollHost =
+    document.querySelector(".tm-a4-preview-scroll.tm-a4-workspace-scroll") ||
+    document.querySelector(".tm-a4-preview-scroll--focus") ||
+    document.querySelector(".tm-a4-preview-scroll");
+  var savedScroll = scrollHost
+    ? { el: scrollHost, x: scrollHost.scrollLeft, y: scrollHost.scrollTop }
+    : null;
 
   var blocker = document.createElement("div");
   blocker.id = "tmPdfBlocker";
@@ -4148,41 +4165,44 @@ function tmWsDownloadPdf() {
   var pdf = null;
   var anyPageOk = false;
 
+  function tmCenterPaperInScrollHost(paper, host) {
+    if (!paper || !host || !host.contains(paper)) return;
+    try {
+      var er = paper.getBoundingClientRect();
+      var hr = host.getBoundingClientRect();
+      host.scrollLeft += er.left + er.width / 2 - hr.left - hr.width / 2;
+      host.scrollTop += er.top + er.height / 2 - hr.top - hr.height / 2;
+    } catch (eC) {}
+  }
+
   function capturePageAtIndex(idx) {
     var paper = papers[idx];
     return new Promise(function (resolve) {
-      var prev = document.getElementById("tmPdfSinglePageHost");
-      if (prev && prev.parentNode) prev.parentNode.removeChild(prev);
-      var clone = paper.cloneNode(true);
-      tmPreparePrintClone(clone, paper, W, mm);
-      clone.style.position = "relative";
-      clone.style.left = "0";
-      clone.style.top = "0";
-      clone.style.boxSizing = "border-box";
-      var host = document.createElement("div");
-      host.id = "tmPdfSinglePageHost";
-      /* Görünür alan içinde: html2canvas / Opera ekran dışı öğeyi boş döndürebiliyor */
-      host.style.cssText =
-        "position:fixed;left:16px;top:16px;width:" +
-        W +
-        "px;margin:0;padding:0;background:#ffffff;color:#111111;overflow:visible;box-sizing:border-box;z-index:2147483647;pointer-events:none;";
-      host.appendChild(clone);
-      document.body.appendChild(host);
-      tmBalanceCloneColumns(clone);
-      tmWaitImages(host, 12000)
+      paper.classList.add("tm-pdf-live-capture");
+      try {
+        paper.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+      } catch (e0) {
+        try {
+          paper.scrollIntoView(true);
+        } catch (e1) {}
+      }
+      if (scrollHost) tmCenterPaperInScrollHost(paper, scrollHost);
+      tmWaitImages(paper, 15000)
         .then(function () {
           return new Promise(function (rafDone) {
             requestAnimationFrame(function () {
               requestAnimationFrame(function () {
-                setTimeout(rafDone, 80);
+                if (scrollHost) tmCenterPaperInScrollHost(paper, scrollHost);
+                setTimeout(rafDone, 220);
               });
             });
           });
         })
         .then(function () {
-          /* width/height vermeden ölç — sabit px bazen boş tuval (Opera / yüksek DPI) */
-          return html2canvas(host, {
-            scale: 2,
+          /* Canlı DOM — klon/hidden hataları yok; her sayfa önizleme alanında ortalanır */
+          var scaleCap = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+          return html2canvas(paper, {
+            scale: scaleCap,
             useCORS: true,
             allowTaint: true,
             logging: false,
@@ -4205,12 +4225,12 @@ function tmWsDownloadPdf() {
           } catch (err) {
             console.error("tmWsDownloadPdf sayfa", idx + 1, err);
           }
-          if (host.parentNode) host.parentNode.removeChild(host);
-          resolve();
         })
         .catch(function (e) {
           console.error("tmWsDownloadPdf html2canvas", idx + 1, e);
-          if (host.parentNode) host.parentNode.removeChild(host);
+        })
+        .then(function () {
+          paper.classList.remove("tm-pdf-live-capture");
           resolve();
         });
     });
@@ -4230,6 +4250,12 @@ function tmWsDownloadPdf() {
     })
     .then(function () {
       tmPdfCleanupAll();
+      if (savedScroll && savedScroll.el) {
+        try {
+          savedScroll.el.scrollLeft = savedScroll.x;
+          savedScroll.el.scrollTop = savedScroll.y;
+        } catch (eScroll) {}
+      }
       if (pdf && anyPageOk) {
         pdf.save(fname + ".pdf");
         showToast("PDF indirildi.");
@@ -4240,6 +4266,12 @@ function tmWsDownloadPdf() {
     .catch(function (e) {
       console.error(e);
       tmPdfCleanupAll();
+      if (savedScroll && savedScroll.el) {
+        try {
+          savedScroll.el.scrollLeft = savedScroll.x;
+          savedScroll.el.scrollTop = savedScroll.y;
+        } catch (eScroll2) {}
+      }
       showToast("PDF oluşturulamadı.");
     });
 }
