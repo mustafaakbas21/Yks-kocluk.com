@@ -439,10 +439,11 @@
     .avatar-gallery__cell:hover, .avatar-gallery__cell:focus-visible { border-color: #7c3aed; transform: scale(1.04); outline: none; }
     .avatar-gallery__cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .tm-pdf-editor-hero { margin-bottom: 1.25rem; }
-    .tm-saved-pdf-library.tm-saved-pdf-library--ebook { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 1.15rem; list-style: none; padding: 0; margin: 0; }
-    .tm-saved-pdf-library.tm-saved-pdf-library--ebook .tm-saved-pdf-item { flex-direction: column; align-items: stretch; border-radius: 14px; padding: 0; overflow: hidden; background: linear-gradient(180deg, #fff, #faf5ff); border: 1px solid rgba(124,58,237,0.18); box-shadow: 0 10px 28px rgba(30,27,75,0.12); min-height: 220px; }
-    .tm-saved-pdf-library.tm-saved-pdf-library--ebook .tm-saved-pdf-item__name { padding: 0.65rem 0.75rem 0.35rem; font-weight: 700; font-size: 0.82rem; line-height: 1.25; color: #0f172a; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .tm-saved-pdf-library.tm-saved-pdf-library--ebook .tm-saved-pdf-item__actions { margin-top: auto; padding: 0.5rem 0.6rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+    .tm-saved-pdf-library.tm-saved-pdf-library--ebook { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.15rem; list-style: none; padding: 0; margin: 0; }
+    .tm-saved-pdf-library.tm-saved-pdf-library--ebook .tm-saved-pdf-item { flex-direction: column; align-items: stretch; border-radius: 14px; padding: 0; overflow: visible; background: linear-gradient(180deg, #fff, #faf5ff); border: 1px solid rgba(124,58,237,0.18); box-shadow: 0 10px 28px rgba(30,27,75,0.12); min-height: auto; }
+    .tm-saved-pdf-library.tm-saved-pdf-library--ebook .tm-saved-pdf-item__name { flex: 1 1 auto; padding: 0.65rem 0.75rem 0.5rem; font-weight: 700; font-size: 0.8rem; line-height: 1.4; color: #0f172a; display: block; white-space: normal; word-break: break-word; overflow-wrap: anywhere; overflow: visible; text-overflow: unset; }
+    .tm-saved-pdf-library.tm-saved-pdf-library--ebook .tm-saved-pdf-item__name .tm-library__item-kind { display: block; margin-top: 0.45rem; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; color: #047857; }
+    .tm-saved-pdf-library.tm-saved-pdf-library--ebook .tm-saved-pdf-item__actions { flex-shrink: 0; margin-top: auto; padding: 0.5rem 0.6rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
     .tm-saved-pdf-library.tm-saved-pdf-library--ebook .tm-saved-pdf-item__actions button { width: 100%; justify-content: center; border-radius: 10px; }
     .tm-workspace__save-lib { margin-left: auto; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.85rem; font-size: 0.78rem; font-weight: 700; border-radius: 10px; border: 1px solid rgba(16,185,129,0.45); background: rgba(16,185,129,0.12); color: #047857; cursor: pointer; font-family: inherit; }
     .tm-workspace__save-lib:hover { background: rgba(16,185,129,0.22); }
@@ -500,6 +501,7 @@
             </button>
             <div class="sidebar__submenu sidebar__submenu--tm-nested" id="sidebarTmSubmenu" role="group" aria-label="TestMaker alt menü">
               <button type="button" class="sidebar__sublink" data-tm-nav-action="creator" data-testmaker-view="view-testmaker" title="Test Oluşturucu"><i class="fa-solid fa-pen-ruler"></i><span>Test Oluşturucu</span></button>
+              <button type="button" class="sidebar__sublink" data-tm-nav-action="auto-test" data-testmaker-view="view-auto-test" title="Yapay Zeka Destekli Otomatik Soru Hazırlayıcı"><i class="fa-solid fa-wand-magic-sparkles"></i><span>AI Test Üretici</span></button>
               <button type="button" class="sidebar__sublink" data-tm-nav-action="library" data-testmaker-view="view-library" title="Hazır Testler"><i class="fa-solid fa-layer-group"></i><span>Hazır Testler</span></button>
               <button type="button" class="sidebar__sublink" data-tm-nav-action="pdf-editor" data-testmaker-view="view-pdf-editor" title="PDF Düzenleyici"><i class="fa-solid fa-file-pen"></i><span>PDF Düzenleyici</span></button>
             </div>
@@ -798,6 +800,7 @@
               <nav class="tm-word-ribbon" aria-label="Üst menü">
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard" title="Ana panel"><i class="fa-solid fa-house"></i> Giriş</button>
                 <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="testmaker" title="Test oluştur"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test" title="AI Test Üretici"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library" title="Kütüphane"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor" title="PDF işaretleme"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler" title="Analiz"><i class="fa-solid fa-chart-line"></i> Analiz</button>
@@ -838,6 +841,7 @@
                           <option value="Kolay">Kolay</option>
                           <option value="Orta" selected>Orta</option>
                           <option value="Zor">Zor</option>
+                          <option value="Karma">Karma</option>
                           <option value="YKS tipi">YKS tipi</option>
                         </select>
                       </label>
@@ -1101,6 +1105,77 @@
           </div>
         </div>
 
+        <div class="main-view tm-workspace-view" data-view="auto-test" id="view-auto-test" hidden>
+          <div class="tm-workspace tm-workspace--ai-wizard">
+            <header class="tm-workspace__header tm-workspace__header--ribbon">
+              <div class="tm-workspace__header-row">
+                <button type="button" class="tm-back-dashboard" data-nav="dashboard" title="Ana panele dön">
+                  <i class="fa-solid fa-arrow-left"></i> Panele dön
+                </button>
+                <span class="tm-workspace__brand"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Test Üretici</span>
+              </div>
+              <nav class="tm-word-ribbon" aria-label="Üst menü">
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
+                <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>
+              </nav>
+            </header>
+            <div class="tm-ai-wizard-shell">
+              <div id="tmAiGenOverlay" class="tm-ai-gen-overlay" hidden aria-hidden="true">
+                <div class="tm-ai-gen-overlay__card">
+                  <div class="tm-ai-gen-spinner" aria-hidden="true"></div>
+                  <p class="tm-ai-gen-overlay__title">Sorular seçiliyor…</p>
+                  <p class="tm-ai-gen-overlay__sub">Yapay zeka motoru uygun soruları eşleştiriyor</p>
+                </div>
+              </div>
+              <section class="tm-ai-wizard-card" aria-labelledby="tmAiWizardTitle">
+                <p class="tm-ai-wizard__kicker"><i class="fa-solid fa-robot"></i> Yapay Zeka Destekli Otomatik Soru Hazırlayıcı</p>
+                <h1 id="tmAiWizardTitle" class="tm-ai-wizard__title">Test parametrelerinizi seçin</h1>
+                <p class="tm-ai-wizard__lead">Üretim sonrası mevcut A4 tasarım ekranına geçilir; PDF ve şablon akışı aynen korunur.</p>
+                <form class="tm-ai-wizard-form" id="formAiTestGen" autocomplete="off">
+                  <label class="tm-ai-field">
+                    <span>Sınav tipi</span>
+                    <select id="aiExamType" required>
+                      <option value="TYT">TYT</option>
+                      <option value="AYT">AYT</option>
+                    </select>
+                  </label>
+                  <label class="tm-ai-field">
+                    <span>Ders</span>
+                    <select id="aiSubject" required></select>
+                  </label>
+                  <label class="tm-ai-field">
+                    <span>Konu</span>
+                    <select id="aiTopic" required></select>
+                  </label>
+                  <label class="tm-ai-field tm-ai-field--narrow">
+                    <span>Soru sayısı</span>
+                    <input type="number" id="aiQuestionCount" min="1" max="80" value="40" inputmode="numeric" required />
+                  </label>
+                  <label class="tm-ai-field">
+                    <span>Zorluk</span>
+                    <select id="aiDifficulty" required>
+                      <option value="Kolay">Kolay</option>
+                      <option value="Orta" selected>Orta</option>
+                      <option value="Zor">Zor</option>
+                      <option value="Karma">Karma</option>
+                    </select>
+                  </label>
+                  <div class="tm-ai-wizard__actions">
+                    <button type="submit" class="tm-ai-gen-btn" id="btnAiGenerateTest">
+                      <span class="tm-ai-gen-btn__glow" aria-hidden="true"></span>
+                      <i class="fa-solid fa-bolt"></i> Yapay Zeka ile Testi Üret
+                    </button>
+                  </div>
+                </form>
+              </section>
+            </div>
+          </div>
+        </div>
+
         <div class="main-view tm-workspace-view" data-view="library" id="view-library" hidden>
           <header class="tm-workspace__header tm-workspace__header--ribbon">
             <div class="tm-workspace__header-row">
@@ -1112,6 +1187,7 @@
             <nav class="tm-word-ribbon" aria-label="Üst menü">
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
               <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>
@@ -1144,6 +1220,7 @@
             <nav class="tm-word-ribbon" aria-label="Üst menü">
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
               <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>

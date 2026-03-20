@@ -353,8 +353,10 @@ function tmAnnotatorOpen() {
   var headTest = document.querySelector("#tmWorkspaceRoot .tm-workspace__header");
   var headLib = document.querySelector("#view-library .tm-workspace__header");
   var headPdf = document.querySelector("#view-pdf-editor .tm-workspace__header");
+  var headAuto = document.querySelector("#view-auto-test .tm-workspace__header");
   if (currentView === "library") tmAnnotReturnSubView = "library";
   else if (currentView === "pdf-editor") tmAnnotReturnSubView = "pdf-editor";
+  else if (currentView === "auto-test") tmAnnotReturnSubView = "auto-test";
   else tmAnnotReturnSubView = "testmaker";
   if (ann) ann.hidden = false;
   document.body.classList.add("tm-annotate-open");
@@ -363,6 +365,7 @@ function tmAnnotatorOpen() {
   if (headTest) headTest.hidden = true;
   if (headLib) headLib.hidden = true;
   if (headPdf) headPdf.hidden = true;
+  if (headAuto) headAuto.hidden = true;
   tmAnnotToolSync();
   tmEditorBindCanvas();
 }
@@ -374,6 +377,7 @@ function tmAnnotatorClose() {
   var ret = tmAnnotReturnSubView;
   if (ret === "library") navigateTo("library");
   else if (ret === "pdf-editor") navigateTo("pdf-editor");
+  else if (ret === "auto-test") navigateTo("auto-test");
   else navigateTo("testmaker");
 }
 
@@ -385,6 +389,243 @@ function tmSyncRibbonActive(view) {
   document.querySelectorAll("[data-tm-ribbon-nav]").forEach(function (btn) {
     var v = btn.getAttribute("data-tm-ribbon-nav");
     btn.classList.toggle("is-active", v === view);
+  });
+}
+
+/** AI Test Üretici: TYT/AYT → ders → konu (Ribbon’daki metin alanlarıyla uyumlu isimler) */
+var yksAiCurriculum = {
+  TYT: {
+    Matematik: [
+      "Sayı Problemleri",
+      "Rasyonel Sayılar",
+      "Üslü ve Köklü Sayılar",
+      "Kümeler ve Fonksiyonlar",
+      "Polinomlar",
+      "Permütasyon ve Kombinasyon",
+      "Olasılık",
+    ],
+    Türkçe: ["Sözcükte Anlam", "Cümlede Anlam", "Paragraf", "Dil Bilgisi", "Yazım ve Noktalama"],
+    Fizik: ["Madde ve Özellikleri", "Hareket", "İş Güç Enerji", "Elektrik", "Dalgalar"],
+    Kimya: ["Kimyasal Türler", "Asitler ve Bazlar", "Kimya ve Enerji", "Karbon Kimyasına Giriş"],
+    Biyoloji: ["Canlıların Ortak Özellikleri", "Hücre", "Genetik", "Ekosistem", "Sistemler"],
+    Tarih: ["Osmanlı Kuruluş", "İslam Tarihi", "Tanzimat", "Milli Mücadele", "20. yy Türkiye"],
+    Coğrafya: ["Doğa ve İnsan", "İklim", "Türkiye Fiziki Coğrafya", "Çevre ve Toplum"],
+    "TYT Genel": ["Karışık tekrar", "Zaman baskısı pratik", "Genel deneme"],
+  },
+  AYT: {
+    Matematik: ["Limit ve Süreklilik", "Türev", "İntegral", "Analitik Geometri", "Olasılık"],
+    Fizik: ["Elektrik ve Manyetizma", "Modern Fizik", "Dalgalar", "Optik"],
+    Kimya: ["Organik Kimya", "Kimyasal Tepkimeler", "Çözelti Dengesi"],
+    Biyoloji: ["Genetik", "Ekoloji", "Sistemler", "Komünite ve Popülasyon"],
+    Edebiyat: ["Divan Edebiyatı", "Servetifünun", "Milli Edebiyat", "Cumhuriyet Dönemi"],
+    Tarih: ["Osmanlı Duraklama", "Osmanlı Gerileme", "Islahatlar", "Yerel Yönetimler"],
+    Coğrafya: ["İklim Bilgisi", "Türkiye Ekonomik Coğrafya", "Çevre Sorunları"],
+    Felsefe: ["Bilgi Felsefesi", "Varlık Felsefesi", "Ahlak Felsefesi", "Siyaset Felsefesi"],
+  },
+};
+
+/** Gri placeholder görsel (data URL) — PDF / ekranda küçük boyutta net */
+var TM_AI_PLACEHOLDER_SVG_DATA_URL =
+  "data:image/svg+xml," +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="280" viewBox="0 0 480 280"><rect width="480" height="280" rx="8" fill="#2d323c"/><rect x="12" y="12" width="456" height="256" rx="6" fill="#3d4452" stroke="#525a6b" stroke-width="1"/><text x="240" y="145" text-anchor="middle" fill="#8b95a8" font-family="system-ui,sans-serif" font-size="15">Görsel alanı</text></svg>'
+  );
+
+var tmAiGenWizardBound = false;
+
+function tmRemoveAllQuestionItemsFromA4() {
+  tmGetAllPapers().forEach(function (paper) {
+    ["1", "2"].forEach(function (k) {
+      var col = paper.querySelector('[data-tm-col="' + k + '"]');
+      if (!col) return;
+      col.querySelectorAll(".tm-a4-block.question-item").forEach(function (el) {
+        el.remove();
+      });
+    });
+    var sing = paper.querySelector(".tm-a4-single");
+    if (sing) {
+      sing.querySelectorAll(".tm-a4-block.question-item").forEach(function (el) {
+        el.remove();
+      });
+    }
+  });
+  tmRemoveExtraA4Pages();
+  tmUpdateA4EmptyVisibility();
+  tmRenumberTmQuestions();
+}
+
+/** Mevcut tmAddQuestionToA4 ile aynı sütun/pagination; görsel yer tutucu + AI etiketi */
+function tmAppendAiPlaceholderQuestionBlock() {
+  var wrap = document.createElement("div");
+  wrap.className = "tm-a4-block question-item tm-a4-block--ai-placeholder";
+  wrap.draggable = true;
+  wrap.setAttribute("data-tm-drag", "1");
+  var badge = document.createElement("div");
+  badge.className = "tm-q-badge";
+  badge.textContent = "Soru …)";
+  var imgW = document.createElement("div");
+  imgW.className = "tm-a4-block__imgwrap";
+  var img = document.createElement("img");
+  img.src = TM_AI_PLACEHOLDER_SVG_DATA_URL;
+  img.alt = "";
+  img.draggable = false;
+  imgW.appendChild(img);
+  var cap = document.createElement("p");
+  cap.className = "tm-ai-q-placeholder-caption";
+  cap.textContent = "AI tarafından seçilen soru";
+  var xb = document.createElement("button");
+  xb.type = "button";
+  xb.className = "tm-a4-block__x";
+  xb.setAttribute("aria-label", "Kaldır");
+  xb.draggable = false;
+  xb.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+  wrap.appendChild(badge);
+  wrap.appendChild(imgW);
+  wrap.appendChild(cap);
+  wrap.appendChild(xb);
+  tmAppendBlockToPaginatedColumns(wrap);
+}
+
+function tmAddAiPlaceholderQuestionsBatch(count) {
+  count = Math.max(1, Math.min(80, parseInt(count, 10) || 1));
+  for (var i = 0; i < count; i++) {
+    tmAppendAiPlaceholderQuestionBlock();
+  }
+  tmUpdateA4EmptyVisibility();
+  tmRenumberTmQuestions();
+}
+
+function tmApplyAiGenerationToTestmaker(payload) {
+  if (!payload) return;
+  tmRemoveAllQuestionItemsFromA4();
+  var courseEl = document.getElementById("tmWsCourse");
+  var topicEl = document.getElementById("tmWsTopic");
+  var titleEl = document.getElementById("tmWsTitle");
+  var diffEl = document.getElementById("tmWsDiff");
+  var subjEl = document.getElementById("tmWsSubject");
+  if (courseEl) courseEl.value = payload.subject || "";
+  if (topicEl) topicEl.value = payload.topic || "";
+  if (titleEl) {
+    titleEl.value =
+      "AI Test · " +
+      (payload.exam || "") +
+      " · " +
+      (payload.subject || "") +
+      " · " +
+      (payload.topic || "");
+  }
+  if (diffEl && payload.diff) {
+    var want = String(payload.diff);
+    var ok = false;
+    for (var i = 0; i < diffEl.options.length; i++) {
+      if (diffEl.options[i].value === want) {
+        diffEl.selectedIndex = i;
+        ok = true;
+        break;
+      }
+    }
+    if (!ok) {
+      for (var j = 0; j < diffEl.options.length; j++) {
+        if (diffEl.options[j].value === "Orta") {
+          diffEl.selectedIndex = j;
+          break;
+        }
+      }
+    }
+  }
+  if (subjEl && payload.subject) {
+    var sub = String(payload.subject);
+    var found = false;
+    for (var k = 0; k < subjEl.options.length; k++) {
+      if (subjEl.options[k].value === sub) {
+        subjEl.selectedIndex = k;
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      for (var d = 0; d < subjEl.options.length; d++) {
+        if (subjEl.options[d].value === "Diğer") {
+          subjEl.selectedIndex = d;
+          break;
+        }
+      }
+    }
+  }
+  try {
+    tmSyncPaperHeaders();
+  } catch (eHdr) {}
+  tmAddAiPlaceholderQuestionsBatch(payload.count);
+  showToast("AI taslağı hazır: " + payload.count + " soru kutusu oluşturuldu.");
+}
+
+function initAiTestGenWizard() {
+  if (tmAiGenWizardBound) return;
+  var form = document.getElementById("formAiTestGen");
+  var exam = document.getElementById("aiExamType");
+  var subj = document.getElementById("aiSubject");
+  var topic = document.getElementById("aiTopic");
+  var overlay = document.getElementById("tmAiGenOverlay");
+  if (!form || !exam || !subj || !topic) return;
+  tmAiGenWizardBound = true;
+
+  function fillSubjects() {
+    var key = exam.value || "TYT";
+    var data = yksAiCurriculum[key] || {};
+    subj.innerHTML = "";
+    Object.keys(data).forEach(function (name) {
+      var o = document.createElement("option");
+      o.value = name;
+      o.textContent = name;
+      subj.appendChild(o);
+    });
+    fillTopics();
+  }
+
+  function fillTopics() {
+    var key = exam.value || "TYT";
+    var course = subj.value;
+    var list = (yksAiCurriculum[key] && yksAiCurriculum[key][course]) || [];
+    topic.innerHTML = "";
+    list.forEach(function (t) {
+      var o = document.createElement("option");
+      o.value = t;
+      o.textContent = t;
+      topic.appendChild(o);
+    });
+  }
+
+  exam.addEventListener("change", fillSubjects);
+  subj.addEventListener("change", fillTopics);
+  fillSubjects();
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var n = parseInt(document.getElementById("aiQuestionCount") && document.getElementById("aiQuestionCount").value, 10);
+    if (isNaN(n)) n = 10;
+    n = Math.max(1, Math.min(80, n));
+    var diffEl = document.getElementById("aiDifficulty");
+    var payload = {
+      exam: exam.value,
+      subject: subj.value,
+      topic: topic.value,
+      count: n,
+      diff: diffEl ? diffEl.value : "Orta",
+    };
+    if (overlay) {
+      overlay.hidden = false;
+      overlay.setAttribute("aria-hidden", "false");
+    }
+    setTimeout(function () {
+      if (overlay) {
+        overlay.hidden = true;
+        overlay.setAttribute("aria-hidden", "true");
+      }
+      navigateTo("testmaker");
+      requestAnimationFrame(function () {
+        tmApplyAiGenerationToTestmaker(payload);
+      });
+    }, 1500);
   });
 }
 
@@ -3704,11 +3945,13 @@ function testmakerWorkspaceLeave() {
   var head = document.querySelector("#tmWorkspaceRoot .tm-workspace__header");
   var headLib = document.querySelector("#view-library .tm-workspace__header");
   var headPdf = document.querySelector("#view-pdf-editor .tm-workspace__header");
+  var headAuto = document.querySelector("#view-auto-test .tm-workspace__header");
   document.body.classList.remove("tm-annotate-open");
   if (ann) ann.hidden = true;
   if (head) head.hidden = false;
   if (headLib) headLib.hidden = false;
   if (headPdf) headPdf.hidden = false;
+  if (headAuto) headAuto.hidden = false;
   destroyTmWsCropper();
   tmWsPdfDoc = null;
   tmWsPdfBytes = null;
@@ -5411,8 +5654,13 @@ function bindTestMakerWorkspace() {
 function navigateTo(view) {
   if (!view) return;
   var previous = currentView;
-  var wasTm = previous === "testmaker" || previous === "library" || previous === "pdf-editor";
-  var nowTm = view === "testmaker" || view === "library" || view === "pdf-editor";
+  var wasTm =
+    previous === "testmaker" ||
+    previous === "library" ||
+    previous === "pdf-editor" ||
+    previous === "auto-test";
+  var nowTm =
+    view === "testmaker" || view === "library" || view === "pdf-editor" || view === "auto-test";
   if (wasTm && !nowTm) testmakerWorkspaceLeave();
   currentView = view;
   document.querySelectorAll(".main-view").forEach(function (el) {
@@ -5425,13 +5673,15 @@ function navigateTo(view) {
     var nv = btn.getAttribute("data-nav");
     var on =
       nv === view ||
-      (nv === "testmaker" && (view === "testmaker" || view === "library" || view === "pdf-editor"));
+      (nv === "testmaker" &&
+        (view === "testmaker" || view === "library" || view === "pdf-editor" || view === "auto-test"));
     btn.classList.toggle("sidebar__link--active", on);
   });
   var tmLiNav = document.querySelector(".sidebar__item--testmaker");
   var tmAccNav = document.getElementById("sidebarTmToggle");
   if (tmLiNav && tmAccNav) {
-    var inTmNav = view === "testmaker" || view === "library" || view === "pdf-editor";
+    var inTmNav =
+      view === "testmaker" || view === "library" || view === "pdf-editor" || view === "auto-test";
     if (inTmNav) {
       tmLiNav.classList.add("sidebar__item--tm-open");
       tmAccNav.setAttribute("aria-expanded", "true");
@@ -5444,7 +5694,8 @@ function navigateTo(view) {
       "is-active",
       (a === "library" && view === "library") ||
         (a === "creator" && view === "testmaker") ||
-        (a === "pdf-editor" && view === "pdf-editor")
+        (a === "pdf-editor" && view === "pdf-editor") ||
+        (a === "auto-test" && view === "auto-test")
     );
   });
   tmSyncRibbonActive(view);
@@ -5472,7 +5723,7 @@ function navigateTo(view) {
   if (view === "ogrenciler") renderStudentsPage();
   if (view === "gorev-takibi") initGorevTakibiPage();
   if (view === "randevu") renderAppointmentsPage();
-  if (view === "testmaker" || view === "library" || view === "pdf-editor") {
+  if (view === "testmaker" || view === "library" || view === "pdf-editor" || view === "auto-test") {
     testmakerWorkspaceEnter();
     renderTestsTable();
     tmLibraryRenderList();
@@ -5488,6 +5739,7 @@ function displayTestmakerView(viewDomId) {
   if (!viewDomId) return;
   var map = {
     "view-testmaker": "testmaker",
+    "view-auto-test": "auto-test",
     "view-library": "library",
     "view-pdf-editor": "pdf-editor",
   };
@@ -5818,6 +6070,7 @@ function bootstrapKocPanelAfterAuth() {
   initSidebar();
   initNavigation();
   initModals();
+  initAiTestGenWizard();
   initAllButtons();
   initDashboardYksCountdownWidget();
   updateCoachProfile();

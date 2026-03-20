@@ -1228,3 +1228,67 @@ body.tm-annotate-open {
 .app--testmaker-workspace .tm-flyout__hint {
   color: #64748b !important;
 }
+
+/* Açık tema — Dosya şeridi: yeşil/mor butonlarda okunaklı kontrast */
+.app--testmaker-workspace .tm-btn-library-save,
+.app--testmaker-workspace .tm-btn-export-lib {
+  background: linear-gradient(180deg, #ecfdf5, #d1fae5) !important;
+  border: 1px solid #059669 !important;
+  color: #065f46 !important;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.15) !important;
+}
+.app--testmaker-workspace .tm-btn-library-save:hover,
+.app--testmaker-workspace .tm-btn-export-lib:hover {
+  background: linear-gradient(180deg, #d1fae5, #a7f3d0) !important;
+  color: #064e3b !important;
+  border-color: #047857 !important;
+}
+.app--testmaker-workspace .tm-btn-library-save i,
+.app--testmaker-workspace .tm-btn-export-lib i {
+  color: inherit !important;
+  opacity: 1 !important;
+}
+
+.app--testmaker-workspace .tm-btn-save-draft,
+.app--testmaker-workspace .tm-btn-export-draft {
+  background: linear-gradient(180deg, #faf5ff, #ede9fe) !important;
+  border: 1px solid #7c3aed !important;
+  color: #5b21b6 !important;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.12) !important;
+}
+.app--testmaker-workspace .tm-btn-save-draft:hover,
+.app--testmaker-workspace .tm-btn-export-draft:hover {
+  background: linear-gradient(180deg, #ede9fe, #ddd6fe) !important;
+  color: #4c1d95 !important;
+  border-color: #6d28d9 !important;
+}
+.app--testmaker-workspace .tm-btn-save-draft i,
+.app--testmaker-workspace .tm-btn-export-draft i {
+  color: inherit !important;
+  opacity: 1 !important;
+}
+
+/* PDF e-kitap kartı: tam başlık (satır kırımı), kesilme yok */
+.app--testmaker-workspace .tm-saved-pdf-library--ebook {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
+}
+.app--testmaker-workspace .tm-saved-pdf-library--ebook .tm-saved-pdf-item {
+  overflow: visible !important;
+  min-height: auto !important;
+}
+.app--testmaker-workspace .tm-saved-pdf-library--ebook .tm-saved-pdf-item__name {
+  display: block !important;
+  -webkit-line-clamp: unset !important;
+  line-clamp: unset !important;
+  -webkit-box-orient: unset !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  line-height: 1.4 !important;
+}
+.app--testmaker-workspace .tm-saved-pdf-library--ebook .tm-saved-pdf-item__name .tm-library__item-kind {
+  display: block !important;
+  margin-top: 0.45rem !important;
+}
