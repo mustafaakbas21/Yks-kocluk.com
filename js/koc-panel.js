@@ -599,8 +599,11 @@ function initAiTestGenWizard() {
   subj.addEventListener("change", fillTopics);
   fillSubjects();
 
+  var btnAi = document.getElementById("btnAiGenerateTest");
+
   form.addEventListener("submit", function (e) {
     e.preventDefault();
+    if (btnAi && btnAi.disabled) return;
     var n = parseInt(document.getElementById("aiQuestionCount") && document.getElementById("aiQuestionCount").value, 10);
     if (isNaN(n)) n = 10;
     n = Math.max(1, Math.min(80, n));
@@ -612,19 +615,26 @@ function initAiTestGenWizard() {
       count: n,
       diff: diffEl ? diffEl.value : "Orta",
     };
+    if (btnAi) btnAi.disabled = true;
     if (overlay) {
       overlay.hidden = false;
+      overlay.removeAttribute("hidden");
       overlay.setAttribute("aria-hidden", "false");
     }
     setTimeout(function () {
-      if (overlay) {
-        overlay.hidden = true;
-        overlay.setAttribute("aria-hidden", "true");
+      try {
+        if (overlay) {
+          overlay.hidden = true;
+          overlay.setAttribute("hidden", "");
+          overlay.setAttribute("aria-hidden", "true");
+        }
+        navigateTo("testmaker");
+        requestAnimationFrame(function () {
+          tmApplyAiGenerationToTestmaker(payload);
+        });
+      } finally {
+        if (btnAi) btnAi.disabled = false;
       }
-      navigateTo("testmaker");
-      requestAnimationFrame(function () {
-        tmApplyAiGenerationToTestmaker(payload);
-      });
     }, 1500);
   });
 }

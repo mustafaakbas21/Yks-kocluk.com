@@ -2853,14 +2853,24 @@
   overflow: hidden;
 }
 
-/* ========== AI Test Üretici (view-auto-test) ========== */
+/* ========== AI Test Üretici (view-auto-test) — açık tema + okunaklı kontrast ========== */
+/* ÖNEMLİ: .tm-ai-gen-overlay { display:flex } [hidden] ile çakışıyordu → overlay kapanmıyor / takılı kalıyordu */
+.tm-ai-gen-overlay[hidden] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 .tm-workspace--ai-wizard {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: radial-gradient(1200px 600px at 50% -10%, rgba(124, 58, 237, 0.14), transparent 55%),
-    radial-gradient(900px 500px at 80% 40%, rgba(16, 185, 129, 0.1), transparent 50%), #0f0f12;
+  background:
+    radial-gradient(1000px 520px at 50% -8%, rgba(124, 58, 237, 0.08), transparent 55%),
+    radial-gradient(800px 420px at 92% 42%, rgba(16, 185, 129, 0.07), transparent 48%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+  color: #0f172a;
 }
 
 .tm-ai-wizard-shell {
@@ -2879,9 +2889,9 @@
   max-width: 520px;
   padding: 1.75rem 1.75rem 1.5rem;
   border-radius: 18px;
-  background: linear-gradient(145deg, rgba(30, 30, 38, 0.95), rgba(18, 18, 24, 0.98));
-  border: 1px solid rgba(167, 139, 250, 0.22);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.8) inset;
 }
 
 .tm-ai-wizard__kicker {
@@ -2890,7 +2900,12 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #a78bfa;
+  color: #5b21b6;
+}
+
+.tm-ai-wizard__kicker i {
+  margin-right: 0.35rem;
+  opacity: 0.9;
 }
 
 .tm-ai-wizard__title {
@@ -2898,14 +2913,14 @@
   font-size: 1.45rem;
   font-weight: 800;
   letter-spacing: -0.03em;
-  color: #fafafa;
+  color: #0f172a;
 }
 
 .tm-ai-wizard__lead {
   margin: 0 0 1.25rem;
   font-size: 0.9rem;
-  line-height: 1.5;
-  color: rgba(228, 228, 231, 0.72);
+  line-height: 1.55;
+  color: #475569;
 }
 
 .tm-ai-wizard-form {
@@ -2920,7 +2935,7 @@
   gap: 0.35rem;
   font-size: 0.82rem;
   font-weight: 600;
-  color: rgba(244, 244, 245, 0.88);
+  color: #334155;
 }
 
 .tm-ai-field--narrow {
@@ -2931,16 +2946,16 @@
 .tm-ai-field input[type="number"] {
   padding: 0.55rem 0.65rem;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.35);
-  color: #f4f4f5;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
   font-size: 0.95rem;
   outline: none;
 }
 
 .tm-ai-field select:focus,
 .tm-ai-field input[type="number"]:focus {
-  border-color: rgba(167, 139, 250, 0.55);
+  border-color: #7c3aed;
   box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
 }
 
@@ -2963,21 +2978,27 @@
   font-size: 1.02rem;
   font-weight: 800;
   cursor: pointer;
-  color: #fafafa;
+  color: #ffffff;
   background: linear-gradient(120deg, #5b21b6, #059669, #7c3aed);
   background-size: 200% 200%;
   animation: tm-ai-gen-shimmer 4s ease infinite;
-  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.35), 0 12px 40px rgba(91, 33, 182, 0.35),
-    0 8px 28px rgba(5, 150, 105, 0.22);
+  box-shadow: 0 0 0 1px rgba(91, 33, 182, 0.25), 0 10px 32px rgba(91, 33, 182, 0.28),
+    0 6px 20px rgba(5, 150, 105, 0.18);
   overflow: hidden;
 }
 
 .tm-ai-gen-btn:hover {
-  filter: brightness(1.08);
+  filter: brightness(1.06);
 }
 
 .tm-ai-gen-btn:active {
   transform: scale(0.98);
+}
+
+.tm-ai-gen-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  filter: grayscale(0.15);
 }
 
 @keyframes tm-ai-gen-shimmer {
@@ -2995,7 +3016,7 @@
   inset: -40%;
   background: conic-gradient(from 120deg, transparent, rgba(52, 211, 153, 0.35), transparent, rgba(167, 139, 250, 0.4), transparent);
   animation: tm-ai-gen-spin 6s linear infinite;
-  opacity: 0.5;
+  opacity: 0.45;
   pointer-events: none;
 }
 
@@ -3017,17 +3038,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(8, 8, 12, 0.72);
-  backdrop-filter: blur(8px);
+  background: rgba(248, 250, 252, 0.82);
+  backdrop-filter: blur(10px);
 }
 
 .tm-ai-gen-overlay__card {
   text-align: center;
   padding: 1.75rem 2rem;
   border-radius: 16px;
-  background: rgba(24, 24, 32, 0.95);
-  border: 1px solid rgba(167, 139, 250, 0.25);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.1);
 }
 
 .tm-ai-gen-spinner {
@@ -3035,8 +3056,8 @@
   height: 48px;
   margin: 0 auto 1rem;
   border-radius: 50%;
-  border: 3px solid rgba(167, 139, 250, 0.25);
-  border-top-color: #34d399;
+  border: 3px solid #e2e8f0;
+  border-top-color: #059669;
   animation: tm-ai-spin 0.85s linear infinite;
 }
 
@@ -3050,13 +3071,14 @@
   margin: 0 0 0.35rem;
   font-size: 1.1rem;
   font-weight: 800;
-  color: #f5f3ff;
+  color: #0f172a;
 }
 
 .tm-ai-gen-overlay__sub {
   margin: 0;
   font-size: 0.85rem;
-  color: rgba(228, 228, 231, 0.65);
+  line-height: 1.45;
+  color: #64748b;
 }
 
 .tm-a4-block--ai-placeholder .tm-a4-block__imgwrap img {
