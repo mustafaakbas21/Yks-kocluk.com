@@ -2854,13 +2854,7 @@
 }
 
 /* ========== AI Test Üretici (view-auto-test) — açık tema + okunaklı kontrast ========== */
-/* ÖNEMLİ: .tm-ai-gen-overlay { display:flex } [hidden] ile çakışıyordu → overlay kapanmıyor / takılı kalıyordu */
-.tm-ai-gen-overlay[hidden] {
-  display: none !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
-}
-
+/* Overlay: varsayılan kapalı; yalnızca .tm-ai-gen-overlay--open ile göster (display/hidden çakışması yok) */
 .tm-workspace--ai-wizard {
   flex: 1;
   min-height: 0;
@@ -3035,11 +3029,19 @@
   position: absolute;
   inset: 0;
   z-index: 20;
-  display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(248, 250, 252, 0.82);
   backdrop-filter: blur(10px);
+  display: none !important;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.tm-ai-gen-overlay.tm-ai-gen-overlay--open {
+  display: flex !important;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .tm-ai-gen-overlay__card {

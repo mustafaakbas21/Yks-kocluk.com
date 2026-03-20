@@ -433,6 +433,20 @@ var TM_AI_PLACEHOLDER_SVG_DATA_URL =
 
 var tmAiGenWizardBound = false;
 
+function tmSetAiGenOverlayOpen(isOpen) {
+  var el = document.getElementById("tmAiGenOverlay");
+  if (!el) return;
+  if (isOpen) {
+    el.classList.add("tm-ai-gen-overlay--open");
+    el.removeAttribute("hidden");
+    el.setAttribute("aria-hidden", "false");
+  } else {
+    el.classList.remove("tm-ai-gen-overlay--open");
+    el.setAttribute("hidden", "");
+    el.setAttribute("aria-hidden", "true");
+  }
+}
+
 function tmRemoveAllQuestionItemsFromA4() {
   tmGetAllPapers().forEach(function (paper) {
     ["1", "2"].forEach(function (k) {
@@ -565,7 +579,6 @@ function initAiTestGenWizard() {
   var exam = document.getElementById("aiExamType");
   var subj = document.getElementById("aiSubject");
   var topic = document.getElementById("aiTopic");
-  var overlay = document.getElementById("tmAiGenOverlay");
   if (!form || !exam || !subj || !topic) return;
   tmAiGenWizardBound = true;
 
@@ -616,25 +629,34 @@ function initAiTestGenWizard() {
       diff: diffEl ? diffEl.value : "Orta",
     };
     if (btnAi) btnAi.disabled = true;
-    if (overlay) {
-      overlay.hidden = false;
-      overlay.removeAttribute("hidden");
-      overlay.setAttribute("aria-hidden", "false");
+    if (tmAiGenNavigateTimer != null) {
+      clearTimeout(tmAiGenNavigateTimer);
+      tmAiGenNavigateTimer = null;
     }
-    setTimeout(function () {
+    tmSetAiGenOverlayOpen(true);
+    tmAiGenNavigateTimer = window.setTimeout(function () {
+      tmAiGenNavigateTimer = null;
       try {
-        if (overlay) {
-          overlay.hidden = true;
-          overlay.setAttribute("hidden", "");
-          overlay.setAttribute("aria-hidden", "true");
-        }
+        tmSetAiGenOverlayOpen(false);
         navigateTo("testmaker");
-        requestAnimationFrame(function () {
-          tmApplyAiGenerationToTestmaker(payload);
-        });
-      } finally {
-        if (btnAi) btnAi.disabled = false;
+      } catch (errNav) {
+        console.error("AI üretim geçişi:", errNav);
+        showToast("Test tasarımına geçilemedi. Tekrar deneyin.");
+        tmSetAiGenOverlayOpen(false);
       }
+      try {
+        requestAnimationFrame(function () {
+          try {
+            tmApplyAiGenerationToTestmaker(payload);
+          } catch (errApply) {
+            console.error("AI taslak:", errApply);
+            showToast("Taslak yerleştirilirken hata oluştu.");
+          }
+        });
+      } catch (errRaf) {
+        console.error(errRaf);
+      }
+      if (btnAi) btnAi.disabled = false;
     }, 1500);
   });
 }
@@ -1583,6 +1605,8 @@ let searchQuery = "";
 const navigateCallbacks = [];
 
 let currentView = "dashboard";
+/** AI Test Üretici: 1.5s sonra testmaker’a geçiş zamanlayıcısı (iptal / takılma önleme) */
+let tmAiGenNavigateTimer = null;
 
 function clearFirestoreListeners() {
   firestoreUnsubs.forEach(function (unsub) {
@@ -5664,6 +5688,13 @@ function bindTestMakerWorkspace() {
 function navigateTo(view) {
   if (!view) return;
   var previous = currentView;
+  if (tmAiGenNavigateTimer != null && previous === "auto-test" && view !== "auto-test") {
+    clearTimeout(tmAiGenNavigateTimer);
+    tmAiGenNavigateTimer = null;
+    tmSetAiGenOverlayOpen(false);
+    var btnCancelAi = document.getElementById("btnAiGenerateTest");
+    if (btnCancelAi) btnCancelAi.disabled = false;
+  }
   var wasTm =
     previous === "testmaker" ||
     previous === "library" ||
