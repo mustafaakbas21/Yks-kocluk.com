@@ -426,91 +426,44 @@ var yksAiCurriculum = {
 
 var tmAiGenWizardBound = false;
 
-/** Demo soru havuzu — gerçek görsel URL’leri; istenirse genişletilebilir */
-var miniSoruBankasi = [
-  { id: 1, ders: "Matematik", konu: "Sayı Problemleri", zorluk: "Orta", image: "https://i.ibb.co/3dMvD6q/soru1.png" },
-  { id: 2, ders: "Matematik", konu: "Sayı Problemleri", zorluk: "Zor", image: "https://i.ibb.co/kMz3y7g/soru2.png" },
-  { id: 3, ders: "Matematik", konu: "Üslü Sayılar", zorluk: "Kolay", image: "https://i.ibb.co/Ttxp3vC/soru3.png" },
-  { id: 4, ders: "Türkçe", konu: "Paragraf", zorluk: "Orta", image: "https://i.ibb.co/YPXKq1z/soru4.png" },
-  { id: 5, ders: "Matematik", konu: "Sayı Problemleri", zorluk: "Orta", image: "https://i.ibb.co/4WH7n1B/soru5.png" },
-];
-
-function tmShuffleArrayInPlace(arr) {
-  for (var i = arr.length - 1; i > 0; i--) {
-    var j = Math.floor(Math.random() * (i + 1));
-    var t = arr[i];
-    arr[i] = arr[j];
-    arr[j] = t;
-  }
-  return arr;
-}
-
-function tmBankItemToQuestion(s, uniqueKey) {
-  return {
-    id: uniqueKey != null ? String(uniqueKey) : String(s.id),
-    ders: s.ders,
-    konu: s.konu,
-    zorluk: s.zorluk,
-    image: s.image,
-  };
-}
-
 /**
- * Mini soru havuzundan filtre + eksikleri rastgele tamamlama (mock API).
+ * Sahte AI API: her seferinde yeni rastgele ID + placehold.co görsel kanıt URL’si.
  * @param {string} ders
  * @param {string} konu
- * @param {string} zorluk  — "Karma" ise eşleşmede zorluk filtresi uygulanmaz
+ * @param {string} zorluk
  * @param {number} miktar
- * @returns {Promise<Array<{id:string,ders:string,konu:string,zorluk:string,image:string}>>}
+ * @returns {Promise<Array<{id:string,ders:string,konu:string,zorluk:string,imageUrl:string}>>}
  */
 function fetchAIGeneratedQuestions(ders, konu, zorluk, miktar) {
   return new Promise(function (resolve, reject) {
     var n = Math.max(1, Math.min(80, parseInt(miktar, 10) || 1));
-    var d = String(ders || "").trim();
-    var k = String(konu || "").trim();
-    var z = String(zorluk || "").trim();
+    var dersStr = String(ders || "").trim() || "Ders";
+    var konuStr = String(konu || "").trim() || "Konu";
+    var zStr = String(zorluk || "").trim() || "Orta";
     window.setTimeout(function () {
       try {
-        var bank = miniSoruBankasi;
-        if (!bank.length) {
-          resolve([]);
-          return;
+        var used = {};
+        var list = [];
+        for (var i = 0; i < n; i++) {
+          var rid;
+          do {
+            rid = Math.floor(1000 + Math.random() * 90000);
+          } while (used[rid]);
+          used[rid] = true;
+          var idTag = "#Q-" + rid;
+          var textBody =
+            dersStr + "\n" + konuStr + "\n" + "Zorluk: " + zStr + "\n" + "ID: " + rid;
+          var imageUrl =
+            "https://placehold.co/800x400/ffffff/1f2937?text=" + encodeURIComponent(textBody);
+          list.push({
+            id: idTag,
+            ders: dersStr,
+            konu: konuStr,
+            zorluk: zStr,
+            imageUrl: imageUrl,
+          });
         }
-        var zEsnek = z === "Karma";
-        var filtered = bank.filter(function (s) {
-          if (s.ders !== d || s.konu !== k) return false;
-          if (zEsnek) return true;
-          return s.zorluk === z;
-        });
-        var havuz = bank.slice();
-        tmShuffleArrayInPlace(filtered);
-        tmShuffleArrayInPlace(havuz);
-        var result = [];
-        var usedBankId = {};
-        var fi = 0;
-        while (fi < filtered.length && result.length < n) {
-          var it = filtered[fi++];
-          if (!usedBankId[it.id]) {
-            usedBankId[it.id] = true;
-            result.push(tmBankItemToQuestion(it, "#Q-" + it.id));
-          }
-        }
-        var guard = 0;
-        while (result.length < n && guard < n * 200) {
-          guard++;
-          var pick = havuz[Math.floor(Math.random() * havuz.length)];
-          if (!usedBankId[pick.id]) {
-            usedBankId[pick.id] = true;
-            result.push(tmBankItemToQuestion(pick, "#Q-" + pick.id));
-          }
-        }
-        var dupN = 0;
-        while (result.length < n) {
-          dupN++;
-          var p2 = havuz[Math.floor(Math.random() * havuz.length)];
-          result.push(tmBankItemToQuestion(p2, "#Q-" + p2.id + "-x" + dupN));
-        }
-        resolve(result.slice(0, n));
+        resolve(list);
       } catch (e) {
         reject(e);
       }
@@ -553,9 +506,9 @@ function tmRemoveAllQuestionItemsFromA4() {
   tmRenumberTmQuestions();
 }
 
-/** Havuzdan gelen soru: gerçek görsel URL + ince meta etiket (açık tema) */
+/** Mock API çıktısı: placehold.co <img> + ince meta (açık tema); gri div kullanılmaz */
 function tmAppendAiMockQuestionBlock(q) {
-  var src = (q && (q.image || q.imageUrl)) || "";
+  var src = (q && (q.imageUrl || q.image)) || "";
   if (!q || !src) return;
   var wrap = document.createElement("div");
   wrap.className = "tm-a4-block question-item tm-a4-block--ai-mock";
@@ -573,12 +526,13 @@ function tmAppendAiMockQuestionBlock(q) {
   imgW.className = "tm-a4-block__imgwrap";
   var img = document.createElement("img");
   img.className = "tm-ai-mock-q-img";
+  img.setAttribute("crossorigin", "anonymous");
   img.src = src;
   img.alt = (q.id || "Soru") + " — " + (q.ders || "") + " / " + (q.konu || "");
   img.draggable = false;
   img.setAttribute(
     "style",
-    "width:100%;height:auto;display:block;object-fit:contain;border-radius:4px;border:1px solid #e5e7eb;"
+    "width:100%;height:auto;border-radius:4px;border:1px solid #e5e7eb;display:block;"
   );
   imgW.appendChild(img);
   var xb = document.createElement("button");
@@ -5140,7 +5094,7 @@ function tmWsDownloadPdf() {
           return html2canvas(paper, {
             scale: scaleCap,
             useCORS: true,
-            allowTaint: false,
+            allowTaint: true,
             logging: false,
             backgroundColor: "#ffffff",
             scrollX: 0,
