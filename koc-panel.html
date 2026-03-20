@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="css/testmaker-workspace.css" />
   <link rel="stylesheet" href="css/tm-elite-saas.css" />
   <link rel="stylesheet" href="css/tm-pdf-cropper.css" />
+  <link rel="stylesheet" href="css/soru-arsivi.css" />
   <!-- PDF.js: body sonunda yüklü (3.11.x); kırpma + PDF düzenleyici ortak worker -->
   <style>
     /* Öğrenci ERP modal — sekme + grid (yalnızca bu sayfa) */
@@ -507,6 +508,7 @@
               <button type="button" class="sidebar__sublink" data-tm-nav-action="library" data-testmaker-view="view-library" title="Hazır Testler"><i class="fa-solid fa-layer-group"></i><span>Hazır Testler</span></button>
               <button type="button" class="sidebar__sublink" data-tm-nav-action="pdf-editor" data-testmaker-view="view-pdf-editor" title="PDF Düzenleyici"><i class="fa-solid fa-file-pen"></i><span>PDF Düzenleyici</span></button>
               <button type="button" class="sidebar__sublink" data-tm-nav-action="pdf-cropper" data-testmaker-view="view-pdf-cropper" data-target="view-pdf-cropper" title="PDF’den soru kırp ve havuza ekle"><i class="fa-solid fa-scissors"></i><span>✂️ Soru Havuzu Oluştur</span></button>
+              <button type="button" class="sidebar__sublink" data-tm-nav-action="soru-arsivi" data-testmaker-view="view-soru-arsivi" data-target="view-soru-arsivi" title="Kesilen sorular — yerel arşiv"><i class="fa-solid fa-book"></i><span>📚 Soru Havuzu Arşivi</span></button>
             </div>
           </li>
           <li>
@@ -807,6 +809,7 @@
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library" title="Kütüphane"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor" title="PDF işaretleme"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper" title="Soru kırpma"><i class="fa-solid fa-scissors"></i> Soru Havuzu</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="soru-arsivi" title="Soru arşivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler" title="Analiz"><i class="fa-solid fa-chart-line"></i> Analiz</button>
               </nav>
             </header>
@@ -1125,6 +1128,7 @@
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fa-solid fa-scissors"></i> Soru Havuzu</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="soru-arsivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>
               </nav>
             </header>
@@ -1196,6 +1200,7 @@
               <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fa-solid fa-scissors"></i> Soru Havuzu</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="soru-arsivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>
             </nav>
           </header>
@@ -1230,6 +1235,7 @@
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
               <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fa-solid fa-scissors"></i> Soru Havuzu</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="soru-arsivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>
             </nav>
           </header>
@@ -1261,11 +1267,12 @@
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
               <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="pdf-cropper"><i class="fa-solid fa-scissors"></i> Soru Havuzu</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="soru-arsivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>
             </nav>
           </header>
           <div class="tm-pdf-cropper-page">
-            <p class="tm-pdf-cropper-lead">PDF yükleyin, sayfada soru alanını fareyle seçin; önizlemeyi etiketleyip yerel havuza kaydedin.</p>
+            <p class="tm-pdf-cropper-lead">PDF yükleyin; sayfalar aşağı kaydırarak gezin (Adobe Reader gibi). Soru alanını fareyle seçin; önizlemeyi etiketleyip yerel havuza kaydedin. Sayfa kutusuna tıklayıp numara yazarak atlayabilirsiniz.</p>
             <div class="tm-pdf-cropper-toolbar">
               <label class="tm-pdf-cropper-file-btn">
                 <input type="file" id="pdf-upload" accept=".pdf,application/pdf" />
@@ -1275,7 +1282,11 @@
                 <button type="button" class="tm-pdf-cropper-iconbtn" id="tmPdfCropPrev" title="Önceki sayfa" disabled>
                   <i class="fa-solid fa-chevron-left"></i> Önceki
                 </button>
-                <span class="tm-pdf-cropper-page-label" id="tmPdfCropPageLabel" aria-live="polite">Sayfa — / —</span>
+                <label class="tm-pdf-cropper-page-go" id="tmPdfCropPageGo" title="Sayfa numarası — tıklayıp yazın, Enter">
+                  <span class="tm-pdf-cropper-page-go__prefix">Sayfa</span>
+                  <input type="text" class="tm-pdf-cropper-page-input" id="tmPdfCropPageInput" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="Sayfa numarası" />
+                  <span class="tm-pdf-cropper-page-go__total" id="tmPdfCropPageTotal">/ —</span>
+                </label>
                 <button type="button" class="tm-pdf-cropper-iconbtn" id="tmPdfCropNext" title="Sonraki sayfa" disabled>
                   Sonraki <i class="fa-solid fa-chevron-right"></i>
                 </button>
@@ -1284,8 +1295,7 @@
             <div class="tm-pdf-cropper-body">
               <div class="tm-pdf-cropper-stage">
                 <div class="tm-pdf-cropper-canvas-wrap" id="tmPdfCropCanvasWrap">
-                  <canvas id="pdf-main-canvas" width="1" height="1" aria-label="PDF sayfa görüntüsü"></canvas>
-                  <canvas id="pdf-crop-overlay" class="tm-pdf-cropper-overlay" width="1" height="1" aria-hidden="true"></canvas>
+                  <div class="tm-pdf-cropper-scroll-inner" id="tmPdfCropScrollInner" aria-label="PDF sayfaları — sürekli kaydırma"></div>
                 </div>
                 <p class="tm-pdf-cropper-hint"><i class="fa-solid fa-crosshairs"></i> İmleci soru köşelerinden sürükleyerek dikdörtgen seçin.</p>
               </div>
@@ -1298,6 +1308,13 @@
                   </div>
                 </div>
                 <form class="tm-pdf-cropper-form" id="tmPdfCropForm" autocomplete="off" onsubmit="return false;">
+                  <label class="tm-pdf-cropper-field">
+                    <span>Sınav tipi</span>
+                    <select id="tmCropSinav" required>
+                      <option value="TYT" selected>TYT</option>
+                      <option value="AYT">AYT</option>
+                    </select>
+                  </label>
                   <label class="tm-pdf-cropper-field">
                     <span>Ders</span>
                     <select id="tmCropDers" required>
@@ -1332,6 +1349,54 @@
                 </form>
               </aside>
             </div>
+          </div>
+        </div>
+
+        <div class="main-view tm-workspace-view" data-view="soru-arsivi" id="view-soru-arsivi" hidden>
+          <header class="tm-workspace__header tm-workspace__header--ribbon">
+            <div class="tm-workspace__header-row">
+              <button type="button" class="tm-back-dashboard" data-nav="dashboard" title="Ana panele dön">
+                <i class="fa-solid fa-arrow-left"></i> Panele dön
+              </button>
+              <span class="tm-workspace__brand"><i class="fa-solid fa-book"></i> Soru Havuzu Arşivi</span>
+            </div>
+            <nav class="tm-word-ribbon" aria-label="Üst menü">
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fa-solid fa-scissors"></i> Soru Havuzu</button>
+              <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="soru-arsivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>
+            </nav>
+          </header>
+          <div class="soru-arsivi-page">
+            <p class="soru-arsivi-lead">PDF kırpıcıdan kaydettiğiniz sorular cihazınızda (localStorage) tutulur. Filtreleyin, önizleyin veya silin.</p>
+            <form class="soru-arsivi-filters" id="soruArsiviFilterForm" autocomplete="off" onsubmit="return false;">
+              <label class="soru-arsivi-field">
+                <span>Sınav tipi</span>
+                <select id="arsivFilterSinav" aria-label="Sınav tipi">
+                  <option value="">Tümü</option>
+                  <option value="TYT">TYT</option>
+                  <option value="AYT">AYT</option>
+                </select>
+              </label>
+              <label class="soru-arsivi-field">
+                <span>Ders</span>
+                <select id="arsivFilterDers" aria-label="Ders">
+                  <option value="">Tümü</option>
+                </select>
+              </label>
+              <label class="soru-arsivi-field">
+                <span>Konu</span>
+                <select id="arsivFilterKonu" aria-label="Konu">
+                  <option value="">Tümü</option>
+                </select>
+              </label>
+              <button type="button" class="soru-arsivi-search-btn" id="btnSoruArsiviAra"><i class="fa-solid fa-magnifying-glass"></i> Soru Ara 🔍</button>
+            </form>
+            <div id="havuz-galeri-grid" aria-live="polite"></div>
           </div>
         </div>
 

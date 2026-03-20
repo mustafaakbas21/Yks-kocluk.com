@@ -5318,11 +5318,19 @@ function tmApplyWorkspaceTemplate() {
   tmRenumberTmQuestions();
 }
 
-/** PDF Soru Kırpma (Digitizer): PDF.js + kauçuk bant seçim + localStorage havuzu */
+/** PDF Soru Kırpma (Digitizer): PDF.js + sürekli kaydırma + kauçuk bant + localStorage havuzu */
 var tmPdfCropperModuleInited = false;
 var tmPdfCropDoc = null;
 var tmPdfCropPage = 1;
 var tmPdfCropLastPreviewDataUrl = "";
+var tmPdfCropScrollInner = null;
+var tmPdfCropWrapEl = null;
+var tmPdfCropSlotCssW = 0;
+var tmPdfCropSlotCssH = 0;
+var tmPdfCropRenderScale = 1;
+var tmPdfCropPageGapPx = 14;
+var tmPdfCropScrollRaf = 0;
+var tmPdfCropSlotPromises = {};
 
 function tmPdfCropFillKonuForDers(ders) {
   var sel = document.getElementById("tmCropKonu");
@@ -5348,18 +5356,19 @@ function tmPdfCropUpdateNav() {
   var total = tmPdfCropDoc ? tmPdfCropDoc.numPages : 0;
   var prev = document.getElementById("tmPdfCropPrev");
   var next = document.getElementById("tmPdfCropNext");
-  var lbl = document.getElementById("tmPdfCropPageLabel");
-  if (lbl) lbl.textContent = total ? "Sayfa " + tmPdfCropPage + " / " + total : "Sayfa — / —";
+  var inp = document.getElementById("tmPdfCropPageInput");
+  var totalEl = document.getElementById("tmPdfCropPageTotal");
+  if (totalEl) totalEl.textContent = total ? "/ " + total : "/ —";
+  if (inp && document.activeElement !== inp) {
+    inp.value = total ? String(tmPdfCropPage) : "";
+  }
   if (prev) prev.disabled = !tmPdfCropDoc || tmPdfCropPage <= 1;
-  if (next) next.disabled = !tmPdfCropDoc || tmPdfCropPage >= total;
+  if (next) next.disabled = !tmPdfCropDoc || !total || tmPdfCropPage >= total;
 }
 
-function tmPdfCropClearOverlay() {
-  var overlay = document.getElementById("pdf-crop-overlay");
-  var main = document.getElementById("pdf-main-canvas");
-  if (!overlay || !main) return;
-  var ctx = overlay.getContext("2d");
-  ctx.clearRect(0, 0, overlay.width, overlay.height);
+function tmPdfCropRemoveCropSelectionBox() {
+  var old = document.getElementById("crop-selection-box");
+  if (old && old.parentNode) old.parentNode.removeChild(old);
 }
 
 function tmPdfCropClearPreview() {
@@ -5373,52 +5382,174 @@ function tmPdfCropClearPreview() {
   if (empty) empty.hidden = false;
 }
 
-function tmPdfCropDrawRubber(sx, sy, cx, cy) {
-  var overlay = document.getElementById("pdf-crop-overlay");
-  if (!overlay) return;
-  var ctx = overlay.getContext("2d");
-  ctx.clearRect(0, 0, overlay.width, overlay.height);
-  var x = Math.min(sx, cx);
-  var y = Math.min(sy, cy);
-  var w = Math.abs(cx - sx);
-  var h = Math.abs(cy - sy);
-  ctx.fillStyle = "rgba(59, 130, 246, 0.14)";
-  ctx.strokeStyle = "rgba(220, 38, 38, 0.88)";
-  ctx.lineWidth = 2;
-  ctx.fillRect(x, y, w, h);
-  ctx.strokeRect(x, y, w, h);
+function tmPdfCropScheduleSyncVisible() {
+  if (tmPdfCropScrollRaf) cancelAnimationFrame(tmPdfCropScrollRaf);
+  tmPdfCropScrollRaf = requestAnimationFrame(function () {
+    tmPdfCropScrollRaf = 0;
+    tmPdfCropSyncVisiblePages();
+  });
+}
+
+function tmPdfCropUnloadSlotIfFar(slot, wrapRect, buffer) {
+  var r = slot.getBoundingClientRect();
+  if (r.bottom >= wrapRect.top - buffer && r.top <= wrapRect.bottom + buffer) return;
+  if (slot.dataset.rendered !== "1") return;
+  var main = slot.querySelector(".tm-pdf-crop-slot-canvas");
+  if (main) {
+    main.width = 1;
+    main.height = 1;
+    main.removeAttribute("style");
+  }
+  slot.dataset.rendered = "0";
+  var n = parseInt(slot.getAttribute("data-page"), 10);
+  if (!isNaN(n)) delete tmPdfCropSlotPromises[n];
+}
+
+function tmPdfCropEnsureSlotRendered(n, slot) {
+  if (!tmPdfCropDoc || !slot || slot.dataset.rendered === "1") return;
+  if (tmPdfCropSlotPromises[n]) return;
+  var main = slot.querySelector(".tm-pdf-crop-slot-canvas");
+  if (!main) return;
+  tmPdfCropSlotPromises[n] = tmPdfCropDoc
+    .getPage(n)
+    .then(function (pdfPage) {
+      var vp = pdfPage.getViewport({ scale: tmPdfCropRenderScale });
+      main.width = vp.width;
+      main.height = vp.height;
+      main.style.width = tmPdfCropSlotCssW + "px";
+      main.style.height = tmPdfCropSlotCssH + "px";
+      var ctx = main.getContext("2d");
+      return pdfPage.render({ canvasContext: ctx, viewport: vp }).promise.then(function () {
+        slot.dataset.rendered = "1";
+        delete tmPdfCropSlotPromises[n];
+      });
+    })
+    .catch(function (err) {
+      console.error(err);
+      delete tmPdfCropSlotPromises[n];
+    });
+}
+
+function tmPdfCropUpdateCurrentPageFromScroll() {
+  if (!tmPdfCropWrapEl || !tmPdfCropScrollInner || !tmPdfCropDoc) return;
+  var mid = tmPdfCropWrapEl.scrollTop + tmPdfCropWrapEl.clientHeight / 2;
+  var slots = tmPdfCropScrollInner.children;
+  var best = 1;
+  for (var i = 0; i < slots.length; i++) {
+    var el = slots[i];
+    var top = el.offsetTop;
+    var h = el.offsetHeight;
+    if (mid >= top && mid < top + h) {
+      best = i + 1;
+      break;
+    }
+    if (top <= mid) best = i + 1;
+  }
+  var t = tmPdfCropDoc.numPages || 1;
+  best = Math.max(1, Math.min(t, best));
+  if (best !== tmPdfCropPage) {
+    tmPdfCropPage = best;
+    tmPdfCropUpdateNav();
+  }
+}
+
+function tmPdfCropSyncVisiblePages() {
+  if (!tmPdfCropWrapEl || !tmPdfCropScrollInner || !tmPdfCropDoc) return;
+  var rect = tmPdfCropWrapEl.getBoundingClientRect();
+  var buffer = 280;
+  var unloadBuf = 480;
+  var slots = tmPdfCropScrollInner.querySelectorAll(".tm-pdf-cropper-page-slot");
+  slots.forEach(function (slot) {
+    var r = slot.getBoundingClientRect();
+    var n = parseInt(slot.getAttribute("data-page"), 10);
+    if (isNaN(n)) return;
+    var near = r.bottom >= rect.top - buffer && r.top <= rect.bottom + buffer;
+    if (near) tmPdfCropEnsureSlotRendered(n, slot);
+    else tmPdfCropUnloadSlotIfFar(slot, rect, unloadBuf);
+  });
+  tmPdfCropUpdateCurrentPageFromScroll();
+}
+
+function tmPdfCropScrollToPage(p) {
+  if (!tmPdfCropScrollInner || !tmPdfCropWrapEl || !tmPdfCropDoc) return;
+  var t = tmPdfCropDoc.numPages || 1;
+  p = Math.max(1, Math.min(t, p));
+  var slot = tmPdfCropScrollInner.querySelector('.tm-pdf-cropper-page-slot[data-page="' + p + '"]');
+  if (!slot) return;
+  tmPdfCropWrapEl.scrollTop = Math.max(0, slot.offsetTop - 10);
+  tmPdfCropPage = p;
+  tmPdfCropUpdateNav();
+  tmPdfCropScheduleSyncVisible();
+}
+
+function tmPdfCropBuildContinuousView(doc) {
+  var inner = document.getElementById("tmPdfCropScrollInner");
+  var wrap = document.getElementById("tmPdfCropCanvasWrap");
+  if (!inner || !wrap) return Promise.reject(new Error("PDF kırpıcı DOM eksik"));
+  tmPdfCropScrollInner = inner;
+  tmPdfCropWrapEl = wrap;
+  tmPdfCropSlotPromises = {};
+  inner.innerHTML = "";
+  return doc.getPage(1).then(function (p1) {
+    var base = p1.getViewport({ scale: 1 });
+    var maxW = Math.max(260, wrap.clientWidth - 20);
+    var scale = maxW / base.width;
+    var vp = p1.getViewport({ scale: scale });
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    tmPdfCropSlotCssW = vp.width;
+    tmPdfCropSlotCssH = vp.height;
+    tmPdfCropRenderScale = scale * dpr;
+    var n = doc.numPages || 0;
+    var i;
+    for (i = 1; i <= n; i++) {
+      var slot = document.createElement("div");
+      slot.className = "tm-pdf-cropper-page-slot";
+      slot.setAttribute("data-page", String(i));
+      if (i < n) slot.style.marginBottom = tmPdfCropPageGapPx + "px";
+      var badge = document.createElement("div");
+      badge.className = "tm-pdf-cropper-page-slot__badge";
+      badge.textContent = "Sayfa " + i;
+      var holder = document.createElement("div");
+      holder.className = "tm-pdf-cropper-slot-inner pdf-canvas-wrapper";
+      if (i === 1) holder.id = "pdf-canvas-wrapper";
+      holder.style.position = "relative";
+      holder.style.display = "inline-block";
+      var cMain = document.createElement("canvas");
+      cMain.className = "tm-pdf-crop-slot-canvas";
+      if (i === 1) cMain.id = "pdf-main-canvas";
+      cMain.setAttribute("aria-label", "PDF sayfa " + i);
+      holder.appendChild(cMain);
+      slot.appendChild(badge);
+      slot.appendChild(holder);
+      inner.appendChild(slot);
+    }
+    wrap.scrollTop = 0;
+    tmPdfCropPage = 1;
+    tmPdfCropUpdateNav();
+    tmPdfCropScheduleSyncVisible();
+  });
 }
 
 function initPdfCropperModule() {
   if (tmPdfCropperModuleInited) return;
   var wrap = document.getElementById("tmPdfCropCanvasWrap");
-  var mainCanvas = document.getElementById("pdf-main-canvas");
-  var overlay = document.getElementById("pdf-crop-overlay");
+  var inner = document.getElementById("tmPdfCropScrollInner");
   var inp = document.getElementById("pdf-upload");
-  if (!wrap || !mainCanvas || !overlay || !inp) return;
+  if (!wrap || !inner || !inp) return;
   if (typeof pdfjsLib === "undefined") {
     console.warn("pdfjsLib yüklenmedi; PDF kırpma devre dışı.");
     return;
   }
   tmPdfCropperModuleInited = true;
+  tmPdfCropWrapEl = wrap;
+  tmPdfCropScrollInner = inner;
 
   var dragging = false;
-  var sx = 0;
-  var sy = 0;
-  var cx = 0;
-  var cy = 0;
-
-  function getCanvasCoords(e) {
-    var rect = mainCanvas.getBoundingClientRect();
-    var scaleX = mainCanvas.width / Math.max(rect.width, 1);
-    var scaleY = mainCanvas.height / Math.max(rect.height, 1);
-    var rx = (e.clientX - rect.left) * scaleX;
-    var ry = (e.clientY - rect.top) * scaleY;
-    return {
-      x: Math.max(0, Math.min(mainCanvas.width, rx)),
-      y: Math.max(0, Math.min(mainCanvas.height, ry)),
-    };
-  }
+  var dragMain = null;
+  var dragWrapper = null;
+  var dragBox = null;
+  var dragOx = 0;
+  var dragOy = 0;
 
   var dersEl = document.getElementById("tmCropDers");
   tmPdfCropFillKonuForDers((dersEl && dersEl.value) || "Matematik");
@@ -5427,20 +5558,30 @@ function initPdfCropperModule() {
       tmPdfCropFillKonuForDers(dersEl.value);
     });
 
-  function renderPdfPage() {
-    if (!tmPdfCropDoc) return Promise.resolve();
+  var pageInp = document.getElementById("tmPdfCropPageInput");
+  function commitPdfCropPageInput() {
+    if (!pageInp || !tmPdfCropDoc) return;
+    var raw = (pageInp.value || "").replace(/\D/g, "");
+    var v = parseInt(raw, 10);
+    var t = tmPdfCropDoc.numPages || 1;
+    if (isNaN(v) || v < 1) {
+      tmPdfCropUpdateNav();
+      return;
+    }
+    v = Math.min(t, v);
     tmPdfCropClearPreview();
-    return tmPdfCropDoc.getPage(tmPdfCropPage).then(function (page) {
-      var scale = 2.15;
-      var viewport = page.getViewport({ scale: scale });
-      var ctx = mainCanvas.getContext("2d");
-      mainCanvas.width = viewport.width;
-      mainCanvas.height = viewport.height;
-      overlay.width = viewport.width;
-      overlay.height = viewport.height;
-      tmPdfCropClearOverlay();
-      var renderTask = page.render({ canvasContext: ctx, viewport: viewport });
-      return renderTask.promise;
+    tmPdfCropScrollToPage(v);
+  }
+  if (pageInp) {
+    pageInp.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        commitPdfCropPageInput();
+        pageInp.blur();
+      }
+    });
+    pageInp.addEventListener("blur", function () {
+      commitPdfCropPageInput();
     });
   }
 
@@ -5455,9 +5596,10 @@ function initPdfCropperModule() {
         .getDocument({ data: buf })
         .promise.then(function (doc) {
           tmPdfCropDoc = doc;
+          tmPdfCropClearPreview();
           tmPdfCropPage = 1;
           tmPdfCropUpdateNav();
-          return renderPdfPage();
+          return tmPdfCropBuildContinuousView(doc);
         })
         .catch(function (err) {
           console.error(err);
@@ -5475,54 +5617,114 @@ function initPdfCropperModule() {
   if (prev)
     prev.addEventListener("click", function () {
       if (!tmPdfCropDoc || tmPdfCropPage <= 1) return;
-      tmPdfCropPage--;
-      tmPdfCropUpdateNav();
-      renderPdfPage();
+      tmPdfCropClearPreview();
+      tmPdfCropScrollToPage(tmPdfCropPage - 1);
     });
   if (next)
     next.addEventListener("click", function () {
       if (!tmPdfCropDoc) return;
       var t = tmPdfCropDoc.numPages || 1;
       if (tmPdfCropPage >= t) return;
-      tmPdfCropPage++;
-      tmPdfCropUpdateNav();
-      renderPdfPage();
+      tmPdfCropClearPreview();
+      tmPdfCropScrollToPage(tmPdfCropPage + 1);
     });
+
+  wrap.addEventListener(
+    "scroll",
+    function () {
+      tmPdfCropScheduleSyncVisible();
+    },
+    { passive: true }
+  );
 
   wrap.addEventListener("mousedown", function (e) {
     if (!tmPdfCropDoc) return;
+    var mainCanvas = e.target.closest && e.target.closest(".tm-pdf-crop-slot-canvas");
+    if (!mainCanvas) return;
     if (e.button !== 0) return;
+    var slot = mainCanvas.closest(".tm-pdf-cropper-page-slot");
+    if (!slot) return;
+    var holder = mainCanvas.closest(".pdf-canvas-wrapper");
+    if (!holder) return;
+    var pageNum = parseInt(slot.getAttribute("data-page"), 10);
+    if (!isNaN(pageNum)) tmPdfCropPage = pageNum;
+    tmPdfCropRemoveCropSelectionBox();
+    var wr = holder.getBoundingClientRect();
+    var ox = e.clientX - wr.left;
+    var oy = e.clientY - wr.top;
+    var box = document.createElement("div");
+    box.id = "crop-selection-box";
+    box.setAttribute("aria-hidden", "true");
+    box.style.left = ox + "px";
+    box.style.top = oy + "px";
+    box.style.width = "0px";
+    box.style.height = "0px";
+    holder.appendChild(box);
+    dragWrapper = holder;
+    dragBox = box;
+    dragOx = ox;
+    dragOy = oy;
+    dragMain = mainCanvas;
     dragging = true;
-    var p = getCanvasCoords(e);
-    sx = p.x;
-    sy = p.y;
-    cx = sx;
-    cy = sy;
+    tmPdfCropUpdateNav();
     e.preventDefault();
   });
 
   window.addEventListener("mousemove", function (e) {
-    if (!dragging) return;
-    var p = getCanvasCoords(e);
-    cx = p.x;
-    cy = p.y;
-    tmPdfCropDrawRubber(sx, sy, cx, cy);
+    if (!dragging || !dragWrapper || !dragBox || !dragMain) return;
+    var wr = dragWrapper.getBoundingClientRect();
+    var curX = e.clientX - wr.left;
+    var curY = e.clientY - wr.top;
+    var left = Math.min(dragOx, curX);
+    var top = Math.min(dragOy, curY);
+    var ww = Math.abs(curX - dragOx);
+    var hh = Math.abs(curY - dragOy);
+    left = Math.max(0, Math.min(left, wr.width));
+    top = Math.max(0, Math.min(top, wr.height));
+    ww = Math.min(ww, wr.width - left);
+    hh = Math.min(hh, wr.height - top);
+    dragBox.style.left = left + "px";
+    dragBox.style.top = top + "px";
+    dragBox.style.width = ww + "px";
+    dragBox.style.height = hh + "px";
   });
 
-  window.addEventListener("mouseup", function (e) {
-    if (!dragging) return;
+  window.addEventListener("mouseup", function () {
+    if (!dragging || !dragMain || !dragWrapper || !dragBox) return;
+    var mainCanvas = dragMain;
+    var L = parseFloat(dragBox.style.left) || 0;
+    var T = parseFloat(dragBox.style.top) || 0;
+    var Wb = parseFloat(dragBox.style.width) || 0;
+    var Hb = parseFloat(dragBox.style.height) || 0;
+    tmPdfCropRemoveCropSelectionBox();
     dragging = false;
-    var p = getCanvasCoords(e);
-    cx = p.x;
-    cy = p.y;
-    var x = Math.min(sx, cx);
-    var y = Math.min(sy, cy);
-    var w = Math.abs(cx - sx);
-    var h = Math.abs(cy - sy);
-    if (w < 4 || h < 4) {
-      tmPdfCropClearOverlay();
-      return;
-    }
+    dragMain = null;
+    dragWrapper = null;
+    dragBox = null;
+    if (Wb < 4 || Hb < 4) return;
+    var cr = mainCanvas.getBoundingClientRect();
+    var wr2 = mainCanvas.closest(".pdf-canvas-wrapper");
+    if (!wr2) return;
+    var wr = wr2.getBoundingClientRect();
+    var cOffL = cr.left - wr.left;
+    var cOffT = cr.top - wr.top;
+    var dispL = L - cOffL;
+    var dispT = T - cOffT;
+    var dw = cr.width;
+    var dh = cr.height;
+    var ix0 = Math.max(0, dispL);
+    var iy0 = Math.max(0, dispT);
+    var ix1 = Math.min(dw, dispL + Wb);
+    var iy1 = Math.min(dh, dispT + Hb);
+    var dispWi = ix1 - ix0;
+    var dispHi = iy1 - iy0;
+    if (dispWi < 4 || dispHi < 4) return;
+    var scaleX = mainCanvas.width / Math.max(dw, 1);
+    var scaleY = mainCanvas.height / Math.max(dh, 1);
+    var x = Math.round(ix0 * scaleX);
+    var y = Math.round(iy0 * scaleY);
+    var w = Math.round(dispWi * scaleX);
+    var h = Math.round(dispHi * scaleY);
     x = Math.max(0, Math.min(x, mainCanvas.width - 1));
     y = Math.max(0, Math.min(y, mainCanvas.height - 1));
     w = Math.min(w, mainCanvas.width - x);
@@ -5537,7 +5739,6 @@ function initPdfCropperModule() {
     } catch (err) {
       console.error(err);
       showToast("Kırpma başarısız.");
-      tmPdfCropClearOverlay();
       return;
     }
     var imgPreview = document.getElementById("tmCropPreviewImg");
@@ -5547,7 +5748,6 @@ function initPdfCropperModule() {
       imgPreview.hidden = false;
     }
     if (empty) empty.hidden = true;
-    tmPdfCropClearOverlay();
   });
 
   var saveBtn = document.getElementById("tmPdfCropSavePool");
@@ -5557,12 +5757,14 @@ function initPdfCropperModule() {
         showToast("Önce PDF üzerinde bir alan seçin.");
         return;
       }
+      var sinavTipi = (document.getElementById("tmCropSinav") || {}).value || "TYT";
       var ders = (document.getElementById("tmCropDers") || {}).value || "";
       var konu = (document.getElementById("tmCropKonu") || {}).value || "";
       var zorluk = (document.getElementById("tmCropZorluk") || {}).value || "";
       var id = "q_" + Date.now() + "_" + Math.random().toString(36).slice(2, 10);
       var item = {
         id: id,
+        sinavTipi: sinavTipi,
         ders: ders,
         konu: konu,
         zorluk: zorluk,
@@ -5582,6 +5784,175 @@ function initPdfCropperModule() {
         showToast("Kayıt başarısız (depolama sınırı olabilir).");
       }
     });
+}
+
+function soruArsivDersMatchesSinav(sinavFilter, ders) {
+  if (!sinavFilter) return true;
+  var bagT = yksAiCurriculum.TYT && yksAiCurriculum.TYT[ders];
+  var bagA = yksAiCurriculum.AYT && yksAiCurriculum.AYT[ders];
+  if (sinavFilter === "TYT") return !!bagT;
+  if (sinavFilter === "AYT") return !!bagA;
+  return true;
+}
+
+function soruArsivItemMatchesSinav(sinavFilter, item) {
+  if (!sinavFilter) return true;
+  if (item.sinavTipi === "TYT" || item.sinavTipi === "AYT") return item.sinavTipi === sinavFilter;
+  return soruArsivDersMatchesSinav(sinavFilter, item.ders || "");
+}
+
+function soruArsivFillKonuOptions() {
+  var dersEl = document.getElementById("arsivFilterDers");
+  var sinavEl = document.getElementById("arsivFilterSinav");
+  var konuEl = document.getElementById("arsivFilterKonu");
+  if (!dersEl || !konuEl) return;
+  var ders = dersEl.value;
+  var sinav = sinavEl && sinavEl.value;
+  if (!ders) {
+    konuEl.innerHTML = '<option value="">Tümü</option>';
+    return;
+  }
+  var topics = [];
+  var exams = sinav ? [sinav] : ["TYT", "AYT"];
+  exams.forEach(function (ex) {
+    var bag = yksAiCurriculum[ex];
+    if (bag && bag[ders]) {
+      bag[ders].forEach(function (t) {
+        if (topics.indexOf(t) === -1) topics.push(t);
+      });
+    }
+  });
+  if (!topics.length) topics = ["Genel"];
+  konuEl.innerHTML =
+    '<option value="">Tümü</option>' +
+    topics
+      .map(function (t) {
+        return '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + "</option>";
+      })
+      .join("");
+}
+
+function soruArsivPopulateDers() {
+  var sel = document.getElementById("arsivFilterDers");
+  if (!sel) return;
+  var set = {};
+  ["TYT", "AYT"].forEach(function (ex) {
+    var bag = yksAiCurriculum[ex];
+    if (!bag) return;
+    Object.keys(bag).forEach(function (d) {
+      set[d] = true;
+    });
+  });
+  var list = Object.keys(set).sort(function (a, b) {
+    return a.localeCompare(b, "tr");
+  });
+  var opts = '<option value="">Tümü</option>';
+  list.forEach(function (d) {
+    opts += '<option value="' + escapeHtml(d) + '">' + escapeHtml(d) + "</option>";
+  });
+  sel.innerHTML = opts;
+}
+
+function soruArsivReadPool() {
+  try {
+    var raw = localStorage.getItem("koc_soru_havuzu");
+    var arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function soruArsivWritePool(arr) {
+  localStorage.setItem("koc_soru_havuzu", JSON.stringify(arr));
+}
+
+function soruArsivFilterItems(arr) {
+  var sinav = (document.getElementById("arsivFilterSinav") || {}).value || "";
+  var ders = (document.getElementById("arsivFilterDers") || {}).value || "";
+  var konu = (document.getElementById("arsivFilterKonu") || {}).value || "";
+  return arr.filter(function (it) {
+    if (!soruArsivItemMatchesSinav(sinav, it)) return false;
+    if (ders && (it.ders || "") !== ders) return false;
+    if (konu && (it.konu || "") !== konu) return false;
+    return true;
+  });
+}
+
+function renderSoruHavuzuArsivi() {
+  var grid = document.getElementById("havuz-galeri-grid");
+  if (!grid) return;
+  var all = soruArsivReadPool();
+  var items = soruArsivFilterItems(all);
+  if (!items.length) {
+    grid.innerHTML =
+      '<p class="soru-arsivi-empty">Kriterlere uygun soru yok. Filtreleri “Tümü” yapıp tekrar deneyin veya PDF kırpıcıdan soru ekleyin.</p>';
+    return;
+  }
+  grid.innerHTML = items
+    .map(function (it) {
+      var id = escapeHtml(it.id);
+      var src = escapeHtml(it.imageBase64 || "");
+      var st = it.sinavTipi
+        ? '<span class="soru-arsivi-badge">' + escapeHtml(it.sinavTipi) + "</span>"
+        : "";
+      return (
+        '<article class="soru-arsivi-card" data-havuz-q-id="' +
+        id +
+        '"><div class="soru-arsivi-card__img-wrap"><img src="' +
+        src +
+        '" alt="Soru" loading="lazy" /></div><div class="soru-arsivi-card__body"><div class="soru-arsivi-card__badges">' +
+        st +
+        '<span class="soru-arsivi-badge">' +
+        escapeHtml(it.ders || "—") +
+        '</span><span class="soru-arsivi-badge">' +
+        escapeHtml(it.konu || "—") +
+        '</span><span class="soru-arsivi-badge soru-arsivi-badge--zorluk">' +
+        escapeHtml(it.zorluk || "—") +
+        '</span></div><button type="button" class="soru-arsivi-card__del" data-havuz-del="' +
+        id +
+        '"><i class="fa-solid fa-trash"></i> Sil</button></div></article>'
+      );
+    })
+    .join("");
+}
+
+var soruArsiviUiBound = false;
+function initSoruArsiviModule() {
+  if (soruArsiviUiBound) return;
+  soruArsiviUiBound = true;
+  soruArsivPopulateDers();
+  soruArsivFillKonuOptions();
+  var sinavEl = document.getElementById("arsivFilterSinav");
+  var dersEl = document.getElementById("arsivFilterDers");
+  var btn = document.getElementById("btnSoruArsiviAra");
+  if (sinavEl)
+    sinavEl.addEventListener("change", function () {
+      soruArsivFillKonuOptions();
+    });
+  if (dersEl)
+    dersEl.addEventListener("change", function () {
+      soruArsivFillKonuOptions();
+    });
+  if (btn) btn.addEventListener("click", renderSoruHavuzuArsivi);
+  var grid = document.getElementById("havuz-galeri-grid");
+  if (grid)
+    grid.addEventListener("click", function (ev) {
+      var del = ev.target.closest && ev.target.closest("[data-havuz-del]");
+      if (!del) return;
+      var qid = del.getAttribute("data-havuz-del");
+      if (!qid || !confirm("Bu soruyu arşivden silmek istiyor musunuz?")) return;
+      var arr = soruArsivReadPool().filter(function (x) {
+        return String(x.id) !== String(qid);
+      });
+      soruArsivWritePool(arr);
+      showToast("Soru silindi.");
+      renderSoruHavuzuArsivi();
+    });
+  if (grid && !grid.querySelector(".soru-arsivi-card")) {
+    grid.innerHTML =
+      '<p class="soru-arsivi-empty">Filtreleri seçip <strong>Soru Ara</strong> ile yerel havuzdaki soruları listeleyin.</p>';
+  }
 }
 
 function bindTestMakerWorkspace() {
@@ -6112,13 +6483,15 @@ function navigateTo(view) {
     previous === "library" ||
     previous === "pdf-editor" ||
     previous === "auto-test" ||
-    previous === "pdf-cropper";
+    previous === "pdf-cropper" ||
+    previous === "soru-arsivi";
   var nowTm =
     view === "testmaker" ||
     view === "library" ||
     view === "pdf-editor" ||
     view === "auto-test" ||
-    view === "pdf-cropper";
+    view === "pdf-cropper" ||
+    view === "soru-arsivi";
   if (wasTm && !nowTm) testmakerWorkspaceLeave();
   try {
   document.querySelectorAll(".main-view").forEach(function (el) {
@@ -6137,7 +6510,8 @@ function navigateTo(view) {
           view === "library" ||
           view === "pdf-editor" ||
           view === "auto-test" ||
-          view === "pdf-cropper"));
+          view === "pdf-cropper" ||
+          view === "soru-arsivi"));
     btn.classList.toggle("sidebar__link--active", on);
   });
   var tmLiNav = document.querySelector(".sidebar__item--testmaker");
@@ -6148,7 +6522,8 @@ function navigateTo(view) {
       view === "library" ||
       view === "pdf-editor" ||
       view === "auto-test" ||
-      view === "pdf-cropper";
+      view === "pdf-cropper" ||
+      view === "soru-arsivi";
     if (inTmNav) {
       tmLiNav.classList.add("sidebar__item--tm-open");
       tmAccNav.setAttribute("aria-expanded", "true");
@@ -6163,7 +6538,8 @@ function navigateTo(view) {
         (a === "creator" && view === "testmaker") ||
         (a === "pdf-editor" && view === "pdf-editor") ||
         (a === "auto-test" && view === "auto-test") ||
-        (a === "pdf-cropper" && view === "pdf-cropper")
+        (a === "pdf-cropper" && view === "pdf-cropper") ||
+        (a === "soru-arsivi" && view === "soru-arsivi")
     );
   });
   tmSyncRibbonActive(view);
@@ -6196,13 +6572,15 @@ function navigateTo(view) {
     view === "library" ||
     view === "pdf-editor" ||
     view === "auto-test" ||
-    view === "pdf-cropper"
+    view === "pdf-cropper" ||
+    view === "soru-arsivi"
   ) {
     testmakerWorkspaceEnter();
     renderTestsTable();
     tmLibraryRenderList();
   }
   if (view === "pdf-cropper") initPdfCropperModule();
+  if (view === "soru-arsivi") initSoruArsiviModule();
   var cre = document.getElementById("tmViewCreator");
   if (cre) cre.hidden = view !== "testmaker";
   if (view === "muhasebe") renderPaymentsTable();
@@ -6232,6 +6610,7 @@ function displayTestmakerView(viewDomId) {
     "view-library": "library",
     "view-pdf-editor": "pdf-editor",
     "view-pdf-cropper": "pdf-cropper",
+    "view-soru-arsivi": "soru-arsivi",
   };
   var route = map[viewDomId];
   if (route) {
@@ -6297,6 +6676,7 @@ function initNavigation() {
       else if (action === "pdf-editor") navigateTo("pdf-editor");
       else if (action === "auto-test") navigateTo("auto-test");
       else if (action === "pdf-cropper") navigateTo("pdf-cropper");
+      else if (action === "soru-arsivi") navigateTo("soru-arsivi");
       else navigateTo("testmaker");
     });
   }

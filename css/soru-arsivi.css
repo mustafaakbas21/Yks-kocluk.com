@@ -1,0 +1,193 @@
+/* Soru Havuzu Arşivi — açık tema, TestMaker workspace ile uyumlu */
+
+#view-soru-arsivi.tm-workspace-view {
+  background: #f8fafc !important;
+}
+
+.soru-arsivi-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0.85rem 1.1rem 1.35rem;
+  overflow: auto;
+}
+
+.soru-arsivi-lead {
+  margin: 0 0 1rem;
+  font-size: 0.88rem;
+  color: #64748b;
+  max-width: 48rem;
+  line-height: 1.45;
+}
+
+.soru-arsivi-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+  padding: 1rem 1.15rem;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+  margin-bottom: 1.25rem;
+}
+
+.soru-arsivi-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 8.5rem;
+}
+
+.soru-arsivi-field span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.soru-arsivi-field select {
+  padding: 0.5rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #0f172a;
+  background: #f8fafc;
+  min-width: 10rem;
+}
+
+.soru-arsivi-field select:focus {
+  outline: none;
+  border-color: #818cf8;
+  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.25);
+}
+
+.soru-arsivi-search-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.25rem;
+  border: none;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 800;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.35);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.soru-arsivi-search-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(79, 70, 229, 0.4);
+}
+
+.soru-arsivi-empty {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: #64748b;
+  font-size: 0.95rem;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px dashed #cbd5e1;
+}
+
+#havuz-galeri-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.soru-arsivi-card {
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.07);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.soru-arsivi-card__img-wrap {
+  aspect-ratio: 3 / 4;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.soru-arsivi-card__img-wrap img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.soru-arsivi-card__body {
+  padding: 0.75rem 0.85rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  flex: 1;
+}
+
+.soru-arsivi-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.soru-arsivi-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.soru-arsivi-badge--zorluk {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.soru-arsivi-card__del {
+  margin-top: auto;
+  width: 100%;
+  padding: 0.45rem;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.soru-arsivi-card__del:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+}
+
+@media (max-width: 640px) {
+  .soru-arsivi-search-btn {
+    margin-left: 0;
+    width: 100%;
+    justify-content: center;
+  }
+}
