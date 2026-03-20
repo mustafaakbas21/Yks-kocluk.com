@@ -354,9 +354,11 @@ function tmAnnotatorOpen() {
   var headLib = document.querySelector("#view-library .tm-workspace__header");
   var headPdf = document.querySelector("#view-pdf-editor .tm-workspace__header");
   var headAuto = document.querySelector("#view-auto-test .tm-workspace__header");
+  var headCrop = document.querySelector("#view-pdf-cropper .tm-workspace__header");
   if (currentView === "library") tmAnnotReturnSubView = "library";
   else if (currentView === "pdf-editor") tmAnnotReturnSubView = "pdf-editor";
   else if (currentView === "auto-test") tmAnnotReturnSubView = "auto-test";
+  else if (currentView === "pdf-cropper") tmAnnotReturnSubView = "pdf-cropper";
   else tmAnnotReturnSubView = "testmaker";
   if (ann) ann.hidden = false;
   document.body.classList.add("tm-annotate-open");
@@ -366,6 +368,7 @@ function tmAnnotatorOpen() {
   if (headLib) headLib.hidden = true;
   if (headPdf) headPdf.hidden = true;
   if (headAuto) headAuto.hidden = true;
+  if (headCrop) headCrop.hidden = true;
   tmAnnotToolSync();
   tmEditorBindCanvas();
 }
@@ -378,6 +381,7 @@ function tmAnnotatorClose() {
   if (ret === "library") navigateTo("library");
   else if (ret === "pdf-editor") navigateTo("pdf-editor");
   else if (ret === "auto-test") navigateTo("auto-test");
+  else if (ret === "pdf-cropper") navigateTo("pdf-cropper");
   else navigateTo("testmaker");
 }
 
@@ -756,6 +760,8 @@ function tmAddFreeTextBoxToA4() {
   var empty = paper.querySelector(".tm-a4-empty") || document.getElementById("tmA4Empty");
   if (empty) empty.style.display = "none";
   area.hidden = false;
+  var outer = document.createElement("div");
+  outer.className = "tm-a4-freetext-wrap";
   var wrap = document.createElement("div");
   wrap.className = "tm-a4-freetext";
   wrap.contentEditable = "true";
@@ -770,12 +776,14 @@ function tmAddFreeTextBoxToA4() {
   xb.addEventListener("click", function (e) {
     e.preventDefault();
     e.stopPropagation();
-    wrap.remove();
+    outer.remove();
     tmUpdateA4EmptyVisibility();
     tmRenumberTmQuestions();
   });
-  wrap.appendChild(xb);
-  col.appendChild(wrap);
+  xb.tabIndex = -1;
+  outer.appendChild(wrap);
+  outer.appendChild(xb);
+  col.appendChild(outer);
   try {
     wrap.focus();
     var r = document.createRange();
@@ -2465,14 +2473,14 @@ function renderTestsTable() {
   var sorted = cachedTests.slice().reverse();
   if (grid) {
     grid.innerHTML = sorted
-      .map(function (t) {
-        var tid = escapeHtml(t.id);
+    .map(function (t) {
+      var tid = escapeHtml(t.id);
         var thumb =
           t.questionImages && t.questionImages[0]
             ? t.questionImages[0]
             : "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="160" fill="none"><rect width="120" height="160" rx="12" fill="#1e1e24"/><text x="60" y="88" text-anchor="middle" fill="#71717a" font-size="11" font-family="system-ui">Test</text></svg>');
         var dateLabel = tmFormatFirestoreDate(t.testDate) !== "—" ? tmFormatFirestoreDate(t.testDate) : tmFormatFirestoreDate(t.createdAt);
-        return (
+      return (
           '<article class="tm-test-card" data-tm-test-id="' +
           tid +
           '"><div class="tm-test-card__thumb"><img src="' +
@@ -2486,9 +2494,9 @@ function renderTestsTable() {
           '"><i class="fa-solid fa-file-pen"></i> Düzenle</button><button type="button" class="tm-test-card__btn tm-test-card__btn--del" data-del-test="' +
           tid +
           '"><i class="fa-solid fa-trash"></i> Sil</button></div></div></article>'
-        );
-      })
-      .join("");
+      );
+    })
+    .join("");
   }
   if (tbody) tbody.innerHTML = "";
 }
@@ -3298,7 +3306,7 @@ function openStudentModal() {
 }
 
 function editStudent(studentId) {
-  var s = cachedStudents.find(function (x) {
+    var s = cachedStudents.find(function (x) {
     return x.id === studentId;
   });
   if (!s) {
@@ -3404,10 +3412,10 @@ async function submitStudentAddForm(e) {
   data.track = data.examGroup && data.examGroup !== "" ? data.examGroup : "TYT + AYT";
   data.status = data.status || "Aktif";
   try {
-    data.createdAt = serverTimestamp();
+      data.createdAt = serverTimestamp();
     data.coach_id = getCoachId();
-    await addDoc(collection(db, "students"), data);
-    showToast("Öğrenci başarıyla eklendi.");
+      await addDoc(collection(db, "students"), data);
+      showToast("Öğrenci başarıyla eklendi.");
     form.reset();
     setStudentErpTab(0);
     closeAllModals();
@@ -4039,12 +4047,14 @@ function testmakerWorkspaceLeave() {
   var headLib = document.querySelector("#view-library .tm-workspace__header");
   var headPdf = document.querySelector("#view-pdf-editor .tm-workspace__header");
   var headAuto = document.querySelector("#view-auto-test .tm-workspace__header");
+  var headCrop = document.querySelector("#view-pdf-cropper .tm-workspace__header");
   document.body.classList.remove("tm-annotate-open");
   if (ann) ann.hidden = true;
   if (head) head.hidden = false;
   if (headLib) headLib.hidden = false;
   if (headPdf) headPdf.hidden = false;
   if (headAuto) headAuto.hidden = false;
+  if (headCrop) headCrop.hidden = false;
   destroyTmWsCropper();
   tmWsPdfDoc = null;
   tmWsPdfBytes = null;
@@ -4231,11 +4241,11 @@ function renderPDFPage(pageNum) {
   return tmWsPdfDoc
     .getPage(n)
     .then(function (page) {
-      var scale = 2;
-      var vp = page.getViewport({ scale: scale });
-      var canvas = document.createElement("canvas");
-      canvas.width = vp.width;
-      canvas.height = vp.height;
+    var scale = 2;
+    var vp = page.getViewport({ scale: scale });
+    var canvas = document.createElement("canvas");
+    canvas.width = vp.width;
+    canvas.height = vp.height;
       return page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise.then(function () {
         var dataUrl = canvas.toDataURL("image/png");
         var pageReadyOnce = false;
@@ -4244,17 +4254,17 @@ function renderPDFPage(pageNum) {
           pageReadyOnce = true;
           img.onload = null;
           img.onerror = null;
-          img.style.display = "block";
+        img.style.display = "block";
           try {
-            if (typeof Cropper !== "undefined") {
-              tmWsCropper = new Cropper(img, {
-                viewMode: 1,
-                dragMode: "crop",
-                autoCropArea: 0.55,
-                responsive: true,
-                restore: false,
-              });
-            }
+        if (typeof Cropper !== "undefined") {
+          tmWsCropper = new Cropper(img, {
+            viewMode: 1,
+            dragMode: "crop",
+            autoCropArea: 0.55,
+            responsive: true,
+            restore: false,
+          });
+        }
           } catch (err) {
             console.error(err);
             showToast("Kırpma aracı başlatılamadı.");
@@ -4659,18 +4669,18 @@ function tmWsLoadImageFile(file) {
 }
 
 function tmWsLoadPdfFromBuffer(buf) {
-  if (typeof pdfjsLib === "undefined") {
-    showToast("PDF.js yüklenemedi.");
+      if (typeof pdfjsLib === "undefined") {
+        showToast("PDF.js yüklenemedi.");
     return Promise.resolve();
   }
   var u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
   tmWsPdfBytes = u8;
   return pdfjsLib
     .getDocument({ data: u8 })
-    .promise.then(function (doc) {
-      tmWsPdfDoc = doc;
+        .promise.then(function (doc) {
+          tmWsPdfDoc = doc;
       tmWsCurrentPdfPage = 1;
-      var pr = document.getElementById("tmPdfPageRow");
+          var pr = document.getElementById("tmPdfPageRow");
       if (pr) pr.hidden = false;
       var tot = document.getElementById("pdfPageTotal");
       if (tot) tot.textContent = String(doc.numPages);
@@ -4683,11 +4693,11 @@ function tmWsLoadPdfFromBuffer(buf) {
       return renderPDFPage(1).then(function () {
         tmEditorInitFromPdf();
       });
-    })
-    .catch(function (e) {
-      console.error(e);
-      showToast("PDF okunamadı.");
-    });
+        })
+        .catch(function (e) {
+          console.error(e);
+          showToast("PDF okunamadı.");
+        });
 }
 
 function tmWsHandleFile(file) {
@@ -4977,7 +4987,7 @@ function tmWsDownloadPdf() {
   var J = window.jspdf.jsPDF;
   var fname =
     ((document.getElementById("tmWsTitle") && document.getElementById("tmWsTitle").value) || "Deneme_Sinavi")
-      .trim()
+    .trim()
       .replace(/[\\/:*?"<>|]/g, "-") || "Deneme_Sinavi";
 
   function tmWaitImages(root, timeoutMs) {
@@ -5093,8 +5103,8 @@ function tmWsDownloadPdf() {
           var scaleCap = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
           return html2canvas(paper, {
             scale: scaleCap,
-            useCORS: true,
-            allowTaint: true,
+        useCORS: true,
+        allowTaint: true,
             logging: false,
             backgroundColor: "#ffffff",
             scrollX: 0,
@@ -5306,6 +5316,272 @@ function tmApplyWorkspaceTemplate() {
   tmSyncPaperHeaders();
   tmUpdateA4EmptyVisibility();
   tmRenumberTmQuestions();
+}
+
+/** PDF Soru Kırpma (Digitizer): PDF.js + kauçuk bant seçim + localStorage havuzu */
+var tmPdfCropperModuleInited = false;
+var tmPdfCropDoc = null;
+var tmPdfCropPage = 1;
+var tmPdfCropLastPreviewDataUrl = "";
+
+function tmPdfCropFillKonuForDers(ders) {
+  var sel = document.getElementById("tmCropKonu");
+  if (!sel) return;
+  var topics = [];
+  ["TYT", "AYT"].forEach(function (ex) {
+    var bag = yksAiCurriculum[ex];
+    if (bag && bag[ders]) {
+      bag[ders].forEach(function (t) {
+        if (topics.indexOf(t) === -1) topics.push(t);
+      });
+    }
+  });
+  if (!topics.length) topics = ["Genel"];
+  sel.innerHTML = topics
+    .map(function (t) {
+      return '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + "</option>";
+    })
+    .join("");
+}
+
+function tmPdfCropUpdateNav() {
+  var total = tmPdfCropDoc ? tmPdfCropDoc.numPages : 0;
+  var prev = document.getElementById("tmPdfCropPrev");
+  var next = document.getElementById("tmPdfCropNext");
+  var lbl = document.getElementById("tmPdfCropPageLabel");
+  if (lbl) lbl.textContent = total ? "Sayfa " + tmPdfCropPage + " / " + total : "Sayfa — / —";
+  if (prev) prev.disabled = !tmPdfCropDoc || tmPdfCropPage <= 1;
+  if (next) next.disabled = !tmPdfCropDoc || tmPdfCropPage >= total;
+}
+
+function tmPdfCropClearOverlay() {
+  var overlay = document.getElementById("pdf-crop-overlay");
+  var main = document.getElementById("pdf-main-canvas");
+  if (!overlay || !main) return;
+  var ctx = overlay.getContext("2d");
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+}
+
+function tmPdfCropClearPreview() {
+  tmPdfCropLastPreviewDataUrl = "";
+  var img = document.getElementById("tmCropPreviewImg");
+  var empty = document.getElementById("tmCropPreviewEmpty");
+  if (img) {
+    img.removeAttribute("src");
+    img.hidden = true;
+  }
+  if (empty) empty.hidden = false;
+}
+
+function tmPdfCropDrawRubber(sx, sy, cx, cy) {
+  var overlay = document.getElementById("pdf-crop-overlay");
+  if (!overlay) return;
+  var ctx = overlay.getContext("2d");
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+  var x = Math.min(sx, cx);
+  var y = Math.min(sy, cy);
+  var w = Math.abs(cx - sx);
+  var h = Math.abs(cy - sy);
+  ctx.fillStyle = "rgba(59, 130, 246, 0.14)";
+  ctx.strokeStyle = "rgba(220, 38, 38, 0.88)";
+  ctx.lineWidth = 2;
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeRect(x, y, w, h);
+}
+
+function initPdfCropperModule() {
+  if (tmPdfCropperModuleInited) return;
+  var wrap = document.getElementById("tmPdfCropCanvasWrap");
+  var mainCanvas = document.getElementById("pdf-main-canvas");
+  var overlay = document.getElementById("pdf-crop-overlay");
+  var inp = document.getElementById("pdf-upload");
+  if (!wrap || !mainCanvas || !overlay || !inp) return;
+  if (typeof pdfjsLib === "undefined") {
+    console.warn("pdfjsLib yüklenmedi; PDF kırpma devre dışı.");
+    return;
+  }
+  tmPdfCropperModuleInited = true;
+
+  var dragging = false;
+  var sx = 0;
+  var sy = 0;
+  var cx = 0;
+  var cy = 0;
+
+  function getCanvasCoords(e) {
+    var rect = mainCanvas.getBoundingClientRect();
+    var scaleX = mainCanvas.width / Math.max(rect.width, 1);
+    var scaleY = mainCanvas.height / Math.max(rect.height, 1);
+    var rx = (e.clientX - rect.left) * scaleX;
+    var ry = (e.clientY - rect.top) * scaleY;
+    return {
+      x: Math.max(0, Math.min(mainCanvas.width, rx)),
+      y: Math.max(0, Math.min(mainCanvas.height, ry)),
+    };
+  }
+
+  var dersEl = document.getElementById("tmCropDers");
+  tmPdfCropFillKonuForDers((dersEl && dersEl.value) || "Matematik");
+  if (dersEl)
+    dersEl.addEventListener("change", function () {
+      tmPdfCropFillKonuForDers(dersEl.value);
+    });
+
+  function renderPdfPage() {
+    if (!tmPdfCropDoc) return Promise.resolve();
+    tmPdfCropClearPreview();
+    return tmPdfCropDoc.getPage(tmPdfCropPage).then(function (page) {
+      var scale = 2.15;
+      var viewport = page.getViewport({ scale: scale });
+      var ctx = mainCanvas.getContext("2d");
+      mainCanvas.width = viewport.width;
+      mainCanvas.height = viewport.height;
+      overlay.width = viewport.width;
+      overlay.height = viewport.height;
+      tmPdfCropClearOverlay();
+      var renderTask = page.render({ canvasContext: ctx, viewport: viewport });
+      return renderTask.promise;
+    });
+  }
+
+  inp.addEventListener("change", function () {
+    var f = inp.files && inp.files[0];
+    inp.value = "";
+    if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var buf = new Uint8Array(reader.result);
+      pdfjsLib
+        .getDocument({ data: buf })
+        .promise.then(function (doc) {
+          tmPdfCropDoc = doc;
+          tmPdfCropPage = 1;
+          tmPdfCropUpdateNav();
+          return renderPdfPage();
+        })
+        .catch(function (err) {
+          console.error(err);
+          showToast("PDF okunamadı.");
+        });
+    };
+    reader.onerror = function () {
+      showToast("Dosya okunamadı.");
+    };
+    reader.readAsArrayBuffer(f);
+  });
+
+  var prev = document.getElementById("tmPdfCropPrev");
+  var next = document.getElementById("tmPdfCropNext");
+  if (prev)
+    prev.addEventListener("click", function () {
+      if (!tmPdfCropDoc || tmPdfCropPage <= 1) return;
+      tmPdfCropPage--;
+      tmPdfCropUpdateNav();
+      renderPdfPage();
+    });
+  if (next)
+    next.addEventListener("click", function () {
+      if (!tmPdfCropDoc) return;
+      var t = tmPdfCropDoc.numPages || 1;
+      if (tmPdfCropPage >= t) return;
+      tmPdfCropPage++;
+      tmPdfCropUpdateNav();
+      renderPdfPage();
+    });
+
+  wrap.addEventListener("mousedown", function (e) {
+    if (!tmPdfCropDoc) return;
+    if (e.button !== 0) return;
+    dragging = true;
+    var p = getCanvasCoords(e);
+    sx = p.x;
+    sy = p.y;
+    cx = sx;
+    cy = sy;
+    e.preventDefault();
+  });
+
+  window.addEventListener("mousemove", function (e) {
+    if (!dragging) return;
+    var p = getCanvasCoords(e);
+    cx = p.x;
+    cy = p.y;
+    tmPdfCropDrawRubber(sx, sy, cx, cy);
+  });
+
+  window.addEventListener("mouseup", function (e) {
+    if (!dragging) return;
+    dragging = false;
+    var p = getCanvasCoords(e);
+    cx = p.x;
+    cy = p.y;
+    var x = Math.min(sx, cx);
+    var y = Math.min(sy, cy);
+    var w = Math.abs(cx - sx);
+    var h = Math.abs(cy - sy);
+    if (w < 4 || h < 4) {
+      tmPdfCropClearOverlay();
+      return;
+    }
+    x = Math.max(0, Math.min(x, mainCanvas.width - 1));
+    y = Math.max(0, Math.min(y, mainCanvas.height - 1));
+    w = Math.min(w, mainCanvas.width - x);
+    h = Math.min(h, mainCanvas.height - y);
+    var off = document.createElement("canvas");
+    off.width = w;
+    off.height = h;
+    var octx = off.getContext("2d");
+    try {
+      octx.drawImage(mainCanvas, x, y, w, h, 0, 0, w, h);
+      tmPdfCropLastPreviewDataUrl = off.toDataURL("image/png");
+    } catch (err) {
+      console.error(err);
+      showToast("Kırpma başarısız.");
+      tmPdfCropClearOverlay();
+      return;
+    }
+    var imgPreview = document.getElementById("tmCropPreviewImg");
+    var empty = document.getElementById("tmCropPreviewEmpty");
+    if (imgPreview) {
+      imgPreview.src = tmPdfCropLastPreviewDataUrl;
+      imgPreview.hidden = false;
+    }
+    if (empty) empty.hidden = true;
+    tmPdfCropClearOverlay();
+  });
+
+  var saveBtn = document.getElementById("tmPdfCropSavePool");
+  if (saveBtn)
+    saveBtn.addEventListener("click", function () {
+      if (!tmPdfCropLastPreviewDataUrl || typeof tmPdfCropLastPreviewDataUrl !== "string") {
+        showToast("Önce PDF üzerinde bir alan seçin.");
+        return;
+      }
+      var ders = (document.getElementById("tmCropDers") || {}).value || "";
+      var konu = (document.getElementById("tmCropKonu") || {}).value || "";
+      var zorluk = (document.getElementById("tmCropZorluk") || {}).value || "";
+      var id = "q_" + Date.now() + "_" + Math.random().toString(36).slice(2, 10);
+      var item = {
+        id: id,
+        ders: ders,
+        konu: konu,
+        zorluk: zorluk,
+        imageBase64: tmPdfCropLastPreviewDataUrl,
+        page: tmPdfCropPage,
+        createdAt: Date.now(),
+      };
+      try {
+        var raw = localStorage.getItem("koc_soru_havuzu");
+        var arr = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(arr)) arr = [];
+        arr.push(item);
+        localStorage.setItem("koc_soru_havuzu", JSON.stringify(arr));
+        showToast("Soru havuzuna kaydedildi.");
+      } catch (err) {
+        console.error(err);
+        showToast("Kayıt başarısız (depolama sınırı olabilir).");
+      }
+    });
 }
 
 function bindTestMakerWorkspace() {
@@ -5810,6 +6086,7 @@ function bindTestMakerWorkspace() {
   tmApplyHeaderLogo();
   tmSyncWatermarkLayer();
   initTmColorStudio();
+  initPdfCropperModule();
 }
 
 function navigateTo(view) {
@@ -5826,9 +6103,14 @@ function navigateTo(view) {
     previous === "testmaker" ||
     previous === "library" ||
     previous === "pdf-editor" ||
-    previous === "auto-test";
+    previous === "auto-test" ||
+    previous === "pdf-cropper";
   var nowTm =
-    view === "testmaker" || view === "library" || view === "pdf-editor" || view === "auto-test";
+    view === "testmaker" ||
+    view === "library" ||
+    view === "pdf-editor" ||
+    view === "auto-test" ||
+    view === "pdf-cropper";
   if (wasTm && !nowTm) testmakerWorkspaceLeave();
   currentView = view;
   document.querySelectorAll(".main-view").forEach(function (el) {
@@ -5842,14 +6124,22 @@ function navigateTo(view) {
     var on =
       nv === view ||
       (nv === "testmaker" &&
-        (view === "testmaker" || view === "library" || view === "pdf-editor" || view === "auto-test"));
+        (view === "testmaker" ||
+          view === "library" ||
+          view === "pdf-editor" ||
+          view === "auto-test" ||
+          view === "pdf-cropper"));
     btn.classList.toggle("sidebar__link--active", on);
   });
   var tmLiNav = document.querySelector(".sidebar__item--testmaker");
   var tmAccNav = document.getElementById("sidebarTmToggle");
   if (tmLiNav && tmAccNav) {
     var inTmNav =
-      view === "testmaker" || view === "library" || view === "pdf-editor" || view === "auto-test";
+      view === "testmaker" ||
+      view === "library" ||
+      view === "pdf-editor" ||
+      view === "auto-test" ||
+      view === "pdf-cropper";
     if (inTmNav) {
       tmLiNav.classList.add("sidebar__item--tm-open");
       tmAccNav.setAttribute("aria-expanded", "true");
@@ -5863,7 +6153,8 @@ function navigateTo(view) {
       (a === "library" && view === "library") ||
         (a === "creator" && view === "testmaker") ||
         (a === "pdf-editor" && view === "pdf-editor") ||
-        (a === "auto-test" && view === "auto-test")
+        (a === "auto-test" && view === "auto-test") ||
+        (a === "pdf-cropper" && view === "pdf-cropper")
     );
   });
   tmSyncRibbonActive(view);
@@ -5891,11 +6182,18 @@ function navigateTo(view) {
   if (view === "ogrenciler") renderStudentsPage();
   if (view === "gorev-takibi") initGorevTakibiPage();
   if (view === "randevu") renderAppointmentsPage();
-  if (view === "testmaker" || view === "library" || view === "pdf-editor" || view === "auto-test") {
+  if (
+    view === "testmaker" ||
+    view === "library" ||
+    view === "pdf-editor" ||
+    view === "auto-test" ||
+    view === "pdf-cropper"
+  ) {
     testmakerWorkspaceEnter();
     renderTestsTable();
     tmLibraryRenderList();
   }
+  if (view === "pdf-cropper") initPdfCropperModule();
   var cre = document.getElementById("tmViewCreator");
   if (cre) cre.hidden = view !== "testmaker";
   if (view === "muhasebe") renderPaymentsTable();
@@ -5910,6 +6208,7 @@ function displayTestmakerView(viewDomId) {
     "view-auto-test": "auto-test",
     "view-library": "library",
     "view-pdf-editor": "pdf-editor",
+    "view-pdf-cropper": "pdf-cropper",
   };
   var route = map[viewDomId];
   if (route) navigateTo(route);
@@ -5963,6 +6262,7 @@ function initNavigation() {
       var action = el.getAttribute("data-tm-nav-action");
       if (action === "library") navigateTo("library");
       else if (action === "pdf-editor") navigateTo("pdf-editor");
+      else if (action === "pdf-cropper") navigateTo("pdf-cropper");
       else navigateTo("testmaker");
     });
   });
@@ -6236,16 +6536,16 @@ function bootstrapKocPanelAfterAuth() {
   if (kocPanelBootstrapped) return;
   kocPanelBootstrapped = true;
   applySpaInitialShellState();
-  initSidebar();
-  initNavigation();
-  initModals();
+initSidebar();
+initNavigation();
+initModals();
   initAiTestGenWizard();
-  initAllButtons();
+initAllButtons();
   initDashboardYksCountdownWidget();
-  updateCoachProfile();
-  subscribeFirestore();
-  navigateTo("dashboard");
-  setTimeout(showLoadTimeoutWarning, 12000);
+updateCoachProfile();
+subscribeFirestore();
+navigateTo("dashboard");
+setTimeout(showLoadTimeoutWarning, 12000);
 }
 
 onAuthStateChanged(auth, function (user) {

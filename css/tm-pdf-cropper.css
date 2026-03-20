@@ -1,0 +1,281 @@
+/* PDF Soru Kırpma (Digitizer) — açık tema, TestMaker workspace ile uyumlu */
+
+#view-pdf-cropper.tm-workspace-view {
+  background: #f1f5f9 !important;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.tm-pdf-cropper-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem 1rem 1.25rem;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  overflow: auto;
+}
+
+.tm-pdf-cropper-lead {
+  margin: 0 0 0.85rem;
+  font-size: 0.88rem;
+  color: #64748b;
+  max-width: 52rem;
+  line-height: 1.45;
+}
+
+.tm-pdf-cropper-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.tm-pdf-cropper-file-btn {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  border-radius: 10px;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: #fff;
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+  border: none;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.tm-pdf-cropper-file-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.4);
+}
+
+.tm-pdf-cropper-file-btn input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tm-pdf-cropper-file-btn span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.tm-pdf-cropper-page-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.65rem;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.tm-pdf-cropper-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.tm-pdf-cropper-iconbtn:hover:not(:disabled) {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #3730a3;
+}
+
+.tm-pdf-cropper-iconbtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tm-pdf-cropper-page-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #0f172a;
+  min-width: 7.5rem;
+  text-align: center;
+}
+
+.tm-pdf-cropper-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .tm-pdf-cropper-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tm-pdf-cropper-stage {
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.07);
+  padding: 1rem;
+}
+
+.tm-pdf-cropper-canvas-wrap {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  cursor: crosshair;
+  line-height: 0;
+  border-radius: 8px;
+  overflow: auto;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+}
+
+.tm-pdf-cropper-canvas-wrap canvas#pdf-main-canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  vertical-align: top;
+}
+
+.tm-pdf-cropper-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.tm-pdf-cropper-hint {
+  margin: 0.65rem 0 0;
+  font-size: 0.78rem;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.tm-pdf-cropper-side {
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.07);
+  padding: 1rem 1.1rem 1.15rem;
+  position: sticky;
+  top: 0.5rem;
+}
+
+.tm-pdf-cropper-side__title {
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.tm-pdf-cropper-preview__frame {
+  min-height: 140px;
+  border-radius: 10px;
+  border: 1px dashed #cbd5e1;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.tm-pdf-cropper-preview__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 220px;
+  object-fit: contain;
+}
+
+.tm-pdf-cropper-preview__empty {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #94a3b8;
+  padding: 1rem;
+  text-align: center;
+}
+
+.tm-pdf-cropper-form {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.tm-pdf-cropper-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.tm-pdf-cropper-field span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+}
+
+.tm-pdf-cropper-field select {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  font-size: 0.88rem;
+  color: #0f172a;
+  font-family: inherit;
+}
+
+.tm-pdf-cropper-field select:focus {
+  outline: none;
+  border-color: #818cf8;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.tm-pdf-cropper-save {
+  margin-top: 0.35rem;
+  width: 100%;
+  padding: 0.65rem 1rem;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #059669, #10b981);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.tm-pdf-cropper-save:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.42);
+}
+
+#view-pdf-cropper .tm-workspace__header {
+  flex-shrink: 0;
+}

@@ -14,6 +14,8 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" crossorigin="anonymous" />
   <link rel="stylesheet" href="css/testmaker-workspace.css" />
   <link rel="stylesheet" href="css/tm-elite-saas.css" />
+  <link rel="stylesheet" href="css/tm-pdf-cropper.css" />
+  <!-- PDF.js: body sonunda yüklü (3.11.x); kırpma + PDF düzenleyici ortak worker -->
   <style>
     /* Öğrenci ERP modal — sekme + grid (yalnızca bu sayfa) */
     .student-erp-tabs { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 2px solid #e9d5ff; padding: 0 1rem; background: linear-gradient(180deg, #faf5ff 0%, #f3e8ff 100%); flex-shrink: 0; border-radius: 0; }
@@ -504,6 +506,7 @@
               <button type="button" class="sidebar__sublink" data-tm-nav-action="auto-test" data-testmaker-view="view-auto-test" title="Yapay Zeka Destekli Otomatik Soru Hazırlayıcı"><i class="fa-solid fa-wand-magic-sparkles"></i><span>AI Test Üretici</span></button>
               <button type="button" class="sidebar__sublink" data-tm-nav-action="library" data-testmaker-view="view-library" title="Hazır Testler"><i class="fa-solid fa-layer-group"></i><span>Hazır Testler</span></button>
               <button type="button" class="sidebar__sublink" data-tm-nav-action="pdf-editor" data-testmaker-view="view-pdf-editor" title="PDF Düzenleyici"><i class="fa-solid fa-file-pen"></i><span>PDF Düzenleyici</span></button>
+              <button type="button" class="sidebar__sublink" data-tm-nav-action="pdf-cropper" data-testmaker-view="view-pdf-cropper" title="PDF’den soru kırp ve havuza ekle"><i class="fa-solid fa-scissors"></i><span>✂️ Soru Havuzu Oluştur</span></button>
             </div>
           </li>
           <li>
@@ -803,6 +806,7 @@
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test" title="AI Test Üretici"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library" title="Kütüphane"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor" title="PDF işaretleme"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper" title="Soru kırpma"><i class="fa-solid fa-scissors"></i> Soru Havuzu</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler" title="Analiz"><i class="fa-solid fa-chart-line"></i> Analiz</button>
               </nav>
             </header>
@@ -1120,6 +1124,7 @@
                 <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fa-solid fa-scissors"></i> Soru Havuzu</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>
               </nav>
             </header>
@@ -1190,6 +1195,7 @@
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
               <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fa-solid fa-scissors"></i> Soru Havuzu</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>
             </nav>
           </header>
@@ -1223,6 +1229,7 @@
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
               <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fa-solid fa-scissors"></i> Soru Havuzu</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>
             </nav>
           </header>
@@ -1236,6 +1243,95 @@
               </div>
             </div>
             <ul class="tm-saved-pdf-library tm-saved-pdf-library--ebook" id="tmPdfEditorSavedList" aria-label="Yerel PDF kartları"></ul>
+          </div>
+        </div>
+
+        <div class="main-view tm-workspace-view" data-view="pdf-cropper" id="view-pdf-cropper" hidden>
+          <header class="tm-workspace__header tm-workspace__header--ribbon">
+            <div class="tm-workspace__header-row">
+              <button type="button" class="tm-back-dashboard" data-nav="dashboard" title="Ana panele dön">
+                <i class="fa-solid fa-arrow-left"></i> Panele dön
+              </button>
+              <span class="tm-workspace__brand"><i class="fa-solid fa-scissors"></i> Soru Havuzu — PDF Kırpma</span>
+            </div>
+            <nav class="tm-word-ribbon" aria-label="Üst menü">
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
+              <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="pdf-cropper"><i class="fa-solid fa-scissors"></i> Soru Havuzu</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>
+            </nav>
+          </header>
+          <div class="tm-pdf-cropper-page">
+            <p class="tm-pdf-cropper-lead">PDF yükleyin, sayfada soru alanını fareyle seçin; önizlemeyi etiketleyip yerel havuza kaydedin.</p>
+            <div class="tm-pdf-cropper-toolbar">
+              <label class="tm-pdf-cropper-file-btn">
+                <input type="file" id="pdf-upload" accept=".pdf,application/pdf" />
+                <span><i class="fa-solid fa-file-arrow-up"></i> PDF Yükle</span>
+              </label>
+              <div class="tm-pdf-cropper-page-nav" role="group" aria-label="Sayfa">
+                <button type="button" class="tm-pdf-cropper-iconbtn" id="tmPdfCropPrev" title="Önceki sayfa" disabled>
+                  <i class="fa-solid fa-chevron-left"></i> Önceki
+                </button>
+                <span class="tm-pdf-cropper-page-label" id="tmPdfCropPageLabel" aria-live="polite">Sayfa — / —</span>
+                <button type="button" class="tm-pdf-cropper-iconbtn" id="tmPdfCropNext" title="Sonraki sayfa" disabled>
+                  Sonraki <i class="fa-solid fa-chevron-right"></i>
+                </button>
+              </div>
+            </div>
+            <div class="tm-pdf-cropper-body">
+              <div class="tm-pdf-cropper-stage">
+                <div class="tm-pdf-cropper-canvas-wrap" id="tmPdfCropCanvasWrap">
+                  <canvas id="pdf-main-canvas" width="1" height="1" aria-label="PDF sayfa görüntüsü"></canvas>
+                  <canvas id="pdf-crop-overlay" class="tm-pdf-cropper-overlay" width="1" height="1" aria-hidden="true"></canvas>
+                </div>
+                <p class="tm-pdf-cropper-hint"><i class="fa-solid fa-crosshairs"></i> İmleci soru köşelerinden sürükleyerek dikdörtgen seçin.</p>
+              </div>
+              <aside class="tm-pdf-cropper-side">
+                <div class="tm-pdf-cropper-preview">
+                  <h3 class="tm-pdf-cropper-side__title">Önizleme</h3>
+                  <div class="tm-pdf-cropper-preview__frame">
+                    <img id="tmCropPreviewImg" class="tm-pdf-cropper-preview__img" alt="Kırpılan soru önizlemesi" hidden />
+                    <p class="tm-pdf-cropper-preview__empty" id="tmCropPreviewEmpty">Henüz seçim yok</p>
+                  </div>
+                </div>
+                <form class="tm-pdf-cropper-form" id="tmPdfCropForm" autocomplete="off" onsubmit="return false;">
+                  <label class="tm-pdf-cropper-field">
+                    <span>Ders</span>
+                    <select id="tmCropDers" required>
+                      <option value="Matematik">Matematik</option>
+                      <option value="Türkçe">Türkçe</option>
+                      <option value="Fizik">Fizik</option>
+                      <option value="Kimya">Kimya</option>
+                      <option value="Biyoloji">Biyoloji</option>
+                      <option value="Tarih">Tarih</option>
+                      <option value="Coğrafya">Coğrafya</option>
+                      <option value="TYT Genel">TYT Genel</option>
+                      <option value="Diğer">Diğer</option>
+                    </select>
+                  </label>
+                  <label class="tm-pdf-cropper-field">
+                    <span>Konu</span>
+                    <select id="tmCropKonu" required></select>
+                  </label>
+                  <label class="tm-pdf-cropper-field">
+                    <span>Zorluk</span>
+                    <select id="tmCropZorluk" required>
+                      <option value="Kolay">Kolay</option>
+                      <option value="Orta" selected>Orta</option>
+                      <option value="Zor">Zor</option>
+                      <option value="Karma">Karma</option>
+                      <option value="YKS tipi">YKS tipi</option>
+                    </select>
+                  </label>
+                  <button type="button" class="tm-pdf-cropper-save" id="tmPdfCropSavePool">
+                    <i class="fa-solid fa-database"></i> Havuza Kaydet
+                  </button>
+                </form>
+              </aside>
+            </div>
           </div>
         </div>
 

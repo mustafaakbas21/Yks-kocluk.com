@@ -452,19 +452,9 @@
   height: 2px !important;
 }
 
+/* Not: color-mix() html2canvas (PDF) ile uyumlu değil; klasik gradient kullanılıyor */
 .tm-h-accent-bar {
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--tm-accent) 70%, #312e81),
-    var(--tm-accent),
-    color-mix(in srgb, var(--tm-accent) 60%, #1e40af)
-  ) !important;
-}
-
-@supports not (color: color-mix(in srgb, red, blue)) {
-  .tm-h-accent-bar {
-    background: var(--tm-accent) !important;
-  }
+  background: linear-gradient(90deg, #312e81, var(--tm-accent), #1e40af) !important;
 }
 
 /* ========== Şablon başlıkları ========== */
@@ -795,22 +785,22 @@
 }
 
 .tm-template-osym .tm-q-badge {
-  background: color-mix(in srgb, var(--tm-accent, #1a1a1a) 9%, #f3f4f6);
+  background: #f1f1f2;
   color: var(--tm-accent, #111);
-  border: 1px solid color-mix(in srgb, var(--tm-accent, #1a1a1a) 28%, #d1d5db);
+  border: 1px solid #c9c9cc;
   font-family: "Times New Roman", Times, serif;
 }
 
 .tm-template-vip .tm-q-badge {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--tm-accent, #5b21b6) 12%, #ede9fe), color-mix(in srgb, var(--tm-accent, #5b21b6) 18%, #ddd6fe));
+  background: linear-gradient(135deg, #ede9fe, #ddd6fe);
   color: var(--tm-accent, #5b21b6);
-  border: 1px solid color-mix(in srgb, var(--tm-accent, #5b21b6) 35%, #c4b5fd);
+  border: 1px solid #c4b5fd;
   font-family: "Inter", sans-serif;
 }
 
 .tm-template-foy .tm-q-badge {
   background: #f1f5f9;
-  color: color-mix(in srgb, var(--tm-accent, #0f172a) 55%, #0f172a);
+  color: var(--tm-accent, #0f172a);
   border-left: 4px solid var(--tm-accent, #7c3aed);
   font-family: "Inter", sans-serif;
 }
@@ -2266,7 +2256,7 @@
   z-index: 2;
   margin-top: 0.4rem;
   padding: 0.45rem 0.55rem 0.55rem;
-  border-top: 2px dashed color-mix(in srgb, var(--tm-accent, #1a1a1a) 28%, #ccc);
+  border-top: 2px dashed #c4c4c4;
   background: rgba(255, 255, 255, 0.65);
 }
 
@@ -2301,10 +2291,27 @@
   max-width: 1.65rem;
 }
 
-.tm-a4-freetext {
+/* Metin kutusu: dış sarmalayıcı (sütun genişliğinde); içerik kutusu yazıya göre büyür */
+.tm-a4-freetext-wrap {
   position: relative;
-  min-height: 2.5rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   margin-bottom: 0.65rem;
+  flex: 0 0 auto;
+}
+
+.test-column .tm-a4-freetext-wrap {
+  width: 100%;
+  max-width: 100%;
+}
+
+.tm-a4-freetext {
+  min-height: 2.5rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 0.45rem 1.85rem 0.45rem 0.45rem;
   border-radius: 8px;
   border: 1px dashed rgba(59, 130, 246, 0.45);
@@ -2312,7 +2319,13 @@
   outline: none;
   font-size: 0.88rem;
   color: #0f172a;
-  line-height: 1.35;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  word-wrap: break-word;
+  word-break: break-word;
+  white-space: pre-wrap;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
 .tm-a4-freetext:focus {
@@ -2324,6 +2337,7 @@
   position: absolute;
   right: 0.3rem;
   top: 0.3rem;
+  z-index: 2;
   width: 26px;
   height: 26px;
   border-radius: 8px;
