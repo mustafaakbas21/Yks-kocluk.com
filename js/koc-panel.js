@@ -424,14 +424,52 @@ var yksAiCurriculum = {
   },
 };
 
-/** Gri placeholder görsel (data URL) — PDF / ekranda küçük boyutta net */
-var TM_AI_PLACEHOLDER_SVG_DATA_URL =
-  "data:image/svg+xml," +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="280" viewBox="0 0 480 280"><rect width="480" height="280" rx="8" fill="#2d323c"/><rect x="12" y="12" width="456" height="256" rx="6" fill="#3d4452" stroke="#525a6b" stroke-width="1"/><text x="240" y="145" text-anchor="middle" fill="#8b95a8" font-family="system-ui,sans-serif" font-size="15">Görsel alanı</text></svg>'
-  );
-
 var tmAiGenWizardBound = false;
+
+/**
+ * Sahte AI API: rastgele soru objeleri + placehold.co ile görsel kanıt URL’si.
+ * @param {string} ders
+ * @param {string} konu
+ * @param {string} zorluk
+ * @param {number} miktar
+ * @returns {Promise<Array<{id:string,ders:string,konu:string,zorluk:string,imageUrl:string}>>}
+ */
+function fetchAIGeneratedQuestions(ders, konu, zorluk, miktar) {
+  return new Promise(function (resolve, reject) {
+    var n = Math.max(1, Math.min(80, parseInt(miktar, 10) || 1));
+    var dersStr = String(ders || "").trim() || "Ders";
+    var konuStr = String(konu || "").trim() || "Konu";
+    var zStr = String(zorluk || "").trim() || "Orta";
+    window.setTimeout(function () {
+      try {
+        var used = {};
+        var list = [];
+        for (var i = 0; i < n; i++) {
+          var rid;
+          do {
+            rid = Math.floor(1000 + Math.random() * 90000);
+          } while (used[rid]);
+          used[rid] = true;
+          var idTag = "#Q-" + rid;
+          var textBody =
+            dersStr + "\n" + konuStr + "\n" + "Zorluk: " + zStr + "\n" + "ID: " + rid;
+          var imageUrl =
+            "https://placehold.co/800x400/ffffff/1f2937?text=" + encodeURIComponent(textBody);
+          list.push({
+            id: idTag,
+            ders: dersStr,
+            konu: konuStr,
+            zorluk: zStr,
+            imageUrl: imageUrl,
+          });
+        }
+        resolve(list);
+      } catch (e) {
+        reject(e);
+      }
+    }, 400);
+  });
+}
 
 function tmSetAiGenOverlayOpen(isOpen) {
   var el = document.getElementById("tmAiGenOverlay");
@@ -468,10 +506,12 @@ function tmRemoveAllQuestionItemsFromA4() {
   tmRenumberTmQuestions();
 }
 
-/** Mevcut tmAddQuestionToA4 ile aynı sütun/pagination; görsel yer tutucu + AI etiketi */
-function tmAppendAiPlaceholderQuestionBlock() {
+/** Mock API’den gelen tek soru: placehold.co img — PDF/html2canvas ile uyumlu */
+function tmAppendAiMockQuestionBlock(q) {
+  if (!q || !q.imageUrl) return;
   var wrap = document.createElement("div");
-  wrap.className = "tm-a4-block question-item tm-a4-block--ai-placeholder";
+  wrap.className = "tm-a4-block question-item tm-a4-block--ai-mock";
+  if (q.id) wrap.setAttribute("data-tm-ai-qid", q.id);
   wrap.draggable = true;
   wrap.setAttribute("data-tm-drag", "1");
   var badge = document.createElement("div");
@@ -480,9 +520,17 @@ function tmAppendAiPlaceholderQuestionBlock() {
   var imgW = document.createElement("div");
   imgW.className = "tm-a4-block__imgwrap";
   var img = document.createElement("img");
-  img.src = TM_AI_PLACEHOLDER_SVG_DATA_URL;
-  img.alt = "";
+  img.className = "tm-ai-mock-q-img";
+  img.src = q.imageUrl;
+  img.alt = (q.id || "Soru") + " — " + (q.ders || "") + " / " + (q.konu || "");
   img.draggable = false;
+  try {
+    img.crossOrigin = "anonymous";
+  } catch (eCr) {}
+  img.setAttribute(
+    "style",
+    "width:100%;height:auto;border-radius:4px;border:1px solid #e5e7eb;display:block;"
+  );
   imgW.appendChild(img);
   var cap = document.createElement("p");
   cap.className = "tm-ai-q-placeholder-caption";
@@ -500,16 +548,16 @@ function tmAppendAiPlaceholderQuestionBlock() {
   tmAppendBlockToPaginatedColumns(wrap);
 }
 
-function tmAddAiPlaceholderQuestionsBatch(count) {
-  count = Math.max(1, Math.min(80, parseInt(count, 10) || 1));
-  for (var i = 0; i < count; i++) {
-    tmAppendAiPlaceholderQuestionBlock();
-  }
+function tmAddAiMockQuestionsFromList(questions) {
+  if (!questions || !questions.length) return;
+  questions.forEach(function (q) {
+    tmAppendAiMockQuestionBlock(q);
+  });
   tmUpdateA4EmptyVisibility();
   tmRenumberTmQuestions();
 }
 
-function tmApplyAiGenerationToTestmaker(payload) {
+function tmApplyAiGenerationToTestmaker(payload, questions) {
   if (!payload) return;
   tmRemoveAllQuestionItemsFromA4();
   var courseEl = document.getElementById("tmWsCourse");
@@ -569,8 +617,12 @@ function tmApplyAiGenerationToTestmaker(payload) {
   try {
     tmSyncPaperHeaders();
   } catch (eHdr) {}
-  tmAddAiPlaceholderQuestionsBatch(payload.count);
-  showToast("AI taslağı hazır: " + payload.count + " soru kutusu oluşturuldu.");
+  if (questions && questions.length) {
+    tmAddAiMockQuestionsFromList(questions);
+    showToast("AI taslağı hazır: " + questions.length + " soru yerleştirildi.");
+  } else {
+    showToast("Sorular oluşturulamadı.");
+  }
 }
 
 function initAiTestGenWizard() {
@@ -636,27 +688,34 @@ function initAiTestGenWizard() {
     tmSetAiGenOverlayOpen(true);
     tmAiGenNavigateTimer = window.setTimeout(function () {
       tmAiGenNavigateTimer = null;
-      try {
-        tmSetAiGenOverlayOpen(false);
-        navigateTo("testmaker");
-      } catch (errNav) {
-        console.error("AI üretim geçişi:", errNav);
-        showToast("Test tasarımına geçilemedi. Tekrar deneyin.");
-        tmSetAiGenOverlayOpen(false);
-      }
-      try {
-        requestAnimationFrame(function () {
+      fetchAIGeneratedQuestions(payload.subject, payload.topic, payload.diff, payload.count)
+        .then(function (questions) {
           try {
-            tmApplyAiGenerationToTestmaker(payload);
-          } catch (errApply) {
-            console.error("AI taslak:", errApply);
-            showToast("Taslak yerleştirilirken hata oluştu.");
+            tmSetAiGenOverlayOpen(false);
+            navigateTo("testmaker");
+          } catch (errNav) {
+            console.error("AI üretim geçişi:", errNav);
+            showToast("Test tasarımına geçilemedi. Tekrar deneyin.");
+            tmSetAiGenOverlayOpen(false);
+            if (btnAi) btnAi.disabled = false;
+            return;
           }
+          requestAnimationFrame(function () {
+            try {
+              tmApplyAiGenerationToTestmaker(payload, questions);
+            } catch (errApply) {
+              console.error("AI taslak:", errApply);
+              showToast("Taslak yerleştirilirken hata oluştu.");
+            }
+            if (btnAi) btnAi.disabled = false;
+          });
+        })
+        .catch(function (errFetch) {
+          console.error("fetchAIGeneratedQuestions:", errFetch);
+          showToast("Sorular üretilemedi. Tekrar deneyin.");
+          tmSetAiGenOverlayOpen(false);
+          if (btnAi) btnAi.disabled = false;
         });
-      } catch (errRaf) {
-        console.error(errRaf);
-      }
-      if (btnAi) btnAi.disabled = false;
     }, 1500);
   });
 }
@@ -6078,6 +6137,7 @@ function initAllButtons() {
 window.YKSPanel = {
   navigate: navigateTo,
   displayTestmakerView: displayTestmakerView,
+  fetchAIGeneratedQuestions: fetchAIGeneratedQuestions,
   getView: function () {
     return currentView;
   },

@@ -249,9 +249,17 @@
     #loginError.is-visible { display: block; }
     .login-foot {
       margin-top: 1.5rem;
+      max-width: 26rem;
+      margin-left: auto;
+      margin-right: auto;
       font-size: 0.75rem;
+      line-height: 1.55;
       color: var(--gray-500);
       text-align: center;
+    }
+    .login-foot strong {
+      color: var(--gray-600);
+      font-weight: 600;
     }
   </style>
 </head>
@@ -311,7 +319,10 @@
         </button>
         <div id="loginError" role="alert"></div>
       </form>
-      <p class="login-foot">İlk kurulumda kurucu hesabı otomatik oluşturulur (admin1)</p>
+      <p class="login-foot">
+        Bu web uygulaması şu an <strong>test (beta) aşamasındadır</strong>. Karşılaşabileceğiniz sorun veya hatalar için lütfen
+        <strong>müşteri temsilcimizle</strong> iletişime geçin. Anlayışınız için teşekkür ederiz — iyi günler dileriz.
+      </p>
     </main>
   </div>
   <script type="module" src="js/login.js"></script>
