@@ -162,24 +162,76 @@
           <div class="page-head">
             <h1 class="page-head__title">Görev Takibi</h1>
             <button type="button" class="btn btn--sm btn--purple" id="btnGorevTakibiAdd">
-              <i class="fa-solid fa-plus"></i> Yeni Görev Ekle
+              <i class="fa-solid fa-plus"></i> Yeni ödev ekle
             </button>
           </div>
-          <p class="page-desc">Kartları sütunlar arasında <strong>sürükleyip bırakın</strong>. Veriler bu tarayıcıda saklanır.</p>
+          <p class="page-desc">
+            <strong>Öğrenci</strong> atayın, <strong>teslim tarihi</strong> ve <strong>öncelik</strong> belirleyin; kartları sütunlar arasında sürükleyin.
+            Tüm görevler <strong>Firestore</strong>’da <code class="page-desc__code">coach_id</code> ile senkron tutulur.
+          </p>
+          <p id="gorevFirestoreHint" class="gorev-firestore-hint" hidden role="status"></p>
+
+          <div class="gorev-toolbar">
+            <label class="gorev-toolbar__filter">
+              <span class="gorev-toolbar__filter-label"><i class="fa-solid fa-filter"></i> Öğrenciye göre</span>
+              <select id="gorevFilterStudent" class="gorev-composer__input gorev-toolbar__select" title="Panoda yalnızca bu öğrencinin ödevlerini göster">
+                <option value="">— Tüm öğrenciler —</option>
+              </select>
+            </label>
+          </div>
 
           <div class="gorev-composer" id="gorevTakibiComposer" hidden>
-            <div class="gorev-composer__inner">
-              <label class="gorev-composer__label" for="gorevTakibiInput">Görev metni</label>
-              <input
-                type="text"
-                id="gorevTakibiInput"
-                class="gorev-composer__input"
-                maxlength="200"
-                placeholder="Örn. Paragraf 30 soru çözülecek"
-                autocomplete="off"
-              />
+            <div class="gorev-composer__inner gorev-composer__inner--wide">
+              <p class="gorev-composer__lead"><i class="fa-solid fa-clipboard-list"></i> Yeni ödev / görev</p>
+              <div class="gorev-composer__grid">
+                <label class="gorev-composer__field gorev-composer__field--full">
+                  <span class="gorev-composer__label">Başlık <span class="gorev-req">*</span></span>
+                  <input
+                    type="text"
+                    id="gorevTakibiTitle"
+                    class="gorev-composer__input"
+                    maxlength="160"
+                    placeholder="Örn. Paragraf — 20 soru + video özeti"
+                    autocomplete="off"
+                  />
+                </label>
+                <label class="gorev-composer__field gorev-composer__field--full">
+                  <span class="gorev-composer__label">Detay / notlar</span>
+                  <textarea id="gorevTakibiDesc" class="gorev-composer__textarea" rows="3" maxlength="800" placeholder="Kaynak, sayfa aralığı, link veya kısa talimat…"></textarea>
+                </label>
+                <label class="gorev-composer__field">
+                  <span class="gorev-composer__label">Öğrenci</span>
+                  <select id="gorevSelectStudent" class="gorev-composer__input">
+                    <option value="">— Opsiyonel (genel ödev) —</option>
+                  </select>
+                </label>
+                <label class="gorev-composer__field">
+                  <span class="gorev-composer__label">Son teslim</span>
+                  <input type="date" id="gorevDueDate" class="gorev-composer__input" />
+                </label>
+                <label class="gorev-composer__field">
+                  <span class="gorev-composer__label">Öncelik</span>
+                  <select id="gorevPriority" class="gorev-composer__input">
+                    <option value="normal">Normal</option>
+                    <option value="high">Yüksek</option>
+                    <option value="low">Düşük</option>
+                  </select>
+                </label>
+                <label class="gorev-composer__field">
+                  <span class="gorev-composer__label">Ders / alan</span>
+                  <input type="text" id="gorevSubject" class="gorev-composer__input" maxlength="80" placeholder="Örn. AYT Matematik" list="gorevSubjectList" />
+                  <datalist id="gorevSubjectList">
+                    <option value="TYT Türkçe"></option>
+                    <option value="TYT Matematik"></option>
+                    <option value="TYT Fen"></option>
+                    <option value="AYT Matematik"></option>
+                    <option value="AYT Edebiyat"></option>
+                    <option value="Paragraf"></option>
+                  </datalist>
+                </label>
+              </div>
               <div class="gorev-composer__actions">
-                <button type="button" class="btn btn--purple btn--sm" id="gorevTakibiConfirm"><i class="fa-solid fa-check"></i> Ekle</button>
+                <button type="button" class="btn btn--purple btn--sm" id="gorevTakibiConfirm"><i class="fa-solid fa-check"></i> Ödevi ekle</button>
                 <button type="button" class="btn btn--sm" id="gorevTakibiCancel" style="background: var(--gray-200); color: var(--gray-700)">İptal</button>
               </div>
             </div>

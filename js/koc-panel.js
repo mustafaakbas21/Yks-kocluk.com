@@ -105,6 +105,8 @@ let cachedExams = [];
 let cachedStudents = [];
 let cachedPayments = [];
 let cachedTests = [];
+let cachedCoachTasks = [];
+var gorevFilterBound = false;
 let tmWsCropper = null;
 /** TestMaker Kaynak & kırpma: Soru Kırpma ile aynı PDF.js + sürükleyerek seçim (Cropper.js yok) */
 var tmWsMcWrapEl = null;
@@ -2995,14 +2997,18 @@ function initStudentErpTabs() {
 }
 
 function fillStudentSelects() {
-  ["ap_student", "pay_student", "ex_student", "daStudentSelect"].forEach(function (sid) {
+  ["ap_student", "pay_student", "ex_student", "daStudentSelect", "gorevSelectStudent", "gorevFilterStudent"].forEach(function (sid) {
     var sel = document.getElementById(sid);
     if (!sel) return;
     var keep = sel.value;
     sel.innerHTML =
-      sid === "ap_student" || sid === "daStudentSelect"
-        ? '<option value="">— Öğrenci seçin —</option>'
-        : '<option value="">— Seçin —</option>';
+      sid === "gorevFilterStudent"
+        ? '<option value="">— Tüm öğrenciler —</option>'
+        : sid === "gorevSelectStudent"
+          ? '<option value="">— Opsiyonel (genel ödev) —</option>'
+          : sid === "ap_student" || sid === "daStudentSelect"
+            ? '<option value="">— Öğrenci seçin —</option>'
+            : '<option value="">— Seçin —</option>';
     cachedStudents.forEach(function (s) {
       var o = document.createElement("option");
       o.value = s.id;
@@ -3189,30 +3195,163 @@ function bindDenemeAnalizForm() {
 }
 
 /* --- Görev Takibi — Kanban + HTML5 Drag & Drop --- */
-var GOREV_KANBAN_STORAGE_KEY = "yks_gorev_kanban_v1";
+var GOREV_KANBAN_STORAGE_KEY = "yks_gorev_kanban_v2";
+var GOREV_KANBAN_LEGACY_KEY = "yks_gorev_kanban_v1";
 var gorevKanbanState = null;
 var gorevComposerBound = false;
 
-function loadGorevKanbanStateRaw() {
-  try {
-    var raw = localStorage.getItem(GOREV_KANBAN_STORAGE_KEY);
-    if (!raw) return { todo: [], doing: [], done: [] };
-    var o = JSON.parse(raw);
-    return {
-      todo: Array.isArray(o.todo) ? o.todo : [],
-      doing: Array.isArray(o.doing) ? o.doing : [],
-      done: Array.isArray(o.done) ? o.done : [],
-    };
-  } catch (e) {
-    return { todo: [], doing: [], done: [] };
-  }
+function gorevTimestampToMs(ts) {
+  if (!ts) return Date.now();
+  if (typeof ts.toMillis === "function") return ts.toMillis();
+  if (typeof ts === "number") return ts;
+  return Date.now();
 }
 
-function saveGorevKanbanState() {
-  if (!gorevKanbanState) return;
+function normalizeGorevTask(t) {
+  if (!t || !t.id) return null;
+  var title = String(t.title || t.text || "").trim();
+  if (!title) return null;
+  var pr = t.priority;
+  if (pr !== "high" && pr !== "low") pr = "normal";
+  return {
+    id: t.id,
+    title: title,
+    description: String(t.description || "").trim(),
+    studentId: String(t.studentId || ""),
+    studentName: String(t.studentName || "").trim(),
+    dueDate: String(t.dueDate || "").trim(),
+    priority: pr,
+    subject: String(t.subject || "").trim(),
+    createdAt: gorevTimestampToMs(t.createdAt),
+  };
+}
+
+function loadGorevKanbanStateRaw() {
+  function parseCols(raw) {
+    try {
+      if (!raw) return { todo: [], doing: [], done: [] };
+      var o = JSON.parse(raw);
+      return {
+        todo: Array.isArray(o.todo) ? o.todo : [],
+        doing: Array.isArray(o.doing) ? o.doing : [],
+        done: Array.isArray(o.done) ? o.done : [],
+      };
+    } catch (e) {
+      return { todo: [], doing: [], done: [] };
+    }
+  }
   try {
-    localStorage.setItem(GOREV_KANBAN_STORAGE_KEY, JSON.stringify(gorevKanbanState));
+    var raw2 = localStorage.getItem(GOREV_KANBAN_STORAGE_KEY);
+    if (raw2) {
+      var st = parseCols(raw2);
+      ["todo", "doing", "done"].forEach(function (k) {
+        st[k] = st[k].map(normalizeGorevTask).filter(Boolean);
+      });
+      return st;
+    }
+    var raw1 = localStorage.getItem(GOREV_KANBAN_LEGACY_KEY);
+    if (raw1) {
+      var legacy = parseCols(raw1);
+      ["todo", "doing", "done"].forEach(function (k) {
+        legacy[k] = legacy[k].map(normalizeGorevTask).filter(Boolean);
+      });
+      return legacy;
+    }
   } catch (e) {}
+  return { todo: [], doing: [], done: [] };
+}
+
+function rebuildGorevKanbanStateFromCache() {
+  gorevKanbanState = { todo: [], doing: [], done: [] };
+  if (!cachedCoachTasks || !cachedCoachTasks.length) return;
+  var filterEl = document.getElementById("gorevFilterStudent");
+  var filterId = filterEl && filterEl.value ? String(filterEl.value).trim() : "";
+  var list = filterId
+    ? cachedCoachTasks.filter(function (t) {
+        return String(t.studentId || "") === filterId;
+      })
+    : cachedCoachTasks.slice();
+  list.forEach(function (t) {
+    var col = t.column || "todo";
+    if (col !== "todo" && col !== "doing" && col !== "done") col = "todo";
+    var row = normalizeGorevTask(t);
+    if (row) gorevKanbanState[col].push(row);
+  });
+  ["todo", "doing", "done"].forEach(function (k) {
+    gorevKanbanState[k].sort(function (a, b) {
+      return (a.createdAt || 0) - (b.createdAt || 0);
+    });
+  });
+}
+
+function onCoachTasksSnap(snap) {
+  var hint = document.getElementById("gorevFirestoreHint");
+  if (hint) {
+    hint.hidden = true;
+    hint.textContent = "";
+  }
+  cachedCoachTasks = snap.docs.map(function (d) {
+    var data = d.data();
+    return {
+      id: d.id,
+      coach_id: data.coach_id,
+      title: data.title,
+      description: data.description || "",
+      studentId: data.studentId || "",
+      studentName: data.studentName || "",
+      dueDate: data.dueDate || "",
+      priority: data.priority || "normal",
+      subject: data.subject || "",
+      column: data.column || "todo",
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
+    };
+  });
+  rebuildGorevKanbanStateFromCache();
+  renderGorevKanbanCards();
+}
+
+async function migrateLocalGorevTasksToFirestoreOnce() {
+  try {
+    if (localStorage.getItem("yks_coach_tasks_migrated_v1")) return;
+    var cid = getCoachId();
+    if (!cid) return;
+    var st = loadGorevKanbanStateRaw();
+    var n = 0;
+    for (var ki = 0; ki < 3; ki++) {
+      var col = ["todo", "doing", "done"][ki];
+      var arr = st[col] || [];
+      for (var j = 0; j < arr.length; j++) {
+        var t = normalizeGorevTask(arr[j]);
+        if (!t) continue;
+        n++;
+        await addDoc(collection(db, "coach_tasks"), {
+          coach_id: cid,
+          title: t.title,
+          description: t.description,
+          studentId: t.studentId,
+          studentName: t.studentName,
+          dueDate: t.dueDate,
+          priority: t.priority,
+          subject: t.subject,
+          column: col,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
+    }
+    localStorage.setItem("yks_coach_tasks_migrated_v1", "1");
+    if (n > 0) {
+      try {
+        localStorage.removeItem(GOREV_KANBAN_STORAGE_KEY);
+        localStorage.removeItem(GOREV_KANBAN_LEGACY_KEY);
+      } catch (e) {}
+      showToast("Yerel görevler Firestore'a aktarıldı (" + n + ").");
+    }
+  } catch (e) {
+    console.error("[migrate coach_tasks]", e);
+    showToast("Görev aktarımı başarısız. Konsolu kontrol edin.");
+  }
 }
 
 function findGorevTaskLocation(taskId) {
@@ -3228,6 +3367,18 @@ function findGorevTaskLocation(taskId) {
   return null;
 }
 
+function gorevIsOverdue(task, colKey) {
+  if (colKey === "done" || !task || !task.dueDate) return false;
+  var today = new Date().toISOString().slice(0, 10);
+  return String(task.dueDate) < today;
+}
+
+function gorevPriorityLabel(pr) {
+  if (pr === "high") return "Yüksek";
+  if (pr === "low") return "Düşük";
+  return "Normal";
+}
+
 function renderGorevKanbanCards() {
   if (!gorevKanbanState) return;
   var map = { todo: "kanbanTodo", doing: "kanbanDoing", done: "kanbanDone" };
@@ -3236,14 +3387,73 @@ function renderGorevKanbanCards() {
     if (!host) return;
     host.innerHTML = "";
     gorevKanbanState[key].forEach(function (task) {
+      var t = normalizeGorevTask(task) || task;
       var card = document.createElement("div");
       card.className = "kanban-card";
+      if (t.priority === "high") card.classList.add("kanban-card--pri-high");
+      else if (t.priority === "low") card.classList.add("kanban-card--pri-low");
+      if (gorevIsOverdue(t, key)) card.classList.add("kanban-card--overdue");
       card.setAttribute("draggable", "true");
-      card.setAttribute("data-task-id", task.id);
+      card.setAttribute("data-task-id", t.id);
+
+      var head = document.createElement("div");
+      head.className = "kanban-card__head";
       var p = document.createElement("p");
       p.className = "kanban-card__text";
-      p.textContent = task.text || "";
-      card.appendChild(p);
+      p.textContent = t.title || t.text || "";
+      head.appendChild(p);
+      var del = document.createElement("button");
+      del.type = "button";
+      del.className = "kanban-card__del";
+      del.setAttribute("data-task-del", t.id);
+      del.setAttribute("aria-label", "Görevi sil");
+      del.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+      del.draggable = false;
+      head.appendChild(del);
+      card.appendChild(head);
+
+      var meta = document.createElement("div");
+      meta.className = "kanban-card__meta";
+      var chips = [];
+      if (t.studentName || t.studentId) {
+        var st = document.createElement("span");
+        st.className = "kanban-card__chip kanban-card__chip--student";
+        st.innerHTML = '<i class="fa-solid fa-user-graduate" aria-hidden="true"></i> ' + escapeHtml(t.studentName || "Öğrenci");
+        chips.push(st);
+      }
+      if (t.subject) {
+        var sj = document.createElement("span");
+        sj.className = "kanban-card__chip";
+        sj.textContent = t.subject;
+        chips.push(sj);
+      }
+      if (t.dueDate) {
+        var du = document.createElement("span");
+        du.className = "kanban-card__chip kanban-card__chip--due";
+        du.innerHTML =
+          '<i class="fa-regular fa-calendar" aria-hidden="true"></i> ' +
+          escapeHtml(t.dueDate) +
+          (gorevIsOverdue(t, key) ? ' <strong class="kanban-card__late">Gecikti</strong>' : "");
+        chips.push(du);
+      }
+      if (t.priority && t.priority !== "normal") {
+        var pr = document.createElement("span");
+        pr.className = "kanban-card__chip kanban-card__chip--pri";
+        pr.textContent = gorevPriorityLabel(t.priority);
+        chips.push(pr);
+      }
+      chips.forEach(function (c) {
+        meta.appendChild(c);
+      });
+      if (chips.length) card.appendChild(meta);
+
+      if (t.description) {
+        var desc = document.createElement("p");
+        desc.className = "kanban-card__desc";
+        desc.textContent = t.description;
+        card.appendChild(desc);
+      }
+
       host.appendChild(card);
     });
   });
@@ -3260,26 +3470,75 @@ function moveGorevKanbanTask(taskId, toCol) {
   var loc = findGorevTaskLocation(taskId);
   if (!loc) return;
   if (loc.col === toCol) return;
-  var task = gorevKanbanState[loc.col].splice(loc.index, 1)[0];
-  gorevKanbanState[toCol].push(task);
-  saveGorevKanbanState();
-  renderGorevKanbanCards();
-}
-
-function addGorevKanbanTask(text) {
-  var t = String(text || "").trim();
-  if (!t) {
-    showToast("Görev metni girin.");
+  var cid = getCoachId();
+  if (!cid) {
+    showToast("Oturum bilgisi yok.");
     return;
   }
-  if (!gorevKanbanState) gorevKanbanState = loadGorevKanbanStateRaw();
-  gorevKanbanState.todo.push({
-    id: "gt_" + Date.now() + "_" + Math.random().toString(36).slice(2, 9),
-    text: t,
+  updateDoc(doc(db, "coach_tasks", taskId), { column: toCol, updatedAt: serverTimestamp() }).catch(function (e) {
+    console.error(e);
+    showToast("Taşınamadı.");
   });
-  saveGorevKanbanState();
-  renderGorevKanbanCards();
-  showToast("Görev eklendi.");
+}
+
+function removeGorevKanbanTask(taskId) {
+  if (!taskId) return;
+  var cid = getCoachId();
+  if (!cid) {
+    showToast("Oturum bilgisi yok.");
+    return;
+  }
+  deleteDoc(doc(db, "coach_tasks", taskId))
+    .then(function () {
+      showToast("Görev silindi.");
+    })
+    .catch(function (e) {
+      console.error(e);
+      showToast("Silinemedi.");
+    });
+}
+
+function addGorevKanbanTaskFromForm(payload) {
+  var title = String((payload && payload.title) || "").trim();
+  if (!title) {
+    showToast("Ödev başlığı girin.");
+    return;
+  }
+  var cid = getCoachId();
+  if (!cid) {
+    showToast("Oturum bilgisi yok.");
+    return;
+  }
+  var sid = String((payload && payload.studentId) || "").trim();
+  var sname = "";
+  if (sid) {
+    var st = cachedStudents.find(function (x) {
+      return x.id === sid;
+    });
+    if (st) sname = String(st.name || st.studentName || "").trim() || "Öğrenci";
+  }
+  var pr = payload && payload.priority;
+  if (pr !== "high" && pr !== "low") pr = "normal";
+  addDoc(collection(db, "coach_tasks"), {
+    coach_id: cid,
+    title: title,
+    description: String((payload && payload.description) || "").trim(),
+    studentId: sid,
+    studentName: sname,
+    dueDate: String((payload && payload.dueDate) || "").trim(),
+    priority: pr,
+    subject: String((payload && payload.subject) || "").trim(),
+    column: "todo",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+    .then(function () {
+      showToast("Ödev eklendi.");
+    })
+    .catch(function (e) {
+      console.error(e);
+      showToast("Kaydedilemedi.");
+    });
 }
 
 function clearKanbanDropOver() {
@@ -3293,11 +3552,24 @@ function setupGorevKanbanDragDrop() {
   if (!board || board.getAttribute("data-kanban-dnd") === "1") return;
   board.setAttribute("data-kanban-dnd", "1");
   board.addEventListener("dragstart", function (e) {
+    if (e.target.closest && e.target.closest(".kanban-card__del")) {
+      e.preventDefault();
+      return;
+    }
     var card = e.target.closest(".kanban-card");
     if (!card || !board.contains(card)) return;
     e.dataTransfer.setData("text/plain", card.getAttribute("data-task-id") || "");
     e.dataTransfer.effectAllowed = "move";
     card.classList.add("kanban-card--dragging");
+  });
+  board.addEventListener("click", function (e) {
+    var del = e.target.closest && e.target.closest("[data-task-del]");
+    if (!del || !board.contains(del)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var id = del.getAttribute("data-task-del");
+    if (!id || !confirm("Bu görevi silmek istiyor musunuz?")) return;
+    removeGorevKanbanTask(id);
   });
   board.addEventListener("dragend", function (e) {
     var card = e.target.closest(".kanban-card");
@@ -3336,19 +3608,44 @@ function bindGorevTakibiComposerOnce() {
   if (gorevComposerBound) return;
   var addBtn = document.getElementById("btnGorevTakibiAdd");
   var composer = document.getElementById("gorevTakibiComposer");
-  var input = document.getElementById("gorevTakibiInput");
+  var titleEl = document.getElementById("gorevTakibiTitle");
+  var descEl = document.getElementById("gorevTakibiDesc");
+  var studentSel = document.getElementById("gorevSelectStudent");
+  var dueEl = document.getElementById("gorevDueDate");
+  var priEl = document.getElementById("gorevPriority");
+  var subjEl = document.getElementById("gorevSubject");
   var confirmBtn = document.getElementById("gorevTakibiConfirm");
   var cancelBtn = document.getElementById("gorevTakibiCancel");
-  if (!addBtn || !composer || !input || !confirmBtn || !cancelBtn) return;
+  if (!addBtn || !composer || !titleEl || !confirmBtn || !cancelBtn) return;
   gorevComposerBound = true;
 
   function openComposer() {
     composer.hidden = false;
-    input.focus();
+    try {
+      fillStudentSelects();
+    } catch (e) {}
+    titleEl.focus();
   }
   function closeComposer() {
     composer.hidden = true;
-    input.value = "";
+    titleEl.value = "";
+    if (descEl) descEl.value = "";
+    if (studentSel) studentSel.value = "";
+    if (dueEl) dueEl.value = "";
+    if (priEl) priEl.value = "normal";
+    if (subjEl) subjEl.value = "";
+  }
+
+  function submitComposer() {
+    addGorevKanbanTaskFromForm({
+      title: titleEl.value,
+      description: descEl ? descEl.value : "",
+      studentId: studentSel ? studentSel.value : "",
+      dueDate: dueEl ? dueEl.value : "",
+      priority: priEl ? priEl.value : "normal",
+      subject: subjEl ? subjEl.value : "",
+    });
+    closeComposer();
   }
 
   addBtn.addEventListener("click", function () {
@@ -3356,24 +3653,30 @@ function bindGorevTakibiComposerOnce() {
     else closeComposer();
   });
   cancelBtn.addEventListener("click", closeComposer);
-  confirmBtn.addEventListener("click", function () {
-    addGorevKanbanTask(input.value);
-    closeComposer();
-  });
-  input.addEventListener("keydown", function (ev) {
-    if (ev.key === "Enter") {
-      ev.preventDefault();
-      addGorevKanbanTask(input.value);
-      closeComposer();
-    }
+  confirmBtn.addEventListener("click", submitComposer);
+}
+
+function bindGorevFilterOnce() {
+  if (gorevFilterBound) return;
+  var sel = document.getElementById("gorevFilterStudent");
+  if (!sel) return;
+  gorevFilterBound = true;
+  sel.addEventListener("change", function () {
+    rebuildGorevKanbanStateFromCache();
+    renderGorevKanbanCards();
   });
 }
 
 function initGorevTakibiPage() {
-  gorevKanbanState = loadGorevKanbanStateRaw();
+  try {
+    fillStudentSelects();
+  } catch (e) {}
+  rebuildGorevKanbanStateFromCache();
   renderGorevKanbanCards();
   setupGorevKanbanDragDrop();
   bindGorevTakibiComposerOnce();
+  bindGorevFilterOnce();
+  migrateLocalGorevTasksToFirestoreOnce();
 }
 
 /** Tek seferde yalnızca bir modal açık — HTML id'leri ile eşleşir */
@@ -4104,7 +4407,8 @@ function subscribeFirestore() {
   var qs = coachQuery("students");
   var qp = coachQuery("payments");
   var qt = coachQuery("tests");
-  if (!qa || !qe || !qs || !qp || !qt) {
+  var qgt = coachQuery("coach_tasks");
+  if (!qa || !qe || !qs || !qp || !qt || !qgt) {
     console.warn("[Firestore] coach_id eksik veya sorgu kurulamadı.");
     return;
   }
@@ -4158,6 +4462,20 @@ function subscribeFirestore() {
       function (err) {
         var tb = document.getElementById("testsTableBody");
         if (tb) tb.innerHTML = "<tr><td colspan='5' class='table-empty table-empty--error'>" + firestoreErrorHtml(err) + "</td></tr>";
+      }
+    )
+  );
+  firestoreUnsubs.push(
+    onSnapshot(
+      qgt,
+      onCoachTasksSnap,
+      function (err) {
+        console.error(err);
+        var hint = document.getElementById("gorevFirestoreHint");
+        if (hint) {
+          hint.hidden = false;
+          hint.textContent = "Görevler yüklenemedi: " + (err.message || String(err));
+        }
       }
     )
   );
