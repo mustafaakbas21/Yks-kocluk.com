@@ -231,6 +231,37 @@
   min-height: 0;
 }
 
+/* Kırpma bitti, A–E seçilene kadar alan vurgulu kalsın */
+.tm-crop-sel-rect.tm-crop-sel-rect--pending {
+  border: 2px solid #0d9488;
+  background: rgba(13, 148, 136, 0.14);
+  box-shadow:
+    0 0 0 3px rgba(13, 148, 136, 0.22),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.9);
+  animation: tmCropPendingPulse 1.45s ease-in-out infinite;
+  z-index: 7;
+}
+
+@keyframes tmCropPendingPulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px rgba(13, 148, 136, 0.22),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.9);
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px rgba(13, 148, 136, 0.32),
+      inset 0 0 0 1px rgba(255, 255, 255, 1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tm-crop-sel-rect.tm-crop-sel-rect--pending {
+    animation: none;
+  }
+}
+
 .tm-pdf-crop-slot-canvas {
   display: block;
   max-width: 100%;

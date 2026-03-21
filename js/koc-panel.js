@@ -4247,6 +4247,7 @@ function tmResetTestCreatorWorkspace() {
   destroyTmWsCropper();
   tmWsManualCropBuiltDocRef = null;
   tmWsLastCropDataUrl = "";
+  tmWsManualCropRemoveSelection();
   tmWsUpdateAnswerKeyUiVisibility();
   tmWsMcSingleImageMode = false;
   var wsInner = document.getElementById("tmWsPdfCropScrollInner");
@@ -4459,6 +4460,7 @@ function tmWsManualCropUpdatePageFromScroll() {
     if (pin) pin.value = String(best);
     tmPdfNavUpdateDisabled();
     tmWsLastCropDataUrl = "";
+    tmWsManualCropRemoveSelection();
     tmWsUpdateAnswerKeyUiVisibility();
   }
 }
@@ -4545,6 +4547,7 @@ function tmWsManualCropEnsurePdfView(doc) {
   }
   tmWsManualCropBuiltDocRef = doc;
   tmWsLastCropDataUrl = "";
+  tmWsManualCropRemoveSelection();
   tmWsUpdateAnswerKeyUiVisibility();
   return tmWsManualCropBuildContinuousView(doc);
 }
@@ -4616,19 +4619,25 @@ function tmWsManualCropBindOnce() {
   window.addEventListener("mouseup", function () {
     if (!tmWsMcDragging || !tmWsMcDragMain || !tmWsMcDragWrapper || !tmWsMcDragBox) return;
     var mainCanvas = tmWsMcDragMain;
+    var doneBox = tmWsMcDragBox;
     var L = parseFloat(tmWsMcDragBox.style.left) || 0;
     var T = parseFloat(tmWsMcDragBox.style.top) || 0;
     var Wb = parseFloat(tmWsMcDragBox.style.width) || 0;
     var Hb = parseFloat(tmWsMcDragBox.style.height) || 0;
-    tmWsManualCropRemoveSelection();
     tmWsMcDragging = false;
     tmWsMcDragMain = null;
     tmWsMcDragWrapper = null;
     tmWsMcDragBox = null;
-    if (Wb < 4 || Hb < 4) return;
+    if (Wb < 4 || Hb < 4) {
+      tmWsManualCropRemoveSelection();
+      return;
+    }
     var cr = mainCanvas.getBoundingClientRect();
     var wr2 = mainCanvas.closest(".pdf-canvas-wrapper");
-    if (!wr2) return;
+    if (!wr2) {
+      tmWsManualCropRemoveSelection();
+      return;
+    }
     var wr = wr2.getBoundingClientRect();
     var cOffL = cr.left - wr.left;
     var cOffT = cr.top - wr.top;
@@ -4642,7 +4651,10 @@ function tmWsManualCropBindOnce() {
     var iy1 = Math.min(dh, dispT + Hb);
     var dispWi = ix1 - ix0;
     var dispHi = iy1 - iy0;
-    if (dispWi < 4 || dispHi < 4) return;
+    if (dispWi < 4 || dispHi < 4) {
+      tmWsManualCropRemoveSelection();
+      return;
+    }
     var scaleX = mainCanvas.width / Math.max(dw, 1);
     var scaleY = mainCanvas.height / Math.max(dh, 1);
     var x = Math.round(ix0 * scaleX);
@@ -4660,10 +4672,13 @@ function tmWsManualCropBindOnce() {
     try {
       octx.drawImage(mainCanvas, x, y, w, h, 0, 0, w, h);
       tmWsLastCropDataUrl = off.toDataURL("image/png");
+      doneBox.classList.add("tm-crop-sel-rect--pending");
+      doneBox.setAttribute("aria-label", "Kırpma alanı — şıkkı seçin");
       tmWsUpdateAnswerKeyUiVisibility();
     } catch (err) {
       console.error(err);
       showToast("Kırpma başarısız.");
+      tmWsManualCropRemoveSelection();
     }
   });
 }
@@ -4693,6 +4708,7 @@ function renderPDFPage(pageNum) {
     .then(function () {
       tmWsManualCropScrollToPage(n);
       tmWsLastCropDataUrl = "";
+      tmWsManualCropRemoveSelection();
       tmWsUpdateAnswerKeyUiVisibility();
       if (addBtn) addBtn.disabled = false;
       tmWsPdfRendering = false;
@@ -5047,6 +5063,7 @@ function tmWsLoadImageFile(file) {
   tmWsCurrentPdfPage = 1;
   tmWsManualCropBuiltDocRef = null;
   tmWsLastCropDataUrl = "";
+  tmWsManualCropRemoveSelection();
   tmWsUpdateAnswerKeyUiVisibility();
   var inner = document.getElementById("tmWsPdfCropScrollInner");
   var wrap = document.getElementById("tmWsPdfCropCanvasWrap");
