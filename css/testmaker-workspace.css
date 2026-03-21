@@ -991,6 +991,47 @@
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+/* TestMaker Kaynak & kırpma: Soru Kırpma ile aynı PDF.js + sürükleyerek seçim */
+.tm-crop-wrap.tm-crop-wrap--manual {
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0.45rem;
+  max-height: min(56vh, 520px);
+  min-height: 240px;
+  background-color: #12121a;
+  background-image: linear-gradient(45deg, #1c1c24 25%, transparent 25%),
+    linear-gradient(-45deg, #1c1c24 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #1c1c24 75%),
+    linear-gradient(-45deg, transparent 75%, #1c1c24 75%);
+  background-size: 11px 11px;
+  background-position: 0 0, 0 5px, 5px -5px, -5px 0;
+}
+
+.tm-ws-manual-crop-stage {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+}
+
+.tm-ws-pdf-crop-canvas-wrap.tm-pdf-cropper-canvas-wrap {
+  flex: 1;
+  min-height: 200px;
+  max-height: min(48vh, 440px);
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #e2e8f0;
+}
+
+.tm-ws-crop-hint {
+  color: #94a3b8 !important;
+  font-size: 0.72rem !important;
+  margin: 0.45rem 0 0 !important;
+  line-height: 1.35 !important;
+}
+
 .tm-crop-wrap .cropper-container {
   max-height: 40vh;
 }
@@ -3176,5 +3217,92 @@
   }
   .tm-format-ribbon {
     justify-content: flex-start;
+  }
+}
+
+/* Kırpma sonrası A–E + cevap anahtarı sayfası (her zaman A4 sonunda) */
+.tm-ws-answer-key-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.tm-ws-answer-key-row__lbl {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.tm-ws-answer-key-row__btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.tm-ws-answer-opt {
+  min-width: 2.25rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: #0f172a;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.tm-ws-answer-opt:hover:not(:disabled) {
+  background: #eef2ff;
+  border-color: #818cf8;
+  color: #312e81;
+}
+
+.tm-ws-answer-opt:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.a4-paper.tm-a4-page--answer-key .tm-a4-layout {
+  min-height: 0;
+}
+
+.tm-answer-key-sheet {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tm-answer-key-sheet__title {
+  margin: 0 0 10mm;
+  text-align: center;
+  font-size: 14pt;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #0f172a;
+}
+
+.tm-answer-key-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 2.5mm 4mm;
+  font-size: 10.5pt;
+  line-height: 1.35;
+  color: #111827;
+}
+
+.tm-answer-key-grid__row {
+  padding: 1.5mm 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+@media (max-width: 720px) {
+  .tm-answer-key-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

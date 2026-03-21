@@ -219,7 +219,8 @@
   background: #fff;
 }
 
-#crop-selection-box {
+#crop-selection-box,
+.tm-crop-sel-rect {
   position: absolute;
   z-index: 6;
   box-sizing: border-box;

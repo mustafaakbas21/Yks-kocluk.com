@@ -6,206 +6,312 @@
   <title>Giriş — YKS Koçluk Portal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <style>
     :root {
-      --purple-900: #4c1d95;
-      --purple-700: #6d28d9;
-      --purple-600: #7c3aed;
-      --purple-500: #8b5cf6;
-      --purple-100: #ede9fe;
-      --blue-deep: #1e3a8a;
-      --gray-50: #f8fafc;
-      --gray-200: #e2e8f0;
-      --gray-400: #94a3b8;
-      --gray-500: #64748b;
-      --gray-600: #475569;
-      --gray-800: #1e293b;
-      --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
-      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --ink: #0c1222;
+      --muted: #5c6578;
+      --surface: rgba(255, 255, 255, 0.72);
+      --surface-strong: rgba(255, 255, 255, 0.88);
+      --stroke: rgba(12, 18, 34, 0.08);
+      --accent: #0d9488;
+      --accent-2: #ea580c;
+      --glow-teal: rgba(13, 148, 136, 0.45);
+      --glow-amber: rgba(234, 88, 12, 0.35);
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
     }
     * { box-sizing: border-box; }
+    html, body { height: 100%; }
     body {
       margin: 0;
       min-height: 100vh;
-      font-family: "Inter", system-ui, sans-serif;
-      color: var(--gray-800);
-      background: #f0f2f8;
+      font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      color: var(--ink);
+      background: #f4f6fb;
+      overflow-x: hidden;
     }
-    .login-split {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      min-height: 100vh;
-    }
-    @media (max-width: 960px) {
-      .login-split { grid-template-columns: 1fr; }
-      .login-split__brand { min-height: 280px; padding: 2rem 1.5rem !important; }
-      .login-split__illus { max-height: 200px !important; }
-    }
-    /* —— Sol panel: akışkan mesh + derinlik —— */
-    .login-split__brand {
-      padding: 3rem 2.5rem;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      text-align: center;
+
+    /* —— Sahne: aurora + ızgara —— */
+    .auth-shell {
       position: relative;
-      overflow: hidden;
-      background: linear-gradient(155deg, #0f172a 0%, #1e1b4b 38%, #312e81 72%, #1e1b4b 100%);
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.95fr);
+      align-items: stretch;
     }
-    .login-split__brand::before {
+    @media (max-width: 1024px) {
+      .auth-shell {
+        grid-template-columns: 1fr;
+        min-height: 100%;
+      }
+    }
+
+    .auth-canvas {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse 100% 80% at 10% 0%, rgba(224, 242, 254, 0.9) 0%, transparent 55%),
+        radial-gradient(ellipse 90% 70% at 90% 100%, rgba(254, 243, 199, 0.85) 0%, transparent 50%),
+        linear-gradient(165deg, #f8fafc 0%, #eef2ff 45%, #faf5ff 100%);
+    }
+    .auth-canvas::before {
       content: "";
       position: absolute;
-      inset: -60%;
+      inset: -20%;
       background:
-        radial-gradient(ellipse 85% 70% at 15% 25%, rgba(139, 92, 246, 0.55) 0%, transparent 52%),
-        radial-gradient(ellipse 75% 60% at 88% 18%, rgba(59, 130, 246, 0.42) 0%, transparent 48%),
-        radial-gradient(ellipse 65% 55% at 55% 92%, rgba(196, 181, 253, 0.35) 0%, transparent 50%),
-        radial-gradient(ellipse 50% 45% at 70% 55%, rgba(109, 40, 217, 0.3) 0%, transparent 45%);
-      animation: loginMeshDrift 15s ease-in-out infinite;
-      pointer-events: none;
-      will-change: transform;
+        radial-gradient(ellipse 55% 45% at 20% 30%, var(--glow-teal) 0%, transparent 65%),
+        radial-gradient(ellipse 50% 40% at 75% 65%, var(--glow-amber) 0%, transparent 60%);
+      filter: blur(72px);
+      opacity: 0.85;
+      animation: auroraShift 18s ease-in-out infinite;
     }
-    .login-split__brand::after {
+    .auth-canvas::after {
       content: "";
       position: absolute;
       inset: 0;
-      background:
-        radial-gradient(ellipse 120% 80% at 50% 100%, rgba(15, 23, 42, 0.55) 0%, transparent 55%),
-        radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.06) 0%, transparent 42%);
-      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(12, 18, 34, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(12, 18, 34, 0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(ellipse 85% 75% at 50% 40%, black 15%, transparent 70%);
+      opacity: 0.55;
     }
-    @keyframes loginMeshDrift {
-      0%, 100% { transform: translate(0, 0) scale(1) rotate(0deg); }
-      33% { transform: translate(6%, 4%) scale(1.05) rotate(2deg); }
-      66% { transform: translate(-5%, -3%) scale(1.03) rotate(-1.5deg); }
+    @keyframes auroraShift {
+      0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+      40% { transform: translate(4%, -3%) rotate(4deg) scale(1.05); }
+      70% { transform: translate(-3%, 4%) rotate(-3deg) scale(1.02); }
     }
-    @keyframes loginFloat {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-12px); }
-    }
-    .login-split__illus {
+
+    /* —— Sol: tipografi + “kart yığını” —— */
+    .auth-hero {
       position: relative;
       z-index: 1;
-      width: 100%;
-      max-width: 380px;
-      max-height: 320px;
-      margin-bottom: 1.75rem;
-      animation: loginFloat 5.5s ease-in-out infinite;
-      will-change: transform;
-    }
-    .login-split__illus svg {
-      width: 100%;
-      height: auto;
-      display: block;
-      filter: drop-shadow(0 24px 48px rgba(0, 0, 0, 0.28));
-    }
-    .login-split__tagline {
-      position: relative;
-      z-index: 1;
-      font-family: "Poppins", sans-serif;
-      font-weight: 800;
-      font-size: clamp(1.35rem, 2.5vw, 1.85rem);
-      color: #fff;
-      line-height: 1.35;
-      letter-spacing: -0.02em;
-      max-width: 420px;
-      margin: 0 0 0.75rem;
-      animation: loginFloat 5.5s ease-in-out infinite;
-      animation-delay: 0.2s;
-    }
-    .login-split__sub {
-      position: relative;
-      z-index: 1;
-      font-size: 0.95rem;
-      color: rgba(255, 255, 255, 0.9);
-      font-weight: 500;
-      max-width: 380px;
-      line-height: 1.55;
-      margin: 0;
-      animation: loginFloat 5.5s ease-in-out infinite;
-      animation-delay: 0.4s;
-    }
-    /* —— Sağ panel: yumuşak yüzey + lüks gölge —— */
-    .login-split__form {
+      padding: clamp(2rem, 5vw, 4rem) clamp(1.5rem, 4vw, 3.5rem);
       display: flex;
       flex-direction: column;
       justify-content: center;
-      padding: 2.5rem 3rem;
-      max-width: 100%;
-      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 55%, #f1f5f9 100%);
-      box-shadow:
-        -40px 0 120px rgba(79, 70, 229, 0.09),
-        -12px 0 48px rgba(15, 23, 42, 0.05),
-        inset 0 1px 0 rgba(255, 255, 255, 0.95);
-      position: relative;
+      gap: 2rem;
     }
-    .login-split__form::before {
+    .auth-hero__badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      align-self: flex-start;
+      padding: 0.4rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: rgba(255, 255, 255, 0.75);
+      border: 1px solid rgba(13, 148, 136, 0.25);
+      box-shadow: 0 8px 24px rgba(13, 148, 136, 0.12);
+    }
+    .auth-hero__badge i { font-size: 0.85rem; opacity: 0.9; }
+
+    .auth-hero__headline {
+      margin: 0;
+      font-size: clamp(2.35rem, 5.5vw, 3.75rem);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -0.045em;
+      color: var(--ink);
+      max-width: 18ch;
+    }
+    .auth-hero__headline em {
+      font-family: "Instrument Serif", Georgia, serif;
+      font-style: italic;
+      font-weight: 400;
+      color: var(--accent-2);
+      letter-spacing: -0.02em;
+    }
+
+    .auth-hero__lede {
+      margin: 0;
+      font-size: clamp(1rem, 1.35vw, 1.125rem);
+      line-height: 1.65;
+      color: var(--muted);
+      max-width: 38ch;
+    }
+
+    .auth-stack {
+      position: relative;
+      isolation: isolate;
+      width: min(100%, 340px);
+      height: 200px;
+      margin-top: 0.5rem;
+      perspective: 900px;
+    }
+    .auth-stack__card {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      border-radius: 16px;
+      background: var(--surface-strong);
+      border: 1px solid var(--stroke);
+      box-shadow: 0 24px 48px rgba(15, 23, 42, 0.08);
+      padding: 1rem 1.15rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .auth-stack__card strong { color: var(--ink); font-weight: 700; }
+    .auth-stack__card:nth-child(1) {
+      top: 0;
+      transform: rotateX(8deg) rotateZ(-3deg) translateZ(0);
+      z-index: 3;
+      animation: stackFloat1 6s ease-in-out infinite;
+    }
+    .auth-stack__card:nth-child(2) {
+      top: 28px;
+      left: 12px;
+      opacity: 0.92;
+      transform: rotateX(6deg) rotateZ(-2deg) scale(0.96);
+      z-index: 2;
+      animation: stackFloat2 6s ease-in-out infinite;
+    }
+    .auth-stack__card:nth-child(3) {
+      top: 56px;
+      left: 24px;
+      opacity: 0.78;
+      transform: rotateX(4deg) rotateZ(-1deg) scale(0.92);
+      z-index: 1;
+      animation: stackFloat3 6s ease-in-out infinite;
+    }
+    @keyframes stackFloat1 {
+      0%, 100% { transform: rotateX(8deg) rotateZ(-3deg) translateY(0); }
+      50% { transform: rotateX(8deg) rotateZ(-3deg) translateY(-6px); }
+    }
+    @keyframes stackFloat2 {
+      0%, 100% { transform: rotateX(6deg) rotateZ(-2deg) scale(0.96) translateY(0); }
+      50% { transform: rotateX(6deg) rotateZ(-2deg) scale(0.96) translateY(-4px); }
+    }
+    @keyframes stackFloat3 {
+      0%, 100% { transform: rotateX(4deg) rotateZ(-1deg) scale(0.92) translateY(0); }
+      50% { transform: rotateX(4deg) rotateZ(-1deg) scale(0.92) translateY(-3px); }
+    }
+
+    .auth-hero__stat {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem 2rem;
+      margin-top: 0.25rem;
+    }
+    .auth-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+    .auth-stat__val {
+      font-size: 1.65rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+      line-height: 1;
+    }
+    .auth-stat__lbl {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+
+    /* —— Sağ: cam panel —— */
+    .auth-panel-wrap {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(1.5rem, 4vw, 3rem);
+    }
+    .auth-panel {
+      position: relative;
+      width: 100%;
+      max-width: 420px;
+      padding: clamp(1.75rem, 3vw, 2.35rem);
+      border-radius: 24px;
+      background: var(--surface);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.85);
+      box-shadow:
+        0 4px 8px rgba(12, 18, 34, 0.04),
+        0 32px 64px rgba(15, 23, 42, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    }
+    .auth-panel::before {
       content: "";
       position: absolute;
-      inset: 2rem 1.5rem;
-      border-radius: 20px;
-      background: transparent;
-      box-shadow: 0 32px 80px rgba(79, 70, 229, 0.06), 0 12px 40px rgba(15, 23, 42, 0.04);
+      inset: 0;
+      border-radius: inherit;
+      padding: 1px;
+      background: linear-gradient(135deg, rgba(13, 148, 136, 0.35), rgba(234, 88, 12, 0.25), transparent 55%);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
       pointer-events: none;
       z-index: 0;
     }
-    .login-split__form > * {
+    .auth-panel > * {
       position: relative;
       z-index: 1;
     }
-    @media (max-width: 960px) {
-      .login-split__form {
-        box-shadow: 0 -20px 60px rgba(79, 70, 229, 0.06);
-        padding: 2rem 1.5rem 3rem;
-      }
-      .login-split__form::before { display: none; }
-    }
+
     .login-form__logo {
-      width: 56px;
-      height: 56px;
-      border-radius: 16px;
-      background: linear-gradient(145deg, var(--purple-700) 0%, var(--purple-500) 50%, #a78bfa 100%);
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: linear-gradient(145deg, #0f766e 0%, #14b8a6 45%, #f97316 130%);
       display: flex;
       align-items: center;
       justify-content: center;
       color: #fff;
-      font-size: 1.5rem;
+      font-size: 1.35rem;
       margin-bottom: 1rem;
-      box-shadow: 0 14px 32px rgba(109, 40, 217, 0.32), 0 4px 12px rgba(79, 70, 229, 0.15);
-      transition: transform 0.35s var(--ease-out-expo), box-shadow 0.35s ease;
+      box-shadow: 0 12px 28px rgba(13, 148, 136, 0.28);
+      position: relative;
     }
-    .login-form__logo:hover {
-      transform: translateY(-2px) scale(1.03);
-      box-shadow: 0 18px 40px rgba(109, 40, 217, 0.38);
+    .login-form__logo::after {
+      content: "";
+      position: absolute;
+      inset: -3px;
+      border-radius: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      pointer-events: none;
     }
+
     .login-form__title {
-      font-family: "Poppins", sans-serif;
-      font-weight: 700;
-      font-size: 1.5rem;
-      color: var(--gray-800);
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
       margin: 0 0 0.35rem;
-      letter-spacing: -0.02em;
+      color: var(--ink);
     }
     .login-form__subtitle {
-      font-size: 0.9rem;
-      color: var(--gray-500);
-      margin: 0 0 1.5rem;
-      line-height: 1.5;
+      font-size: 0.875rem;
+      color: var(--muted);
+      margin: 0 0 1.35rem;
+      line-height: 1.55;
     }
-    /* Sekmeler: kayan pill (HTML değişmeden :has ile) */
+
     .login-tabs {
       display: flex;
       gap: 4px;
       padding: 5px;
-      background: rgba(241, 245, 249, 0.95);
-      border-radius: 16px;
-      margin-bottom: 1.5rem;
-      border: 1px solid rgba(226, 232, 240, 0.95);
+      background: rgba(241, 245, 249, 0.9);
+      border-radius: 14px;
+      margin-bottom: 1.25rem;
+      border: 1px solid var(--stroke);
       position: relative;
-      box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.85);
+      box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.9);
     }
     .login-tabs::before {
       content: "";
@@ -214,12 +320,10 @@
       top: 5px;
       bottom: 5px;
       width: calc(50% - 7px);
-      border-radius: 12px;
+      border-radius: 10px;
       background: #fff;
-      box-shadow:
-        0 4px 20px rgba(109, 40, 217, 0.14),
-        0 2px 8px rgba(15, 23, 42, 0.06);
-      transition: transform 0.45s var(--ease-out-expo);
+      box-shadow: 0 4px 16px rgba(13, 148, 136, 0.12), 0 2px 6px rgba(15, 23, 42, 0.06);
+      transition: transform 0.45s var(--ease);
       z-index: 0;
       pointer-events: none;
     }
@@ -228,14 +332,14 @@
     }
     .login-tabs button {
       flex: 1;
-      padding: 0.72rem 0.75rem;
+      padding: 0.65rem 0.6rem;
       border: none;
-      border-radius: 12px;
+      border-radius: 10px;
       background: transparent;
-      font-family: "Poppins", sans-serif;
-      font-size: 0.82rem;
-      font-weight: 600;
-      color: var(--gray-500);
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--muted);
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -243,161 +347,142 @@
       gap: 0.4rem;
       position: relative;
       z-index: 1;
-      transition: color 0.35s var(--ease-out-expo), transform 0.2s ease;
+      transition: color 0.35s var(--ease);
     }
     .login-tabs button.is-active {
-      color: var(--purple-700);
-      background: transparent;
-      box-shadow: none;
+      color: #0f766e;
     }
     .login-tabs button:not(.is-active):hover {
-      color: var(--purple-600);
+      color: var(--ink);
     }
-    .login-tabs button:active {
-      transform: scale(0.98);
-    }
+
     .login-hint {
       font-size: 0.8rem;
-      color: var(--gray-500);
-      margin: 0 0 1.25rem;
-      line-height: 1.5;
+      color: var(--muted);
+      margin: 0 0 1.1rem;
+      line-height: 1.55;
     }
-    .login-field {
-      margin-bottom: 1rem;
-    }
+    .login-hint strong { color: var(--ink); font-weight: 600; }
+
+    .login-field { margin-bottom: 0.9rem; }
     .login-field label {
       display: block;
-      font-size: 0.72rem;
-      font-weight: 700;
+      font-size: 0.68rem;
+      font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--gray-500);
-      margin-bottom: 0.45rem;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
     }
+
     .login-input-wrap {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      padding: 0.68rem 1.05rem;
+      gap: 0.65rem;
+      padding: 0.62rem 0.95rem;
       border: 1.5px solid transparent;
-      border-radius: 14px;
-      background: #eef1f6;
-      transition:
-        background 0.3s var(--ease-out-expo),
-        border-color 0.3s var(--ease-out-expo),
-        box-shadow 0.3s var(--ease-out-expo),
-        transform 0.3s var(--ease-spring);
+      border-radius: 12px;
+      background: rgba(248, 250, 252, 0.95);
+      transition: background 0.3s var(--ease), border-color 0.3s, box-shadow 0.3s;
     }
     .login-input-wrap:focus-within {
       background: #fff;
-      border-color: var(--purple-500);
-      box-shadow:
-        0 0 0 4px rgba(139, 92, 246, 0.15),
-        0 12px 32px rgba(79, 70, 229, 0.08);
-      transform: scale(1.02);
+      border-color: rgba(13, 148, 136, 0.45);
+      box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.12);
     }
     .login-input-wrap i {
-      color: var(--gray-400);
-      font-size: 1rem;
-      width: 1.25rem;
+      color: #94a3b8;
+      font-size: 0.95rem;
+      width: 1.1rem;
       text-align: center;
-      transition: color 0.3s var(--ease-out-expo);
     }
-    .login-input-wrap:focus-within i {
-      color: var(--purple-600);
-    }
+    .login-input-wrap:focus-within i { color: #0d9488; }
     .login-input-wrap input {
       flex: 1;
       border: none;
       background: transparent;
-      font-family: "Inter", sans-serif;
-      font-size: 1rem;
+      font-family: inherit;
+      font-size: 0.95rem;
       outline: none;
       min-width: 0;
-      color: var(--gray-800);
+      color: var(--ink);
     }
-    .login-input-wrap input::placeholder {
-      color: #94a3b8;
-    }
+    .login-input-wrap input::placeholder { color: #94a3b8; }
+
     .btn-login-submit {
       width: 100%;
-      margin-top: 0.5rem;
-      padding: 0.98rem 1.25rem;
+      margin-top: 0.45rem;
+      padding: 0.92rem 1.2rem;
       border: none;
-      border-radius: 14px;
-      background: linear-gradient(135deg, #5b21b6 0%, var(--purple-700) 35%, var(--purple-500) 100%);
+      border-radius: 12px;
+      background: linear-gradient(135deg, #0f766e 0%, #0d9488 40%, #ea580c 160%);
       color: #fff;
-      font-family: "Poppins", sans-serif;
-      font-size: 1rem;
-      font-weight: 700;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 800;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
-      box-shadow:
-        0 12px 36px rgba(109, 40, 217, 0.38),
-        0 4px 12px rgba(79, 70, 229, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
-      transition:
-        transform 0.22s var(--ease-out-expo),
-        box-shadow 0.22s ease,
-        filter 0.22s ease;
+      box-shadow: 0 10px 28px rgba(13, 148, 136, 0.35);
+      transition: transform 0.2s var(--ease), box-shadow 0.2s, filter 0.2s;
     }
     .btn-login-submit:hover:not(:disabled) {
       transform: translateY(-2px);
-      box-shadow:
-        0 20px 48px rgba(109, 40, 217, 0.45),
-        0 8px 20px rgba(79, 70, 229, 0.25),
-        inset 0 1px 0 rgba(255, 255, 255, 0.25);
-      filter: brightness(1.04);
+      filter: brightness(1.05);
+      box-shadow: 0 16px 36px rgba(13, 148, 136, 0.4);
     }
     .btn-login-submit:active:not(:disabled) {
-      transform: translateY(0) scale(0.98);
-      box-shadow:
-        0 8px 24px rgba(109, 40, 217, 0.3),
-        inset 0 2px 8px rgba(0, 0, 0, 0.12);
+      transform: translateY(0);
     }
     .btn-login-submit:disabled {
       opacity: 0.55;
       cursor: not-allowed;
       transform: none;
-      box-shadow: none;
     }
+
     #loginError {
       display: none;
       margin-top: 1rem;
-      padding: 0.75rem 1rem;
-      border-radius: 12px;
+      padding: 0.7rem 0.9rem;
+      border-radius: 10px;
       background: #fef2f2;
       border: 1px solid #fecaca;
       color: #b91c1c;
-      font-size: 0.875rem;
+      font-size: 0.82rem;
     }
     #loginError.is-visible { display: block; }
+
     .login-foot {
-      margin-top: 1.5rem;
-      max-width: 26rem;
-      margin-left: auto;
-      margin-right: auto;
-      font-size: 0.75rem;
+      margin-top: 1.35rem;
+      font-size: 0.7rem;
       line-height: 1.55;
-      color: var(--gray-500);
+      color: var(--muted);
       text-align: center;
     }
-    .login-foot strong {
-      color: var(--gray-600);
-      font-weight: 600;
+    .login-foot strong { color: #475569; font-weight: 600; }
+
+    @media (max-width: 1024px) {
+      .auth-hero {
+        padding-bottom: 0;
+        min-height: auto;
+      }
+      .auth-stack { height: 180px; margin-left: auto; margin-right: auto; }
+      .auth-panel-wrap {
+        padding-top: 0;
+        align-items: flex-start;
+      }
     }
+
     @media (prefers-reduced-motion: reduce) {
-      .login-split__brand::before,
-      .login-split__illus,
-      .login-split__tagline,
-      .login-split__sub {
+      .auth-canvas::before,
+      .auth-stack__card:nth-child(1),
+      .auth-stack__card:nth-child(2),
+      .auth-stack__card:nth-child(3) {
         animation: none;
       }
       .login-tabs::before,
-      .login-input-wrap,
       .btn-login-submit {
         transition-duration: 0.01ms;
       }
@@ -405,67 +490,85 @@
   </style>
 </head>
 <body>
-  <div class="login-split">
-    <aside class="login-split__brand" aria-hidden="false">
-      <div class="login-split__illus">
-        <svg viewBox="0 0 400 280" xmlns="http://www.w3.org/2000/svg" fill="none">
-          <ellipse cx="200" cy="248" rx="160" ry="24" fill="rgba(255,255,255,0.15)"/>
-          <rect x="120" y="88" width="160" height="100" rx="12" fill="rgba(255,255,255,0.95)" opacity="0.95"/>
-          <rect x="135" y="105" width="50" height="6" rx="3" fill="#c4b5fd"/>
-          <rect x="135" y="118" width="130" height="5" rx="2" fill="#e9d5ff"/>
-          <rect x="135" y="128" width="100" height="5" rx="2" fill="#e9d5ff"/>
-          <circle cx="200" cy="55" r="36" fill="#fde68a"/>
-          <path d="M200 28c-18 0-32 14-32 32v8h64v-8c0-18-14-32-32-32z" fill="#451a03" opacity="0.85"/>
-          <rect x="168" y="188" width="64" height="52" rx="8" fill="#7c3aed"/>
-          <path d="M152 188h96v24c0 8-43 20-48 20s-48-12-48-20v-24z" fill="#6d28d9"/>
-          <rect x="175" y="140" width="50" height="56" rx="6" fill="#a78bfa"/>
-          <path d="M155 165l-28 8v45l28-10V165z" fill="#fff" opacity="0.9"/>
-          <path d="M245 165l28 8v45l-28-10V165z" fill="#fff" opacity="0.9"/>
-          <rect x="88" y="195" width="44" height="56" rx="6" fill="#fff" opacity="0.25"/>
-          <rect x="268" y="200" width="40" height="48" rx="6" fill="#fff" opacity="0.2"/>
-          <path d="M95 175l20-35 8 4-18 38-10-7z" fill="#fbbf24"/>
-          <circle cx="318" cy="120" r="22" fill="#fff" opacity="0.35"/>
-          <path d="M310 118l16 8-16 8v-16z" fill="#fff" opacity="0.6"/>
-        </svg>
-      </div>
-      <h1 class="login-split__tagline">YKS hedefine koçunla ulaş</h1>
-      <p class="login-split__sub">Türkiye'nin profesyonel koçluk paneli — öğrenci, deneme ve randevu yönetimi tek yerde.</p>
-    </aside>
-    <main class="login-split__form">
-      <div class="login-form__logo" aria-hidden="true"><i class="fa-solid fa-graduation-cap"></i></div>
-      <h2 class="login-form__title">YKS Koçluk Portalına Hoş Geldiniz</h2>
-      <p class="login-form__subtitle">Kurum hesabınızla giriş yapın. Logo alanı için üstteki rozet kurumunuzu temsil eder.</p>
-      <div class="login-tabs" role="tablist" aria-label="Giriş türü">
-        <button type="button" class="is-active" data-mode="coach" id="tabCoach"><i class="fa-solid fa-chalkboard-user"></i> Koç Girişi</button>
-        <button type="button" data-mode="admin" id="tabAdmin"><i class="fa-solid fa-shield-halved"></i> Kurucu Girişi</button>
-      </div>
-      <p class="login-hint" id="modeHint">Koç hesabınızla giriş yapın. Sadece <strong>kullanıcı adı</strong> ve şifre yeterlidir.</p>
-      <form id="loginForm" autocomplete="off">
-        <div class="login-field">
-          <label for="loginUsername">Kullanıcı adı</label>
-          <div class="login-input-wrap">
-            <i class="fa-solid fa-user"></i>
-            <input id="loginUsername" name="username" type="text" required placeholder="Kullanıcı adınız" autocapitalize="none" autocomplete="username" />
-          </div>
-        </div>
-        <div class="login-field">
-          <label for="loginPassword">Şifre</label>
-          <div class="login-input-wrap">
-            <i class="fa-solid fa-lock"></i>
-            <input id="loginPassword" name="password" type="password" required placeholder="••••••••" autocomplete="current-password" />
-          </div>
-        </div>
-        <button type="submit" class="btn-login-submit" id="loginSubmit">
-          <i class="fa-solid fa-right-to-bracket"></i> Giriş Yap
-        </button>
-        <div id="loginError" role="alert"></div>
-      </form>
-      <p class="login-foot">
-        Bu web uygulaması şu an <strong>test (beta) aşamasındadır</strong>. Karşılaşabileceğiniz sorun veya hatalar için lütfen
-        <strong>müşteri temsilcimizle</strong> iletişime geçin. Anlayışınız için teşekkür ederiz — iyi günler dileriz.
+  <div class="auth-canvas" aria-hidden="true"></div>
+
+  <div class="auth-shell">
+    <header class="auth-hero">
+      <span class="auth-hero__badge"><i class="fa-solid fa-bolt"></i> Canlı koçluk altyapısı</span>
+      <h1 class="auth-hero__headline">Rota net,<br /><em>hedef</em> daha yakın.</h1>
+      <p class="auth-hero__lede">
+        Deneme, takip ve randevu tek akışta. Giriş yaptığında panel senin sınıfın, defterin ve kontrol kulesin olur — sıradan bir “ilk giriş ekranı” değil.
       </p>
-    </main>
+
+      <div class="auth-stack" aria-hidden="true">
+        <div class="auth-stack__card">
+          <strong>Bugün</strong> · 3 öğrenci için geri bildirim bekliyor. <span style="opacity:0.75">Net trend ↑</span>
+        </div>
+        <div class="auth-stack__card">
+          <strong>Haftalık</strong> · Ortalama çalışma süresi hedefin %8 üstünde.
+        </div>
+        <div class="auth-stack__card">
+          <strong>YKS</strong> · Tüm modüller senkron — tek oturum.
+        </div>
+      </div>
+
+      <div class="auth-hero__stat">
+        <div class="auth-stat">
+          <span class="auth-stat__val">Tek</span>
+          <span class="auth-stat__lbl">oturum</span>
+        </div>
+        <div class="auth-stat">
+          <span class="auth-stat__val">Çoklu</span>
+          <span class="auth-stat__lbl">rol</span>
+        </div>
+        <div class="auth-stat">
+          <span class="auth-stat__val">7/24</span>
+          <span class="auth-stat__lbl">erişim</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="auth-panel-wrap">
+      <main class="auth-panel">
+        <div class="login-form__logo" aria-hidden="true"><i class="fa-solid fa-compass"></i></div>
+        <h2 class="login-form__title">Panele giriş</h2>
+        <p class="login-form__subtitle">Kurum hesabınla devam et. Aşağıdan koç veya kurucu oturumunu seç.</p>
+
+        <div class="login-tabs" role="tablist" aria-label="Giriş türü">
+          <button type="button" class="is-active" data-mode="coach" id="tabCoach"><i class="fa-solid fa-chalkboard-user"></i> Koç</button>
+          <button type="button" data-mode="admin" id="tabAdmin"><i class="fa-solid fa-shield-halved"></i> Kurucu</button>
+        </div>
+
+        <p class="login-hint" id="modeHint">Koç hesabınızla giriş yapın. Sadece <strong>kullanıcı adı</strong> ve şifre yeterlidir.</p>
+
+        <form id="loginForm" autocomplete="off">
+          <div class="login-field">
+            <label for="loginUsername">Kullanıcı adı</label>
+            <div class="login-input-wrap">
+              <i class="fa-solid fa-at"></i>
+              <input id="loginUsername" name="username" type="text" required placeholder="ornek_koc" autocapitalize="none" autocomplete="username" />
+            </div>
+          </div>
+          <div class="login-field">
+            <label for="loginPassword">Şifre</label>
+            <div class="login-input-wrap">
+              <i class="fa-solid fa-key"></i>
+              <input id="loginPassword" name="password" type="password" required placeholder="••••••••" autocomplete="current-password" />
+            </div>
+          </div>
+          <button type="submit" class="btn-login-submit" id="loginSubmit">
+            <i class="fa-solid fa-arrow-right-to-bracket"></i> Giriş yap
+          </button>
+          <div id="loginError" role="alert"></div>
+        </form>
+
+        <p class="login-foot">
+          Bu uygulama <strong>beta</strong> aşamasındadır. Sorun yaşarsanız müşteri temsilcimizle iletişime geçin.
+        </p>
+      </main>
+    </div>
   </div>
+
   <script type="module" src="js/login.js"></script>
 </body>
 </html>

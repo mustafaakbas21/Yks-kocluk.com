@@ -1054,7 +1054,7 @@
                         </div>
                       </div>
                       <div class="tm-a4-layout" id="tmA4Layout">
-                        <div class="tm-a4-empty tm-a4-empty--full" id="tmA4Empty">Kitaplıktan veya sağdan <strong>PDF</strong> açıp kırpın; <strong>A4’e Ekle</strong> ile ekleyin. Tüm şablonlarda sorular kitap düzeninde iki sütunda (ortada çizgi) dizilir.</div>
+                        <div class="tm-a4-empty tm-a4-empty--full" id="tmA4Empty">Kitaplıktan veya sağdan <strong>PDF</strong> açıp kırpın; kırpmadan sonra <strong>A–E</strong> şıkkını seçerek ekleyin. Cevap anahtarı her zaman <strong>son sayfada</strong> oluşur. Sorular iki sütunda (ortada çizgi) dizilir.</div>
                         <div class="test-content-area" id="testContentArea" hidden>
                           <div id="column-1" class="test-column" data-tm-col="1"></div>
                           <div id="column-2" class="test-column test-column--with-rule" data-tm-col="2"></div>
@@ -1096,13 +1096,31 @@
                   </div>
                   <span class="tm-pdf-nav__total">/ <strong id="pdfPageTotal">0</strong> sayfa</span>
                 </div>
-                <div class="tm-add-a4-toolbar">
+                <div class="tm-add-a4-toolbar" hidden aria-hidden="true">
                   <button type="button" class="tm-btn-add-a4 tm-btn-add-a4--below-nav" id="tmBtnAddToA4" disabled>
                     <i class="fa-solid fa-scissors"></i> Seçimi A4’e ekle
                   </button>
                 </div>
-                <div class="tm-crop-wrap" id="tmCropWrap">
-                  <img id="tmCropImg" alt="Kırpma kaynağı" style="display:none;max-width:100%" />
+                <div class="tm-crop-wrap tm-crop-wrap--manual" id="tmCropWrap">
+                  <div class="tm-ws-manual-crop-stage">
+                    <div class="tm-pdf-cropper-canvas-wrap tm-ws-pdf-crop-canvas-wrap" id="tmWsPdfCropCanvasWrap">
+                      <div class="tm-pdf-cropper-scroll-inner" id="tmWsPdfCropScrollInner" aria-label="PDF veya görsel — kaydırarak sayfa seçin"></div>
+                    </div>
+                    <p class="tm-pdf-cropper-hint tm-ws-crop-hint">
+                      <i class="fa-solid fa-crosshairs"></i> Köşeden sürükleyerek seçin; ardından <strong>doğru şıkkı</strong> (A–E) seçerek soruyu A4’e ekleyin.
+                    </p>
+                    <div id="tmWsAnswerKeyRow" class="tm-ws-answer-key-row" hidden>
+                      <span class="tm-ws-answer-key-row__lbl">Cevap şıkkı</span>
+                      <div class="tm-ws-answer-key-row__btns" role="group" aria-label="Cevap anahtarı şıkkı">
+                        <button type="button" class="tm-ws-answer-opt" data-tm-letter="A" disabled>A</button>
+                        <button type="button" class="tm-ws-answer-opt" data-tm-letter="B" disabled>B</button>
+                        <button type="button" class="tm-ws-answer-opt" data-tm-letter="C" disabled>C</button>
+                        <button type="button" class="tm-ws-answer-opt" data-tm-letter="D" disabled>D</button>
+                        <button type="button" class="tm-ws-answer-opt" data-tm-letter="E" disabled>E</button>
+                      </div>
+                    </div>
+                  </div>
+                  <img id="tmCropImg" alt="" width="1" height="1" hidden style="position:absolute;width:0;height:0;opacity:0;pointer-events:none" />
                 </div>
                 </div>
               </aside>
