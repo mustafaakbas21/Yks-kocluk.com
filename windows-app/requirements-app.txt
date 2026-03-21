@@ -1,0 +1,8 @@
+# Mustafa Akbaş Otonom Kırpma Portalı — masaüstü (Windows)
+customtkinter>=5.2.0
+opencv-python-headless>=4.9.0
+Pillow>=10.0.0
+PyMuPDF>=1.23.0
+numpy>=1.26.0
+pyinstaller>=6.0.0
+windnd>=1.0.7

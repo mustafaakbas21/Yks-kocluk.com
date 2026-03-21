@@ -5352,6 +5352,26 @@ function tmPdfCropFillKonuForDers(ders) {
     .join("");
 }
 
+function tmAiTagFillKonuForDers(ders) {
+  var sel = document.getElementById("tmAiTagKonu");
+  if (!sel) return;
+  var topics = [];
+  ["TYT", "AYT"].forEach(function (ex) {
+    var bag = yksAiCurriculum[ex];
+    if (bag && bag[ders]) {
+      bag[ders].forEach(function (t) {
+        if (topics.indexOf(t) === -1) topics.push(t);
+      });
+    }
+  });
+  if (!topics.length) topics = ["Genel"];
+  sel.innerHTML = topics
+    .map(function (t) {
+      return '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + "</option>";
+    })
+    .join("");
+}
+
 function tmPdfCropUpdateNav() {
   var total = tmPdfCropDoc ? tmPdfCropDoc.numPages : 0;
   var prev = document.getElementById("tmPdfCropPrev");
@@ -5792,31 +5812,301 @@ function initPdfCropperModule() {
 var TM_AI_PARSER_UPLOAD_URL = "http://127.0.0.1:8000/api/upload-pdf";
 var tmAiPdfParserBound = false;
 var tmAiParserUploadInFlight = false;
+var tmAiParserPanTx = 0;
+var tmAiParserPanTy = 0;
+var tmAiParserScale = 1;
+var tmAiParserToolMode = "hand";
+var tmAiParserWorkspaceBound = false;
+var tmAiParserPdfDocAi = null;
+
+function tmAiParserApplyViewportTransform() {
+  var inner = document.getElementById("tmAiParserViewportInner");
+  if (!inner) return;
+  inner.style.transform =
+    "translate(" + tmAiParserPanTx + "px," + tmAiParserPanTy + "px) scale(" + tmAiParserScale + ")";
+}
 
 function tmPdfCropperSetMode(mode) {
   var manual = document.getElementById("tmPdfCropperManualPane");
   var ai = document.getElementById("view-ai-parser");
   var btnM = document.getElementById("tmPdfModeManual");
   var btnA = document.getElementById("tmPdfModeAi");
+  var side = document.querySelector(".tm-pdf-cropper-side");
   var isAi = mode === "ai";
   if (manual) manual.hidden = isAi;
   if (ai) ai.hidden = !isAi;
+  if (side) side.hidden = isAi;
   if (btnM) btnM.classList.toggle("is-active", !isAi);
   if (btnA) btnA.classList.toggle("is-active", isAi);
 }
 
 function tmAiParserResetToUpload() {
   tmAiParserUploadInFlight = false;
+  tmAiParserPanTx = 0;
+  tmAiParserPanTy = 0;
+  tmAiParserScale = 1;
+  tmAiParserToolMode = "hand";
+  tmAiParserPdfDocAi = null;
+  tmAiParserApplyViewportTransform();
   var gallery = document.getElementById("tmAiParserGallery");
   var wrap = document.querySelector("#view-ai-parser .tm-ai-parser__wrap");
+  var mainLayout = document.getElementById("tmAiParserMainLayout");
   var stage1 = document.getElementById("tmAiParserStage1");
   var stage2 = document.getElementById("tmAiParserStage2");
   var stage3 = document.getElementById("tmAiParserStage3");
+  var ws = document.getElementById("tmAiParserWorkspace");
+  var rubber = document.getElementById("tmAiParserRubber");
+  var autonOv = document.getElementById("tmAiParserAutonOverlay");
+  var vp = document.getElementById("tmAiParserViewport");
+  var hand = document.getElementById("tmAiToolHand");
+  var scissors = document.getElementById("tmAiToolScissors");
   if (gallery) gallery.innerHTML = "";
   if (wrap) wrap.hidden = false;
+  if (mainLayout) mainLayout.hidden = false;
   if (stage1) stage1.hidden = false;
   if (stage2) stage2.hidden = true;
   if (stage3) stage3.hidden = true;
+  if (ws) ws.hidden = true;
+  if (rubber) rubber.innerHTML = "";
+  if (autonOv) autonOv.hidden = true;
+  if (vp) {
+    vp.classList.remove("is-panning", "is-scissors");
+  }
+  if (hand) hand.classList.add("is-active");
+  if (scissors) scissors.classList.remove("is-active");
+  var hint = document.getElementById("tmAiParserModeHint");
+  if (hint) hint.textContent = "El: sayfayı sürükleyin";
+}
+
+function tmAiParserRenderPdfFromFile(file) {
+  return new Promise(function (resolve, reject) {
+    if (typeof pdfjsLib === "undefined") {
+      reject(new Error("pdfjs"));
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function () {
+      var buf = new Uint8Array(reader.result);
+      pdfjsLib
+        .getDocument({ data: buf })
+        .promise.then(function (doc) {
+          tmAiParserPdfDocAi = doc;
+          return doc.getPage(1);
+        })
+        .then(function (page) {
+          var canvas = document.getElementById("tmAiParserPdfCanvas");
+          var vp = document.getElementById("tmAiParserViewport");
+          var stage1 = document.getElementById("tmAiParserStage1");
+          var ws = document.getElementById("tmAiParserWorkspace");
+          if (!canvas || !vp) {
+            reject(new Error("dom"));
+            return;
+          }
+          var ctx = canvas.getContext("2d");
+          var base = page.getViewport({ scale: 1 });
+          var maxW = Math.max(260, vp.clientWidth - 24);
+          var sc = maxW / base.width;
+          var viewport = page.getViewport({ scale: sc });
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          return page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function () {
+            tmAiParserPanTx = 0;
+            tmAiParserPanTy = 0;
+            tmAiParserScale = 1;
+            tmAiParserApplyViewportTransform();
+            if (stage1) stage1.hidden = true;
+            if (ws) ws.hidden = false;
+            resolve();
+          });
+        })
+        .catch(reject);
+    };
+    reader.onerror = function () {
+      reject(new Error("read"));
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function tmAiParserLogV3Action(kind) {
+  var sens = document.getElementById("tmAiV3Sensitivity");
+  var qn = document.getElementById("tmAiV3QCount");
+  var sinav = document.getElementById("tmAiTagSinav");
+  var ders = document.getElementById("tmAiTagDers");
+  var konu = document.getElementById("tmAiTagKonu");
+  var zor = document.getElementById("tmAiTagZorluk");
+  var payload = {
+    action: kind,
+    sensitivity: sens ? sens.value : "",
+    soruSayisi: qn ? qn.value : "",
+    sinav: sinav ? sinav.value : "",
+    ders: ders ? ders.value : "",
+    konu: konu ? konu.value : "",
+    zorluk: zor ? zor.value : "",
+  };
+  console.log("[AI Soru Fabrikası v3]", payload);
+}
+
+function tmAiParserInitV3ControlsAndTags() {
+  var range = document.getElementById("tmAiV3Sensitivity");
+  var valOut = document.getElementById("tmAiV3SensitivityVal");
+  var btnAuto = document.getElementById("btn-auto-crop");
+  var btnMan = document.getElementById("btn-manual-crop");
+  var dersEl = document.getElementById("tmAiTagDers");
+  if (range && valOut) {
+    function syncSens() {
+      valOut.textContent = parseFloat(range.value).toFixed(2);
+    }
+    syncSens();
+    range.addEventListener("input", syncSens);
+    range.addEventListener("change", syncSens);
+  }
+  if (dersEl) {
+    tmAiTagFillKonuForDers(dersEl.value || "Matematik");
+    dersEl.addEventListener("change", function () {
+      tmAiTagFillKonuForDers(dersEl.value);
+    });
+  }
+  var sinavEl = document.getElementById("tmAiTagSinav");
+  if (sinavEl && dersEl) {
+    sinavEl.addEventListener("change", function () {
+      tmAiTagFillKonuForDers(dersEl.value);
+    });
+  }
+  if (btnAuto) {
+    btnAuto.addEventListener("click", function () {
+      tmAiParserLogV3Action("otonom-kes-v3");
+      var ov = document.getElementById("tmAiParserAutonOverlay");
+      if (ov) {
+        ov.hidden = false;
+        window.setTimeout(function () {
+          ov.hidden = true;
+        }, 2400);
+      }
+    });
+  }
+  if (btnMan) {
+    btnMan.addEventListener("click", function () {
+      tmAiParserLogV3Action("manuel-png");
+    });
+  }
+}
+
+function tmAiParserBindWorkspace() {
+  if (tmAiParserWorkspaceBound) return;
+  var vp = document.getElementById("tmAiParserViewport");
+  var inner = document.getElementById("tmAiParserViewportInner");
+  var rubber = document.getElementById("tmAiParserRubber");
+  var hand = document.getElementById("tmAiToolHand");
+  var scissors = document.getElementById("tmAiToolScissors");
+  var hint = document.getElementById("tmAiParserModeHint");
+  if (!vp || !inner || !rubber) return;
+  tmAiParserWorkspaceBound = true;
+
+  function setToolUi(mode) {
+    tmAiParserToolMode = mode;
+    if (hand) hand.classList.toggle("is-active", mode === "hand");
+    if (scissors) scissors.classList.toggle("is-active", mode === "scissors");
+    vp.classList.toggle("is-scissors", mode === "scissors");
+    rubber.classList.toggle("is-on", mode === "scissors");
+    if (hint) {
+      hint.textContent = mode === "hand" ? "El: sayfayı sürükleyin" : "Makas: alan seçin";
+    }
+    if (mode === "hand") {
+      rubber.innerHTML = "";
+    }
+  }
+
+  if (hand) hand.addEventListener("click", function () { setToolUi("hand"); });
+  if (scissors) scissors.addEventListener("click", function () { setToolUi("scissors"); });
+
+  vp.addEventListener(
+    "wheel",
+    function (e) {
+      e.preventDefault();
+      var rect = vp.getBoundingClientRect();
+      var mx = e.clientX - rect.left;
+      var my = e.clientY - rect.top;
+      var factor = e.deltaY > 0 ? 0.92 : 1.08;
+      var newScale = Math.min(4, Math.max(0.35, tmAiParserScale * factor));
+      var px = (mx - tmAiParserPanTx) / tmAiParserScale;
+      var py = (my - tmAiParserPanTy) / tmAiParserScale;
+      tmAiParserPanTx = mx - px * newScale;
+      tmAiParserPanTy = my - py * newScale;
+      tmAiParserScale = newScale;
+      tmAiParserApplyViewportTransform();
+    },
+    { passive: false }
+  );
+
+  var panDrag = false;
+  var startX = 0;
+  var startY = 0;
+  var startTx = 0;
+  var startTy = 0;
+  var rubberDrag = false;
+  var rx0 = 0;
+  var ry0 = 0;
+  var rectEl = null;
+
+  vp.addEventListener("mousedown", function (e) {
+    if (e.button !== 0) return;
+    if (tmAiParserToolMode === "hand") {
+      panDrag = true;
+      vp.classList.add("is-panning");
+      startX = e.clientX;
+      startY = e.clientY;
+      startTx = tmAiParserPanTx;
+      startTy = tmAiParserPanTy;
+      e.preventDefault();
+      return;
+    }
+    if (tmAiParserToolMode === "scissors") {
+      rubberDrag = true;
+      var ir = inner.getBoundingClientRect();
+      rx0 = (e.clientX - ir.left) / tmAiParserScale;
+      ry0 = (e.clientY - ir.top) / tmAiParserScale;
+      rubber.innerHTML = "";
+      rectEl = document.createElement("div");
+      rectEl.className = "tm-ai-parser-rubber__rect";
+      rectEl.style.left = rx0 + "px";
+      rectEl.style.top = ry0 + "px";
+      rectEl.style.width = "0";
+      rectEl.style.height = "0";
+      rubber.appendChild(rectEl);
+      e.preventDefault();
+    }
+  });
+
+  document.addEventListener("mousemove", function (e) {
+    if (panDrag && tmAiParserToolMode === "hand") {
+      tmAiParserPanTx = startTx + (e.clientX - startX);
+      tmAiParserPanTy = startTy + (e.clientY - startY);
+      tmAiParserApplyViewportTransform();
+      return;
+    }
+    if (rubberDrag && rectEl && tmAiParserToolMode === "scissors") {
+      var ir = inner.getBoundingClientRect();
+      var x = (e.clientX - ir.left) / tmAiParserScale;
+      var y = (e.clientY - ir.top) / tmAiParserScale;
+      var xl = Math.min(rx0, x);
+      var yl = Math.min(ry0, y);
+      var w = Math.abs(x - rx0);
+      var h = Math.abs(y - ry0);
+      rectEl.style.left = xl + "px";
+      rectEl.style.top = yl + "px";
+      rectEl.style.width = w + "px";
+      rectEl.style.height = h + "px";
+    }
+  });
+
+  document.addEventListener("mouseup", function () {
+    if (panDrag) {
+      panDrag = false;
+      vp.classList.remove("is-panning");
+    }
+    rubberDrag = false;
+  });
 }
 
 function tmAiParserBuildCard(q) {
@@ -5837,9 +6127,9 @@ function tmAiParserBuildCard(q) {
   var actions = document.createElement("div");
   actions.className = "tm-ai-parser-card__actions";
   actions.innerHTML =
-    '<button type="button" class="tm-ai-parser-card__btn tm-ai-parser-card__btn--ok" data-ai-action="approve"><i class="fa-solid fa-check"></i> Onayla</button>' +
-    '<button type="button" class="tm-ai-parser-card__btn" data-ai-action="edit"><i class="fa-solid fa-pen"></i> Düzenle</button>' +
-    '<button type="button" class="tm-ai-parser-card__btn tm-ai-parser-card__btn--del" data-ai-action="delete"><i class="fa-solid fa-trash"></i> Sil</button>';
+    '<button type="button" class="tm-ai-parser-card__btn tm-ai-parser-card__btn--ok" data-ai-action="approve" title="Havuza kaydet">✅</button>' +
+    '<button type="button" class="tm-ai-parser-card__btn" data-ai-action="edit" title="Düzenle">✂️</button>' +
+    '<button type="button" class="tm-ai-parser-card__btn tm-ai-parser-card__btn--del" data-ai-action="delete" title="Sil">🗑️</button>';
   var meta = document.createElement("p");
   meta.className = "tm-ai-parser-card__meta";
   meta.textContent = "Sayfa " + (q.page != null ? String(q.page) : "—");
@@ -5867,11 +6157,11 @@ function tmAiParserRenderGallery(questions) {
 }
 
 function tmAiParserPresentGallery(questions) {
-  var wrap = document.querySelector("#view-ai-parser .tm-ai-parser__wrap");
+  var mainLayout = document.getElementById("tmAiParserMainLayout");
   var stage3 = document.getElementById("tmAiParserStage3");
   var stage2 = document.getElementById("tmAiParserStage2");
   if (stage2) stage2.hidden = true;
-  if (wrap) wrap.hidden = true;
+  if (mainLayout) mainLayout.hidden = true;
   if (stage3) stage3.hidden = false;
   tmAiParserRenderGallery(questions);
 }
@@ -5884,12 +6174,16 @@ function tmAiParserHavuzSaveFromCard(card) {
   var page = parseInt(pageRaw, 10);
   if (isNaN(page)) page = 1;
   var id = "q_" + Date.now() + "_" + Math.random().toString(36).slice(2, 10);
+  var sinavEl = document.getElementById("tmAiTagSinav") || document.getElementById("tmCropSinav");
+  var dersEl = document.getElementById("tmAiTagDers") || document.getElementById("tmCropDers");
+  var konuEl = document.getElementById("tmAiTagKonu") || document.getElementById("tmCropKonu");
+  var zorEl = document.getElementById("tmAiTagZorluk") || document.getElementById("tmCropZorluk");
   var item = {
     id: id,
-    sinavTipi: (document.getElementById("tmCropSinav") || {}).value || "TYT",
-    ders: (document.getElementById("tmCropDers") || {}).value || "",
-    konu: (document.getElementById("tmCropKonu") || {}).value || "",
-    zorluk: (document.getElementById("tmCropZorluk") || {}).value || "",
+    sinavTipi: (sinavEl && sinavEl.value) || "TYT",
+    ders: (dersEl && dersEl.value) || "",
+    konu: (konuEl && konuEl.value) || "",
+    zorluk: (zorEl && zorEl.value) || "",
     imageBase64: src,
     page: page,
     createdAt: Date.now(),
@@ -5951,6 +6245,8 @@ function tmAiParserRunUpload(file) {
     })
     .then(function (data) {
       tmAiParserUploadInFlight = false;
+      var stage2b = document.getElementById("tmAiParserStage2");
+      if (stage2b) stage2b.hidden = true;
       if (!data || !data.success) {
         showToast("Sunucu PDF'i işlerken bir hata ile karşılaştı.");
         tmAiParserResetToUpload();
@@ -5965,8 +6261,8 @@ function tmAiParserRunUpload(file) {
     .catch(function (err) {
       console.error(err);
       tmAiParserUploadInFlight = false;
-      var stage2b = document.getElementById("tmAiParserStage2");
-      if (stage2b) stage2b.hidden = true;
+      var stage2c = document.getElementById("tmAiParserStage2");
+      if (stage2c) stage2c.hidden = true;
       showToast("Sunucu PDF'i işlerken bir hata ile karşılaştı.");
       tmAiParserResetToUpload();
     });
@@ -5982,6 +6278,8 @@ function initAiPdfParserModule() {
   var resetBtn = document.getElementById("tmAiParserReset");
   if (!manualBtn || !aiBtn || !dropzone || !fileInp) return;
   tmAiPdfParserBound = true;
+  tmAiParserBindWorkspace();
+  tmAiParserInitV3ControlsAndTags();
   tmPdfCropperSetMode("manual");
   manualBtn.addEventListener("click", function () {
     tmPdfCropperSetMode("manual");
@@ -5992,7 +6290,15 @@ function initAiPdfParserModule() {
   function handleFileMaybe(f) {
     if (!f) return;
     tmAiParserResetToUpload();
-    tmAiParserRunUpload(f);
+    tmAiParserRenderPdfFromFile(f)
+      .then(function () {
+        tmAiParserRunUpload(f);
+      })
+      .catch(function (err) {
+        console.error(err);
+        showToast("PDF önizlemesi açılamadı.");
+        tmAiParserResetToUpload();
+      });
   }
   fileInp.addEventListener("change", function () {
     var f = fileInp.files && fileInp.files[0];
@@ -6857,6 +7163,13 @@ function navigateTo(view) {
 /** TestMaker alt menüsü: görünüm kimliği → navigateTo (sidebar SPA) */
 function displayTestmakerView(viewDomId) {
   if (!viewDomId) return;
+  if (viewDomId === "view-ai-parser") {
+    navigateTo("pdf-cropper");
+    setTimeout(function () {
+      if (typeof tmPdfCropperSetMode === "function") tmPdfCropperSetMode("ai");
+    }, 0);
+    return;
+  }
   var map = {
     "view-testmaker": "testmaker",
     "view-auto-test": "auto-test",
@@ -6929,7 +7242,12 @@ function initNavigation() {
       else if (action === "pdf-editor") navigateTo("pdf-editor");
       else if (action === "auto-test") navigateTo("auto-test");
       else if (action === "pdf-cropper") navigateTo("pdf-cropper");
-      else if (action === "soru-arsivi") navigateTo("soru-arsivi");
+      else if (action === "ai-parser") {
+        navigateTo("pdf-cropper");
+        setTimeout(function () {
+          if (typeof tmPdfCropperSetMode === "function") tmPdfCropperSetMode("ai");
+        }, 0);
+      } else if (action === "soru-arsivi") navigateTo("soru-arsivi");
       else navigateTo("testmaker");
     });
   }

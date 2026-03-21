@@ -6,7 +6,7 @@
   <title>YKS Koçluk — Koç Paneli</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="css/koc-panel.css" />
@@ -508,6 +508,7 @@
               <button type="button" class="sidebar__sublink" data-tm-nav-action="library" data-testmaker-view="view-library" title="Hazır Testler"><i class="fa-solid fa-layer-group"></i><span>Hazır Testler</span></button>
               <button type="button" class="sidebar__sublink" data-tm-nav-action="pdf-editor" data-testmaker-view="view-pdf-editor" title="PDF Düzenleyici"><i class="fa-solid fa-file-pen"></i><span>PDF Düzenleyici</span></button>
               <button type="button" class="sidebar__sublink" data-tm-nav-action="pdf-cropper" data-testmaker-view="view-pdf-cropper" data-target="view-pdf-cropper" title="PDF’den soru kırp ve havuza ekle"><i class="fa-solid fa-scissors"></i><span>✂️ Soru Havuzu Oluştur</span></button>
+              <button type="button" class="sidebar__sublink" data-tm-nav-action="ai-parser" data-testmaker-view="view-ai-parser" data-target="view-ai-parser" title="AI ile soru fabrikası — otonom kırpma"><i class="fa-solid fa-robot"></i><span>AI Soru Fabrikası (Beta)</span></button>
               <button type="button" class="sidebar__sublink" data-tm-nav-action="soru-arsivi" data-testmaker-view="view-soru-arsivi" data-target="view-soru-arsivi" title="Kesilen sorular — yerel arşiv"><i class="fa-solid fa-book"></i><span>📚 Soru Havuzu Arşivi</span></button>
             </div>
           </li>
@@ -1307,30 +1308,128 @@
                   </div>
                 </div>
                 <div id="view-ai-parser" class="tm-ai-parser" hidden>
-                  <div class="tm-ai-parser__wrap">
-                    <div id="tmAiParserStage1" class="tm-ai-parser-stage1">
-                      <p class="tm-ai-parser__lead"><i class="fa-solid fa-robot"></i> PDF’yi buraya sürükleyin veya tıklayın — yerel FastAPI sunucusu sayfaları analiz eder.</p>
-                      <label class="tm-ai-parser-dropzone tm-dropzone" id="tmAiParserDropzone">
-                        <input type="file" id="tmAiParserFile" accept=".pdf,application/pdf" />
-                        <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i>
-                        <span class="tm-ai-parser-dropzone__title">Deneme PDF’i seçin</span>
-                        <span class="tm-ai-parser-dropzone__sub">POST → 127.0.0.1:8000</span>
-                      </label>
-                    </div>
-                    <div id="tmAiParserStage2" class="tm-ai-parser-analyzing" hidden aria-live="polite">
-                      <div class="tm-ai-parser-analyzing__card">
-                        <div class="tm-ai-gen-spinner" aria-hidden="true"></div>
-                        <p class="tm-ai-gen-overlay__title">Analiz ediliyor…</p>
-                        <p class="tm-ai-gen-overlay__sub">Sunucu PDF’i işliyor; soru bölgeleri çıkarılıyor.</p>
+                  <div class="tm-ai-parser-inner">
+                    <div id="tmAiParserMainLayout" class="tm-ai-parser-layout">
+                      <div class="tm-ai-parser-layout__main">
+                        <div class="tm-ai-parser__wrap">
+                          <div id="tmAiParserStage1" class="tm-ai-parser-stage1">
+                            <p class="tm-ai-parser__lead"><i class="fa-solid fa-wand-magic-sparkles"></i> <strong>AI Soru Fabrikası</strong> — PDF’yi yükleyin; önizlemede gezinin, altta v3 ile otonom kesin veya manuel PNG alın. <span class="tm-ai-parser__badge">Beta</span></p>
+                            <label class="tm-ai-parser-dropzone tm-dropzone" id="tmAiParserDropzone">
+                              <input type="file" id="tmAiParserFile" accept=".pdf,application/pdf" />
+                              <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i>
+                              <span class="tm-ai-parser-dropzone__title">PDF seçin veya sürükleyin</span>
+                              <span class="tm-ai-parser-dropzone__sub">Yerel önizleme + FastAPI · 127.0.0.1:8000</span>
+                            </label>
+                          </div>
+                          <div id="tmAiParserWorkspace" class="tm-ai-parser-workspace" hidden>
+                            <div class="tm-ai-parser-toolbar" role="toolbar" aria-label="Önizleme araçları">
+                              <button type="button" class="tm-ai-parser-tool-btn is-active" id="tmAiToolHand" data-ai-tool="hand" title="Gezinme (sol tık sürükle)">
+                                <span class="tm-ai-parser-tool-btn__icon" aria-hidden="true">✋</span>
+                                <span class="tm-ai-parser-tool-btn__label">El Aracı</span>
+                              </button>
+                              <button type="button" class="tm-ai-parser-tool-btn" id="tmAiToolScissors" data-ai-tool="scissors" title="Manuel kırpma alanı">
+                                <span class="tm-ai-parser-tool-btn__icon" aria-hidden="true">✂️</span>
+                                <span class="tm-ai-parser-tool-btn__label">Manuel Makas</span>
+                              </button>
+                            </div>
+                            <div class="tm-ai-parser-viewport" id="tmAiParserViewport" tabindex="0">
+                              <div class="tm-ai-parser-viewport-inner" id="tmAiParserViewportInner">
+                                <canvas id="tmAiParserPdfCanvas" class="tm-ai-parser-pdf-canvas" width="1" height="1"></canvas>
+                                <div class="tm-ai-parser-rubber" id="tmAiParserRubber" aria-hidden="true"></div>
+                              </div>
+                            </div>
+                            <p class="tm-ai-parser-workspace-hint" id="tmAiParserWorkspaceHint">Tekerlek: yakın/uzak · <span id="tmAiParserModeHint">El: sayfayı sürükleyin</span></p>
+                          </div>
+                          <div id="tmAiParserStage2" class="tm-ai-parser-analyzing" hidden aria-live="polite">
+                            <div class="tm-ai-parser-analyzing__card">
+                              <div class="tm-ai-gen-spinner" aria-hidden="true"></div>
+                              <p class="tm-ai-gen-overlay__title">Analiz ediliyor…</p>
+                              <p class="tm-ai-gen-overlay__sub">Sunucu PDF’i işliyor; soru bölgeleri çıkarılıyor.</p>
+                            </div>
+                          </div>
+                        </div>
+                        <section class="tm-ai-parser-v3-panel" id="tmAiParserV3Panel" aria-labelledby="tmAiParserV3Title">
+                          <div class="tm-ai-parser-v3-panel__head">
+                            <h3 id="tmAiParserV3Title" class="tm-ai-parser-v3-panel__title">Otonom Kesim · v3</h3>
+                            <p class="tm-ai-parser-v3-panel__sub">Hassasiyet ve soru sayısı (ileride sunucuya iletilecek)</p>
+                          </div>
+                          <div class="tm-ai-parser-v3-panel__body">
+                            <label class="tm-ai-parser-v3-field">
+                              <span class="tm-ai-parser-v3-field__label">Hassasiyet</span>
+                              <div class="tm-ai-parser-v3-range-row">
+                                <input type="range" id="tmAiV3Sensitivity" min="0.5" max="2" step="0.05" value="1.15" />
+                                <span class="tm-ai-parser-v3-val" id="tmAiV3SensitivityVal" aria-live="polite">1.15</span>
+                              </div>
+                            </label>
+                            <label class="tm-ai-parser-v3-field">
+                              <span class="tm-ai-parser-v3-field__label">Soru Sayısı (0 = otomatik)</span>
+                              <input type="number" class="tm-ai-parser-v3-input" id="tmAiV3QCount" min="0" max="30" value="0" />
+                            </label>
+                          </div>
+                          <div class="tm-ai-parser-v3-panel__actions">
+                            <button type="button" class="tm-ai-parser-btn-auto" id="btn-auto-crop"><span class="tm-ai-parser-btn-auto__txt">🤖 Otonom Kes (v3)</span></button>
+                            <button type="button" class="tm-ai-parser-btn-manual" id="btn-manual-crop"><span class="tm-ai-parser-btn-manual__txt">✂️ Manuel -&gt; PNG</span></button>
+                          </div>
+                        </section>
+                        <div id="tmAiParserAutonOverlay" class="tm-ai-parser-auton-overlay tm-ai-parser-auton-overlay--column" hidden aria-live="polite">
+                          <div class="tm-ai-parser-auton-overlay__card">
+                            <div class="tm-ai-gen-spinner" aria-hidden="true"></div>
+                            <p class="tm-ai-gen-overlay__title">Yükleniyor…</p>
+                            <p class="tm-ai-gen-overlay__sub">Otonom kesim motoru hazırlanıyor.</p>
+                          </div>
+                        </div>
                       </div>
+                      <aside class="tm-ai-parser-layout__side">
+                        <div class="tm-ai-parser-tag-card">
+                          <h3 class="tm-ai-parser-tag-card__title">Kayıt Etiketleri</h3>
+                          <p class="tm-ai-parser-tag-card__hint">Havuza kayıt ve arşiv için kullanılır.</p>
+                          <form class="tm-ai-parser-tag-form" id="tmAiTagForm" autocomplete="off" onsubmit="return false;">
+                            <label class="tm-ai-parser-tag-field">
+                              <span>Sınav</span>
+                              <select id="tmAiTagSinav" class="tm-ai-parser-tag-select">
+                                <option value="TYT" selected>TYT</option>
+                                <option value="AYT">AYT</option>
+                              </select>
+                            </label>
+                            <label class="tm-ai-parser-tag-field">
+                              <span>Ders</span>
+                              <select id="tmAiTagDers" class="tm-ai-parser-tag-select">
+                                <option value="Matematik">Matematik</option>
+                                <option value="Türkçe">Türkçe</option>
+                                <option value="Fizik">Fizik</option>
+                                <option value="Kimya">Kimya</option>
+                                <option value="Biyoloji">Biyoloji</option>
+                                <option value="Tarih">Tarih</option>
+                                <option value="Coğrafya">Coğrafya</option>
+                                <option value="TYT Genel">TYT Genel</option>
+                                <option value="Diğer">Diğer</option>
+                              </select>
+                            </label>
+                            <label class="tm-ai-parser-tag-field">
+                              <span>Konu</span>
+                              <select id="tmAiTagKonu" class="tm-ai-parser-tag-select"></select>
+                            </label>
+                            <label class="tm-ai-parser-tag-field">
+                              <span>Zorluk</span>
+                              <select id="tmAiTagZorluk" class="tm-ai-parser-tag-select">
+                                <option value="Kolay">Kolay</option>
+                                <option value="Orta" selected>Orta</option>
+                                <option value="Zor">Zor</option>
+                                <option value="Karma">Karma</option>
+                                <option value="YKS tipi">YKS tipi</option>
+                              </select>
+                            </label>
+                          </form>
+                        </div>
+                      </aside>
                     </div>
-                  </div>
-                  <div id="tmAiParserStage3" class="tm-ai-parser-stage3" hidden>
-                    <div class="tm-ai-parser-stage3__head">
-                      <h3 class="tm-ai-parser-stage3__title">Onay galerisi</h3>
-                      <button type="button" class="tm-pdf-cropper-iconbtn" id="tmAiParserReset"><i class="fa-solid fa-rotate-left"></i> Yeni PDF</button>
+                    <div id="tmAiParserStage3" class="tm-ai-parser-stage3 tm-ai-parser-stage3--gallery" hidden>
+                      <div class="tm-ai-parser-stage3__head">
+                        <h3 class="tm-ai-parser-stage3__title">Onay galerisi</h3>
+                        <button type="button" class="tm-pdf-cropper-iconbtn" id="tmAiParserReset"><i class="fa-solid fa-rotate-left"></i> Yeni PDF</button>
+                      </div>
+                      <div class="tm-ai-parser-gallery" id="tmAiParserGallery"></div>
                     </div>
-                    <div class="tm-ai-parser-gallery" id="tmAiParserGallery"></div>
                   </div>
                 </div>
               </div>

@@ -1,0 +1,25 @@
+# PyInstaller — tek .exe (konsol penceresi yok)
+# Çalıştırmadan önce: python -m pip install -r requirements-app.txt
+#
+# Not: SoruHavuzu klasörü çalışma zamanında exe ile aynı dizinde otomatik oluşturulur;
+# PyInstaller ile boş klasör gömmek gerekmez.
+
+cd windows-app
+
+pyinstaller --noconfirm --onefile --windowed ^
+  --name "MustafaAkbasOtonomKirpma" ^
+  --collect-all customtkinter ^
+  --hidden-import fitz ^
+  --hidden-import PIL._tkinter_finder ^
+  app.py
+
+# Çıktı: dist\MustafaAkbasOtonomKirpma.exe
+# Kullanıcı exe'yi istediği klasöre kopyalayabilir; SoruHavuzu o klasörde oluşur.
+
+# OpenCV veya PyMuPDF ile ilgili eksik modül uyarısı alırsanız:
+#   --collect-all cv2
+# veya
+#   --copy-metadata pymupdf
+
+# İsteğe bağlı — ikon eklemek için:
+#   --icon=portal.ico
