@@ -67,7 +67,9 @@ var loginMode = "coach";
 function setMode(mode) {
   loginMode = mode;
   document.querySelectorAll(".login-tabs button").forEach(function (btn) {
-    btn.classList.toggle("is-active", btn.getAttribute("data-mode") === mode);
+    var active = btn.getAttribute("data-mode") === mode;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-selected", active ? "true" : "false");
   });
   var hint = document.getElementById("modeHint");
   if (hint) {
@@ -127,6 +129,20 @@ document.getElementById("loginForm").addEventListener("submit", async function (
       await signOut(auth);
       showError("Hesap yapılandırılmamış. Yönetici ile iletişime geçin.");
       return;
+    }
+    try {
+      var settingsSnap = await getDoc(doc(db, "settings", "app"));
+      var maint =
+        settingsSnap.exists &&
+        settingsSnap.data() &&
+        settingsSnap.data().maintenance === true;
+      if (maint && profile.role !== "admin") {
+        await signOut(auth);
+        showError("Bakımdayız. Şu an yalnızca kurucu hesabı giriş yapabilir.");
+        return;
+      }
+    } catch (se) {
+      console.warn("[login] settings:", se);
     }
     if (profile.frozen === true) {
       await signOut(auth);
@@ -201,3 +217,11 @@ document.getElementById("loginForm").addEventListener("submit", async function (
 ensureInitialAdmin().catch(function (e) {
   console.error(e);
 });
+
+try {
+  var loginFlash = localStorage.getItem("loginFlashError");
+  if (loginFlash) {
+    localStorage.removeItem("loginFlashError");
+    showError(loginFlash);
+  }
+} catch (e) {}

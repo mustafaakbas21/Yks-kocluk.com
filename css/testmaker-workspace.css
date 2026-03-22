@@ -3542,12 +3542,20 @@
 }
 
 .tm-answer-key-sheet__title {
-  margin: 0 0 10mm;
+  margin: 0 0 4mm;
   text-align: center;
   font-size: 14pt;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: #0f172a;
+}
+
+.tm-answer-key-sheet__sub {
+  margin: 0 0 8mm;
+  text-align: center;
+  font-size: 9pt;
+  font-weight: 500;
+  color: #64748b;
 }
 
 .tm-answer-key-grid {
@@ -3559,13 +3567,55 @@
   color: #111827;
 }
 
+.tm-answer-key-grid--matrix {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 2mm 3mm;
+  width: 100%;
+  flex: 1;
+  align-content: start;
+}
+
+.tm-answer-key-grid__cell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2mm;
+  padding: 1.8mm 2.5mm;
+  border: 1px solid #e2e8f0;
+  border-radius: 3px;
+  background: #fafafa;
+  font-size: 9.5pt;
+  min-height: 7mm;
+}
+
+.tm-ak-num {
+  font-weight: 700;
+  color: #334155;
+  min-width: 2.2em;
+}
+
+.tm-ak-val {
+  font-weight: 600;
+  color: #0f172a;
+  text-align: right;
+  flex: 1;
+}
+
 .tm-answer-key-grid__row {
   padding: 1.5mm 0;
   border-bottom: 1px solid #e5e7eb;
 }
 
+.tm-answer-key-sheet--print .tm-answer-key-sheet__body {
+  min-height: 220mm;
+}
+
 @media (max-width: 720px) {
   .tm-answer-key-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .tm-answer-key-grid--matrix {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

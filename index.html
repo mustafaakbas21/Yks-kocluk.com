@@ -3,516 +3,383 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DerecePanel</title>
+  <meta name="description" content="DerecePanel — YKS 2026 için akıllı koçluk, ders planı ve deneme analizi platformu." />
+  <title>DerecePanel — YKS Koçluk Platformu</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <style>
-    :root {
-      --ink: #0c1222;
-      --muted: #5c6578;
-      --surface: rgba(255, 255, 255, 0.72);
-      --surface-strong: rgba(255, 255, 255, 0.88);
-      --stroke: rgba(12, 18, 34, 0.08);
-      --accent: #0d9488;
-      --accent-2: #ea580c;
-      --glow-teal: rgba(13, 148, 136, 0.45);
-      --glow-amber: rgba(234, 88, 12, 0.35);
-      --ease: cubic-bezier(0.22, 1, 0.36, 1);
-    }
-    * { box-sizing: border-box; }
-    html, body { height: 100%; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: "Plus Jakarta Sans", system-ui, sans-serif;
-      color: var(--ink);
-      background: #f4f6fb;
-      overflow-x: hidden;
-    }
-
-    /* —— Sahne: aurora + ızgara —— */
-    .auth-shell {
-      position: relative;
-      min-height: 100vh;
-      display: grid;
-      grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.95fr);
-      align-items: stretch;
-    }
-    @media (max-width: 1024px) {
-      .auth-shell {
-        grid-template-columns: 1fr;
-        min-height: 100%;
-      }
-    }
-
-    .auth-canvas {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      z-index: 0;
-      overflow: hidden;
-      background:
-        radial-gradient(ellipse 100% 80% at 10% 0%, rgba(224, 242, 254, 0.9) 0%, transparent 55%),
-        radial-gradient(ellipse 90% 70% at 90% 100%, rgba(254, 243, 199, 0.85) 0%, transparent 50%),
-        linear-gradient(165deg, #f8fafc 0%, #eef2ff 45%, #faf5ff 100%);
-    }
-    .auth-canvas::before {
-      content: "";
-      position: absolute;
-      inset: -20%;
-      background:
-        radial-gradient(ellipse 55% 45% at 20% 30%, var(--glow-teal) 0%, transparent 65%),
-        radial-gradient(ellipse 50% 40% at 75% 65%, var(--glow-amber) 0%, transparent 60%);
-      filter: blur(72px);
-      opacity: 0.85;
-      animation: auroraShift 18s ease-in-out infinite;
-    }
-    .auth-canvas::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(12, 18, 34, 0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(12, 18, 34, 0.04) 1px, transparent 1px);
-      background-size: 48px 48px;
-      mask-image: radial-gradient(ellipse 85% 75% at 50% 40%, black 15%, transparent 70%);
-      opacity: 0.55;
-    }
-    @keyframes auroraShift {
-      0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
-      40% { transform: translate(4%, -3%) rotate(4deg) scale(1.05); }
-      70% { transform: translate(-3%, 4%) rotate(-3deg) scale(1.02); }
-    }
-
-    /* —— Sol: tipografi + “kart yığını” —— */
-    .auth-hero {
-      position: relative;
-      z-index: 1;
-      padding: clamp(2rem, 5vw, 4rem) clamp(1.5rem, 4vw, 3.5rem);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: 2rem;
-    }
-    .auth-hero__headline {
-      margin: 0;
-      font-size: clamp(2.35rem, 5.5vw, 3.75rem);
-      font-weight: 800;
-      line-height: 1.05;
-      letter-spacing: -0.045em;
-      color: var(--ink);
-      max-width: 18ch;
-    }
-    .auth-hero__headline em {
-      font-family: "Instrument Serif", Georgia, serif;
-      font-style: italic;
-      font-weight: 400;
-      color: var(--accent-2);
-      letter-spacing: -0.02em;
-    }
-
-    .auth-hero__lede {
-      margin: 0;
-      font-size: clamp(1rem, 1.35vw, 1.125rem);
-      line-height: 1.65;
-      color: var(--muted);
-      max-width: 38ch;
-    }
-
-    .auth-stack {
-      position: relative;
-      isolation: isolate;
-      width: min(100%, 340px);
-      height: 200px;
-      margin-top: 0.5rem;
-      perspective: 900px;
-    }
-    .auth-stack__card {
-      position: absolute;
-      left: 0;
-      width: 100%;
-      border-radius: 16px;
-      background: var(--surface-strong);
-      border: 1px solid var(--stroke);
-      box-shadow: 0 24px 48px rgba(15, 23, 42, 0.08);
-      padding: 1rem 1.15rem;
-      font-size: 0.8rem;
-      color: var(--muted);
-      line-height: 1.45;
-    }
-    .auth-stack__card strong { color: var(--ink); font-weight: 700; }
-    .auth-stack__card:nth-child(1) {
-      top: 0;
-      transform: rotateX(8deg) rotateZ(-3deg) translateZ(0);
-      z-index: 3;
-      animation: stackFloat1 6s ease-in-out infinite;
-    }
-    .auth-stack__card:nth-child(2) {
-      top: 28px;
-      left: 12px;
-      opacity: 0.92;
-      transform: rotateX(6deg) rotateZ(-2deg) scale(0.96);
-      z-index: 2;
-      animation: stackFloat2 6s ease-in-out infinite;
-    }
-    .auth-stack__card:nth-child(3) {
-      top: 56px;
-      left: 24px;
-      opacity: 0.78;
-      transform: rotateX(4deg) rotateZ(-1deg) scale(0.92);
-      z-index: 1;
-      animation: stackFloat3 6s ease-in-out infinite;
-    }
-    @keyframes stackFloat1 {
-      0%, 100% { transform: rotateX(8deg) rotateZ(-3deg) translateY(0); }
-      50% { transform: rotateX(8deg) rotateZ(-3deg) translateY(-6px); }
-    }
-    @keyframes stackFloat2 {
-      0%, 100% { transform: rotateX(6deg) rotateZ(-2deg) scale(0.96) translateY(0); }
-      50% { transform: rotateX(6deg) rotateZ(-2deg) scale(0.96) translateY(-4px); }
-    }
-    @keyframes stackFloat3 {
-      0%, 100% { transform: rotateX(4deg) rotateZ(-1deg) scale(0.92) translateY(0); }
-      50% { transform: rotateX(4deg) rotateZ(-1deg) scale(0.92) translateY(-3px); }
-    }
-
-    .auth-hero__stat {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1.5rem 2rem;
-      margin-top: 0.25rem;
-    }
-    .auth-stat {
-      display: flex;
-      flex-direction: column;
-      gap: 0.15rem;
-    }
-    .auth-stat__val {
-      font-size: 1.65rem;
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      color: var(--ink);
-      line-height: 1;
-    }
-    .auth-stat__lbl {
-      font-size: 0.72rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--muted);
-    }
-
-    /* —— Sağ: cam panel —— */
-    .auth-panel-wrap {
-      position: relative;
-      z-index: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: clamp(1.5rem, 4vw, 3rem);
-    }
-    .auth-panel {
-      position: relative;
-      width: 100%;
-      max-width: 420px;
-      padding: clamp(1.75rem, 3vw, 2.35rem);
-      border-radius: 24px;
-      background: var(--surface);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.85);
-      box-shadow:
-        0 4px 8px rgba(12, 18, 34, 0.04),
-        0 32px 64px rgba(15, 23, 42, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    }
-    .auth-panel::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      padding: 1px;
-      background: linear-gradient(135deg, rgba(13, 148, 136, 0.35), rgba(234, 88, 12, 0.25), transparent 55%);
-      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      -webkit-mask-composite: xor;
-      mask-composite: exclude;
-      pointer-events: none;
-      z-index: 0;
-    }
-    .auth-panel > * {
-      position: relative;
-      z-index: 1;
-    }
-
-    .login-form__title {
-      font-size: 1.35rem;
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      margin: 0 0 0.35rem;
-      color: var(--ink);
-    }
-    .login-form__subtitle {
-      font-size: 0.875rem;
-      color: var(--muted);
-      margin: 0 0 1.35rem;
-      line-height: 1.55;
-    }
-
-    .login-tabs {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 4px;
-      padding: 5px;
-      background: rgba(241, 245, 249, 0.9);
-      border-radius: 14px;
-      margin-bottom: 1.25rem;
-      border: 1px solid var(--stroke);
-      position: relative;
-      box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.9);
-    }
-    .login-tabs button {
-      flex: 1;
-      padding: 0.65rem 0.6rem;
-      border: none;
-      border-radius: 10px;
-      background: transparent;
-      font-family: inherit;
-      font-size: 0.78rem;
-      font-weight: 700;
-      color: var(--muted);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.4rem;
-      position: relative;
-      z-index: 1;
-      transition: color 0.35s var(--ease);
-    }
-    .login-tabs button.is-active {
-      color: #0f766e;
-      background: #fff;
-      box-shadow: 0 4px 16px rgba(13, 148, 136, 0.12), 0 2px 6px rgba(15, 23, 42, 0.06);
-    }
-    .login-tabs button:not(.is-active):hover {
-      color: var(--ink);
-    }
-
-    .login-hint {
-      font-size: 0.8rem;
-      color: var(--muted);
-      margin: 0 0 1.1rem;
-      line-height: 1.55;
-    }
-    .login-hint strong { color: var(--ink); font-weight: 600; }
-
-    .login-field { margin-bottom: 0.9rem; }
-    .login-field label {
-      display: block;
-      font-size: 0.68rem;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      color: var(--muted);
-      margin-bottom: 0.4rem;
-    }
-
-    .login-input-wrap {
-      display: flex;
-      align-items: center;
-      gap: 0.65rem;
-      padding: 0.62rem 0.95rem;
-      border: 1.5px solid transparent;
-      border-radius: 12px;
-      background: rgba(248, 250, 252, 0.95);
-      transition: background 0.3s var(--ease), border-color 0.3s, box-shadow 0.3s;
-    }
-    .login-input-wrap:focus-within {
-      background: #fff;
-      border-color: rgba(13, 148, 136, 0.45);
-      box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.12);
-    }
-    .login-input-wrap i {
-      color: #94a3b8;
-      font-size: 0.95rem;
-      width: 1.1rem;
-      text-align: center;
-    }
-    .login-input-wrap:focus-within i { color: #0d9488; }
-    .login-input-wrap input {
-      flex: 1;
-      border: none;
-      background: transparent;
-      font-family: inherit;
-      font-size: 0.95rem;
-      outline: none;
-      min-width: 0;
-      color: var(--ink);
-    }
-    .login-input-wrap input::placeholder { color: #94a3b8; }
-
-    .btn-login-submit {
-      width: 100%;
-      margin-top: 0.45rem;
-      padding: 0.92rem 1.2rem;
-      border: none;
-      border-radius: 12px;
-      background: linear-gradient(135deg, #0f766e 0%, #0d9488 40%, #ea580c 160%);
-      color: #fff;
-      font-family: inherit;
-      font-size: 0.95rem;
-      font-weight: 800;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      box-shadow: 0 10px 28px rgba(13, 148, 136, 0.35);
-      transition: transform 0.2s var(--ease), box-shadow 0.2s, filter 0.2s;
-    }
-    .btn-login-submit:hover:not(:disabled) {
-      transform: translateY(-2px);
-      filter: brightness(1.05);
-      box-shadow: 0 16px 36px rgba(13, 148, 136, 0.4);
-    }
-    .btn-login-submit:active:not(:disabled) {
-      transform: translateY(0);
-    }
-    .btn-login-submit:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    #loginError {
-      display: none;
-      margin-top: 1rem;
-      padding: 0.7rem 0.9rem;
-      border-radius: 10px;
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      color: #b91c1c;
-      font-size: 0.82rem;
-    }
-    #loginError.is-visible { display: block; }
-
-    .login-foot {
-      margin-top: 1.35rem;
-      font-size: 0.7rem;
-      line-height: 1.55;
-      color: var(--muted);
-      text-align: center;
-    }
-    .login-foot strong { color: #475569; font-weight: 600; }
-
-    @media (max-width: 1024px) {
-      .auth-hero {
-        padding-bottom: 0;
-        min-height: auto;
-      }
-      .auth-stack { height: 180px; margin-left: auto; margin-right: auto; }
-      .auth-panel-wrap {
-        padding-top: 0;
-        align-items: flex-start;
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .auth-canvas::before,
-      .auth-stack__card:nth-child(1),
-      .auth-stack__card:nth-child(2),
-      .auth-stack__card:nth-child(3) {
-        animation: none;
-      }
-      .login-tabs::before,
-      .btn-login-submit {
-        transition-duration: 0.01ms;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="css/landing_stil.css" />
+  <link rel="stylesheet" href="css/site-credit.css" />
 </head>
 <body>
-  <div class="auth-canvas" aria-hidden="true"></div>
+  <header class="landing-header" id="landingHeader">
+    <nav class="landing-nav" aria-label="Ana menü">
+      <a href="#" class="landing-logo">
+        <span class="landing-logo__mark" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></span>
+        DerecePanel
+      </a>
 
-  <div class="auth-shell">
-    <header class="auth-hero">
-      <h1 class="auth-hero__headline">Rota net,<br /><em>hedef</em> daha yakın.</h1>
-      <p class="auth-hero__lede">
-        Deneme, takip ve randevu tek akışta. Giriş yaptığında panel senin sınıfın, defterin ve kontrol kulesin olur — sıradan bir “ilk giriş ekranı” değil.
-      </p>
-
-      <div class="auth-stack" aria-hidden="true">
-        <div class="auth-stack__card">
-          <strong>Bugün</strong> · 3 öğrenci için geri bildirim bekliyor. <span style="opacity:0.75">Net trend ↑</span>
-        </div>
-        <div class="auth-stack__card">
-          <strong>Haftalık</strong> · Ortalama çalışma süresi hedefin %8 üstünde.
-        </div>
-        <div class="auth-stack__card">
-          <strong>YKS</strong> · Tüm modüller senkron — tek oturum.
-        </div>
+      <div class="landing-nav__links">
+        <a href="#sistemimiz">Sistemimiz</a>
+        <a href="#ozellikler">Özellikler</a>
+        <a href="#paketler">Paketler</a>
       </div>
 
-      <div class="auth-hero__stat">
-        <div class="auth-stat">
-          <span class="auth-stat__val">Tek</span>
-          <span class="auth-stat__lbl">oturum</span>
+      <div class="landing-nav__cta">
+        <a href="login.html" class="btn btn--primary">Giriş Yap / Kayıt Ol</a>
+        <button type="button" class="landing-nav__toggle" id="navToggle" aria-expanded="false" aria-controls="navDrawer" aria-label="Menüyü aç">
+          <i class="fa-solid fa-bars" id="navToggleIcon"></i>
+        </button>
+      </div>
+    </nav>
+
+    <div class="landing-nav__drawer" id="navDrawer" hidden>
+      <a href="#sistemimiz">Sistemimiz</a>
+      <a href="#ozellikler">Özellikler</a>
+      <a href="#paketler">Paketler</a>
+      <a href="login.html" class="btn btn--primary btn--block" style="margin-top: 0.5rem">Giriş Yap / Kayıt Ol</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="heroTitle">
+      <div class="hero__bg" aria-hidden="true"></div>
+      <div class="hero__inner">
+        <div class="hero__content js-reveal">
+          <p class="hero__eyebrow"><i class="fa-solid fa-sparkles"></i> YKS &amp; LGS hazırlık</p>
+          <h1 id="heroTitle" class="hero__title">
+            YKS 2026&apos;da Dereceye Giden<br /><span>En Akıllı Yol</span>
+          </h1>
+          <p class="hero__lead">
+            Koçluk, planlama ve analiz tek panelde. Hedefini netleştir, çalışmanı ölç, netlerini yükselt —
+            <strong>DerecePanel</strong> ile her adımda bir üst lige çık.
+          </p>
+          <div class="hero__actions">
+            <a href="login.html" class="btn btn--primary btn--lg">Hemen Başla</a>
+            <a href="#ozellikler" class="btn btn--outline btn--lg">Özellikleri keşfet</a>
+          </div>
         </div>
-        <div class="auth-stat">
-          <span class="auth-stat__val">Çoklu</span>
-          <span class="auth-stat__lbl">rol</span>
-        </div>
-        <div class="auth-stat">
-          <span class="auth-stat__val">7/24</span>
-          <span class="auth-stat__lbl">erişim</span>
+        <div class="hero__visual js-reveal js-reveal-delay-1">
+          <div class="hero-mockup-wrap">
+            <img
+              class="hero-mockup"
+              src="assets/hero-koc-panel.png"
+              alt=""
+              width="640"
+              height="420"
+              loading="eager"
+            />
+          </div>
+          <p class="hero-mockup-caption">Koç paneli önizlemesi — veriler yalnızca bulanıklaştırılmıştır.</p>
         </div>
       </div>
-    </header>
+    </section>
 
-    <div class="auth-panel-wrap">
-      <main class="auth-panel">
-        <h2 class="login-form__title">Hoş geldiniz</h2>
-        <p class="login-form__subtitle">Kurum hesabınla devam et. Aşağıdan koç veya kurucu oturumunu seç.</p>
+    <section class="section sistem" id="sistemimiz">
+      <div class="section__inner">
+        <header class="section__head section__head--wide js-reveal">
+          <p class="section__kicker">Sistemimiz</p>
+          <h2 class="section__title">Veriye dayalı, koç destekli hazırlık</h2>
+          <p class="section__desc">
+            DerecePanel, YKS ve LGS sürecinde <strong>öğrenci</strong> ile <strong>koç</strong> ve gerektiğinde
+            <strong>kurucu</strong> ekibini tek çatı altında toplar. Günlük çalışma ritmi, deneme sonuçları ve hedef
+            takibi aynı panelde birleşir; veli ve kurum içi iletişim için gereken izlenebilirlik hazırdır.
+          </p>
+          <p class="section__desc section__desc--tight">
+            Kurumunuz büyüdükçe <strong>öğrenci kotası</strong> ve <strong>koç sayısı</strong> paketlerle ölçeklenir;
+            küçük dershanelerden çok şubeli yapılara kadar aynı mimari üzerinden ilerlersiniz.
+          </p>
+        </header>
 
-        <div class="login-tabs" role="tablist" aria-label="Giriş türü">
-          <button type="button" class="is-active" data-mode="coach" id="tabCoach"><i class="fa-solid fa-chalkboard-user"></i> Koç</button>
-          <button type="button" data-mode="student" id="tabStudent"><i class="fa-solid fa-user-graduate"></i> Öğrenci</button>
-          <button type="button" data-mode="admin" id="tabAdmin"><i class="fa-solid fa-shield-halved"></i> Kurucu</button>
+        <div class="sistem__detail js-reveal">
+          <div class="sistem__detail-text">
+            <h3 class="sistem__detail-title">Nasıl çalışır?</h3>
+            <ul class="sistem__detail-list">
+              <li><strong>Koç paneli:</strong> öğrenci listesi, haftalık program, görev ve randevu takibi, deneme / optik analizi, muhasebe özetleri ve TestMaker ile içerik üretimi.</li>
+              <li><strong>Öğrenci paneli:</strong> atanmış plan, Pomodoro, kaynak ve deneme görünümü; koçun belirlediği hedefe göre şeffaf ilerleme.</li>
+              <li><strong>Kurucu görünümü:</strong> koç ve öğrenci hesap yönetimi, operasyonel özetler ve (isteğe bağlı) kurumsal paketlerle çoklu şube düzeni.</li>
+              <li><strong>Veri akışı:</strong> deneme netleri ve branş kırılımları zaman içinde birikir; eksik konular ve trendler hem koç hem öğrenci tarafında anlamlı hale gelir.</li>
+            </ul>
+          </div>
+          <aside class="sistem__detail-aside" aria-label="Öne çıkanlar">
+            <p class="sistem__aside-kicker">Öne çıkan</p>
+            <ul class="sistem__aside-bullets">
+              <li>Tek oturum mantığıyla rol bazlı erişim</li>
+              <li>Mobil uyumlu tarayıcıdan çalışma; ekstra kurulum yok</li>
+              <li>Bulut tabanlı kayıt; tarafınızdan sunucu işletmeciliği gerekmez</li>
+              <li>Yıllık lisans modeli ile öngörülebilir maliyet</li>
+            </ul>
+          </aside>
         </div>
 
-        <p class="login-hint" id="modeHint">Koç hesabınızla giriş yapın. Sadece <strong>kullanıcı adı</strong> ve şifre yeterlidir.</p>
+        <div class="sistem__grid sistem__grid--six">
+          <article class="sistem__card js-reveal">
+            <strong>%100</strong>
+            <span>Web tabanlı; kurulum ve lisans anahtarı derdi yok</span>
+          </article>
+          <article class="sistem__card js-reveal js-reveal-delay-1">
+            <strong>7/24</strong>
+            <span>Soru havuzu ve dijital materyallere kesintisiz erişim</span>
+          </article>
+          <article class="sistem__card js-reveal js-reveal-delay-2">
+            <strong>1 Panel</strong>
+            <span>Koç, öğrenci ve kurucu rolleri aynı güvenli oturum altyapısında</span>
+          </article>
+          <article class="sistem__card js-reveal">
+            <strong>Analitik</strong>
+            <span>TYT / AYT net trendi, deneme geçmişi ve hedefe uzaklık takibi</span>
+          </article>
+          <article class="sistem__card js-reveal js-reveal-delay-1">
+            <strong>Operasyon</strong>
+            <span>Görev, randevu ve tahsilat akışı; kurum içi koordinasyon tek ekranda</span>
+          </article>
+          <article class="sistem__card js-reveal js-reveal-delay-2">
+            <strong>Ölçek</strong>
+            <span>Tek şubeden çok koçlu yapılara kadar paketlerle büyüyen kota</span>
+          </article>
+        </div>
+      </div>
+    </section>
 
-        <form id="loginForm" autocomplete="off">
-          <div class="login-field">
-            <label for="loginUsername">Kullanıcı adı</label>
-            <div class="login-input-wrap">
-              <i class="fa-solid fa-at"></i>
-              <input id="loginUsername" name="username" type="text" required placeholder="ornek_koc" autocapitalize="none" autocomplete="username" />
-            </div>
-          </div>
-          <div class="login-field">
-            <label for="loginPassword">Şifre</label>
-            <div class="login-input-wrap">
-              <i class="fa-solid fa-key"></i>
-              <input id="loginPassword" name="password" type="password" required placeholder="••••••••" autocomplete="current-password" />
-            </div>
-          </div>
-          <button type="submit" class="btn-login-submit" id="loginSubmit">
-            <i class="fa-solid fa-arrow-right-to-bracket"></i> Giriş yap
-          </button>
-          <div id="loginError" role="alert"></div>
-        </form>
+    <section class="section features" id="ozellikler">
+      <div class="section__inner">
+        <header class="section__head js-reveal">
+          <p class="section__kicker">Özellikler</p>
+          <h2 class="section__title">Sistemin İçinde Neler Var?</h2>
+          <p class="section__desc">
+            Çalışma disiplininden analitiğe kadar ihtiyaç duyduğunuz modüller, modern arayüzle bir arada.
+          </p>
+        </header>
+        <div class="card-grid">
+          <article class="feature-card js-reveal">
+            <div class="feature-card__icon" aria-hidden="true"><i class="fa-solid fa-calendar-days"></i></div>
+            <h3>İnteraktif Ders Programı</h3>
+            <p>Haftalık planını sürükle-bırak mantığıyla düzenle; hedeflerine göre otomatik dengele.</p>
+          </article>
+          <article class="feature-card js-reveal js-reveal-delay-1">
+            <div class="feature-card__icon" aria-hidden="true"><i class="fa-solid fa-hourglass-half"></i></div>
+            <h3>Pomodoro Odak Merkezi</h3>
+            <p>Zaman blokları ve mola hatırlatıcılarıyla verimli çalışma ritmi oluştur.</p>
+          </article>
+          <article class="feature-card js-reveal js-reveal-delay-2">
+            <div class="feature-card__icon" aria-hidden="true"><i class="fa-solid fa-bullseye"></i></div>
+            <h3>Hedef Simülatörü</h3>
+            <p>Hedef üniversite ve net bandını gör; eksik konuları önceliklendir.</p>
+          </article>
+          <article class="feature-card js-reveal js-reveal-delay-3">
+            <div class="feature-card__icon" aria-hidden="true"><i class="fa-solid fa-database"></i></div>
+            <h3>7/24 Soru Havuzu</h3>
+            <p>Branş bazlı içeriklerle pratik yap; koçun atanadığı setleri anında çöz.</p>
+          </article>
+        </div>
+      </div>
+    </section>
 
-        <p class="login-foot">
-          Bu uygulama <strong>beta</strong> aşamasındadır. Sorun yaşarsanız müşteri temsilcimizle iletişime geçin.
-        </p>
-      </main>
+    <section class="section pricing" id="paketler">
+      <div class="section__inner">
+        <header class="section__head js-reveal">
+          <p class="section__kicker">Paketler</p>
+          <h2 class="section__title">Size Uygun Paketi Seçin</h2>
+          <p class="section__desc">
+            Yıllık lisans modeli; kurum büyüklüğüne göre öğrenci kotası ve modüller ölçeklenir. Fiyatlar <strong>KDV hariç</strong> gösterilir.
+          </p>
+        </header>
+        <div class="pricing-grid">
+          <article class="price-card js-reveal">
+            <h3 class="price-card__name">Standart</h3>
+            <p class="price-card__tagline">Tek şube · küçük kurumlar</p>
+            <p class="price-card__price">₺10.000 <small>/ yıl</small></p>
+            <p class="price-card__hint">3 koça kadar · 120 öğrenciye kadar kotası</p>
+            <ul>
+              <li>Koç paneli + öğrenci paneli (temel)</li>
+              <li>İnteraktif ders programı ve Pomodoro</li>
+              <li>Deneme analizi (standart raporlar)</li>
+              <li>Soru havuzu (çekirdek içerik)</li>
+              <li>E-posta desteği (2 iş günü içinde yanıt)</li>
+            </ul>
+            <button type="button" class="btn btn--outline btn--block" data-open-quote data-package="Standart">Teklif iste</button>
+          </article>
+
+          <article class="price-card price-card--featured js-reveal js-reveal-delay-1">
+            <span class="price-card__badge">En Çok Tercih Edilen</span>
+            <h3 class="price-card__name">Premium</h3>
+            <p class="price-card__tagline">Çoklu koç · orta ölçek</p>
+            <p class="price-card__price">₺28.900 <small>/ yıl</small></p>
+            <p class="price-card__hint">8 koça kadar · 450 öğrenciye kadar kotası</p>
+            <ul>
+              <li>Standart paketteki tüm modüller</li>
+              <li>Hedef simülatörü ve gelişmiş net analizi</li>
+              <li>TestMaker (PDF / kırpma / şablonlar)</li>
+              <li>Optik ve deneme analizi entegrasyonu</li>
+              <li>Öncelikli destek (aynı iş günü)</li>
+              <li>Yılda 2 kez uzaktan eğitim oturumu</li>
+            </ul>
+            <button type="button" class="btn btn--primary btn--block" data-open-quote data-package="Premium">Teklif iste</button>
+          </article>
+
+          <article class="price-card js-reveal js-reveal-delay-2">
+            <h3 class="price-card__name">VIP Derece</h3>
+            <p class="price-card__tagline">Zincir &amp; kurumsal</p>
+            <p class="price-card__price">₺59.900+ <small>/ yıl</small></p>
+            <p class="price-card__hint">Sınırsız koç · 2.000+ öğrenci kotası (özel anlaşma) ve SLA</p>
+            <ul>
+              <li>Premium’daki tüm özellikler</li>
+              <li>Çoklu şube ve kurum içi roller</li>
+              <li>Özel entegrasyon (CSV, API, web kancası — kapsama göre)</li>
+              <li>Adanmış hesap yöneticisi</li>
+              <li>7/24 öncelikli destek ve SLA garantisi</li>
+              <li>Özel eğitim ve kurulum asistanlığı</li>
+            </ul>
+            <button type="button" class="btn btn--outline btn--block" data-open-quote data-package="VIP Derece">Teklif iste</button>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="quoteModal" class="quote-modal" hidden role="dialog" aria-modal="true" aria-labelledby="quoteModalTitle">
+    <div class="quote-modal__backdrop" data-quote-close tabindex="-1"></div>
+    <div class="quote-modal__panel">
+      <div class="quote-modal__head">
+        <h2 id="quoteModalTitle">Teklif talebi</h2>
+        <button type="button" class="quote-modal__x" data-quote-close aria-label="Kapat">&times;</button>
+      </div>
+      <p class="quote-modal__lead">Seçilen paket: <strong id="quotePackageLabel">Standart</strong></p>
+      <form id="quoteForm" novalidate>
+        <input type="hidden" id="quotePackage" value="Standart" />
+        <label class="quote-modal__field">
+          <span>Kurum / dershane adı <small>(isteğe bağlı)</small></span>
+          <input type="text" id="quoteInstitution" name="institution" maxlength="200" autocomplete="organization" placeholder="Örn. Paraf Eğitim" />
+        </label>
+        <label class="quote-modal__field">
+          <span>Yetkili adı soyadı</span>
+          <input type="text" id="quoteContact" name="contact" required maxlength="120" autocomplete="name" placeholder="Adınız" />
+        </label>
+        <label class="quote-modal__field">
+          <span>E-posta</span>
+          <input type="email" id="quoteEmail" name="email" required maxlength="200" autocomplete="email" placeholder="ornek@kurum.com" />
+        </label>
+        <label class="quote-modal__field">
+          <span>Telefon</span>
+          <input type="tel" id="quotePhone" name="phone" required maxlength="40" autocomplete="tel" placeholder="05xx xxx xx xx" />
+        </label>
+        <label class="quote-modal__field">
+          <span>Mesajınız <small>(isteğe bağlı)</small></span>
+          <textarea id="quoteMessage" name="message" rows="3" maxlength="4000" placeholder="Öğrenci sayısı, şube sayısı veya sorularınız…"></textarea>
+        </label>
+        <p id="quoteFormMsg" class="quote-modal__msg" hidden role="status"></p>
+        <div class="quote-modal__actions">
+          <button type="button" class="btn btn--outline" data-quote-close>İptal</button>
+          <button type="submit" class="btn btn--primary" id="quoteSubmit">Gönder</button>
+        </div>
+      </form>
     </div>
   </div>
 
-  <script type="module" src="js/login.js"></script>
+  <footer class="landing-footer">
+    <div class="landing-footer__inner">
+      <div>
+        <div class="landing-footer__brand">DerecePanel</div>
+        <p class="landing-footer__copy">© <span id="footerYear"></span> DerecePanel. Tüm hakları saklıdır.</p>
+        <p class="landing-footer__contact">
+          <a href="mailto:info@derecepanel.com">info@derecepanel.com</a>
+        </p>
+      </div>
+      <nav class="landing-footer__links" aria-label="Yasal">
+        <a href="#">Kullanım Koşulları</a>
+        <a href="#">Gizlilik Politikası</a>
+        <a href="#">KVKK Aydınlatma</a>
+      </nav>
+    </div>
+    <p class="site-credit site-credit--index">
+      Mustafa AKBAŞ - Furkan Şehmus KIYAR - Veysel Anıl KARAASLAN tarafından üretildi
+    </p>
+  </footer>
+
+  <script>
+    (function () {
+      var header = document.getElementById("landingHeader");
+      var toggle = document.getElementById("navToggle");
+      var drawer = document.getElementById("navDrawer");
+      var toggleIcon = document.getElementById("navToggleIcon");
+      var yearEl = document.getElementById("footerYear");
+
+      if (yearEl) yearEl.textContent = String(new Date().getFullYear());
+
+      function setScrolled() {
+        if (!header) return;
+        header.classList.toggle("is-scrolled", window.scrollY > 12);
+      }
+      setScrolled();
+      window.addEventListener("scroll", setScrolled, { passive: true });
+
+      function closeDrawer() {
+        if (!drawer || !toggle) return;
+        drawer.classList.remove("is-open");
+        drawer.hidden = true;
+        toggle.setAttribute("aria-expanded", "false");
+        if (toggleIcon) {
+          toggleIcon.className = "fa-solid fa-bars";
+        }
+      }
+
+      function openDrawer() {
+        if (!drawer || !toggle) return;
+        drawer.hidden = false;
+        requestAnimationFrame(function () {
+          drawer.classList.add("is-open");
+        });
+        toggle.setAttribute("aria-expanded", "true");
+        if (toggleIcon) {
+          toggleIcon.className = "fa-solid fa-xmark";
+        }
+      }
+
+      if (toggle && drawer) {
+        toggle.addEventListener("click", function () {
+          if (drawer.classList.contains("is-open")) closeDrawer();
+          else openDrawer();
+        });
+        drawer.querySelectorAll('a[href^="#"]').forEach(function (a) {
+          a.addEventListener("click", function () {
+            closeDrawer();
+          });
+        });
+        drawer.querySelectorAll('a[href="login.html"]').forEach(function (a) {
+          a.addEventListener("click", function () {
+            closeDrawer();
+          });
+        });
+      }
+
+      window.addEventListener("resize", function () {
+        if (window.innerWidth > 900 && drawer) closeDrawer();
+      });
+
+      var revealEls = document.querySelectorAll(".js-reveal");
+      if ("IntersectionObserver" in window && revealEls.length) {
+        var obs = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (en) {
+              if (en.isIntersecting) {
+                en.target.classList.add("is-visible");
+                obs.unobserve(en.target);
+              }
+            });
+          },
+          { root: null, rootMargin: "0px 0px -8% 0px", threshold: 0.08 }
+        );
+        revealEls.forEach(function (el) {
+          obs.observe(el);
+        });
+      } else {
+        revealEls.forEach(function (el) {
+          el.classList.add("is-visible");
+        });
+      }
+    })();
+  </script>
+  <script type="module" src="js/index-quote.js"></script>
 </body>
 </html>

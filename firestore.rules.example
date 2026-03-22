@@ -10,7 +10,10 @@ service cloud.firestore {
         request.auth.uid == userId
         || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
       );
-      allow delete: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && (
+        request.auth.uid == userId
+        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
     }
     match /coachLoginLog/{id} {
       allow create: if request.auth != null
@@ -36,6 +39,55 @@ service cloud.firestore {
     }
     match /coach_tasks/{id} {
       allow read, write: if request.auth != null;
+    }
+
+    /** Vitrin — teklif talepleri (anonim oluşturma; sadece admin okur / günceller) */
+    /** Sistem ayarları (bakım modu vb.) — okuma giriş yapmış herkes; yazma yalnızca admin */
+    match /settings/{docId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow delete: if request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /quoteRequests/{rid} {
+      function isQuoteAdmin() {
+        return request.auth != null
+          && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      }
+
+      allow create: if request.auth == null
+        && request.resource.data.packageName is string
+        && request.resource.data.packageName.size() >= 1
+        && request.resource.data.packageName.size() <= 80
+        && request.resource.data.institutionName is string
+        && request.resource.data.institutionName.size() <= 200
+        && request.resource.data.contactName is string
+        && request.resource.data.contactName.size() >= 2
+        && request.resource.data.contactName.size() <= 120
+        && request.resource.data.email is string
+        && request.resource.data.email.size() >= 5
+        && request.resource.data.email.size() <= 200
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() >= 5
+        && request.resource.data.phone.size() <= 40
+        && request.resource.data.message is string
+        && request.resource.data.message.size() <= 4000
+        && request.resource.data.status == 'new'
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.keys().hasOnly([
+          'packageName', 'institutionName', 'contactName',
+          'email', 'phone', 'message', 'status', 'createdAt'
+        ]);
+
+      allow read: if isQuoteAdmin();
+      allow update: if isQuoteAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+        && request.resource.data.status in ['new', 'reviewed', 'closed'];
+      allow delete: if isQuoteAdmin();
     }
   }
 }

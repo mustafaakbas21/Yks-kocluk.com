@@ -21,6 +21,7 @@ import {
   query,
   where,
   getDoc,
+  getDocs,
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN, netFromDy, clampDy } from "./yks-exam-structure.js";
@@ -163,7 +164,6 @@ let tmEditorTempPoint = null;
 let tmEditorAnnotations = {};
 let tmEditorRedoStack = [];
 let tmAnnotReturnSubView = "testmaker";
-let tmOptikStripVisible = false;
 const TM_TEMPLATE_IDS = ["osym", "vip", "foy", "t01", "t02", "t03", "t04", "t05", "t06", "t07"];
 const TM_TEMPLATE_LEGACY_MAP = { t08: "t07", t09: "t07", t10: "t07" };
 function tmNormalizeTemplateMode(m) {
@@ -732,31 +732,134 @@ function initAiTestGenWizard() {
   });
 }
 
-function tmEnsureOptikStripBuilt() {
-  var s = document.getElementById("tmOptikStrip");
-  if (!s || s.getAttribute("data-tm-built") === "1") return;
-  var n = 12;
-  var rows = "";
-  for (var i = 1; i <= n; i++) {
-    rows += '<div class="tm-optik-row"><span class="tm-optik-no">' + i + '</span>';
-    ["A", "B", "C", "D", "E"].forEach(function (L) {
-      rows += '<span class="tm-optik-cell" data-optik-letter>' + L + "</span>";
-    });
-    rows += "</div>";
+/** Hazır optik formu — vektör çizim (tek sayfa A4 PDF indir) */
+function tmDownloadOptikTemplatePdf() {
+  if (!(window.jspdf && window.jspdf.jsPDF)) {
+    showToast("jsPDF yüklenemedi; sayfayı yenileyin.");
+    return;
   }
-  s.innerHTML = '<div class="tm-optik-strip__inner">' + rows + "</div>";
-  s.setAttribute("data-tm-built", "1");
-}
+  var J = window.jspdf.jsPDF;
+  var doc = new J({ unit: "mm", format: "a4", orientation: "portrait" });
+  var M = [230, 0, 126];
+  var K = [0, 0, 0];
+  var fname =
+    ((document.getElementById("tmWsTitle") && document.getElementById("tmWsTitle").value) || "Optik_Form")
+      .trim()
+      .replace(/[\\/:*?"<>|]/g, "-") || "Optik_Form";
 
-function tmToggleOptikStrip() {
-  var s = document.getElementById("tmOptikStrip");
-  var btn = document.getElementById("tmRailBtnOptik");
-  if (!s) return;
-  tmEnsureOptikStripBuilt();
-  tmOptikStripVisible = !tmOptikStripVisible;
-  s.hidden = !tmOptikStripVisible;
-  if (btn) btn.classList.toggle("is-active", tmOptikStripVisible);
-  tmRehomeOptikStrip();
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor.apply(doc, M);
+  doc.setFontSize(7);
+  doc.text("210 x 297 mm (A4) — optik işaretleme şablonu", 105, 7, { align: "center" });
+
+  doc.setDrawColor.apply(doc, M);
+  doc.setLineWidth(0.2);
+
+  function dottedLine(x1, y1, x2, y2) {
+    var len = Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+    var steps = Math.max(8, Math.floor(len / 0.85));
+    var i;
+    for (i = 0; i < steps; i += 2) {
+      var t0 = i / steps;
+      var t1 = Math.min(1, (i + 1) / steps);
+      doc.line(x1 + (x2 - x1) * t0, y1 + (y2 - y1) * t0, x1 + (x2 - x1) * t1, y1 + (y2 - y1) * t1);
+    }
+  }
+
+  var hdrRow = 6.5;
+  var hdrTop = 10;
+  doc.setFontSize(7);
+  doc.text("ADI - SOYADI:", 10, hdrTop);
+  dottedLine(32, hdrTop - 0.6, 102, hdrTop - 0.6);
+  doc.text("SINIF:", 105, hdrTop);
+  dottedLine(118, hdrTop - 0.6, 200, hdrTop - 0.6);
+  doc.text("TESTIN ADI:", 10, hdrTop + hdrRow);
+  dottedLine(32, hdrTop + hdrRow - 0.6, 102, hdrTop + hdrRow - 0.6);
+  doc.text("SINAV TARIHI:", 105, hdrTop + hdrRow);
+  dottedLine(132, hdrTop + hdrRow - 0.6, 200, hdrTop + hdrRow - 0.6);
+
+  doc.setFillColor.apply(doc, K);
+  var bi;
+  for (bi = 0; bi < 8; bi++) {
+    doc.rect(3.5, 24 + bi * 30, 2.4, 11, "F");
+  }
+
+  doc.setDrawColor.apply(doc, M);
+  doc.setTextColor.apply(doc, M);
+
+  doc.setFontSize(7);
+  doc.text("SINIF", 9, 28);
+  var grades = ["9", "10", "11", "12", "HZ", "MZ"];
+  var gi;
+  for (gi = 0; gi < grades.length; gi++) {
+    var gy = 32 + gi * 5;
+    doc.text(grades[gi], 9, gy);
+    doc.circle(20, gy - 1, 1.1);
+  }
+
+  doc.text("KITAPCIK TURU", 9, 64);
+  var bk = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
+  for (gi = 0; gi < 10; gi++) {
+    var ly = 68 + (gi % 5) * 4.6;
+    var lx = gi < 5 ? 9 : 20;
+    doc.text(bk[gi], lx, ly);
+    doc.circle(lx + 5.5, ly - 1, 1.05);
+  }
+
+  doc.setFontSize(10);
+  doc.text("CEVAPLAR", 120, 26, { align: "center" });
+  doc.setFontSize(7.5);
+  var rowH = 3.95;
+  var y0 = 30;
+  var xL = 38;
+  var xR = 120;
+  var lettersOpt = ["A", "B", "C", "D", "E"];
+  var q;
+  for (q = 0; q < 25; q++) {
+    var yy = y0 + q * rowH;
+    doc.setFontSize(8);
+    doc.text(String(q + 1) + ".", xL, yy);
+    doc.text(String(q + 26) + ".", xR, yy);
+    doc.setFontSize(6.5);
+    var li;
+    for (li = 0; li < 5; li++) {
+      doc.setDrawColor.apply(doc, M);
+      doc.text(lettersOpt[li], xL + 11 + li * 5.9, yy - 0.15);
+      doc.circle(xL + 13.2 + li * 5.9, yy - 1.05, 1.08);
+      doc.text(lettersOpt[li], xR + 11 + li * 5.9, yy - 0.15);
+      doc.circle(xR + 13.2 + li * 5.9, yy - 1.05, 1.08);
+    }
+  }
+
+  doc.setFontSize(9);
+  doc.text("NUMARA (5 hane)", 10, 138);
+  doc.setFontSize(7);
+  var nx0 = 10;
+  var ny0 = 142;
+  var d;
+  for (d = 0; d < 5; d++) {
+    doc.text(String(d + 1) + ". hane", nx0 + d * 15.5, ny0);
+    var digit;
+    for (digit = 0; digit <= 9; digit++) {
+      doc.text(String(digit), nx0 + d * 15.5, ny0 + 4 + digit * 3.5);
+      doc.setDrawColor.apply(doc, M);
+      doc.circle(nx0 + d * 15.5 + 4.2, ny0 + 2.6 + digit * 3.5, 1);
+    }
+  }
+
+  doc.setFontSize(7);
+  doc.setTextColor.apply(doc, M);
+  doc.text("FORM KODU: Y", 200, 292, { align: "right" });
+  doc.setFontSize(6);
+  doc.text("Kurşun kalemle ilgili yuvarlakları tamamen doldurunuz.", 105, 296, { align: "center" });
+
+  try {
+    doc.save(fname + "_optik_sablon.pdf");
+    showToast("Optik şablon PDF indirildi.");
+  } catch (e) {
+    console.error("tmDownloadOptikTemplatePdf", e);
+    showToast("PDF kaydedilemedi.");
+  }
 }
 
 function tmAddFreeTextBoxToA4() {
@@ -1105,44 +1208,21 @@ function tmGetTargetColumnForSlot(paper, slotIndex0, perPage) {
 
 function tmRehomeOptikStrip() {
   var strip = document.getElementById("tmOptikStrip");
-  if (!strip) return;
-  var hostPaper = document.querySelector(".a4-paper[data-tm-optik-host='1']");
-  var slot = hostPaper && hostPaper.querySelector(".tm-optik-host-strip-slot");
-  var layout = hostPaper && hostPaper.querySelector(".tm-a4-layout");
-  var target = slot || layout;
-  if (target) {
-    target.appendChild(strip);
-    return;
-  }
-  var papers = tmGetQuestionPapers();
-  if (!papers.length) return;
-  var last = papers[papers.length - 1];
-  var lay = last.querySelector(".tm-a4-layout");
-  if (lay) lay.appendChild(strip);
+  var base = document.getElementById("tmA4Paper");
+  if (!strip || !base) return;
+  strip.hidden = true;
+  var layout = base.querySelector(".tm-a4-layout");
+  if (layout) layout.appendChild(strip);
 }
 
-/** Soru sayfalarından sonra sıra: optik host → kurumsal bilgi → cevap anahtarı */
+/** Kapak ilk sırada, cevap anahtarı en sonda (optik artık A4 içinde değil) */
 function tmOrderTrailingPages() {
   var c = document.getElementById("a4-pages-container");
   if (!c) return;
-  var opt = c.querySelector(".a4-paper[data-tm-optik-host='1']");
   var corp = c.querySelector(".a4-paper[data-tm-corporate-cover='1']");
+  if (corp) c.insertBefore(corp, c.firstChild);
   var ak = c.querySelector(".a4-paper[data-tm-answer-key='1']");
-  var qs = tmGetQuestionPapers();
-  var anchor = qs.length ? qs[qs.length - 1] : null;
-  if (!anchor) return;
-  function chain(el) {
-    if (!el) return;
-    if (el.parentNode !== c) {
-      c.insertBefore(el, anchor.nextSibling);
-    } else if (anchor.nextSibling !== el && anchor !== el) {
-      c.insertBefore(el, anchor.nextSibling);
-    }
-    anchor = el;
-  }
-  chain(opt);
-  chain(corp);
-  chain(ak);
+  if (ak) c.appendChild(ak);
 }
 
 function tmStripCloneIds(root) {
@@ -1260,7 +1340,10 @@ function tmEnsureAnswerKeyPaper() {
     single.hidden = false;
     single.removeAttribute("hidden");
     single.innerHTML =
-      '<div class="tm-answer-key-sheet"><h3 class="tm-answer-key-sheet__title">Cevap Anahtarı</h3><div class="tm-answer-key-sheet__body"></div></div>';
+      '<div class="tm-answer-key-sheet tm-answer-key-sheet--print">' +
+      '<h3 class="tm-answer-key-sheet__title">Cevap Anahtarı</h3>' +
+      '<p class="tm-answer-key-sheet__sub">Soru numarası — doğru şıkkı</p>' +
+      '<div class="tm-answer-key-sheet__body"></div></div>';
   }
   var dupOptik = clone.querySelector(".tm-optik-strip");
   if (dupOptik) dupOptik.remove();
@@ -1404,7 +1487,10 @@ function tmEnsureCorporateCoverPaper() {
   var c = document.getElementById("a4-pages-container");
   if (!c) return null;
   var ex = c.querySelector(".a4-paper[data-tm-corporate-cover='1']");
-  if (ex) return ex;
+  if (ex) {
+    c.insertBefore(ex, c.firstChild);
+    return ex;
+  }
   var tmpl = document.getElementById("tmA4Paper");
   if (!tmpl) return null;
   var clone = tmpl.cloneNode(true);
@@ -1439,7 +1525,7 @@ function tmEnsureCorporateCoverPaper() {
       '<div class="tm-corporate-cover-sheet__sign-line"><span>Öğrenci adı soyadı</span></div>' +
       '<div class="tm-corporate-cover-sheet__sign-line"><span>İmza</span></div>' +
       "</div>" +
-      '<p class="tm-corporate-cover-sheet__note">Bu sayfa; soru kitapçığı, optik formu ve cevap anahtarı arasında kurumsal bilgilendirme ve imza onayı içindir. Optik ve cevap anahtarı ayrı sayfalarda yer alır.</p>' +
+      '<p class="tm-corporate-cover-sheet__note">Bu sayfa; soru kitapçığı öncesinde kurumsal bilgilendirme ve imza onayı içindir. Hazır optik formu şeritten ayrı PDF olarak indirilebilir; cevap anahtarı kitapçığın sonundadır.</p>' +
       "</div>";
   }
   var dupOptik = clone.querySelector(".tm-optik-strip");
@@ -1452,9 +1538,7 @@ function tmEnsureCorporateCoverPaper() {
     clone.classList.remove(tcl);
     if (tmpl.classList.contains(tcl)) clone.classList.add(tcl);
   });
-  var ak = c.querySelector(".a4-paper[data-tm-answer-key='1']");
-  if (ak) c.insertBefore(clone, ak);
-  else c.appendChild(clone);
+  c.insertBefore(clone, c.firstChild);
   return clone;
 }
 
@@ -1523,32 +1607,36 @@ function tmSyncAnswerKeyPage() {
     tmRemoveAnswerKeyPaper();
     return;
   }
-  tmEnsureBookCoverPaper();
-  tmEnsureOptikHostPaper();
+  c.querySelectorAll(".a4-paper[data-tm-optik-host='1'], .a4-paper[data-tm-book-cover='1']").forEach(function (el) {
+    el.remove();
+  });
   tmEnsureCorporateCoverPaper();
   var paper = tmEnsureAnswerKeyPaper();
   if (!paper) return;
-  tmSyncBookCoverContent();
   tmSyncCorporateCoverContent();
   var body = paper.querySelector(".tm-answer-key-sheet__body");
   if (!body) return;
   body.innerHTML = "";
   var grid = document.createElement("div");
-  grid.className = "tm-answer-key-grid";
+  grid.className = "tm-answer-key-grid tm-answer-key-grid--matrix";
   order.forEach(function (el, idx) {
     var raw = (el.getAttribute("data-tm-answer") || "—").trim();
     var ans = /^[A-Ea-e]$/.test(raw) ? raw.toUpperCase() : raw || "—";
-    var row = document.createElement("div");
-    row.className = "tm-answer-key-grid__row";
-    row.textContent = String(idx + 1) + ". " + ans;
-    grid.appendChild(row);
+    var cell = document.createElement("div");
+    cell.className = "tm-answer-key-grid__cell";
+    cell.innerHTML =
+      '<span class="tm-ak-num">' +
+      String(idx + 1) +
+      '</span><span class="tm-ak-val">' +
+      escapeHtml(ans) +
+      "</span>";
+    grid.appendChild(cell);
   });
   body.appendChild(grid);
   c.appendChild(paper);
   tmOrderTrailingPages();
   tmRehomeOptikStrip();
   tmSyncPaperHeaders();
-  tmSyncBookCoverContent();
   tmUpdateA4EmptyVisibility();
 }
 
@@ -2176,6 +2264,11 @@ function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = String(text);
   return div.innerHTML;
+}
+
+function firestoreDocExists(snap) {
+  if (!snap) return false;
+  return typeof snap.exists === "function" ? snap.exists() : !!snap.exists;
 }
 
 var dpHedefRadarChart = null;
@@ -2918,6 +3011,117 @@ function sdSaveNote(studentId, text) {
   } catch (e) {}
 }
 
+/**
+ * Firestore `students` belge ID'sini değiştirir; deneme/randevu/tahsilat/görev kayıtlarındaki studentId güncellenir.
+ */
+async function migrateStudentDocumentId(oldId, newIdRaw) {
+  var cid = getCoachId();
+  var newId = String(newIdRaw || "").trim();
+  if (!/^[a-zA-Z0-9_-]{1,80}$/.test(newId)) {
+    showToast("Yeni ID yalnızca harf, rakam, alt çizgi ve tire içerebilir (1–80 karakter).");
+    return;
+  }
+  if (newId === oldId) return;
+  var st = cachedStudents.find(function (x) {
+    return x.id === oldId;
+  });
+  if (!st || String(st.coach_id || "") !== String(cid)) {
+    showToast("Bu kayıt bulunamadı veya size ait değil.");
+    return;
+  }
+  var newRef = doc(db, "students", newId);
+  var exNew = await getDoc(newRef);
+  if (firestoreDocExists(exNew)) {
+    showToast("Bu ID ile zaten bir öğrenci kaydı var.");
+    return;
+  }
+  var oldRef = doc(db, "students", oldId);
+  var exOld = await getDoc(oldRef);
+  if (!firestoreDocExists(exOld)) {
+    showToast("Öğrenci kaydı bulunamadı.");
+    return;
+  }
+  var pdata = Object.assign({}, exOld.data());
+  delete pdata.id;
+  try {
+    await setDoc(newRef, pdata);
+    var subSnap = await getDocs(collection(db, "students", oldId, "atananKaynaklar"));
+    var si;
+    for (si = 0; si < subSnap.docs.length; si++) {
+      var subd = subSnap.docs[si];
+      await setDoc(doc(db, "students", newId, "atananKaynaklar", subd.id), subd.data());
+    }
+    async function patchCol(rows, colName) {
+      for (var ri = 0; ri < rows.length; ri++) {
+        var row = rows[ri];
+        try {
+          await updateDoc(doc(db, colName, row.id), { studentId: newId });
+        } catch (e) {
+          console.warn("[migrateStudentDocumentId]", colName, row.id, e);
+        }
+      }
+    }
+    await patchCol(
+      cachedExams.filter(function (e) {
+        return e.studentId === oldId && (e.coach_id == null || e.coach_id === cid);
+      }),
+      "exams"
+    );
+    await patchCol(
+      cachedAppointments.filter(function (a) {
+        return a.studentId === oldId && (a.coach_id == null || a.coach_id === cid);
+      }),
+      "appointments"
+    );
+    await patchCol(
+      cachedPayments.filter(function (p) {
+        return p.studentId === oldId && (p.coach_id == null || p.coach_id === cid);
+      }),
+      "payments"
+    );
+    await patchCol(
+      cachedCoachTasks.filter(function (t) {
+        return t.studentId === oldId && (t.coach_id == null || t.coach_id === cid);
+      }),
+      "coach_tasks"
+    );
+    for (si = 0; si < subSnap.docs.length; si++) {
+      await deleteDoc(doc(db, "students", oldId, "atananKaynaklar", subSnap.docs[si].id));
+    }
+    await deleteDoc(oldRef);
+    try {
+      var m = sdLoadNotesMap();
+      if (m[oldId]) {
+        m[newId] = m[oldId];
+        delete m[oldId];
+        localStorage.setItem(SD_NOTE_KEY, JSON.stringify(m));
+      }
+    } catch (e) {}
+    try {
+      var mock = loadFinanceMock();
+      if (mock.overdueByStudent && mock.overdueByStudent[oldId] != null) {
+        mock.overdueByStudent[newId] = mock.overdueByStudent[oldId];
+        delete mock.overdueByStudent[oldId];
+        saveFinanceMock(mock);
+      }
+    } catch (e) {}
+    if (kkSelectedStudentId === oldId) {
+      kkSelectedStudentId = newId;
+      kkSubscribeStudentAssignments(newId);
+    }
+    if (hpSelectedStudentId === oldId) {
+      hpSelectedStudentId = newId;
+    }
+    currentStudentDetailId = newId;
+    var inp = document.getElementById("studentDetailNewIdInput");
+    if (inp) inp.value = "";
+    showToast("Kayıt ID güncellendi.");
+  } catch (err) {
+    console.error(err);
+    showToast("ID güncellenemedi: " + (err.message || err));
+  }
+}
+
 function parseTrNum(s) {
   if (s == null || s === "") return NaN;
   return parseFloat(String(s).replace(",", ".").trim());
@@ -3044,6 +3248,10 @@ function renderStudentDetailPage() {
   if (st.parentPhone || st.phone) meta.push("<strong>Veli tel:</strong> " + escapeHtml(st.parentPhone || st.phone || ""));
   if (st.targetTytNet) meta.push("<strong>Hedef TYT:</strong> " + escapeHtml(String(st.targetTytNet)));
   if (metaEl) metaEl.innerHTML = meta.length ? meta.join("<br/>") : "Kayıtlı ek bilgi yok.";
+  var idDisp = document.getElementById("studentDetailDocIdDisplay");
+  var idInp = document.getElementById("studentDetailNewIdInput");
+  if (idDisp) idDisp.textContent = sid || "—";
+  if (idInp) idInp.value = "";
   var ex = examsForStudent(sid);
   document.getElementById("sdKpiExams").textContent = String(ex.length);
   var tytVals = [];
@@ -6478,7 +6686,8 @@ function hpEffectiveMockKanbanColumn(t) {
   var d = String(t.dueDate || "").slice(0, 10);
   if (!d) return "todo";
   var today = new Date().toISOString().slice(0, 10);
-  if (d > today) return null;
+  /** Gelecek tarihli haftalık ödevler de Görev Takibi (Yapılacaklar) sütununda görünsün */
+  if (d > today) return "todo";
   if (d < today && c === "todo") return "late";
   return "todo";
 }
@@ -7070,6 +7279,7 @@ function closeModal(modalId) {
   var o = document.getElementById("modalOverlay");
   if (!m || !o) return;
   if (modalId === "studentModal") resetStudentModalPanes();
+  if (modalId === "hpWeeklyTaskModal") hpResetWeeklyTaskModalChrome();
   m.hidden = true;
   var anyStillOpen = MODAL_IDS.some(function (id) {
     var el = document.getElementById(id);
@@ -7275,6 +7485,7 @@ async function submitStudentAddForm(e) {
         coach_id: getCoachId(),
         fullName: data.name || null,
         frozen: false,
+        plainPassword: pass,
         createdAt: serverTimestamp(),
         lastPasswordChangeAt: serverTimestamp(),
       });
@@ -8091,7 +8302,6 @@ function tmResetTestCreatorWorkspace() {
 
   var strip = document.getElementById("tmOptikStrip");
   var optBtn = document.getElementById("tmRailBtnOptik");
-  tmOptikStripVisible = false;
   if (strip) strip.hidden = true;
   if (optBtn) {
     optBtn.classList.remove("is-active");
@@ -9473,11 +9683,12 @@ function tmWsDownloadPdf() {
         })
         .then(function () {
           /* Harici img → data URL sonrası taint yok; toDataURL güvenli */
-          var scaleCap = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+          var dpr = window.devicePixelRatio || 1;
+          var scaleCap = Math.min(3, Math.max(2, dpr * 1.25));
           return html2canvas(paper, {
             scale: scaleCap,
-        useCORS: true,
-        allowTaint: true,
+            useCORS: true,
+            allowTaint: true,
             logging: false,
             backgroundColor: "#ffffff",
             scrollX: 0,
@@ -9487,13 +9698,13 @@ function tmWsDownloadPdf() {
         })
         .then(function (canvas) {
           try {
-            var imgData = canvas.toDataURL("image/jpeg", 0.92);
+            var imgData = canvas.toDataURL("image/png");
             if (!pdf) {
               pdf = new J({ unit: "mm", format: "a4", orientation: "portrait" });
             } else {
               pdf.addPage();
             }
-            pdf.addImage(imgData, "JPEG", 0, 0, 210, 297);
+            pdf.addImage(imgData, "PNG", 0, 0, 210, 297);
             anyPageOk = true;
           } catch (err) {
             console.error("tmWsDownloadPdf toDataURL / addImage", idx + 1, err);
@@ -9938,8 +10149,13 @@ function tmPdfCropRebuildView(keepPage) {
   if (!tmPdfCropDoc) return Promise.resolve();
   var wrap = document.getElementById("tmPdfCropCanvasWrap");
   var inner = document.getElementById("tmPdfCropScrollInner");
+  var anchorPage =
+    keepPage != null && !isNaN(Number(keepPage)) && Number(keepPage) > 0
+      ? Number(keepPage)
+      : tmPdfCropPage;
   var ratioX = 0.5;
   var ratioY = 0.5;
+  var slotAnchorRatio = null;
   if (wrap && inner && inner.scrollHeight > 0) {
     var cx = wrap.scrollLeft + wrap.clientWidth * 0.5;
     var cy = wrap.scrollTop + wrap.clientHeight * 0.5;
@@ -9947,6 +10163,12 @@ function tmPdfCropRebuildView(keepPage) {
     ratioY = cy / Math.max(inner.scrollHeight, 1);
     ratioX = Math.max(0, Math.min(1, ratioX));
     ratioY = Math.max(0, Math.min(1, ratioY));
+    var slot = inner.querySelector('.tm-pdf-cropper-page-slot[data-page="' + anchorPage + '"]');
+    if (slot) {
+      var slotH = slot.offsetHeight || 1;
+      slotAnchorRatio = (cy - slot.offsetTop) / slotH;
+      slotAnchorRatio = Math.max(0, Math.min(1, slotAnchorRatio));
+    }
   }
   tmPdfCropClearPreview();
   tmPdfCropRemoveCropSelectionBox();
@@ -9957,10 +10179,20 @@ function tmPdfCropRebuildView(keepPage) {
       if (!w || !inn) return;
       var nw = inn.scrollWidth;
       var nh = inn.scrollHeight;
-      var sl = ratioX * nw - w.clientWidth * 0.5;
-      var st = ratioY * nh - w.clientHeight * 0.5;
-      w.scrollLeft = Math.max(0, Math.min(Math.max(0, nw - w.clientWidth), sl));
-      w.scrollTop = Math.max(0, Math.min(Math.max(0, nh - w.clientHeight), st));
+      var slot2 = inn.querySelector('.tm-pdf-cropper-page-slot[data-page="' + anchorPage + '"]');
+      if (slot2 && slotAnchorRatio != null) {
+        var st = slot2.offsetTop + slotAnchorRatio * (slot2.offsetHeight || 1) - w.clientHeight * 0.5;
+        w.scrollTop = Math.max(0, Math.min(Math.max(0, nh - w.clientHeight), st));
+        var sl = ratioX * nw - w.clientWidth * 0.5;
+        w.scrollLeft = Math.max(0, Math.min(Math.max(0, nw - w.clientWidth), sl));
+      } else {
+        var sl2 = ratioX * nw - w.clientWidth * 0.5;
+        var st2 = ratioY * nh - w.clientHeight * 0.5;
+        w.scrollLeft = Math.max(0, Math.min(Math.max(0, nw - w.clientWidth), sl2));
+        w.scrollTop = Math.max(0, Math.min(Math.max(0, nh - w.clientHeight), st2));
+      }
+      tmPdfCropPage = anchorPage;
+      tmPdfCropUpdateNav();
       tmPdfCropScheduleSyncVisible();
     }
     requestAnimationFrame(function () {
@@ -10735,7 +10967,7 @@ function bindTestMakerWorkspace() {
     });
   }
   if (railTxt) railTxt.addEventListener("click", tmAddFreeTextBoxToA4);
-  if (railOpt) railOpt.addEventListener("click", tmToggleOptikStrip);
+  if (railOpt) railOpt.addEventListener("click", tmDownloadOptikTemplatePdf);
   var undoBtn = document.getElementById("tmAnnotUndo");
   if (undoBtn) undoBtn.addEventListener("click", tmEditorUndoLast);
   var undoTool = document.getElementById("tmAnnotUndoTool");
@@ -11404,6 +11636,8 @@ function initNavigation() {
 var hpSelectedStudentId = "";
 var hpWeekAnchor = null;
 var hpPendingDrop = null;
+/** Haftalık modal: yeni görev yerine mevcut mockTasks kaydını güncelle */
+var hpEditingTaskId = null;
 
 function hpFillStudentSelectOnly() {
   var sel = document.getElementById("hpStudentSelect");
@@ -11508,6 +11742,9 @@ function hpRenderWeekTaskCards() {
           (t.resource
             ? '<span class="hp-week-card__src">' + escapeHtml(t.resource) + "</span>"
             : "") +
+          '<button type="button" class="hp-week-card__edit" data-hp-task-edit="' +
+          escapeHtml(t.id) +
+          '" aria-label="Düzenle" title="Düzenle"><i class="fa-solid fa-pen"></i></button>' +
           '<button type="button" class="hp-week-card__del" data-hp-task-del="' +
           escapeHtml(t.id) +
           '" aria-label="Kaldır">×</button>';
@@ -11537,7 +11774,16 @@ function hpPopulateSubjectTopics() {
   fillTopics();
 }
 
+function hpResetWeeklyTaskModalChrome() {
+  hpEditingTaskId = null;
+  var tt = document.getElementById("hpWeeklyTaskModalTitle");
+  if (tt) {
+    tt.innerHTML = '<i class="fa-solid fa-calendar-plus"></i> Görev planla';
+  }
+}
+
 function hpOpenWeeklyTaskModal(tool, dateIso) {
+  hpResetWeeklyTaskModalChrome();
   hpPendingDrop = { tool: tool, dateIso: dateIso };
   hpPopulateSubjectTopics();
   var toolEl = document.getElementById("hpMtToolType");
@@ -11556,8 +11802,57 @@ function hpOpenWeeklyTaskModal(tool, dateIso) {
   openModal("hpWeeklyTaskModal");
 }
 
+function hpOpenWeeklyTaskModalForEdit(taskId) {
+  var task = mockTasks.find(function (x) {
+    return x.id === taskId;
+  });
+  if (!task || task.studentId !== hpSelectedStudentId) {
+    showToast("Görev bulunamadı.");
+    return;
+  }
+  hpEditingTaskId = taskId;
+  hpPendingDrop = { tool: task.taskType || "konu", dateIso: String(task.dueDate || "").slice(0, 10) };
+  hpPopulateSubjectTopics();
+  var toolEl = document.getElementById("hpMtToolType");
+  var dateEl = document.getElementById("hpMtDate");
+  var vid = document.getElementById("hpMtVideo");
+  var res = document.getElementById("hpMtResource");
+  var notes = document.getElementById("hpMtNotes");
+  var subEl = document.getElementById("hpMtSubject");
+  var topEl = document.getElementById("hpMtTopic");
+  var subti = document.getElementById("hpWeeklyTaskModalSubtitle");
+  var tt = document.getElementById("hpWeeklyTaskModalTitle");
+  if (toolEl) toolEl.value = task.taskType || "konu";
+  if (dateEl) dateEl.value = String(task.dueDate || "").slice(0, 10);
+  if (vid) vid.value = task.videoUrl || "";
+  if (res) res.value = task.resource || "";
+  if (notes) notes.value = task.notes || "";
+  if (subEl) {
+    subEl.value = task.subject || "";
+    try {
+      subEl.dispatchEvent(new Event("change", { bubbles: true }));
+    } catch (e) {
+      if (typeof subEl.onchange === "function") subEl.onchange();
+    }
+  }
+  if (topEl && task.topic) {
+    topEl.value = task.topic;
+  }
+  if (subti) {
+    subti.textContent = "Görevi düzenle · " + String(task.dueDate || "").slice(0, 10);
+  }
+  if (tt) {
+    tt.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Görevi düzenle';
+  }
+  openModal("hpWeeklyTaskModal");
+}
+
 function hpSaveWeeklyTaskFromModal() {
-  if (!hpPendingDrop || !hpSelectedStudentId) {
+  if (!hpSelectedStudentId) {
+    showToast("Önce öğrenci seçin.");
+    return;
+  }
+  if (!hpEditingTaskId && (!hpPendingDrop || !hpPendingDrop.dateIso)) {
     showToast("Öğrenci veya tarih eksik.");
     return;
   }
@@ -11583,11 +11878,46 @@ function hpSaveWeeklyTaskFromModal() {
     showToast("Tarih girin.");
     return;
   }
+
+  if (hpEditingTaskId) {
+    var existing = mockTasks.find(function (x) {
+      return x.id === hpEditingTaskId;
+    });
+    if (!existing) {
+      showToast("Görev bulunamadı.");
+      hpResetWeeklyTaskModalChrome();
+      closeModal("hpWeeklyTaskModal");
+      return;
+    }
+    existing.taskType = (toolEl && toolEl.value) || existing.taskType || "konu";
+    existing.subject = s;
+    existing.topic = k;
+    existing.resource = res ? String(res.value || "").trim() : "";
+    existing.videoUrl = vid ? String(vid.value || "").trim() : "";
+    existing.notes = notes ? String(notes.value || "").trim() : "";
+    existing.dueDate = d;
+    if (stu) {
+      existing.studentName = String(stu.name || stu.studentName || "").trim() || existing.studentName;
+    }
+    saveMockTasksToStorage();
+    hpPendingDrop = null;
+    hpResetWeeklyTaskModalChrome();
+    closeModal("hpWeeklyTaskModal");
+    showToast("Görev güncellendi.");
+    hpRenderWeekTaskCards();
+    rebuildGorevKanbanStateFromCache();
+    renderGorevKanbanCards();
+    void saveOgrenciVerisiBridge({ silent: true, studentIdOverride: hpSelectedStudentId }).catch(function (e) {
+      console.warn(e);
+    });
+    return;
+  }
+
   var task = {
     id: "mt_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
     studentId: hpSelectedStudentId,
     studentName: stu ? String(stu.name || stu.studentName || "").trim() : "",
-    taskType: (toolEl && toolEl.value) || hpPendingDrop.tool || "konu",
+    taskType: (toolEl && toolEl.value) || (hpPendingDrop && hpPendingDrop.tool) || "konu",
     subject: s,
     topic: k,
     resource: res ? String(res.value || "").trim() : "",
@@ -11730,6 +12060,13 @@ function initHaftalikProgramDnD() {
     });
 
     root.addEventListener("click", function (e) {
+      var ed = e.target && e.target.closest && e.target.closest("[data-hp-task-edit]");
+      if (ed && root.contains(ed)) {
+        e.preventDefault();
+        var tid = ed.getAttribute("data-hp-task-edit");
+        if (tid) hpOpenWeeklyTaskModalForEdit(tid);
+        return;
+      }
       var del = e.target && e.target.closest && e.target.closest("[data-hp-task-del]");
       if (!del || !root.contains(del)) return;
       e.preventDefault();
@@ -12508,6 +12845,23 @@ function initAllButtons() {
     });
   })();
 
+  var btnChStudentId = document.getElementById("btnStudentDetailChangeId");
+  if (btnChStudentId && !btnChStudentId.dataset.bound) {
+    btnChStudentId.dataset.bound = "1";
+    btnChStudentId.addEventListener("click", async function () {
+      var sid = currentStudentDetailId;
+      var inp = document.getElementById("studentDetailNewIdInput");
+      var nv = inp ? inp.value : "";
+      if (!sid) return;
+      btnChStudentId.disabled = true;
+      try {
+        await migrateStudentDocumentId(sid, nv);
+      } finally {
+        btnChStudentId.disabled = false;
+      }
+    });
+  }
+
   document.getElementById("btnProfileMenu") &&
     document.getElementById("btnProfileMenu").addEventListener("click", function () {
       showToast("Profil menüsü — ayarlar yakında.");
@@ -12531,7 +12885,7 @@ function initAllButtons() {
       if (!confirm("Çıkış yapılsın mı?")) return;
       localStorage.removeItem("currentUser");
       signOut(auth).finally(function () {
-        window.location.replace("index.html");
+        window.location.replace("login.html");
       });
     });
 
@@ -12694,15 +13048,15 @@ setTimeout(showLoadTimeoutWarning, 12000);
 
 onAuthStateChanged(auth, function (user) {
   if (!user) {
-    window.location.replace("index.html");
+    window.location.replace("login.html");
     return;
   }
   getDoc(doc(db, "users", user.uid))
-    .then(function (snap) {
+    .then(async function (snap) {
       var profile = snap.data();
       if (!profile || !profile.role) {
         return signOut(auth).then(function () {
-          window.location.replace("index.html");
+          window.location.replace("login.html");
         });
       }
       if (profile.role === "admin") {
@@ -12720,8 +13074,22 @@ onAuthStateChanged(auth, function (user) {
       }
       if (profile.role !== "coach") {
         return signOut(auth).then(function () {
-          window.location.replace("index.html");
+          window.location.replace("login.html");
         });
+      }
+      var setSnap = await getDoc(doc(db, "settings", "app"));
+      var maint = firestoreDocExists(setSnap) && setSnap.data().maintenance === true;
+      var impersonate = false;
+      try {
+        impersonate = !!(sessionStorage.getItem("superAdminViewAsCoach") || "").trim();
+      } catch (e) {}
+      if (maint && !impersonate) {
+        await signOut(auth);
+        try {
+          localStorage.setItem("loginFlashError", "Bakımdayız. Şu an yalnızca kurucu girişi açıktır.");
+        } catch (e) {}
+        window.location.replace("login.html");
+        return;
       }
       var uname = profile.username;
       if (!uname && user.email) uname = user.email.split("@")[0];
@@ -12730,7 +13098,7 @@ onAuthStateChanged(auth, function (user) {
     })
     .catch(function () {
       signOut(auth).finally(function () {
-        window.location.replace("index.html");
+        window.location.replace("login.html");
       });
     });
 });

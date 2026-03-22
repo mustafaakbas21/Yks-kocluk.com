@@ -3,13 +3,140 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="refresh" content="0;url=index.html" />
-  <title>Giriş — Yönlendiriliyor</title>
-  <script>
-    location.replace("index.html");
-  </script>
+  <meta name="description" content="DerecePanel — Koç, öğrenci ve kurucu girişi" />
+  <title>Giriş — DerecePanel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="css/login-page.css" />
+  <link rel="stylesheet" href="css/site-credit.css" />
 </head>
-<body>
-  <p>Giriş sayfası taşındı. <a href="index.html">index.html</a> adresine gidiliyor…</p>
+<body class="has-site-credit">
+  <div class="auth-shell">
+    <div class="auth-canvas" aria-hidden="true"></div>
+
+    <div class="auth-brand">
+      <a href="index.html" class="auth-brand__home"><i class="fa-solid fa-arrow-left"></i> Ana sayfa / vitrin</a>
+
+      <div class="auth-brand__logo">
+        <span class="auth-brand__logo-mark" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></span>
+        DerecePanel
+      </div>
+
+      <h1 class="auth-brand__title">
+        Rota net, <span class="auth-brand__script">hedef</span> daha yakın.
+      </h1>
+      <p class="auth-brand__lead">
+        Bu ekran sadece bir giriş kapısı değil — <strong>sınıfınız ve kontrol kulesiniz</strong> aynı yerde. Netlerinizi izleyin,
+        öğrencilerinize dönün, tek oturumla tüm rollere erişin.
+      </p>
+
+      <div class="auth-float" aria-hidden="true">
+        <div class="auth-float__stack">
+          <div class="auth-float__card auth-float__card--a"></div>
+          <div class="auth-float__card auth-float__card--b"></div>
+          <div class="auth-float__card auth-float__card--c">
+            <span class="auth-float__bell"><i class="fa-regular fa-bell"></i></span>
+            <p class="auth-float__notify">
+              Bugün — <strong>3 öğrenci</strong> için geri bildirim bekliyor.
+              <span class="auth-float__trend">Net trend ↑</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="auth-pillars">
+        <div class="auth-pillar">
+          <span class="auth-pillar__k">Tek</span>
+          <span class="auth-pillar__v">oturum</span>
+        </div>
+        <div class="auth-pillar">
+          <span class="auth-pillar__k">Çoklu</span>
+          <span class="auth-pillar__v">rol</span>
+        </div>
+        <div class="auth-pillar">
+          <span class="auth-pillar__k">7/24</span>
+          <span class="auth-pillar__v">erişim</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="auth-aside">
+      <div class="auth-card">
+        <div class="auth-card__head">
+          <h2>Hoş geldiniz</h2>
+          <p>Rolünüzü seçin; kullanıcı adınız <strong>@sistem.com</strong> ile eşleşir.</p>
+        </div>
+
+        <div id="loginError" class="login-error" role="alert"></div>
+
+        <div class="login-tabs" role="tablist" aria-label="Giriş türü">
+          <button type="button" id="tabCoach" data-mode="coach" class="is-active" role="tab" aria-selected="true">
+            <span class="login-tab__icon" aria-hidden="true"><i class="fa-solid fa-chalkboard-user"></i></span>
+            <span class="login-tab__label">Koç</span>
+          </button>
+          <button type="button" id="tabStudent" data-mode="student" role="tab" aria-selected="false">
+            <span class="login-tab__icon" aria-hidden="true"><i class="fa-solid fa-graduation-cap"></i></span>
+            <span class="login-tab__label">Öğrenci</span>
+          </button>
+          <button type="button" id="tabAdmin" data-mode="admin" role="tab" aria-selected="false">
+            <span class="login-tab__icon" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></span>
+            <span class="login-tab__label">Kurucu</span>
+          </button>
+        </div>
+
+        <p id="modeHint" class="mode-hint">
+          Koç hesabınızla giriş yapın. Sadece <strong>kullanıcı adı</strong> ve şifre yeterlidir.
+        </p>
+
+        <form id="loginForm" novalidate>
+          <div class="login-field">
+            <label for="loginUsername">Kullanıcı adı</label>
+            <div class="login-input-wrap">
+              <span class="login-input-wrap__icon" aria-hidden="true"><i class="fa-solid fa-at"></i></span>
+              <input
+                id="loginUsername"
+                name="username"
+                type="text"
+                autocomplete="username"
+                required
+                placeholder="@ornek_koc"
+              />
+            </div>
+          </div>
+          <div class="login-field">
+            <label for="loginPassword">Şifre</label>
+            <div class="login-input-wrap">
+              <span class="login-input-wrap__icon" aria-hidden="true"><i class="fa-solid fa-key"></i></span>
+              <input
+                id="loginPassword"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                required
+                placeholder="••••••••"
+              />
+            </div>
+          </div>
+          <button type="submit" class="login-submit" id="loginSubmit">
+            <span>Giriş yap</span>
+            <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+          </button>
+        </form>
+
+        <p class="auth-card__foot">
+          <span class="auth-card__beta">Beta</span> — Sorun yaşarsanız kurumunuzdaki koç veya kurucu ile iletişime geçin.
+          <a href="index.html#paketler">Paketleri incele</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <p class="site-credit site-credit--auth">
+    Mustafa AKBAŞ - Furkan Şehmus KIYAR - Veysel Anıl KARAASLAN tarafından üretildi
+  </p>
+
+  <script type="module" src="js/login.js"></script>
 </body>
 </html>

@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="css/soru-arsivi.css" />
   <link rel="stylesheet" href="css/deneme-analiz-eds.css" />
   <link rel="stylesheet" href="css/student-detail.css" />
+  <link rel="stylesheet" href="css/site-credit.css" />
   <!-- PDF.js: body sonunda yüklü (3.11.x); kırpma + PDF düzenleyici ortak worker -->
   <style>
     /* Öğrenci ERP modal — sekme + grid (yalnızca bu sayfa) */
@@ -1285,6 +1286,28 @@
       font-size: 0.62rem;
       margin-top: 0.2rem;
     }
+    .hp-week-card__edit {
+      position: absolute;
+      top: 2px;
+      right: 1.5rem;
+      width: 1.35rem;
+      height: 1.35rem;
+      border: none;
+      border-radius: 6px;
+      background: rgba(15, 23, 42, 0.45);
+      color: #c4b5fd;
+      cursor: pointer;
+      font-size: 0.62rem;
+      line-height: 1;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .hp-week-card__edit:hover {
+      background: rgba(124, 58, 237, 0.55);
+      color: #fff;
+    }
     .hp-week-card__del {
       position: absolute;
       top: 2px;
@@ -1545,7 +1568,7 @@
   <link rel="stylesheet" href="css/koc-panel-premium-light.css" />
   <!-- TestMaker: Cropper.js + pdf.js (head’de CSS); script’ler body sonunda (html2pdf, cropper, pdf) -->
 </head>
-<body>
+<body class="has-site-credit">
   <div class="app app--elite-layout app--sidebar-readable">
     <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
 
@@ -1843,6 +1866,27 @@
                 <div class="sd-hero__text">
                   <h2 id="studentDetailName">—</h2>
                   <div class="sd-hero__meta" id="studentDetailMeta"></div>
+                  <div class="sd-id-row" id="studentDetailIdRow">
+                    <span class="sd-id-row__label">Kayıt ID</span>
+                    <code class="sd-id-row__code" id="studentDetailDocIdDisplay" title="Firestore belge kimliği">—</code>
+                    <div class="sd-id-row__controls">
+                      <input
+                        type="text"
+                        id="studentDetailNewIdInput"
+                        class="sd-id-row__input"
+                        maxlength="80"
+                        placeholder="Yeni ID (ör. ogrenci_01)"
+                        autocomplete="off"
+                        spellcheck="false"
+                      />
+                      <button type="button" class="btn btn--sm btn--purple" id="btnStudentDetailChangeId">
+                        <i class="fa-solid fa-arrows-rotate"></i> ID güncelle
+                      </button>
+                    </div>
+                    <p class="sd-id-row__hint">
+                      Deneme, randevu, görev ve kaynak atamaları bu ID ile ilişkilidir; güncelleme ilgili kayıtları taşır.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2682,7 +2726,7 @@
                       <div class="tm-format-ribbon__tiles">
                         <button type="button" class="tm-ribbon-tile" id="tmRailBtnLogo" title="Kurum logosu" aria-pressed="false"><i class="fa-solid fa-image" aria-hidden="true"></i><span>Logo</span></button>
                         <button type="button" class="tm-ribbon-tile" id="tmRailBtnText" title="Metin kutusu" aria-pressed="false"><i class="fa-solid fa-font" aria-hidden="true"></i><span>Metin</span></button>
-                        <button type="button" class="tm-ribbon-tile" id="tmRailBtnOptik" title="Optik şeridi" aria-pressed="false"><i class="fa-solid fa-barcode" aria-hidden="true"></i><span>Optik</span></button>
+                        <button type="button" class="tm-ribbon-tile" id="tmRailBtnOptik" title="Hazır optik şablonu (PDF indir)" aria-pressed="false"><i class="fa-solid fa-barcode" aria-hidden="true"></i><span>Optik</span></button>
                       </div>
                     </div>
                   </nav>
@@ -2854,7 +2898,7 @@
                         </div>
                       </div>
                       <div class="tm-a4-layout" id="tmA4Layout">
-                        <div class="tm-a4-empty tm-a4-empty--full" id="tmA4Empty">Kitaplıktan veya sağdan <strong>PDF</strong> açıp kırpın; kırpmadan sonra <strong>A–E</strong> şıkkını seçerek ekleyin. Sıra: soru sayfaları → <strong>optik formu</strong> (ayrı A4) → <strong>kurumsal bilgi</strong> sayfası → <strong>cevap anahtarı</strong> (son A4). Sorular iki sütunda (ortada çizgi) dizilir.</div>
+                        <div class="tm-a4-empty tm-a4-empty--full" id="tmA4Empty">Kitaplıktan veya sağdan <strong>PDF</strong> açıp kırpın; kırpmadan sonra <strong>A–E</strong> şıkkını seçerek ekleyin. İlk sayfa: <strong>kurumsal kapak</strong>; ardından soru sayfaları; sonda <strong>cevap anahtarı</strong>. Hazır optik için üstteki <strong>Optik</strong> düğmesinden PDF indirin.</div>
                         <div class="test-content-area" id="testContentArea" hidden>
                           <div id="column-1" class="test-column" data-tm-col="1"></div>
                           <div id="column-2" class="test-column test-column--with-rule" data-tm-col="2"></div>
@@ -4235,6 +4279,10 @@
   </div>
 
   <div class="toast toast--tr" id="panelToast" role="status" aria-live="polite" hidden></div>
+
+  <p class="site-credit site-credit--panel">
+    Mustafa AKBAŞ - Furkan Şehmus KIYAR - Veysel Anıl KARAASLAN tarafından üretildi
+  </p>
 
   <script>
     (function () {

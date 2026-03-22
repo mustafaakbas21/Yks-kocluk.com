@@ -51,7 +51,7 @@ onAuthStateChanged(auth, async function (user) {
   window.OspPortal.studentDocId = null;
 
   if (!user) {
-    window.location.replace("index.html");
+    window.location.replace("login.html");
     return;
   }
   try {
@@ -59,8 +59,21 @@ onAuthStateChanged(auth, async function (user) {
     var profile = snap.data();
     if (!profile || profile.role !== "student") {
       await signOut(auth);
-      window.location.replace("index.html");
+      window.location.replace("login.html");
       return;
+    }
+    try {
+      var setSnap = await getDoc(doc(db, "settings", "app"));
+      if (docExists(setSnap) && setSnap.data().maintenance === true) {
+        await signOut(auth);
+        try {
+          localStorage.setItem("loginFlashError", "Bakımdayız. Şu an yalnızca kurucu girişi açıktır.");
+        } catch (e) {}
+        window.location.replace("login.html");
+        return;
+      }
+    } catch (se) {
+      console.warn("[öğrenci] settings:", se);
     }
     var name = (profile.fullName || profile.username || "Öğrenci").trim();
     try {
@@ -131,5 +144,5 @@ document.getElementById("ospBtnLogout") &&
       localStorage.removeItem("yksRole");
     } catch (e) {}
     await signOut(auth);
-    window.location.replace("index.html");
+    window.location.replace("login.html");
   });

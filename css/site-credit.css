@@ -1,0 +1,61 @@
+/**
+ * Tüm sayfalarda ortak üretici kredisi
+ */
+body.has-site-credit {
+  padding-bottom: 2.4rem;
+}
+
+.site-credit {
+  margin: 0;
+  padding: 0.55rem 1rem;
+  text-align: center;
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: #94a3b8;
+  line-height: 1.5;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(248, 250, 252, 0.98);
+  flex-shrink: 0;
+}
+
+.site-credit--index {
+  margin: 1.5rem -1.25rem 0;
+  padding: 0.85rem 1.25rem 1.35rem;
+  background: #020617;
+  color: #64748b;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.site-credit--auth {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  padding: 0.55rem 1rem;
+  background: rgba(248, 250, 252, 0.96);
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  color: #94a3b8;
+}
+
+.site-credit--panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 99;
+  box-shadow: 0 -6px 24px rgba(15, 23, 42, 0.06);
+}
+
+.site-credit--admin {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 99;
+  background: #0a0a10;
+  color: #6b7280;
+  border-top-color: rgba(168, 85, 247, 0.12);
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.35);
+}
