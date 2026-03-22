@@ -978,6 +978,61 @@
   opacity: 0.85;
 }
 
+/* TestMaker Kaynak & kırpma: PDF yakınlaştırma + el ile gezinme */
+.tm-ws-pdf-zoom-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.35rem 0 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 15, 18, 0.65);
+}
+
+.tm-ws-pdf-zoombtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.45rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(24, 24, 30, 0.95);
+  color: #e4e4e7;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.tm-ws-pdf-zoombtn:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: rgba(129, 140, 248, 0.45);
+  color: #fff;
+}
+
+.tm-ws-pdf-zoombtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tm-ws-pdf-zoom-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #a1a1aa;
+  min-width: 2.75rem;
+  text-align: center;
+  user-select: none;
+}
+
+.tm-ws-pdf-panbtn[aria-pressed="true"] {
+  background: rgba(99, 102, 241, 0.35);
+  border-color: rgba(167, 139, 250, 0.65);
+  color: #e9d5ff;
+}
+
 .tm-crop-wrap {
   flex: 1;
   min-height: 200px;
@@ -1023,6 +1078,18 @@
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: #e2e8f0;
+  overflow-x: auto;
+  overflow-y: auto;
+  cursor: crosshair;
+}
+
+.tm-ws-pdf-crop-canvas-wrap.tm-pdf-cropper-canvas-wrap.tm-ws-pdf-crop--pan-mode {
+  cursor: grab;
+}
+
+.tm-ws-pdf-crop-canvas-wrap.tm-pdf-cropper-canvas-wrap.tm-ws-pdf-crop--pan-dragging {
+  cursor: grabbing;
+  user-select: none;
 }
 
 .tm-ws-crop-hint {
@@ -2290,6 +2357,202 @@
   white-space: nowrap;
   max-width: 90%;
   text-align: center;
+}
+
+/* TestMaker — kitap kapağı (PDF’te ilk sayfa, DOM’da kapsayıcıda en üstte) */
+.tm-book-cover-sheet {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 200mm;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 12mm 8mm;
+}
+
+.tm-book-cover-sheet__ribbon {
+  margin: 0 0 8mm;
+  font-size: 9pt;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #7c3aed;
+}
+
+.tm-book-cover-sheet__title {
+  margin: 0 0 6mm;
+  font-size: 22pt;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: #1e1b4b;
+  line-height: 1.15;
+  max-width: 95%;
+}
+
+.tm-book-cover-sheet__meta {
+  margin: 0 0 10mm;
+  font-size: 10.5pt;
+  font-weight: 600;
+  color: #475569;
+  line-height: 1.4;
+  max-width: 90%;
+}
+
+.tm-book-cover-sheet__deco {
+  width: min(100%, 140mm);
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #4c1d95, #7c3aed, #c4b5fd);
+  margin-bottom: 10mm;
+}
+
+.tm-book-cover-sheet__foot {
+  margin: 0;
+  font-size: 8.5pt;
+  color: #64748b;
+  max-width: 42ch;
+  line-height: 1.45;
+}
+
+.a4-paper.tm-a4-page--book-cover .tm-paper-header {
+  display: none !important;
+}
+
+/* Optik: ayrı A4 host (soru sayfası sonunda değil) */
+.tm-optik-host-wrap {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.35rem 0.15rem 0.5rem;
+}
+
+.tm-optik-host-heading {
+  margin-bottom: 0.5rem;
+}
+
+.tm-optik-host-title {
+  margin: 0 0 0.2rem;
+  font-size: 11pt;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #0f172a;
+}
+
+.tm-optik-host-lead {
+  margin: 0;
+  font-size: 8.5pt;
+  font-weight: 600;
+  color: #475569;
+  line-height: 1.35;
+}
+
+.tm-optik-host-strip-slot {
+  min-height: 2rem;
+}
+
+.a4-paper.tm-a4-page--optik-host .tm-optik-strip {
+  border-top: 2px dashed #94a3b8;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(255, 255, 255, 0.88));
+}
+
+/* Kurumsal bilgi sayfası (optik ile cevap anahtarı arası) */
+.tm-corporate-cover-sheet {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4mm 2mm 2mm;
+  min-height: 120mm;
+}
+
+.tm-corporate-cover-sheet__accent {
+  height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #4c1d95, #7c3aed, #a78bfa);
+  margin-bottom: 8mm;
+}
+
+.tm-corporate-cover-sheet__kicker {
+  margin: 0 0 10mm;
+  font-size: 9pt;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.tm-corporate-cover-sheet__title {
+  margin: 0 0 10mm;
+  font-size: 16pt;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.tm-corporate-cover-sheet__facts {
+  list-style: none;
+  margin: 0 0 12mm;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5mm;
+}
+
+.tm-corporate-cover-sheet__facts li {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5mm;
+  padding: 4mm 5mm;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: linear-gradient(180deg, #fafafa 0%, #fff 100%);
+}
+
+.tm-corporate-cover-sheet__facts span {
+  font-size: 8pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+}
+
+.tm-corporate-cover-sheet__facts strong {
+  font-size: 10.5pt;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.tm-corporate-cover-sheet__sign {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6mm;
+  margin-bottom: 10mm;
+}
+
+.tm-corporate-cover-sheet__sign-line {
+  min-height: 22mm;
+  border-bottom: 1.5px solid #cbd5e1;
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 2mm;
+}
+
+.tm-corporate-cover-sheet__sign-line span {
+  font-size: 8.5pt;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.tm-corporate-cover-sheet__note {
+  margin: 0;
+  font-size: 8.5pt;
+  line-height: 1.45;
+  color: #475569;
+  padding: 4mm 5mm;
+  border-radius: 10px;
+  background: rgba(124, 58, 237, 0.06);
+  border: 1px dashed rgba(124, 58, 237, 0.28);
 }
 
 .tm-optik-strip {

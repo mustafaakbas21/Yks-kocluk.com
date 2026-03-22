@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DerecePanel — Öğrenci</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="css/koc-panel.css" />
+  <link rel="stylesheet" href="css/ogrenci-panel.css" />
+  <link rel="stylesheet" href="css/derece-interactive-modules.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous"></script>
+</head>
+<body class="osp-body">
+  <div class="sidebar-overlay--osp" id="ospSidebarOverlay" aria-hidden="true"></div>
+
+  <div class="app app--ogrenci">
+    <aside class="sidebar sidebar--ogrenci" id="ospSidebar" aria-label="Öğrenci menüsü">
+      <div class="sidebar__brand">
+        <button type="button" class="sidebar__brand-btn" data-osp-nav="dashboard" title="Ana sayfa">
+          <div class="sidebar__logo"><i class="fa-solid fa-graduation-cap"></i></div>
+          <span class="sidebar__title">DerecePanel</span>
+        </button>
+      </div>
+
+      <nav class="sidebar__nav">
+        <p class="sidebar__section-label">Menü</p>
+        <ul class="sidebar__menu">
+          <li>
+            <button type="button" class="sidebar__link sidebar__link--active" data-osp-nav="dashboard">
+              <i class="fa-solid fa-house"></i><span>Ana Sayfa</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="sidebar__link" data-osp-nav="hedef">
+              <i class="fa-solid fa-bullseye"></i><span>🎯 Hedef Simülatörü</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="sidebar__link" data-osp-nav="koca-sor">
+              <i class="fa-solid fa-life-ring"></i><span>🆘 Koça Sor</span>
+            </button>
+          </li>
+
+          <li class="osp-sidebar__group has-submenu is-open">
+            <button type="button" class="osp-sidebar__accordion" aria-expanded="true" aria-controls="ospSubProgram">
+              <i class="fa-solid fa-book-open" style="width:1.25rem;text-align:center;opacity:.9"></i>
+              <span>Program &amp; Kaynak</span>
+              <span class="osp-sidebar__chev" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
+            </button>
+            <ul class="osp-sidebar__submenu" id="ospSubProgram" role="group">
+              <li>
+                <button type="button" class="sidebar__link" data-osp-nav="haftalik">
+                  <i class="fa-solid fa-calendar-week"></i><span>Haftalık Programım</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="sidebar__link" data-osp-nav="kaynaklar">
+                  <i class="fa-solid fa-book"></i><span>Kaynaklarım (İlerleme)</span>
+                </button>
+              </li>
+            </ul>
+          </li>
+
+          <li class="osp-sidebar__group has-submenu is-open">
+            <button type="button" class="osp-sidebar__accordion" aria-expanded="true" aria-controls="ospSubAnaliz">
+              <i class="fa-solid fa-chart-line" style="width:1.25rem;text-align:center;opacity:.9"></i>
+              <span>Analiz &amp; Ödeme</span>
+              <span class="osp-sidebar__chev" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
+            </button>
+            <ul class="osp-sidebar__submenu" id="ospSubAnaliz" role="group">
+              <li>
+                <button type="button" class="sidebar__link" data-osp-nav="gelisim">
+                  <i class="fa-solid fa-x-ray"></i><span>Gelişim Röntgenim</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="sidebar__link" data-osp-nav="odeme">
+                  <i class="fa-solid fa-credit-card"></i><span>Ödeme &amp; Taksitlerim</span>
+                </button>
+              </li>
+            </ul>
+          </li>
+        </ul>
+
+        <ul class="sidebar__menu sidebar__menu--footer">
+          <li>
+            <button type="button" class="sidebar__link sidebar__link--logout" id="ospBtnLogout">
+              <i class="fa-solid fa-right-from-bracket"></i><span>Çıkış</span>
+            </button>
+          </li>
+        </ul>
+      </nav>
+    </aside>
+
+    <main class="main main--ogrenci">
+      <header class="main__header">
+        <button type="button" class="osp-menu-toggle" id="ospMenuToggle" aria-label="Menüyü aç">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <h1 class="main__header-title" id="ospHeaderTitle">Ana Sayfa</h1>
+        <p class="main__header-meta" id="ospHeaderMeta">Hesap yükleniyor…</p>
+      </header>
+
+      <div class="osp-views">
+        <!-- Dashboard -->
+        <section class="osp-view" data-osp-view="dashboard" id="ospViewDashboard">
+          <div class="osp-hero">
+            <p class="osp-hero__greet" id="ospHeroGreet">Hoş geldin Mustafa, hedef netine sadece 15 net kaldı!</p>
+            <p class="osp-hero__sub">Her küçük adım seni sınav gününe yaklaştırıyor.</p>
+          </div>
+
+          <section class="osp-pomodoro-card" aria-label="Odaklanma merkezi">
+            <div class="osp-pomodoro-card__head">
+              <h2 class="osp-pomodoro-card__title"><i class="fa-solid fa-stopwatch"></i> Odaklanma Merkezi</h2>
+              <div class="osp-pomodoro-presets" role="group" aria-label="Süre seçimi">
+                <button type="button" id="ospPomo25" class="is-active" data-min="25">25 dk</button>
+                <button type="button" id="ospPomo40" data-min="40">40 dk</button>
+              </div>
+            </div>
+            <div class="osp-pomodoro-timer" id="ospPomoDisplay">25:00</div>
+            <div class="osp-pomodoro-actions">
+              <button type="button" class="osp-btn-pomo osp-btn-pomo--primary" id="ospPomoStart">Başlat</button>
+              <button type="button" class="osp-btn-pomo osp-btn-pomo--ghost" id="ospPomoPause" disabled>Duraklat</button>
+              <button type="button" class="osp-btn-pomo osp-btn-pomo--mola" id="ospPomoBreak">Mola Ver</button>
+            </div>
+            <p class="osp-pomodoro-hint" id="ospPomoHint">Pomodoro: odak süresi bitince kısa mola verin.</p>
+          </section>
+
+          <p class="osp-sync-banner" id="ospCoachBanner">Profil yükleniyor…</p>
+
+          <div class="osp-widget-row">
+            <div class="osp-widget">
+              <div class="osp-widget__label">Bu haftaki görev tamamlama</div>
+              <div class="osp-widget__value" id="ospWgWeek">%80</div>
+              <p class="osp-widget__hint">Koçunun haftalık planına göre</p>
+            </div>
+            <div class="osp-widget">
+              <div class="osp-widget__label">Son deneme neti</div>
+              <div class="osp-widget__value" id="ospWgNet">38.5</div>
+              <p class="osp-widget__hint">TYT genel</p>
+            </div>
+            <div class="osp-widget">
+              <div class="osp-widget__label">Çözülen toplam soru</div>
+              <div class="osp-widget__value" id="ospWgSolved">12.450</div>
+              <p class="osp-widget__hint">Tüm zamanlar</p>
+            </div>
+          </div>
+
+          <div class="osp-next-task" id="ospNextTaskCard">
+            <div>
+              <span class="osp-next-task__badge">Sıradaki görevim</span>
+              <h2 class="osp-next-task__title" id="ospNextTaskTitle">Matematik — Problemler</h2>
+              <p class="osp-next-task__meta" id="ospNextTaskMeta">50 soru · Bugünün programından</p>
+            </div>
+            <button type="button" class="osp-btn-complete" id="ospBtnCompleteNext">
+              <i class="fa-solid fa-check"></i> Tamamla
+            </button>
+          </div>
+
+          <div class="osp-dash-extras">
+            <div class="osp-note-card">
+              <h3>Koç bağlantısı</h3>
+              <p>
+                Görevler ve kaynak ilerlemesi koç panelindeki kayıtlarla eşleşir. Soruların için koçunla iletişime geçebilirsin.
+              </p>
+            </div>
+            <div class="osp-quick-card">
+              <h3>Hızlı erişim</h3>
+              <a class="osp-quick-link" href="koc-panel.html" target="_blank" rel="noopener">
+                <i class="fa-solid fa-chalkboard-user"></i> Koç paneli (önizleme)
+              </a>
+              <p class="osp-quick-hint">
+                Koç hesabın yoksa bu bağlantıyı yalnızca referans için kullan; giriş koç veya yönetici hesabı gerektirir.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Haftalık program -->
+        <section class="osp-view" data-osp-view="haftalik" id="ospViewHaftalik" hidden>
+          <div class="osp-haftalik-toolbar">
+            <p class="osp-haftalik-toolbar__hint">
+              Koçunun hazırladığı haftalık plan (salt okunur liste). Görevleri tamamladığında kutuyu işaretle.
+            </p>
+            <button type="button" class="osp-btn-pdf-program" id="ospBtnPdfProgram" title="A4 PDF olarak indir">
+              📄 Programı PDF İndir
+            </button>
+          </div>
+          <div id="ospHaftalikPdfRoot" class="osp-haftalik-pdf-root">
+            <h2 class="osp-haftalik-pdf-title" id="ospHaftalikPdfTitle">Haftalık Programım</h2>
+            <div class="osp-week" id="ospWeekContainer"></div>
+          </div>
+        </section>
+
+        <!-- Kaynaklar -->
+        <section class="osp-view" data-osp-view="kaynaklar" id="ospViewKaynaklar" hidden>
+          <p style="color:var(--osp-muted);font-size:0.88rem;margin:0 0 1rem;">
+            İlerleme çubuğu koç tarafından güncellenir; sen sadece güncel sayfa bilgisini iletirsin.
+          </p>
+          <div class="osp-book-grid" id="ospBookList"></div>
+        </section>
+
+        <!-- Gelişim -->
+        <section class="osp-view" data-osp-view="gelisim" id="ospViewGelisim" hidden>
+          <div class="osp-chart-placeholder">
+            <i class="fa-solid fa-chart-area fa-2x" style="opacity:0.5;margin-bottom:0.75rem;"></i>
+            <p style="margin:0;color:var(--osp-text);font-weight:600;">Deneme analizi özeti (demo)</p>
+            <p style="margin:0.5rem 0 0;font-size:0.85rem;">Gerçek projede burada TYT/AYT net grafikleri ve konu MR haritası yer alır.</p>
+            <div class="osp-stat-inline" id="ospGelisimStats"></div>
+          </div>
+        </section>
+
+        <!-- Hedef Simülatörü -->
+        <section class="osp-view osp-hedef-page" data-osp-view="hedef" id="ospViewHedef" hidden>
+          <div class="osp-hedef-hero">
+            <p class="osp-hedef-hero__uni" id="ospHedefUni">Boğaziçi Üniversitesi</p>
+            <p class="osp-hedef-hero__bolum" id="ospHedefBolum">Bilgisayar Mühendisliği — Hedef net</p>
+          </div>
+          <div class="osp-hedef-bars" id="ospHedefBars" aria-live="polite"></div>
+          <div class="osp-hedef-gap-banner" id="ospHedefGapBanner">Hesaplanıyor…</div>
+        </section>
+
+        <!-- Koça Sor -->
+        <section class="osp-view osp-koca-page" data-osp-view="koca-sor" id="ospViewKocaSor" hidden>
+          <p style="color:var(--osp-muted);font-size:0.88rem;margin:0 0 1rem;">
+            Çözemediğin sorunun fotoğrafını veya kısa notunu gönder; koçun <strong>Gelen Sorular</strong> kutusunda görür (demo: aynı tarayıcıda localStorage).
+          </p>
+          <div
+            class="osp-koca-dropzone"
+            id="ospKocaDropzone"
+            tabindex="0"
+            role="button"
+            aria-label="Dosya sürükleyip bırak veya tıkla"
+          >
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <p><strong>Dosya veya fotoğraf sürükleyin</strong> ya da tıklayın</p>
+            <p>PNG, JPG veya PDF · max 10 MB (demo)</p>
+          </div>
+          <input type="file" id="ospKocaFile" accept="image/*,.pdf" hidden />
+          <p class="osp-koca-file-name" id="ospKocaFileName"></p>
+          <div class="osp-koca-field">
+            <label for="ospKocaMsg">Mesajın (isteğe bağlı)</label>
+            <textarea id="ospKocaMsg" placeholder="Hangi test, hangi soru numarası…"></textarea>
+          </div>
+          <button type="button" class="osp-koca-submit" id="ospKocaGonder">Gönder</button>
+        </section>
+
+        <!-- Ödeme -->
+        <section class="osp-view" data-osp-view="odeme" id="ospViewOdeme" hidden>
+          <div id="ospPayAlert"></div>
+          <div class="osp-pay-hero">
+            <div class="osp-pay-card">
+              <div class="osp-pay-card__lbl">Toplam anlaşma</div>
+              <div class="osp-pay-card__val" id="ospPayTotal">—</div>
+              <div class="osp-pay-card__sub">Koçluk paketi</div>
+            </div>
+            <div class="osp-pay-card">
+              <div class="osp-pay-card__lbl">Kalan bakiye</div>
+              <div class="osp-pay-card__val" id="ospPayRemain">—</div>
+              <div class="osp-pay-card__sub">Ödenmesi beklenen</div>
+            </div>
+            <div class="osp-pay-card">
+              <div class="osp-pay-card__lbl">Geciken taksit</div>
+              <div class="osp-pay-card__val" id="ospPayOverdue">—</div>
+              <div class="osp-pay-card__sub" id="ospPayOverdueSub">—</div>
+            </div>
+          </div>
+          <div class="osp-table-wrap">
+            <table class="osp-table">
+              <thead>
+                <tr>
+                  <th>Taksit</th>
+                  <th>Vade</th>
+                  <th>Tutar</th>
+                  <th>Durum</th>
+                </tr>
+              </thead>
+              <tbody id="ospPayTableBody"></tbody>
+            </table>
+          </div>
+          <p style="font-size:0.8rem;color:var(--osp-muted);margin-top:1rem;">
+            Bu alan yalnızca bilgilendirme amaçlıdır; tahsilat veya düzenleme koç panelinden yapılır.
+          </p>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="osp-toast-host" id="ospToastHost" aria-live="polite"></div>
+
+  <!-- Sayfa güncelle modal -->
+  <div class="osp-modal-overlay" id="ospModalOverlay" hidden>
+    <div class="osp-modal" role="dialog" aria-modal="true" aria-labelledby="ospModalTitle">
+      <h3 id="ospModalTitle">Sayfa güncelle</h3>
+      <p id="ospModalBookName">Kitap</p>
+      <div class="osp-modal__field">
+        <label for="ospPageInput">Şu an hangi sayfadasın?</label>
+        <input type="number" id="ospPageInput" min="1" step="1" inputmode="numeric" />
+      </div>
+      <div class="osp-modal__actions">
+        <button type="button" class="osp-btn-ghost" id="ospModalCancel">Vazgeç</button>
+        <button type="button" class="osp-btn-primary" id="ospModalSave">Kaydet</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+(function () {
+  "use strict";
+
+  var OSP = {
+    studentName: "Mustafa",
+    targetNetGap: 15,
+    weekCompletionPct: 80,
+    lastExamNet: 38.5,
+    totalSolved: 12450,
+    nextTaskId: "task-daily-1",
+    nextTask: {
+      title: "Matematik — Problemler",
+      detail: "50 soru · Bugünün programından",
+      done: false
+    },
+    week: [
+      {
+        key: "mon",
+        day: "Pazartesi",
+        date: "17 Mart",
+        tasks: [
+          { id: "task-daily-1", title: "Matematik — Problemler", detail: "50 soru", done: false },
+          { id: "t2", title: "Türkçe — Paragraf", detail: "20 soru", done: true }
+        ]
+      },
+      {
+        key: "tue",
+        day: "Salı",
+        date: "18 Mart",
+        tasks: [
+          { id: "t3", title: "Fizik — Elektrik", detail: "15 soru + konu özeti", done: false }
+        ]
+      },
+      {
+        key: "wed",
+        day: "Çarşamba",
+        date: "19 Mart",
+        tasks: [
+          { id: "t4", title: "Kimya — Organik", detail: "25 soru", done: false },
+          { id: "t5", title: "Geometri — Üçgenler", detail: "40 soru", done: false }
+        ]
+      },
+      {
+        key: "thu",
+        day: "Perşembe",
+        date: "20 Mart",
+        tasks: [{ id: "t6", title: "Biyoloji — Hücre", detail: "30 soru", done: false }]
+      },
+      {
+        key: "fri",
+        day: "Cuma",
+        date: "21 Mart",
+        tasks: [{ id: "t7", title: "TYT deneme", detail: "Genel", done: false }]
+      }
+    ],
+    books: [
+      { id: "b1", name: "345 TYT Matematik", currentPage: 150, totalPages: 456 },
+      { id: "b2", name: "Paragrafın Kitabı", currentPage: 88, totalPages: 220 },
+      { id: "b3", name: "Foton TYT Fizik", currentPage: 42, totalPages: 380 }
+    ],
+    payment: {
+      totalAgreement: 120000,
+      remaining: 45000,
+      overdueInstallments: 1,
+      overdueText: "1 taksitin vadesi geçti — koçunla iletişime geç.",
+      rows: [
+        { no: 1, due: "01.02.2026", amount: 15000, status: "Ödendi" },
+        { no: 2, due: "01.03.2026", amount: 15000, status: "Ödendi" },
+        { no: 3, due: "01.04.2026", amount: 15000, status: "Bekliyor" },
+        { no: 4, due: "01.05.2026", amount: 15000, status: "Gecikmiş" }
+      ]
+    },
+    gelisim: {
+      nets: [32, 33.5, 35, 37, 38.5]
+    },
+    targetUniversity: "",
+    targetDepartment: "",
+    coachCurrentTytNet: null,
+    coachTargetTytNet: null
+  };
+
+  window.OSP = OSP;
+
+  OSP.applyHedef = function (row) {
+    if (!row) return;
+    if (row.targetUniversity) OSP.targetUniversity = String(row.targetUniversity).trim();
+    if (row.targetDepartment) OSP.targetDepartment = String(row.targetDepartment).trim();
+    var c = parseFloat(String(row.currentTytNet != null ? row.currentTytNet : "").replace(",", "."));
+    var t = parseFloat(String(row.targetTytNet != null ? row.targetTytNet : "").replace(",", "."));
+    if (!isNaN(c)) {
+      OSP.coachCurrentTytNet = c;
+      OSP.lastExamNet = c;
+    }
+    if (!isNaN(t)) OSP.coachTargetTytNet = t;
+    var u = document.getElementById("ospHedefUni");
+    var b = document.getElementById("ospHedefBolum");
+    var wn = document.getElementById("ospWgNet");
+    if (u && OSP.targetUniversity) u.textContent = OSP.targetUniversity;
+    if (b && OSP.targetDepartment) b.textContent = OSP.targetDepartment + " — Hedef net";
+    if (wn && !isNaN(c)) wn.textContent = String(c);
+    renderOspHedefSimulator();
+  };
+
+  var OSP_TASK_DONE_KEY = "yks_osp_task_done_v1";
+
+  function getOspTaskDoneMap() {
+    try {
+      var r = localStorage.getItem(OSP_TASK_DONE_KEY);
+      var o = r ? JSON.parse(r) : {};
+      return o && typeof o === "object" ? o : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function persistOspTaskDone(taskId, done) {
+    try {
+      var m = getOspTaskDoneMap();
+      m[taskId] = !!done;
+      localStorage.setItem(OSP_TASK_DONE_KEY, JSON.stringify(m));
+    } catch (e) {}
+  }
+
+  function applyOgrenciVerisiFromStorage() {
+    try {
+      var raw = localStorage.getItem("ogrenciVerisi");
+      if (!raw) return;
+      var data = JSON.parse(raw);
+      if (!data || data.version !== 1 || !Array.isArray(data.week)) return;
+      var doneMap = getOspTaskDoneMap();
+      data.week.forEach(function (d) {
+        (d.tasks || []).forEach(function (t) {
+          if (doneMap[t.id]) t.done = true;
+        });
+      });
+      OSP.week = data.week;
+      if (data.nextTaskId && data.nextTask) {
+        OSP.nextTaskId = data.nextTaskId;
+        OSP.nextTask = {
+          title: data.nextTask.title,
+          detail: data.nextTask.detail,
+          done: !!(doneMap[data.nextTaskId] || data.nextTask.done),
+        };
+      }
+      OSP.weekCompletionPct = computeWeekPct();
+      var ban = document.getElementById("ospCoachBanner");
+      if (ban) {
+        ban.textContent =
+          "Koç planı yüklendi (yerel simülasyon). " +
+          (data.studentName ? data.studentName + " · " : "") +
+          "Güncelleme: " +
+          new Date(data.updatedAt || Date.now()).toLocaleString("tr-TR");
+      }
+    } catch (e) {}
+  }
+
+  OSP.applyProfile = function (p) {
+    if (!p) return;
+    if (p.displayName) {
+      var nm = String(p.displayName).trim();
+      var parts = nm.split(/\s+/);
+      OSP.studentName = parts[0] || nm;
+      renderDashboardHero();
+    }
+    var ban = document.getElementById("ospCoachBanner");
+    if (ban) {
+      var bridgeHint = "";
+      try {
+        if (localStorage.getItem("ogrenciVerisi")) bridgeHint = " · Yerel köprü: koç planı senkron.";
+      } catch (e) {}
+      if (p.coachId) {
+        ban.textContent =
+          "Bağlı koç ID: " +
+          p.coachId +
+          " — Koç panelindeki öğrenci listesinde görünürsün." +
+          bridgeHint;
+      } else {
+        ban.textContent = "Koç ataması yok — yöneticinle iletişime geç." + bridgeHint;
+      }
+    }
+  };
+  try {
+    var _lsn = localStorage.getItem("yksStudentName");
+    if (_lsn) {
+      OSP.studentName = _lsn.trim().split(/\s+/)[0] || _lsn;
+    }
+  } catch (e) {}
+
+  var titles = {
+    dashboard: "Ana Sayfa",
+    hedef: "🎯 Hedef Simülatörü",
+    "koca-sor": "🆘 Koça Sor",
+    haftalik: "Haftalık Programım",
+    kaynaklar: "Kaynaklarım",
+    gelisim: "Gelişim Röntgenim",
+    odeme: "Ödeme & Taksitlerim"
+  };
+
+  function ospToast(msg) {
+    var host = document.getElementById("ospToastHost");
+    if (!host) return;
+    var el = document.createElement("div");
+    el.className = "osp-toast";
+    el.textContent = msg;
+    host.appendChild(el);
+    setTimeout(function () {
+      el.remove();
+    }, 3200);
+  }
+
+  function formatNum(n) {
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  }
+
+  function formatTry(n) {
+    return formatNum(n) + " ₺";
+  }
+
+  function setActiveNav(view) {
+    document.querySelectorAll("[data-osp-nav]").forEach(function (btn) {
+      var v = btn.getAttribute("data-osp-nav");
+      var on = v === view;
+      btn.classList.toggle("sidebar__link--active", on && btn.classList.contains("sidebar__link"));
+    });
+  }
+
+  function showView(view) {
+    document.querySelectorAll(".osp-view").forEach(function (sec) {
+      var v = sec.getAttribute("data-osp-view");
+      sec.hidden = v !== view;
+    });
+    var ht = document.getElementById("ospHeaderTitle");
+    if (ht) ht.textContent = titles[view] || "Panel";
+    setActiveNav(view);
+  }
+
+  function openAccordionForView(view) {
+    document.querySelectorAll(".osp-sidebar__group.has-submenu").forEach(function (li) {
+      var hit = li.querySelector('[data-osp-nav="' + view + '"]');
+      if (hit) {
+        li.classList.add("is-open");
+        var acc = li.querySelector(".osp-sidebar__accordion");
+        if (acc) acc.setAttribute("aria-expanded", "true");
+      }
+    });
+  }
+
+  function navigate(view) {
+    if (!titles[view]) return;
+    showView(view);
+    openAccordionForView(view);
+    if (view === "hedef") renderOspHedefSimulator();
+    try {
+      history.replaceState({ view: view }, "", "#" + view);
+    } catch (e) {}
+  }
+
+  function closeMobileSidebar() {
+    var sb = document.getElementById("ospSidebar");
+    var ov = document.getElementById("ospSidebarOverlay");
+    if (sb) sb.classList.remove("is-open");
+    if (ov) {
+      ov.classList.remove("is-open");
+      ov.setAttribute("aria-hidden", "true");
+    }
+    document.body.style.overflow = "";
+  }
+
+  function openMobileSidebar() {
+    var sb = document.getElementById("ospSidebar");
+    var ov = document.getElementById("ospSidebarOverlay");
+    if (sb) sb.classList.add("is-open");
+    if (ov) {
+      ov.classList.add("is-open");
+      ov.setAttribute("aria-hidden", "false");
+    }
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeOtherAccordions(exceptLi) {
+    document.querySelectorAll(".osp-sidebar__group.has-submenu").forEach(function (li) {
+      if (li === exceptLi) return;
+      li.classList.remove("is-open");
+      var b = li.querySelector(".osp-sidebar__accordion");
+      if (b) b.setAttribute("aria-expanded", "false");
+    });
+  }
+
+  function bindAccordion() {
+    document.querySelectorAll(".osp-sidebar__group.has-submenu").forEach(function (li) {
+      var btn = li.querySelector(".osp-sidebar__accordion");
+      if (!btn) return;
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        var open = !li.classList.contains("is-open");
+        closeOtherAccordions(open ? li : null);
+        li.classList.toggle("is-open", open);
+        btn.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+    });
+  }
+
+  function syncTaskDone(taskId, done) {
+    OSP.week.forEach(function (d) {
+      d.tasks.forEach(function (t) {
+        if (t.id === taskId) t.done = done;
+      });
+    });
+    if (taskId === OSP.nextTaskId) {
+      OSP.nextTask.done = done;
+    }
+    if (taskId === OSP.nextTaskId && done) {
+      ospToast("Görev tamamlandı — koça bildirildi (demo).");
+    } else {
+      ospToast("İlerleme kaydedildi (demo).");
+    }
+    renderWeek();
+    renderDashboardHero();
+    updateNextTaskUi();
+    OSP.weekCompletionPct = computeWeekPct();
+    var wg = document.getElementById("ospWgWeek");
+    if (wg) wg.textContent = "%" + OSP.weekCompletionPct;
+    persistOspTaskDone(taskId, done);
+  }
+
+  function computeWeekPct() {
+    var total = 0,
+      done = 0;
+    OSP.week.forEach(function (d) {
+      d.tasks.forEach(function (t) {
+        total++;
+        if (t.done) done++;
+      });
+    });
+    if (!total) return 0;
+    return Math.round((done / total) * 100);
+  }
+
+  function initOspPdfHaftalik() {
+    var btn = document.getElementById("ospBtnPdfProgram");
+    var root = document.getElementById("ospHaftalikPdfRoot");
+    if (!btn || !root) return;
+    btn.addEventListener("click", function () {
+      var titleEl = document.getElementById("ospHaftalikPdfTitle");
+      if (titleEl) titleEl.textContent = "Haftalık Programım — " + (OSP.studentName || "Öğrenci");
+      var opt = {
+        margin: 10,
+        filename: "Haftalik_Program.pdf",
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+      };
+      try {
+        var h2p = typeof html2pdf !== "undefined" ? html2pdf : window.html2pdf;
+        if (!h2p) {
+          ospToast("PDF kütüphanesi bulunamadı.");
+          return;
+        }
+        var out = h2p().set(opt).from(root).save();
+        if (out && typeof out.then === "function") {
+          out
+            .then(function () {
+              ospToast("Haftalik_Program.pdf indirildi.");
+            })
+            .catch(function () {
+              ospToast("PDF oluşturulamadı.");
+            });
+        } else {
+          ospToast("Haftalik_Program.pdf indiriliyor…");
+        }
+      } catch (err) {
+        ospToast("PDF oluşturulamadı.");
+      }
+    });
+  }
+
+  function updateNextTaskUi() {
+    var btn = document.getElementById("ospBtnCompleteNext");
+    var card = document.getElementById("ospNextTaskCard");
+    if (!OSP.nextTask.done) {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Tamamla';
+      }
+      if (card) card.style.opacity = "1";
+    } else {
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-check-double"></i> Tamamlandı';
+      }
+      if (card) card.style.opacity = "0.85";
+    }
+  }
+
+  function renderDashboardHero() {
+    var g = document.getElementById("ospHeroGreet");
+    if (g) {
+      g.textContent =
+        "Hoş geldin " +
+        OSP.studentName +
+        ", hedef netine sadece " +
+        OSP.targetNetGap +
+        " net kaldı!";
+    }
+  }
+
+  function renderWeek() {
+    var c = document.getElementById("ospWeekContainer");
+    if (!c) return;
+    c.innerHTML = "";
+    OSP.week.forEach(function (day) {
+      var card = document.createElement("div");
+      card.className = "osp-day-card";
+      var head = document.createElement("div");
+      head.className = "osp-day-card__head";
+      head.textContent = day.day + " · " + day.date;
+      card.appendChild(head);
+      day.tasks.forEach(function (task) {
+        var row = document.createElement("div");
+        row.className = "osp-task-row" + (task.done ? " osp-task-row--done" : "");
+        var cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = !!task.done;
+        cb.setAttribute("aria-label", "Tamamlandı: " + task.title);
+        cb.addEventListener("change", function () {
+          syncTaskDone(task.id, cb.checked);
+        });
+        var body = document.createElement("div");
+        body.className = "osp-task-row__body";
+        var h = document.createElement("p");
+        h.className = "osp-task-row__title";
+        h.textContent = task.title;
+        var p = document.createElement("p");
+        p.className = "osp-task-row__detail";
+        p.textContent = task.detail;
+        body.appendChild(h);
+        body.appendChild(p);
+        var pill = document.createElement("span");
+        pill.className = "osp-pill" + (task.done ? "" : " osp-pill--pending");
+        pill.textContent = task.done ? "Tamamlandı" : "Bekliyor";
+        row.appendChild(cb);
+        row.appendChild(body);
+        row.appendChild(pill);
+        card.appendChild(row);
+      });
+      c.appendChild(card);
+    });
+  }
+
+  var modalBookId = null;
+
+  function renderBooks() {
+    var c = document.getElementById("ospBookList");
+    if (!c) return;
+    c.innerHTML = "";
+    OSP.books.forEach(function (book) {
+      var pct = Math.min(100, Math.round((book.currentPage / book.totalPages) * 100));
+      var card = document.createElement("div");
+      card.className = "osp-book-card";
+      var left = document.createElement("div");
+      var h = document.createElement("h3");
+      h.className = "osp-book-card__title";
+      h.textContent = book.name;
+      var meta = document.createElement("div");
+      meta.className = "osp-book-card__meta";
+      meta.textContent = "Toplam " + book.totalPages + " sayfa · Koç ataması";
+      var bar = document.createElement("div");
+      bar.className = "osp-progress";
+      var fill = document.createElement("div");
+      fill.className = "osp-progress__fill";
+      fill.style.width = pct + "%";
+      bar.appendChild(fill);
+      left.appendChild(h);
+      left.appendChild(meta);
+      left.appendChild(bar);
+      var actions = document.createElement("div");
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "osp-btn-secondary";
+      btn.textContent = "Sayfa güncelle";
+      btn.addEventListener("click", function () {
+        openPageModal(book.id);
+      });
+      actions.appendChild(btn);
+      card.appendChild(left);
+      card.appendChild(actions);
+      c.appendChild(card);
+    });
+  }
+
+  function openPageModal(bookId) {
+    modalBookId = bookId;
+    var book = OSP.books.find(function (b) {
+      return b.id === bookId;
+    });
+    var ov = document.getElementById("ospModalOverlay");
+    var inp = document.getElementById("ospPageInput");
+    var title = document.getElementById("ospModalBookName");
+    if (title && book) title.textContent = book.name;
+    if (inp && book) inp.value = String(book.currentPage);
+    if (ov) ov.hidden = false;
+    if (inp) inp.focus();
+  }
+
+  function closePageModal() {
+    var ov = document.getElementById("ospModalOverlay");
+    if (ov) ov.hidden = true;
+    modalBookId = null;
+  }
+
+  function savePageModal() {
+    if (!modalBookId) return;
+    var inp = document.getElementById("ospPageInput");
+    var v = inp ? parseInt(inp.value, 10) : NaN;
+    if (!v || v < 1) {
+      ospToast("Geçerli bir sayfa numarası gir.");
+      return;
+    }
+    var book = OSP.books.find(function (b) {
+      return b.id === modalBookId;
+    });
+    if (book) {
+      book.currentPage = Math.min(v, book.totalPages);
+      ospToast(
+        "Sayfa bilgisi koça iletildi (demo): " + book.name + " → " + book.currentPage + ". sayfa"
+      );
+      renderBooks();
+    }
+    closePageModal();
+  }
+
+  function renderPayment() {
+    var p = OSP.payment;
+    document.getElementById("ospPayTotal").textContent = formatTry(p.totalAgreement);
+    document.getElementById("ospPayRemain").textContent = formatTry(p.remaining);
+    var od = document.getElementById("ospPayOverdue");
+    var ods = document.getElementById("ospPayOverdueSub");
+    if (od) od.textContent = p.overdueInstallments ? p.overdueInstallments + " adet" : "Yok";
+    if (ods) ods.textContent = p.overdueText || "";
+    var alert = document.getElementById("ospPayAlert");
+    if (alert) {
+      if (p.overdueInstallments > 0) {
+        alert.className = "osp-alert";
+        alert.textContent = "Uyarı: " + p.overdueText;
+        alert.hidden = false;
+      } else {
+        alert.className = "osp-alert osp-alert--ok";
+        alert.textContent = "Geciken taksit görünmüyor.";
+        alert.hidden = false;
+      }
+    }
+    var tb = document.getElementById("ospPayTableBody");
+    if (tb) {
+      tb.innerHTML = "";
+      p.rows.forEach(function (r) {
+        var tr = document.createElement("tr");
+        tr.innerHTML =
+          "<td>#" +
+          r.no +
+          "</td><td>" +
+          r.due +
+          "</td><td>" +
+          formatTry(r.amount) +
+          "</td><td>" +
+          r.status +
+          "</td>";
+        tb.appendChild(tr);
+      });
+    }
+  }
+
+  function renderGelisim() {
+    var el = document.getElementById("ospGelisimStats");
+    if (!el) return;
+    var last = OSP.gelisim.nets[OSP.gelisim.nets.length - 1];
+    var first = OSP.gelisim.nets[0];
+    el.innerHTML =
+      '<div class="osp-stat-inline__item"><strong>' +
+      last +
+      '</strong><span style="font-size:0.78rem;color:var(--osp-muted)">Son TYT net</span></div>' +
+      '<div class="osp-stat-inline__item"><strong>+' +
+      (last - first).toFixed(1) +
+      '</strong><span style="font-size:0.78rem;color:var(--osp-muted)">Son 5 deneme artış</span></div>';
+  }
+
+  function renderOspHedefSimulator() {
+    var bars = document.getElementById("ospHedefBars");
+    var gapEl = document.getElementById("ospHedefGapBanner");
+    if (!bars || !gapEl) return;
+    var rows = [
+      { label: "TYT Türkçe", current: 32, target: 35 },
+      { label: "TYT Matematik", current: 35.5, target: 38 },
+      { label: "TYT Fen", current: 28, target: 32 },
+      { label: "AYT Matematik", current: 33, target: 40 }
+    ];
+    var cur = OSP.coachCurrentTytNet;
+    var tgt = OSP.coachTargetTytNet;
+    if (cur != null && tgt != null && !isNaN(cur) && !isNaN(tgt)) {
+      var c = Math.min(120, Math.max(0, cur));
+      var t = Math.min(120, Math.max(0, tgt));
+      rows[0].current = Math.min(40, c * 0.28);
+      rows[0].target = Math.min(40, t * 0.28);
+      rows[1].current = Math.min(40, c * 0.32);
+      rows[1].target = Math.min(40, t * 0.32);
+      rows[2].current = Math.min(40, c * 0.22);
+      rows[2].target = Math.min(40, t * 0.22);
+      rows[3].current = Math.min(40, c * 0.28);
+      rows[3].target = Math.min(40, t * 0.28);
+    }
+    var totalGap = 0;
+    bars.innerHTML = rows
+      .map(function (r) {
+        var pct = Math.min(100, (r.current / r.target) * 100);
+        var gap = Math.max(0, r.target - r.current);
+        totalGap += gap;
+        var ok = r.current >= r.target;
+        return (
+          '<div class="osp-hedef-bar-block"><div class="osp-hedef-bar-head"><span>' +
+          r.label +
+          "</span><span>" +
+          r.current.toFixed(1) +
+          " / " +
+          r.target.toFixed(1) +
+          ' net</span></div><div class="osp-hedef-bar-track"><div class="osp-hedef-bar-fill ' +
+          (ok ? "osp-hedef-bar-fill--ok" : "") +
+          '" style="width:' +
+          pct.toFixed(1) +
+          '%"></div></div></div>'
+        );
+      })
+      .join("");
+    gapEl.textContent =
+      "Kalan net farkı (branş toplamı): " +
+      totalGap.toFixed(1) +
+      (OSP.coachCurrentTytNet != null && OSP.coachTargetTytNet != null
+        ? " — Koç kaydındaki güncel/hedef TYT netine göre ölçeklendirildi."
+        : " — Koç panelinden güncel/hedef net girilince güncellenir.");
+  }
+
+  function initOspPomodoro() {
+    var display = document.getElementById("ospPomoDisplay");
+    var btn25 = document.getElementById("ospPomo25");
+    var btn40 = document.getElementById("ospPomo40");
+    var start = document.getElementById("ospPomoStart");
+    var pause = document.getElementById("ospPomoPause");
+    var brk = document.getElementById("ospPomoBreak");
+    var hint = document.getElementById("ospPomoHint");
+    if (!display || !start || !pause || !brk) return;
+
+    var minutes = 25;
+    var totalSec = 25 * 60;
+    var remaining = totalSec;
+    var timer = null;
+    var isBreak = false;
+
+    function fmt(sec) {
+      var m = Math.floor(sec / 60);
+      var s = sec % 60;
+      return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+    }
+
+    function stopTick() {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    }
+
+    function applyPreset(m) {
+      minutes = m;
+      totalSec = m * 60;
+      remaining = totalSec;
+      isBreak = false;
+      display.textContent = fmt(remaining);
+      display.classList.remove("osp-pomodoro-timer--break");
+      if (btn25 && btn40) {
+        btn25.classList.toggle("is-active", m === 25);
+        btn40.classList.toggle("is-active", m === 40);
+      }
+    }
+
+    if (btn25) btn25.addEventListener("click", function () {
+      stopTick();
+      applyPreset(25);
+      start.disabled = false;
+      pause.disabled = true;
+    });
+    if (btn40) btn40.addEventListener("click", function () {
+      stopTick();
+      applyPreset(40);
+      start.disabled = false;
+      pause.disabled = true;
+    });
+
+    pause.addEventListener("click", function () {
+      stopTick();
+      start.disabled = false;
+      pause.disabled = true;
+      if (hint) hint.textContent = "Duraklatıldı.";
+    });
+
+    brk.addEventListener("click", function () {
+      stopTick();
+      isBreak = true;
+      remaining = 5 * 60;
+      display.classList.add("osp-pomodoro-timer--break");
+      display.textContent = fmt(remaining);
+      start.disabled = false;
+      pause.disabled = true;
+      if (hint) hint.textContent = "Mola: 5 dk — Başlat ile geri sayımı çalıştır.";
+    });
+
+    start.addEventListener("click", function () {
+      if (remaining <= 0 && !isBreak) remaining = totalSec;
+      if (remaining <= 0 && isBreak) remaining = 5 * 60;
+      display.classList.toggle("osp-pomodoro-timer--break", isBreak);
+      if (timer) return;
+      timer = setInterval(function () {
+        remaining -= 1;
+        if (remaining <= 0) {
+          stopTick();
+          display.textContent = "00:00";
+          start.disabled = false;
+          pause.disabled = true;
+          ospToast(isBreak ? "Mola bitti." : "Odak süresi tamamlandı!");
+          if (isBreak) {
+            isBreak = false;
+            remaining = totalSec;
+            display.classList.remove("osp-pomodoro-timer--break");
+            display.textContent = fmt(remaining);
+          } else {
+            remaining = totalSec;
+            display.textContent = fmt(remaining);
+          }
+          if (hint) hint.textContent = "Hazırsan yeni tur için Başlat.";
+          return;
+        }
+        display.textContent = fmt(remaining);
+      }, 1000);
+      start.disabled = true;
+      pause.disabled = false;
+      if (hint) hint.textContent = isBreak ? "Mola süresi işliyor…" : "Odaklanıyorsun…";
+    });
+  }
+
+  function initOspKocaSor() {
+    var dz = document.getElementById("ospKocaDropzone");
+    var fi = document.getElementById("ospKocaFile");
+    var fn = document.getElementById("ospKocaFileName");
+    var msg = document.getElementById("ospKocaMsg");
+    var btn = document.getElementById("ospKocaGonder");
+    if (!dz || !fi || !btn) return;
+    var picked = null;
+    dz.addEventListener("click", function () {
+      fi.click();
+    });
+    dz.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        fi.click();
+      }
+    });
+    dz.addEventListener("dragover", function (e) {
+      e.preventDefault();
+      dz.classList.add("osp-koca-dropzone--drag");
+    });
+    dz.addEventListener("dragleave", function () {
+      dz.classList.remove("osp-koca-dropzone--drag");
+    });
+    dz.addEventListener("drop", function (e) {
+      e.preventDefault();
+      dz.classList.remove("osp-koca-dropzone--drag");
+      var f = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) {
+        picked = f;
+        if (fn) fn.textContent = f.name;
+      }
+    });
+    fi.addEventListener("change", function () {
+      var f = fi.files && fi.files[0];
+      picked = f || null;
+      if (fn) fn.textContent = picked ? picked.name : "";
+    });
+    btn.addEventListener("click", function () {
+      var list = [];
+      try {
+        var raw = localStorage.getItem("derece_koca_sor_inbox");
+        list = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(list)) list = [];
+      } catch (e) {
+        list = [];
+      }
+      var text = msg ? String(msg.value || "").trim() : "";
+      if (!text && !picked) {
+        ospToast("Kısa bir mesaj veya dosya ekleyin.");
+        return;
+      }
+      list.unshift({
+        id: "msg-" + Date.now(),
+        student: "Öğrenci (demo)",
+        message: text || "(Dosya ekli)",
+        fileName: picked ? picked.name : "",
+        at: Date.now(),
+        read: false
+      });
+      try {
+        localStorage.setItem("derece_koca_sor_inbox", JSON.stringify(list));
+        ospToast("Gönderildi. Koç paneli → Gelen Sorular (aynı tarayıcı, demo).");
+        if (msg) msg.value = "";
+        picked = null;
+        fi.value = "";
+        if (fn) fn.textContent = "";
+      } catch (e) {
+        ospToast("Kayıt başarısız.");
+      }
+    });
+  }
+
+  function init() {
+    applyOgrenciVerisiFromStorage();
+    initOspPdfHaftalik();
+
+    document.querySelectorAll("[data-osp-nav]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var v = btn.getAttribute("data-osp-nav");
+        navigate(v);
+        closeMobileSidebar();
+      });
+    });
+
+    document.getElementById("ospBtnCompleteNext").addEventListener("click", function () {
+      if (OSP.nextTask.done) return;
+      syncTaskDone(OSP.nextTaskId, true);
+      updateNextTaskUi();
+    });
+
+    document.getElementById("ospMenuToggle").addEventListener("click", function () {
+      var sb = document.getElementById("ospSidebar");
+      if (sb && sb.classList.contains("is-open")) closeMobileSidebar();
+      else openMobileSidebar();
+    });
+    document.getElementById("ospSidebarOverlay").addEventListener("click", closeMobileSidebar);
+
+    document.getElementById("ospModalCancel").addEventListener("click", closePageModal);
+    document.getElementById("ospModalSave").addEventListener("click", savePageModal);
+    document.getElementById("ospModalOverlay").addEventListener("click", function (e) {
+      if (e.target.id === "ospModalOverlay") closePageModal();
+    });
+
+    bindAccordion();
+
+    initOspPomodoro();
+    initOspKocaSor();
+
+    renderDashboardHero();
+    document.getElementById("ospWgNet").textContent = String(OSP.lastExamNet);
+    document.getElementById("ospWgSolved").textContent = formatNum(OSP.totalSolved);
+    document.getElementById("ospWgWeek").textContent = "%" + computeWeekPct();
+    document.getElementById("ospNextTaskTitle").textContent = OSP.nextTask.title;
+    document.getElementById("ospNextTaskMeta").textContent = OSP.nextTask.detail;
+    updateNextTaskUi();
+
+    renderWeek();
+    renderBooks();
+    renderPayment();
+    renderGelisim();
+
+    var hash = (location.hash || "").replace(/^#/, "");
+    if (titles[hash]) navigate(hash);
+    else navigate("dashboard");
+
+    window.addEventListener("resize", function () {
+      if (window.innerWidth > 992) closeMobileSidebar();
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+  </script>
+  <script type="module" src="js/ogrenci-panel-app.js"></script>
+</body>
+</html>

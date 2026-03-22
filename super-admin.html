@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kurucu Kontrol Merkezi — YKS Koçluk</title>
+  <title>DerecePanel — Kurucu</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet" />
@@ -253,6 +253,8 @@
     }
     #formCoachMsg.is-ok { display: block; background: rgba(52, 245, 197, 0.1); border: 1px solid rgba(52, 245, 197, 0.3); color: var(--neon); }
     #formCoachMsg.is-err { display: block; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); color: #fca5a5; }
+    #formStudentMsg.is-ok { display: block !important; background: rgba(52, 245, 197, 0.1); border: 1px solid rgba(52, 245, 197, 0.3); color: var(--neon); }
+    #formStudentMsg.is-err { display: block !important; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); color: #fca5a5; }
     .table-wrap {
       overflow-x: auto;
       border-radius: 16px;
@@ -331,14 +333,16 @@
     .btn-action--key:hover { background: rgba(250, 204, 21, 0.12); }
     .btn-action--freeze:hover { background: rgba(239, 68, 68, 0.12); }
     .btn-action--eye:hover { background: rgba(52, 245, 197, 0.12); }
+    .btn-action--mail:hover { background: rgba(56, 189, 248, 0.12); }
     .btn-action[title] { position: relative; }
+    .table-wrap--students table { min-width: 880px; }
   </style>
 </head>
 <body>
   <header class="topbar">
     <div class="topbar__brand">
       <i class="fa-solid fa-chart-line"></i>
-      Kurucu Kontrol Merkezi
+      DerecePanel
       <span class="topbar__tag">Analytics</span>
     </div>
     <div class="topbar__actions">
@@ -412,6 +416,63 @@
         </button>
         <div id="formCoachMsg"></div>
       </form>
+    </section>
+
+    <section class="card">
+      <h2 class="section-title"><i class="fa-solid fa-user-graduate"></i> Yeni öğrenci hesabı oluştur</h2>
+      <p style="font-size:0.85rem;color:var(--muted);margin:0 0 1rem;line-height:1.5;max-width:52ch">
+        Öğrenci, seçtiğiniz koça bağlanır. Giriş: <strong>login.html</strong> → <strong>Öğrenci</strong> sekmesi.
+      </p>
+      <form id="formCreateStudent">
+        <div class="form-grid">
+          <div class="form-group form-group--full">
+            <label for="studentCoachSelect">Bağlı koç</label>
+            <select id="studentCoachSelect" required>
+              <option value="">— Önce koç listesi yüklensin —</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="studentUsername">Öğrenci kullanıcı adı</label>
+            <input id="studentUsername" required placeholder="ogrenci_ahmet" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="studentPassword">Şifre</label>
+            <input id="studentPassword" type="password" required minlength="6" placeholder="min. 6 karakter" />
+          </div>
+          <div class="form-group form-group--full">
+            <label for="studentFullName">Ad soyad (isteğe bağlı)</label>
+            <input id="studentFullName" maxlength="120" placeholder="Panelde görünecek isim" />
+          </div>
+        </div>
+        <button type="submit" class="btn-create" id="btnCreateStudent">
+          <i class="fa-solid fa-user-plus"></i> Öğrenci oluştur
+        </button>
+        <div id="formStudentMsg" style="display:none;margin-top:1rem;padding:0.65rem;border-radius:10px;font-size:0.88rem;"></div>
+      </form>
+    </section>
+
+    <section>
+      <h2 class="section-title"><i class="fa-solid fa-users"></i> Kayıtlı öğrenciler</h2>
+      <p style="font-size:0.85rem;color:var(--muted);margin:0 0 1rem;line-height:1.55;max-width:62ch">
+        <strong>Son giriş</strong> ve <strong>son şifre işlemi</strong> tarih/saat bilgileri Firestore’da tutulur. Giriş her başarılı öğrenci oturumunda güncellenir.
+        Şifre değiştirmek için 🔑 ile öğrencinin <em>mevcut</em> şifresini girmeniz gerekir; 📧 ile Firebase sıfırlama e-postası gönderilir (yalnızca e-posta gerçekten ulaşıyorsa işe yarar).
+      </p>
+      <div class="table-wrap table-wrap--students">
+        <table>
+          <thead>
+            <tr>
+              <th>Öğrenci</th>
+              <th>Bağlı koç</th>
+              <th>Son giriş</th>
+              <th>Son şifre işlemi</th>
+              <th>İşlemler</th>
+            </tr>
+          </thead>
+          <tbody id="studentsTableBody">
+            <tr><td colspan="5" class="mono" style="padding:1.75rem">Yükleniyor…</td></tr>
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <section>

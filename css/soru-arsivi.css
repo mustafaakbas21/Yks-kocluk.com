@@ -63,8 +63,8 @@
 
 .soru-arsivi-field select:focus {
   outline: none;
-  border-color: #818cf8;
-  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.25);
+  border-color: rgba(108, 92, 231, 0.45);
+  box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.2);
 }
 
 .soru-arsivi-search-btn {
@@ -80,14 +80,14 @@
   font-weight: 800;
   cursor: pointer;
   color: #fff;
-  background: linear-gradient(135deg, #4f46e5, #7c3aed);
-  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.35);
+  background: linear-gradient(135deg, #6c5ce7, #5b4fcf);
+  box-shadow: 0 4px 14px rgba(108, 92, 231, 0.3);
   transition: transform 0.15s, box-shadow 0.15s;
 }
 
 .soru-arsivi-search-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(79, 70, 229, 0.4);
+  box-shadow: 0 6px 18px rgba(108, 92, 231, 0.38);
 }
 
 .soru-arsivi-empty {
@@ -140,6 +140,120 @@
   flex: 1;
 }
 
+.soru-arsivi-card__detail {
+  margin-top: 0.15rem;
+  padding: 0.65rem 0.7rem;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #eef0f2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.soru-arsivi-meta-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.soru-arsivi-meta-lbl {
+  font-weight: 700;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.soru-arsivi-meta-val {
+  font-weight: 600;
+  color: #1f2937;
+  text-align: right;
+  word-break: break-word;
+}
+
+.soru-arsivi-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.15rem;
+}
+
+.soru-arsivi-status {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.28rem 0.55rem;
+  border-radius: 8px;
+}
+
+.soru-arsivi-status--bekliyor {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
+.soru-arsivi-status--cozuldu {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.soru-arsivi-btn-cozum {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #64748b;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.soru-arsivi-btn-cozum:hover {
+  background: #f5f3ff;
+  border-color: rgba(108, 92, 231, 0.35);
+  color: #6c5ce7;
+}
+
+.soru-arsivi-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+}
+
+.soru-arsivi-btn-sepet {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: none;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  color: #fff;
+  background: linear-gradient(135deg, #6c5ce7, #5b4fcf);
+  box-shadow: 0 4px 14px rgba(108, 92, 231, 0.3);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.soru-arsivi-btn-sepet:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(108, 92, 231, 0.38);
+}
+
 .soru-arsivi-card__badges {
   display: flex;
   flex-wrap: wrap;
@@ -161,7 +275,7 @@
 }
 
 .soru-arsivi-card__del {
-  margin-top: auto;
+  margin-top: 0;
   width: 100%;
   padding: 0.45rem;
   border: 1px solid #fecaca;

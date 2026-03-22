@@ -1,0 +1,353 @@
+/**
+ * DerecePanel — Premium Light overrides
+ * koc-panel.html içindeki <style> bloğundan SONRA yüklenir; koyu inline stilleri açık temaya çevirir.
+ * Ana tokenlar: --dp-bg, --dp-surface, --dp-border, --dp-text, --dp-muted, --dp-accent (#6c5ce7)
+ */
+:root {
+  --dp-bg: #f4f7f6;
+  --dp-surface: #ffffff;
+  --dp-border: #eef0f2;
+  --dp-text: #1f2937;
+  --dp-muted: #64748b;
+  --dp-accent: #6c5ce7;
+  --dp-accent-dark: #5b4fcf;
+  --dp-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --dp-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+/* —— Shell —— */
+body {
+  background: var(--dp-bg) !important;
+  color: var(--dp-text);
+}
+
+.app--sidebar-readable .sidebar--elite {
+  background: var(--dp-surface) !important;
+  border-right: 1px solid var(--dp-border) !important;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.04) !important;
+}
+
+.app--sidebar-readable .sidebar--elite .sidebar__section-label {
+  color: var(--dp-muted) !important;
+}
+
+/* —— YKS sınav sayacı (dashboard üstü) —— */
+.yks-countdown-widget {
+  background: linear-gradient(145deg, #ffffff 0%, #faf5ff 50%, #f8fafc 100%) !important;
+  border: 1px solid var(--dp-border) !important;
+  box-shadow: var(--dp-shadow) !important;
+}
+.yks-countdown-widget__glow {
+  opacity: 0.35 !important;
+}
+.yks-countdown-widget__badge {
+  color: var(--dp-accent-dark) !important;
+  background: rgba(108, 92, 231, 0.12) !important;
+  border-color: rgba(108, 92, 231, 0.25) !important;
+}
+.yks-countdown-widget__title {
+  color: var(--dp-text) !important;
+}
+.yks-countdown-widget__meta {
+  color: var(--dp-muted) !important;
+}
+.yks-countdown-widget__cell {
+  background: var(--dp-surface) !important;
+  border: 1px solid var(--dp-border) !important;
+  backdrop-filter: none !important;
+  box-shadow: var(--dp-shadow) !important;
+}
+.yks-countdown-widget__value {
+  color: var(--dp-accent-dark) !important;
+}
+.yks-countdown-widget__label {
+  color: var(--dp-muted) !important;
+}
+
+/* —— YKS Pro özellik kökü (değişkenler + üst yüzeyler) —— */
+.yks-pro-root {
+  --yks-pro-bg: linear-gradient(180deg, #fafbfc 0%, var(--dp-bg) 100%) !important;
+  --yks-pro-card: #ffffff !important;
+  --yks-pro-border: #eef0f2 !important;
+  --yks-pro-accent: #6c5ce7 !important;
+  --yks-pro-text: #1f2937 !important;
+  --yks-pro-muted: #64748b !important;
+}
+
+.yks-pro-hero {
+  background: linear-gradient(135deg, #ffffff 0%, #faf5ff 55%, #f8fafc 100%) !important;
+  border: 1px solid var(--dp-border) !important;
+  box-shadow: var(--dp-shadow) !important;
+}
+.yks-pro-hero h1 {
+  color: var(--dp-text) !important;
+}
+.yks-pro-hero p {
+  color: var(--dp-muted) !important;
+}
+.yks-pro-hero__badge {
+  color: var(--dp-accent-dark) !important;
+}
+
+.yks-weekly-bank h3,
+.yks-weekly-day__head {
+  color: var(--dp-accent-dark) !important;
+}
+
+.yks-weekly-bank,
+.yks-weekly-day,
+.yks-kaynak-row {
+  background: #ffffff !important;
+  border-color: var(--dp-border) !important;
+  box-shadow: var(--dp-shadow) !important;
+}
+
+.yks-sortable-item {
+  background: rgba(108, 92, 231, 0.08) !important;
+  border-color: rgba(108, 92, 231, 0.2) !important;
+  color: var(--dp-text) !important;
+}
+
+.yks-kaynak-row__title {
+  color: var(--dp-text) !important;
+}
+
+.yks-konu-alert--danger {
+  background: #fef2f2 !important;
+  border-color: #fecaca !important;
+  color: #991b1b !important;
+}
+.yks-konu-alert--warn {
+  background: #fffbeb !important;
+  border-color: #fde68a !important;
+  color: #92400e !important;
+}
+
+.yks-progress {
+  background: var(--dp-border) !important;
+}
+
+/* Kaynak / Akıllı reçete */
+.kk-student-bar {
+  background: #ffffff !important;
+  border-color: var(--dp-border) !important;
+  box-shadow: var(--dp-shadow) !important;
+}
+.kk-student-bar__label {
+  color: var(--dp-accent-dark) !important;
+}
+.kk-student-bar__select {
+  background: #ffffff !important;
+  border-color: rgba(108, 92, 231, 0.25) !important;
+  color: var(--dp-text) !important;
+}
+.kk-student-chip {
+  background: rgba(108, 92, 231, 0.08) !important;
+  border-color: rgba(108, 92, 231, 0.2) !important;
+  color: var(--dp-text) !important;
+}
+.kk-student-chip.is-active {
+  color: #ffffff !important;
+  background: linear-gradient(135deg, #6c5ce7, #5b4fcf) !important;
+  border-color: transparent !important;
+}
+.kk-empty {
+  background: #f8fafc !important;
+  color: var(--dp-muted) !important;
+}
+.kk-acc {
+  background: #ffffff !important;
+  border-color: var(--dp-border) !important;
+  box-shadow: var(--dp-shadow) !important;
+}
+.kk-acc__title {
+  color: var(--dp-text) !important;
+}
+.kk-acc__body {
+  background: #f8fafc !important;
+  border-top-color: var(--dp-border) !important;
+}
+.kk-acc__head:hover {
+  background: rgba(108, 92, 231, 0.06) !important;
+}
+.kk-perf {
+  background: rgba(108, 92, 231, 0.06) !important;
+  border-color: rgba(108, 92, 231, 0.15) !important;
+}
+.kk-perf__lbl {
+  color: var(--dp-accent-dark) !important;
+}
+.kk-perf input {
+  background: #ffffff !important;
+  border-color: var(--dp-border) !important;
+  color: var(--dp-text) !important;
+}
+.kk-topic-name {
+  color: var(--dp-text) !important;
+}
+.kk-st {
+  background: #ffffff !important;
+  border-color: var(--dp-border) !important;
+  color: var(--dp-muted) !important;
+}
+.kk-st:hover {
+  color: var(--dp-text) !important;
+}
+.kk-badge--ok {
+  color: #166534 !important;
+  background: #dcfce7 !important;
+  border-color: #86efac !important;
+}
+.kk-badge--mid {
+  color: #92400e !important;
+  background: #fef3c7 !important;
+  border-color: #fde68a !important;
+}
+.kk-badge--low {
+  color: #991b1b !important;
+  background: #fee2e2 !important;
+  border-color: #fecaca !important;
+}
+.kk-badge--muted {
+  color: var(--dp-muted) !important;
+  background: #f1f5f9 !important;
+  border-color: var(--dp-border) !important;
+}
+
+.modal--kk {
+  background: #ffffff !important;
+  border-color: var(--dp-border) !important;
+  color: var(--dp-text) !important;
+  box-shadow: var(--dp-shadow-lg) !important;
+}
+.modal--kk .modal__head {
+  background: #fafafa !important;
+  border-bottom-color: var(--dp-border) !important;
+}
+.modal--kk .modal__title {
+  color: var(--dp-text) !important;
+}
+.modal--kk .modal__subtitle {
+  color: var(--dp-muted) !important;
+}
+.kk-lib-filters select {
+  background: #ffffff !important;
+  border-color: var(--dp-border) !important;
+  color: var(--dp-text) !important;
+}
+.kk-lib-card {
+  background: #ffffff !important;
+  border-color: var(--dp-border) !important;
+}
+.kk-lib-card h4 {
+  color: var(--dp-text) !important;
+}
+.kk-lib-card p {
+  color: var(--dp-muted) !important;
+}
+
+/* Muhasebe */
+.muhasebe-kpi-card {
+  background: linear-gradient(155deg, #ffffff 0%, #faf5ff 50%, #f8fafc 100%) !important;
+  border: 1px solid var(--dp-border) !important;
+  box-shadow: var(--dp-shadow) !important;
+}
+.muhasebe-kpi-card__lbl {
+  color: var(--dp-accent-dark) !important;
+}
+.muhasebe-kpi-card__val {
+  color: var(--dp-text) !important;
+}
+.muhasebe-kpi-card__sub {
+  color: var(--dp-muted) !important;
+}
+.muhasebe-section-title {
+  color: var(--dp-text) !important;
+}
+.muhasebe-overdue-wrap {
+  background: #fef2f2 !important;
+  border-color: #fecaca !important;
+}
+.fin-badge--done {
+  color: #166534 !important;
+  background: #dcfce7 !important;
+  border-color: #86efac !important;
+}
+.fin-badge--debt {
+  color: #c2410c !important;
+  background: #ffedd5 !important;
+  border-color: #fdba74 !important;
+}
+.fin-badge--late {
+  color: #991b1b !important;
+  background: #fee2e2 !important;
+  border-color: #fecaca !important;
+}
+.fin-badge--muted {
+  color: var(--dp-muted) !important;
+  background: #f1f5f9 !important;
+  border-color: var(--dp-border) !important;
+}
+.btn-wa-remind {
+  color: #166534 !important;
+  background: #dcfce7 !important;
+  border-color: #86efac !important;
+}
+
+/* Öğrenci detay ERP sekmeleri */
+.sd-erp-tabs {
+  background: #f1f5f9 !important;
+  border: 1px solid var(--dp-border) !important;
+}
+.sd-erp-tab {
+  color: var(--dp-muted) !important;
+}
+.sd-erp-tab:hover {
+  color: var(--dp-accent-dark) !important;
+  background: rgba(108, 92, 231, 0.08) !important;
+}
+.sd-erp-tab.is-active {
+  color: #ffffff !important;
+  background: linear-gradient(135deg, #6c5ce7, #5b4fcf) !important;
+  border-color: rgba(108, 92, 231, 0.35) !important;
+}
+.sd-fin-alert {
+  background: #fef2f2 !important;
+  border-color: #fecaca !important;
+  color: #991b1b !important;
+}
+.sd-fin-kpi {
+  background: #ffffff !important;
+  border: 1px solid var(--dp-border) !important;
+  box-shadow: var(--dp-shadow) !important;
+}
+.sd-fin-kpi__lbl {
+  color: var(--dp-muted) !important;
+}
+.sd-fin-kpi__val {
+  color: var(--dp-text) !important;
+}
+
+/* Haftalık program — öğrenci çubuğu (kk ile aynı mantık) */
+.hp-student-bar {
+  background: #ffffff !important;
+  border-color: var(--dp-border) !important;
+  box-shadow: var(--dp-shadow) !important;
+}
+.hp-student-bar__label {
+  color: var(--dp-accent-dark) !important;
+}
+.hp-student-bar__select {
+  background: #ffffff !important;
+  border-color: rgba(108, 92, 231, 0.25) !important;
+  color: var(--dp-text) !important;
+}
+.hp-student-chip {
+  background: rgba(108, 92, 231, 0.08) !important;
+  border-color: rgba(108, 92, 231, 0.2) !important;
+  color: var(--dp-text) !important;
+}
+.hp-student-chip.is-active {
+  color: #ffffff !important;
+  background: linear-gradient(135deg, #6c5ce7, #5b4fcf) !important;
+}

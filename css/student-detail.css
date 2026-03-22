@@ -1,0 +1,521 @@
+/* Öğrenci detay sayfası */
+.sd-page {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.sd-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.sd-back.btn {
+  flex-shrink: 0;
+}
+.sd-hero {
+  flex: 1;
+  min-width: 240px;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, #faf5ff 0%, #fff 50%, #f0f9ff 100%);
+  border: 1px solid #e9d5ff;
+  border-radius: 16px;
+}
+.sd-hero img {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  object-fit: cover;
+  border: 2px solid #e9d5ff;
+}
+.sd-hero__text h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #4c1d95;
+}
+.sd-hero__meta {
+  font-size: 0.85rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+.sd-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+.sd-kpi {
+  background: #fff;
+  border: 1px solid #e9d5ff;
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  text-align: center;
+}
+.sd-kpi__val {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #4c1d95;
+}
+.sd-kpi__lbl {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  margin-top: 0.25rem;
+}
+.sd-section {
+  background: #fff;
+  border: 1px solid #e8e8ed;
+  border-radius: 14px;
+  padding: 1rem 1.15rem 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 8px rgba(109, 40, 217, 0.06);
+}
+.sd-section h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #4c1d95;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.sd-chart-wrap {
+  position: relative;
+  height: 220px;
+  max-width: 100%;
+}
+.sd-note-area {
+  width: 100%;
+  min-height: 100px;
+  padding: 0.75rem;
+  border-radius: 12px;
+  border: 1px solid #e9d5ff;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+.sd-branch-mini {
+  font-size: 0.75rem;
+  color: #475569;
+  max-height: 120px;
+  overflow: auto;
+  white-space: pre-wrap;
+  background: #f8fafc;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  margin-top: 0.35rem;
+}
+
+/* Optik + karne araçları */
+.da-tools-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+@media (max-width: 900px) {
+  .da-tools-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.da-tool-card {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 1rem 1.15rem;
+}
+.da-tool-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #1e3a5f;
+}
+.da-tool-card textarea {
+  width: 100%;
+  min-height: 140px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+  padding: 0.65rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  margin-top: 0.5rem;
+}
+.karne-print {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 0.75rem;
+  max-height: 360px;
+  overflow: auto;
+}
+.karne-print--scroll {
+  max-height: min(70vh, 720px);
+}
+.karne-report {
+  font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+  color: #0f172a;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.karne-report--template {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.karne-report__hero {
+  background: linear-gradient(135deg, #1e3a5f 0%, #1e40af 48%, #0f766e 100%);
+  color: #f8fafc;
+  border-radius: 14px;
+  padding: 1.35rem 1.5rem 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.18);
+}
+.karne-report__hero-inner {
+  max-width: 52rem;
+}
+.karne-report__badge {
+  display: inline-block;
+  margin: 0 0 0.5rem;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+.karne-report__hero h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+.karne-report__lead {
+  margin: 0 0 0.65rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  opacity: 0.95;
+}
+.karne-report__meta {
+  margin: 0;
+  font-size: 0.78rem;
+  opacity: 0.85;
+}
+.karne-report__filters {
+  margin: 0 0 0.5rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.95);
+}
+.karne-report__filters strong {
+  font-weight: 700;
+}
+.karne-filters label span {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  margin-bottom: 0.3rem;
+}
+.karne-filter-select {
+  width: 100%;
+  min-height: 2.35rem;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+}
+.karne-empty--big {
+  padding: 2rem 1rem;
+  text-align: center;
+  font-size: 0.95rem;
+  color: #64748b;
+}
+.karne-report__header {
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+.karne-report__header h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #1e3a5f;
+}
+.karne-sec-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  margin-right: 0.45rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(145deg, #2563eb, #0d9488);
+  border-radius: 8px;
+  vertical-align: middle;
+}
+.karne-section--summary h3 {
+  color: #1e40af;
+}
+.karne-footnote--block {
+  margin-bottom: 1rem !important;
+}
+.karne-section {
+  margin-bottom: 1.75rem;
+  page-break-inside: auto;
+}
+.karne-section h3 {
+  margin: 0 0 0.65rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #1e40af;
+}
+.karne-section--detail h3 {
+  color: #0f766e;
+}
+.karne-footnote {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+.karne-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fafafa;
+}
+.karne-table {
+  width: 100%;
+  min-width: 880px;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.karne-table th,
+.karne-table td {
+  border: 1px solid #cbd5e1;
+  padding: 0.45rem 0.5rem;
+  text-align: left;
+  vertical-align: middle;
+}
+.karne-table thead th {
+  background: #f1f5f9;
+  font-weight: 700;
+  color: #334155;
+}
+.karne-th-group {
+  text-align: center !important;
+}
+.karne-th-tyt {
+  background: #eff6ff !important;
+  color: #1e40af !important;
+}
+.karne-th-ayt {
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+}
+.karne-student-block,
+.karne-student-card {
+  margin-bottom: 1.5rem;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+  page-break-inside: auto;
+}
+.karne-student-card__head {
+  padding: 1rem 1.1rem 0.85rem;
+  background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+  border-bottom: 1px solid #e2e8f0;
+}
+.karne-student-card h4 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+.karne-student-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+@media (max-width: 768px) {
+  .karne-student-split {
+    grid-template-columns: 1fr;
+  }
+}
+.karne-branch-panel {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fafafa;
+}
+.karne-branch-panel--tyt {
+  border-top: 3px solid #3b82f6;
+}
+.karne-branch-panel--ayt {
+  border-top: 3px solid #10b981;
+}
+.karne-branch-panel__head {
+  padding: 0.5rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #475569;
+  background: #f1f5f9;
+}
+.karne-branch-panel__empty {
+  margin: 0;
+  padding: 0.75rem;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+.karne-branch-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.76rem;
+}
+.karne-branch-table th,
+.karne-branch-table td {
+  border: 1px solid #e2e8f0;
+  padding: 0.4rem 0.45rem;
+  text-align: left;
+}
+.karne-branch-table thead th {
+  background: #fff;
+  font-weight: 700;
+  color: #475569;
+}
+.karne-branch-table--compact {
+  font-size: 0.72rem;
+  margin-top: 0.35rem;
+}
+.karne-table-wrap--exam {
+  margin: 0 1.1rem 1.1rem;
+  border-radius: 10px;
+}
+.karne-exam-row td {
+  vertical-align: middle;
+}
+.karne-exam-detail td {
+  padding: 0 !important;
+  border-top: none !important;
+  background: #f8fafc;
+}
+.karne-exam-detail__box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+}
+.karne-exam-branches {
+  flex: 1;
+  min-width: 200px;
+}
+.karne-exam-branches__label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  margin-bottom: 0.35rem;
+}
+.karne-exam-branches--tyt .karne-exam-branches__label {
+  color: #1d4ed8;
+}
+.karne-exam-branches--ayt .karne-exam-branches__label {
+  color: #047857;
+}
+.karne-tag {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.karne-tag--tyt {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.karne-tag--ayt {
+  background: #d1fae5;
+  color: #047857;
+}
+.karne-student-block h4 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+.karne-student-meta {
+  margin: 0 0 0.65rem;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+.karne-empty {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+.karne-table--exams {
+  min-width: 100%;
+}
+.karne-report__footer {
+  margin-top: 1.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  text-align: center;
+}
+.karne-print table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.karne-print th,
+.karne-print td {
+  border: 1px solid #cbd5e1;
+  padding: 0.45rem 0.5rem;
+  text-align: left;
+}
+.karne-print th {
+  background: #f1f5f9;
+  font-weight: 700;
+}
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #karnePrintArea,
+  #karnePrintArea * {
+    visibility: visible;
+  }
+  #karnePrintArea {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-height: none !important;
+    overflow: visible !important;
+    border: none;
+  }
+}

@@ -690,3 +690,84 @@
     outline: 2px solid var(--purple-400);
   }
 }
+
+/* Hedef üniversite arama (YKS JSON) */
+.yks-hedef-uni-wrap {
+  position: relative;
+}
+
+.yks-uni-dropdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  z-index: 120;
+  max-height: min(260px, 42vh);
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+}
+
+.yks-uni-dropdown__item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.75rem;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.86rem;
+  cursor: pointer;
+  color: #334155;
+}
+
+.yks-uni-dropdown__item:hover,
+.yks-uni-dropdown__item:focus {
+  background: #f5f3ff;
+  color: #5b21b6;
+  outline: none;
+}
+
+.yks-uni-dropdown__empty {
+  padding: 0.75rem;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.yks-uni-picked {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: #5b21b6;
+  font-weight: 600;
+}
+
+.dp-hedef-student-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 1.5rem 1rem;
+  padding: 0.85rem 1rem;
+  background: #fff;
+  border: 1px solid #eef0f2;
+  border-radius: 14px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.dp-hedef-student-bar label {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #475569;
+}
+
+.dp-hedef-student-bar select {
+  min-width: 220px;
+  padding: 0.45rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  font: inherit;
+  font-size: 0.88rem;
+}

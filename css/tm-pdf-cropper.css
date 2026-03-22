@@ -70,6 +70,32 @@
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
+.tm-pdf-cropper-zoom-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.55rem;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.tm-pdf-cropper-zoom-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #475569;
+  min-width: 2.85rem;
+  text-align: center;
+  user-select: none;
+}
+
+.tm-pdf-cropper-panbtn[aria-pressed="true"] {
+  background: linear-gradient(135deg, #e0e7ff, #eef2ff);
+  border-color: #818cf8;
+  color: #3730a3;
+}
+
 .tm-pdf-cropper-iconbtn {
   display: inline-flex;
   align-items: center;
@@ -174,11 +200,20 @@
   cursor: crosshair;
   line-height: 0;
   border-radius: 8px;
-  overflow-x: hidden;
+  overflow-x: auto;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   background: #e2e8f0;
   border: 1px solid #e2e8f0;
+}
+
+.tm-pdf-cropper-canvas-wrap.tm-pdf-cropper--pan-mode {
+  cursor: grab;
+}
+
+.tm-pdf-cropper-canvas-wrap.tm-pdf-cropper--pan-mode.tm-pdf-cropper--pan-dragging {
+  cursor: grabbing;
+  user-select: none;
 }
 
 .tm-pdf-cropper-scroll-inner {

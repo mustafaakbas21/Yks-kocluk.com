@@ -87,10 +87,16 @@ function setMode(mode) {
   });
   var hint = document.getElementById("modeHint");
   if (hint) {
-    hint.innerHTML =
-      mode === "admin"
-        ? "<strong>Kurucu</strong> hesabı ile giriş. Yeni koçlar bu panelden oluşturulur."
-        : "Koç hesabınızla giriş yapın. Sadece <strong>kullanıcı adı</strong> ve şifre yeterlidir.";
+    if (mode === "admin") {
+      hint.innerHTML =
+        "<strong>Kurucu</strong> hesabı ile giriş. Yeni koç ve öğrenci hesapları bu panelden oluşturulur.";
+    } else if (mode === "student") {
+      hint.innerHTML =
+        "Kurucunun oluşturduğu <strong>öğrenci</strong> hesabı ile giriş. Kullanıcı adı ve şifre yeterlidir.";
+    } else {
+      hint.innerHTML =
+        "Koç hesabınızla giriş yapın. Sadece <strong>kullanıcı adı</strong> ve şifre yeterlidir.";
+    }
   }
 }
 
@@ -101,6 +107,10 @@ document.getElementById("tabCoach") &&
 document.getElementById("tabAdmin") &&
   document.getElementById("tabAdmin").addEventListener("click", function () {
     setMode("admin");
+  });
+document.getElementById("tabStudent") &&
+  document.getElementById("tabStudent").addEventListener("click", function () {
+    setMode("student");
   });
 
 document.getElementById("loginForm").addEventListener("submit", async function (e) {
@@ -146,11 +156,30 @@ document.getElementById("loginForm").addEventListener("submit", async function (
     }
     if (loginMode === "coach" && profile.role !== "coach") {
       await signOut(auth);
-      showError("Bu hesap koç değil. Kurucu (Admin) sekmesini kullanın.");
+      showError("Bu hesap koç değil. Öğrenci veya Kurucu sekmesini kullanın.");
+      return;
+    }
+    if (loginMode === "student" && profile.role !== "student") {
+      await signOut(auth);
+      showError("Bu hesap öğrenci değil. Koç veya Kurucu sekmesini kullanın.");
       return;
     }
     var displayUsername = profile.username || rawUser.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
     localStorage.setItem("currentUser", displayUsername);
+    try {
+      localStorage.setItem("yksRole", profile.role || "");
+      localStorage.setItem("yksStudentName", profile.fullName || profile.displayName || "");
+      localStorage.setItem("yksCoachId", profile.coach_id || profile.coachId || "");
+    } catch (e) {}
+    if (profile.role === "student") {
+      try {
+        await updateDoc(doc(db, "users", u.uid), { lastLogin: serverTimestamp() });
+      } catch (e) {
+        console.warn("[login] student lastLogin:", e);
+      }
+      window.location.replace("ogrenci-panel.html");
+      return;
+    }
     if (profile.role === "admin") {
       window.location.replace("super-admin.html");
     } else {

@@ -7,6 +7,9 @@ import {
   onAuthStateChanged,
   signOut,
   createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updatePassword,
+  sendPasswordResetEmail,
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import {
   getFirestore,
@@ -39,11 +42,14 @@ const EMAIL_DOMAIN = "@sistem.com";
 
 const primaryApp = initializeApp(firebaseConfig);
 const secondaryApp = initializeApp(firebaseConfig, "CoachCreator");
+const tertiaryApp = initializeApp(firebaseConfig, "StudentCreator");
 const auth = getAuth(primaryApp);
 const secondaryAuth = getAuth(secondaryApp);
+const tertiaryAuth = getAuth(tertiaryApp);
 const db = getFirestore(primaryApp);
 
 let coachesUnsub = null;
+let studentsUnsub = null;
 let adminLoginChart = null;
 let lastCoachDocs = [];
 let cachedStudentTotal = 0;
@@ -78,6 +84,7 @@ function formatLastLogin(v) {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    second: "2-digit",
   });
 }
 
@@ -234,7 +241,7 @@ async function refreshKpisAndChart(coachDocs) {
   document.getElementById("kpiActiveToday").textContent = String(activeToday);
 
   try {
-    var totalSnap = await getCountFromServer(collection(db, "students"));
+    var totalSnap = await getCountFromServer(query(collection(db, "users"), where("role", "==", "student")));
     cachedStudentTotal = totalSnap.data().count;
     document.getElementById("kpiTotalStudents").textContent = String(cachedStudentTotal);
   } catch (e) {
@@ -258,7 +265,7 @@ async function countStudentsForCoach(username) {
   var uname = (username || "").trim();
   if (!uname) return 0;
   try {
-    var q = query(collection(db, "students"), where("coach_id", "==", uname));
+    var q = query(collection(db, "users"), where("role", "==", "student"), where("coach_id", "==", uname));
     var snap = await getCountFromServer(q);
     return snap.data().count;
   } catch (e) {
@@ -363,6 +370,167 @@ async function renderCoachesTable(docs) {
   tb.querySelectorAll(".btn-action").forEach(function (btn) {
     btn.addEventListener("click", onTableAction);
   });
+
+  populateStudentCoachSelect();
+}
+
+function populateStudentCoachSelect() {
+  var sel = document.getElementById("studentCoachSelect");
+  if (!sel) return;
+  var cur = sel.value;
+  sel.innerHTML = '<option value="">— Koç seçin —</option>';
+  lastCoachDocs.forEach(function (d) {
+    if ((d.data().role || "") !== "coach") return;
+    var u = d.data().username || "";
+    if (!u) return;
+    var o = document.createElement("option");
+    o.value = u;
+    o.textContent = u + (d.data().institutionName ? " · " + d.data().institutionName : "");
+    sel.appendChild(o);
+  });
+  if (
+    cur &&
+    Array.prototype.some.call(sel.options, function (opt) {
+      return opt.value === cur;
+    })
+  ) {
+    sel.value = cur;
+  }
+}
+
+function renderStudentsTable(snap) {
+  var tb = document.getElementById("studentsTableBody");
+  if (!tb) return;
+  var docs = snap.docs.slice().sort(function (a, b) {
+    return (a.data().username || "").localeCompare(b.data().username || "", "tr", { sensitivity: "base" });
+  });
+  if (docs.length === 0) {
+    tb.innerHTML =
+      '<tr><td colspan="5" class="mono" style="padding:1.75rem">Henüz kayıtlı öğrenci yok.</td></tr>';
+    return;
+  }
+  tb.innerHTML = docs
+    .map(function (d) {
+      var x = d.data();
+      var uid = d.id;
+      var uname = x.username || "—";
+      var full = (x.fullName || "").trim();
+      var coach = x.coach_id || "—";
+      var lastLogin = formatLastLogin(x.lastLogin);
+      var lastPwd = formatLastLogin(x.lastPasswordChangeAt);
+      var email = sanitizeUsername(uname) + EMAIL_DOMAIN;
+      return (
+        '<tr data-uid="' +
+        escapeHtml(uid) +
+        '">' +
+        '<td class="cell-coach"><strong>' +
+        escapeHtml(uname) +
+        "</strong>" +
+        (full ? '<span>' + escapeHtml(full) + "</span>" : "") +
+        "</td>" +
+        '<td class="mono">' +
+        escapeHtml(coach) +
+        "</td>" +
+        '<td class="mono">' +
+        escapeHtml(lastLogin) +
+        "</td>" +
+        '<td class="mono">' +
+        escapeHtml(lastPwd) +
+        "</td>" +
+        '<td class="actions-cell">' +
+        '<button type="button" class="btn-action btn-action--key" data-student-act="pwd" data-uid="' +
+        escapeHtml(uid) +
+        '" data-email="' +
+        escapeHtml(email) +
+        '" title="Şifre değiştir (mevcut şifre gerekir)">🔑</button>' +
+        '<button type="button" class="btn-action btn-action--mail" data-student-act="mail" data-email="' +
+        escapeHtml(email) +
+        '" title="E-posta ile sıfırlama bağlantısı gönder">📧</button>' +
+        "</td></tr>"
+      );
+    })
+    .join("");
+  tb.querySelectorAll("[data-student-act]").forEach(function (btn) {
+    btn.addEventListener("click", onStudentTableAction);
+  });
+}
+
+function subscribeStudentsList() {
+  if (studentsUnsub) studentsUnsub();
+  var q = query(collection(db, "users"), where("role", "==", "student"));
+  studentsUnsub = onSnapshot(
+    q,
+    renderStudentsTable,
+    function (err) {
+      console.error(err);
+      var tb = document.getElementById("studentsTableBody");
+      if (tb) tb.innerHTML = "<tr><td colspan='5'>" + escapeHtml(err.message || "Hata") + "</td></tr>";
+    }
+  );
+}
+
+async function studentChangePassword(uid, email) {
+  var oldPw = window.prompt(
+    "Öğrencinin mevcut şifresi (güvenlik için zorunlu):\n" + email,
+    ""
+  );
+  if (oldPw === null) return;
+  var newPw = window.prompt("Yeni şifre (en az 6 karakter):", "");
+  if (newPw === null) return;
+  if (newPw.length < 6) {
+    alert("Şifre en az 6 karakter olmalı.");
+    return;
+  }
+  try {
+    try {
+      await signOut(tertiaryAuth);
+    } catch (_) {}
+    await signInWithEmailAndPassword(tertiaryAuth, email, oldPw);
+    await updatePassword(tertiaryAuth.currentUser, newPw);
+    await signOut(tertiaryAuth);
+    await updateDoc(doc(db, "users", uid), { lastPasswordChangeAt: serverTimestamp() });
+    alert("Şifre güncellendi. Son şifre işlemi sütunu güncellenecek.");
+  } catch (err) {
+    console.error(err);
+    try {
+      await signOut(tertiaryAuth);
+    } catch (_) {}
+    var msg = err.message || String(err);
+    if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential")
+      msg = "Mevcut şifre hatalı.";
+    alert(msg);
+  }
+}
+
+async function studentSendPasswordEmail(email) {
+  if (
+    !window.confirm(
+      "Firebase, " +
+        email +
+        " adresine şifre sıfırlama bağlantısı gönderir.\n\n@sistem.com gerçek bir posta kutusu değilse e-posta ulaşmaz; bu durumda 🔑 ile mevcut şifreyi bilerek değiştirin veya Firebase Console üzerinden sıfırlayın."
+    )
+  )
+    return;
+  try {
+    await sendPasswordResetEmail(auth, email);
+    alert("İstek gönderildi. Öğrenci gelen kutusunu (varsa) kontrol etsin.");
+  } catch (e) {
+    alert((e && e.message) || String(e));
+  }
+}
+
+function onStudentTableAction(ev) {
+  var btn = ev.currentTarget;
+  var act = btn.getAttribute("data-student-act");
+  var uid = btn.getAttribute("data-uid");
+  var email = btn.getAttribute("data-email");
+  if (act === "pwd" && uid && email) {
+    studentChangePassword(uid, email);
+    return;
+  }
+  if (act === "mail" && email) {
+    studentSendPasswordEmail(email);
+  }
 }
 
 function onTableAction(ev) {
@@ -432,6 +600,69 @@ function subscribeCoachesList() {
     }
   );
 }
+
+function showStudentFormMsg(ok, text) {
+  var el = document.getElementById("formStudentMsg");
+  if (!el) return;
+  el.textContent = text;
+  el.className = ok ? "is-ok" : "is-err";
+  el.style.display = "block";
+}
+
+document.getElementById("formCreateStudent") &&
+  document.getElementById("formCreateStudent").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var coachId = (document.getElementById("studentCoachSelect") && document.getElementById("studentCoachSelect").value) || "";
+    var u = sanitizeUsername(document.getElementById("studentUsername").value);
+    var pass = document.getElementById("studentPassword").value;
+    var full = (document.getElementById("studentFullName").value || "").trim();
+    var btn = document.getElementById("btnCreateStudent");
+    showStudentFormMsg(true, "");
+    var msgEl = document.getElementById("formStudentMsg");
+    if (msgEl) {
+      msgEl.className = "";
+      msgEl.style.display = "none";
+    }
+    if (!coachId) {
+      showStudentFormMsg(false, "Bağlı koç seçin.");
+      return;
+    }
+    if (!u) {
+      showStudentFormMsg(false, "Öğrenci kullanıcı adı sadece a-z, 0-9 ve _ içerebilir.");
+      return;
+    }
+    if (pass.length < 6) {
+      showStudentFormMsg(false, "Şifre en az 6 karakter olmalı.");
+      return;
+    }
+    btn.disabled = true;
+    try {
+      var email = u + EMAIL_DOMAIN;
+      var cred = await createUserWithEmailAndPassword(tertiaryAuth, email, pass);
+      await setDoc(doc(db, "users", cred.user.uid), {
+        username: u,
+        role: "student",
+        coach_id: coachId,
+        fullName: full || null,
+        frozen: false,
+        createdAt: serverTimestamp(),
+        lastPasswordChangeAt: serverTimestamp(),
+      });
+      await signOut(tertiaryAuth);
+      showStudentFormMsg(true, "Öğrenci hesabı oluşturuldu: " + u + " (koç: " + coachId + "). Giriş: Öğrenci sekmesi.");
+      e.target.reset();
+    } catch (err) {
+      console.error(err);
+      var msg = err.message || String(err);
+      if (err.code === "auth/email-already-in-use") msg = "Bu kullanıcı adı zaten kayıtlı.";
+      showStudentFormMsg(false, msg);
+      try {
+        await signOut(tertiaryAuth);
+      } catch (_) {}
+    } finally {
+      btn.disabled = false;
+    }
+  });
 
 document.getElementById("formCreateCoach").addEventListener("submit", async function (e) {
   e.preventDefault();
@@ -508,4 +739,5 @@ onAuthStateChanged(auth, async function (user) {
   }
   localStorage.setItem("currentUser", profile.username || "admin1");
   subscribeCoachesList();
+  subscribeStudentsList();
 });

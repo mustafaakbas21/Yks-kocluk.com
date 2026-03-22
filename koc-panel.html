@@ -3,19 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>YKS Koçluk — Koç Paneli</title>
+  <title>DerecePanel — Koç</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="css/koc-panel.css" />
+  <link rel="stylesheet" href="css/derece-interactive-modules.css" />
   <link rel="stylesheet" href="css/forms-modal.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" crossorigin="anonymous" />
   <link rel="stylesheet" href="css/testmaker-workspace.css" />
   <link rel="stylesheet" href="css/tm-elite-saas.css" />
   <link rel="stylesheet" href="css/tm-pdf-cropper.css" />
   <link rel="stylesheet" href="css/soru-arsivi.css" />
+  <link rel="stylesheet" href="css/deneme-analiz-eds.css" />
+  <link rel="stylesheet" href="css/student-detail.css" />
   <!-- PDF.js: body sonunda yüklü (3.11.x); kırpma + PDF düzenleyici ortak worker -->
   <style>
     /* Öğrenci ERP modal — sekme + grid (yalnızca bu sayfa) */
@@ -234,6 +237,15 @@
     .app--sidebar-readable .sidebar__link--tm-accordion .sidebar__tm-chevron {
       margin-left: auto;
     }
+    .app--sidebar-readable .sidebar--elite .sidebar__item--deneme .sidebar__sublink span {
+      font-weight: 700;
+      font-size: 0.74rem !important;
+    }
+    button.sidebar__sublink.is-active {
+      background: rgba(124, 58, 237, 0.14) !important;
+      color: #5b21b6 !important;
+      font-weight: 800 !important;
+    }
     .student-avatar-picker__hint { font-size: 0.72rem; color: #64748b; margin-top: 0.35rem; }
     /* [hidden] UA kuralını ezmeyin: flex toolbar/sheet DOM’da açık kalmasın */
     .avatar-gallery-sheet[hidden],
@@ -260,7 +272,25 @@
     }
     .avatar-gallery-sheet { position: fixed; inset: 0; z-index: 100050; display: flex; align-items: flex-end; justify-content: center; pointer-events: none; }
     .avatar-gallery-sheet:not([hidden]) { pointer-events: auto; }
-    /* Elite: alt menü yalnızca akordeon açıkken */
+    /* Elite: alt menü — tek tip akordeon (max-height animasyonu, kapalı = sıfır yükseklik) */
+    .sidebar--elite .sidebar__menu > li.has-submenu > .sidebar__submenu {
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transition:
+        max-height 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.28s ease;
+    }
+    .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--tm-open > .sidebar__submenu,
+    .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--da-open > .sidebar__submenu,
+    .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--ogr-open > .sidebar__submenu,
+    .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--rv-open > .sidebar__submenu {
+      max-height: min(1200px, 90vh);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    /* TestMaker: açıkken grid/ikon düzeni */
     .sidebar--elite .sidebar__item--testmaker.sidebar__item--tm-open .sidebar__submenu {
       flex-direction: column;
       align-items: center;
@@ -268,6 +298,7 @@
       margin: 0.35rem 0 0.15rem;
       padding: 0 0 0.35rem;
       width: 100%;
+      display: flex !important;
     }
     .sidebar--elite .sidebar__item--testmaker .sidebar__sublink {
       flex-direction: column !important;
@@ -289,16 +320,9 @@
     .sidebar--elite .sidebar__item--testmaker .sidebar__sublink i {
       font-size: 0.88rem !important;
     }
-    /* TestMaker akordeon: kapalıyken alt menü yok */
-    .sidebar__item--testmaker:not(.sidebar__item--tm-open) .sidebar__submenu {
-      display: none !important;
-    }
     .sidebar__item--testmaker.sidebar__item--tm-open .sidebar__submenu {
       display: flex;
       flex-direction: column;
-    }
-    .sidebar--elite .sidebar__item--testmaker.sidebar__item--tm-open .sidebar__submenu {
-      display: flex !important;
     }
     .dashboard-elite-hero--cta-only {
       margin: 0 1.5rem 1.2rem;
@@ -321,8 +345,931 @@
       font-size: 0.65rem;
       opacity: 0.8;
     }
-    .sidebar__item--testmaker.sidebar__item--tm-open .sidebar__tm-chevron {
+    .sidebar__item--testmaker.sidebar__item--tm-open .sidebar__tm-chevron,
+    .sidebar__item--deneme.sidebar__item--da-open .sidebar__tm-chevron,
+    .sidebar__item--ogrenci.sidebar__item--ogr-open .sidebar__tm-chevron,
+    .sidebar__item--randevu.sidebar__item--rv-open .sidebar__tm-chevron {
       transform: rotate(180deg);
+    }
+    /* Öğrenciler / Deneme / Randevu: açıkken sütun listesi */
+    .sidebar__item--ogrenci.sidebar__item--ogr-open .sidebar__submenu--ogr-nested,
+    .sidebar__item--randevu.sidebar__item--rv-open .sidebar__submenu--rv-nested,
+    .sidebar__item--deneme.sidebar__item--da-open .sidebar__submenu--da-nested {
+      display: flex !important;
+      flex-direction: column;
+    }
+    .sidebar__submenu--ogr-nested,
+    .sidebar__submenu--rv-nested {
+      padding-left: 1.35rem !important;
+      margin-left: 0.35rem;
+      border-left: 2px solid rgba(124, 58, 237, 0.22);
+    }
+    .app--sidebar-readable .sidebar--elite .sidebar__item--ogrenci .sidebar__sublink span,
+    .app--sidebar-readable .sidebar--elite .sidebar__item--randevu .sidebar__sublink span {
+      font-weight: 700;
+      font-size: 0.74rem !important;
+    }
+    /* YKS Pro özellik sayfaları — koyu tema + mor vurgu */
+    .yks-pro-root {
+      --yks-pro-bg: linear-gradient(165deg, #0f0a1a 0%, #1a1025 40%, #0d1117 100%);
+      --yks-pro-card: rgba(22, 16, 38, 0.85);
+      --yks-pro-border: rgba(139, 92, 246, 0.28);
+      --yks-pro-accent: #a78bfa;
+      --yks-pro-text: #e2e8f0;
+      --yks-pro-muted: #94a3b8;
+      margin: 0 -1rem;
+      padding: 0 1rem 1.5rem;
+      min-height: calc(100vh - 120px);
+    }
+    .yks-pro-hero {
+      background: var(--yks-pro-bg);
+      border: 1px solid var(--yks-pro-border);
+      border-radius: 16px;
+      padding: 1.25rem 1.35rem;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+    }
+    .yks-pro-hero h1 {
+      margin: 0 0 0.35rem;
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #f5f3ff;
+      letter-spacing: -0.02em;
+    }
+    .yks-pro-hero p {
+      margin: 0;
+      font-size: 0.88rem;
+      color: var(--yks-pro-muted);
+      line-height: 1.5;
+    }
+    .yks-pro-hero__badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #c4b5fd;
+      margin-bottom: 0.5rem;
+    }
+    .yks-weekly-layout {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 1rem;
+      align-items: start;
+    }
+    @media (max-width: 1024px) {
+      .yks-weekly-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+    .yks-weekly-bank {
+      background: var(--yks-pro-card);
+      border: 1px solid var(--yks-pro-border);
+      border-radius: 12px;
+      padding: 0.85rem;
+    }
+    .yks-weekly-bank h3 {
+      margin: 0 0 0.65rem;
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #c4b5fd;
+    }
+    .yks-sortable-source {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      min-height: 120px;
+    }
+    .yks-sortable-item {
+      padding: 0.45rem 0.55rem;
+      border-radius: 8px;
+      background: rgba(124, 58, 237, 0.15);
+      border: 1px solid rgba(167, 139, 250, 0.35);
+      color: var(--yks-pro-text);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: grab;
+      user-select: none;
+    }
+    .yks-sortable-item:active {
+      cursor: grabbing;
+    }
+    .yks-sortable-item .yks-sortable-meta {
+      display: block;
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--yks-pro-muted);
+      margin-top: 0.2rem;
+    }
+    .yks-weekly-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 0.5rem;
+      overflow-x: auto;
+      padding-bottom: 0.25rem;
+    }
+    .yks-weekly-day {
+      min-width: 112px;
+      background: var(--yks-pro-card);
+      border: 1px dashed rgba(139, 92, 246, 0.35);
+      border-radius: 10px;
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+    }
+    .yks-weekly-day__head {
+      padding: 0.45rem 0.5rem;
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: #ddd6fe;
+      border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+      text-align: center;
+    }
+    .yks-weekly-dropzone.yks-sortable-ghost {
+      border-color: #a78bfa;
+      background: rgba(124, 58, 237, 0.12);
+    }
+    .yks-weekly-dropzone .yks-sortable-item {
+      margin-bottom: 0.35rem;
+    }
+    .yks-konu-alert {
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+      border: 1px solid;
+    }
+    .yks-konu-alert--danger {
+      background: rgba(220, 38, 38, 0.12);
+      border-color: rgba(248, 113, 113, 0.45);
+      color: #fecaca;
+    }
+    .yks-konu-alert--warn {
+      background: rgba(234, 88, 12, 0.12);
+      border-color: rgba(251, 146, 60, 0.45);
+      color: #ffedd5;
+    }
+    .yks-konu-alert i {
+      font-size: 1.25rem;
+      margin-top: 0.1rem;
+    }
+    .yks-kaynak-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem 1.5rem;
+      align-items: center;
+      padding: 0.85rem 1rem;
+      background: var(--yks-pro-card);
+      border: 1px solid var(--yks-pro-border);
+      border-radius: 12px;
+      margin-bottom: 0.65rem;
+    }
+    .yks-kaynak-row__title {
+      font-weight: 700;
+      color: #f5f3ff;
+      font-size: 0.92rem;
+    }
+    .yks-kaynak-row__meta {
+      font-size: 0.75rem;
+      color: var(--yks-pro-muted);
+    }
+    .yks-progress {
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      margin-top: 0.45rem;
+    }
+    .yks-progress__bar {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #7c3aed, #a78bfa);
+      transition: width 0.35s ease;
+    }
+    /* Kaynak / Akıllı reçete — accordion + şerit */
+    .kk-student-bar {
+      background: var(--yks-pro-card);
+      border: 1px solid var(--yks-pro-border);
+      border-radius: 14px;
+      padding: 1rem 1.1rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28);
+    }
+    .kk-student-bar__row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.65rem 1rem;
+      margin-bottom: 0.75rem;
+    }
+    .kk-student-bar__label {
+      font-size: 0.78rem;
+      font-weight: 800;
+      color: #c4b5fd;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .kk-student-bar__select {
+      flex: 1;
+      min-width: 200px;
+      max-width: 420px;
+      padding: 0.55rem 0.85rem;
+      border-radius: 12px;
+      border: 1px solid rgba(139, 92, 246, 0.45);
+      background: rgba(15, 10, 26, 0.65);
+      color: #f5f3ff;
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 600;
+    }
+    .kk-student-bar__select:focus {
+      outline: none;
+      border-color: #a78bfa;
+      box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.25);
+    }
+    .kk-student-strip-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 0.15rem;
+    }
+    .kk-student-strip {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: nowrap;
+      min-height: 52px;
+      align-items: center;
+    }
+    .kk-student-chip {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.4rem 0.75rem 0.4rem 0.4rem;
+      border-radius: 999px;
+      border: 1px solid rgba(139, 92, 246, 0.35);
+      background: rgba(124, 58, 237, 0.12);
+      color: #e2e8f0;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+      font-family: inherit;
+    }
+    .kk-student-chip:hover {
+      border-color: rgba(167, 139, 250, 0.65);
+      background: rgba(124, 58, 237, 0.22);
+    }
+    .kk-student-chip.is-active {
+      border-color: #a78bfa;
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.45), rgba(91, 33, 182, 0.35));
+      box-shadow: 0 4px 16px rgba(124, 58, 237, 0.35);
+      color: #fff;
+    }
+    .kk-student-chip__av {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      font-weight: 800;
+      background: linear-gradient(145deg, #6d28d9, #4c1d95);
+      color: #fff;
+      flex-shrink: 0;
+    }
+    .kk-empty {
+      text-align: center;
+      padding: 2.5rem 1rem;
+      color: var(--yks-pro-muted);
+      font-size: 0.9rem;
+      border: 1px dashed rgba(139, 92, 246, 0.35);
+      border-radius: 14px;
+      background: rgba(22, 16, 38, 0.45);
+    }
+    .kk-empty i {
+      display: block;
+      font-size: 1.5rem;
+      color: #a78bfa;
+      margin-bottom: 0.5rem;
+      opacity: 0.85;
+    }
+    .kk-books-root {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+    .kk-acc {
+      background: var(--yks-pro-card);
+      border: 1px solid var(--yks-pro-border);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+    }
+    .kk-acc__head {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.75rem 1rem;
+      align-items: center;
+      padding: 0.85rem 1rem;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      text-align: left;
+      font-family: inherit;
+      color: inherit;
+    }
+    .kk-acc__head:hover {
+      background: rgba(124, 58, 237, 0.08);
+    }
+    .kk-acc__head-main {
+      min-width: 0;
+    }
+    .kk-acc__title {
+      font-weight: 800;
+      font-size: 0.95rem;
+      color: #f5f3ff;
+      margin: 0 0 0.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+    .kk-acc__chev {
+      transition: transform 0.25s ease;
+      color: #a78bfa;
+      font-size: 0.85rem;
+    }
+    .kk-acc.is-open .kk-acc__chev {
+      transform: rotate(180deg);
+    }
+    .kk-acc__meta {
+      font-size: 0.75rem;
+      color: var(--yks-pro-muted);
+      margin: 0;
+    }
+    .kk-acc__progress-wrap {
+      margin-top: 0.45rem;
+    }
+    .kk-acc__side {
+      text-align: right;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.35rem;
+    }
+    .kk-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+    .kk-badge--ok {
+      background: rgba(34, 197, 94, 0.18);
+      border: 1px solid rgba(74, 222, 128, 0.45);
+      color: #bbf7d0;
+    }
+    .kk-badge--mid {
+      background: rgba(234, 179, 8, 0.15);
+      border: 1px solid rgba(250, 204, 21, 0.45);
+      color: #fef08a;
+    }
+    .kk-badge--low {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(248, 113, 113, 0.45);
+      color: #fecaca;
+    }
+    .kk-badge--muted {
+      background: rgba(148, 163, 184, 0.12);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      color: #cbd5e1;
+    }
+    .kk-acc__body {
+      border-top: 1px solid rgba(139, 92, 246, 0.22);
+      padding: 0.85rem 1rem 1rem;
+      background: rgba(15, 10, 26, 0.35);
+    }
+    .kk-acc__body[hidden] {
+      display: none !important;
+    }
+    .kk-perf {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      gap: 0.5rem 0.75rem;
+      margin-bottom: 1rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: 12px;
+      border: 1px solid rgba(139, 92, 246, 0.28);
+      background: rgba(124, 58, 237, 0.1);
+    }
+    .kk-perf__lbl {
+      flex: 1 1 100%;
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #c4b5fd;
+      margin: 0 0 0.15rem;
+    }
+    .kk-perf label span {
+      display: block;
+      font-size: 0.7rem;
+      color: var(--yks-pro-muted);
+      margin-bottom: 0.2rem;
+    }
+    .kk-perf input {
+      width: 4.5rem;
+      padding: 0.4rem 0.5rem;
+      border-radius: 10px;
+      border: 1px solid rgba(139, 92, 246, 0.4);
+      background: rgba(15, 10, 26, 0.75);
+      color: #f5f3ff;
+      font-weight: 700;
+    }
+    .kk-perf .btn {
+      margin-left: auto;
+    }
+    .kk-topic-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.5rem 0.75rem;
+      align-items: center;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid rgba(139, 92, 246, 0.15);
+    }
+    .kk-topic-row:last-child {
+      border-bottom: none;
+    }
+    .kk-topic-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+    .kk-topic-actions {
+      display: inline-flex;
+      gap: 0.25rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .kk-st {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.3rem 0.45rem;
+      border-radius: 8px;
+      border: 1px solid rgba(139, 92, 246, 0.35);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--yks-pro-muted);
+      font-size: 0.68rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .kk-st:hover {
+      border-color: rgba(167, 139, 250, 0.55);
+      color: #e2e8f0;
+    }
+    .kk-st.is-on {
+      border-color: #a78bfa;
+      background: rgba(124, 58, 237, 0.35);
+      color: #fff;
+    }
+    .kk-st[data-kk-st="2"].is-on {
+      background: rgba(34, 197, 94, 0.22);
+      border-color: rgba(74, 222, 128, 0.55);
+      color: #bbf7d0;
+    }
+    .modal--kk {
+      max-width: 640px;
+      background: linear-gradient(180deg, #1e1b4b 0%, #0f172a 100%);
+      border: 1px solid rgba(139, 92, 246, 0.35);
+      color: #e2e8f0;
+    }
+    .modal--kk .modal__head {
+      background: linear-gradient(180deg, rgba(91, 33, 182, 0.35) 0%, rgba(15, 23, 42, 0.2) 100%);
+      border-bottom-color: rgba(139, 92, 246, 0.25);
+    }
+    .modal--kk .modal__title {
+      color: #f5f3ff;
+    }
+    .modal--kk .modal__subtitle {
+      color: #94a3b8;
+    }
+    .modal--kk .modal__body {
+      background: transparent;
+    }
+    .kk-lib-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      margin-bottom: 1rem;
+    }
+    .kk-lib-filters label span {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #c4b5fd;
+      margin-bottom: 0.25rem;
+    }
+    .kk-lib-filters select {
+      padding: 0.45rem 0.65rem;
+      border-radius: 10px;
+      border: 1px solid rgba(139, 92, 246, 0.45);
+      background: rgba(15, 10, 26, 0.85);
+      color: #f5f3ff;
+      font-family: inherit;
+      font-size: 0.85rem;
+      min-width: 140px;
+    }
+    .kk-lib-list {
+      max-height: min(52vh, 420px);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding-right: 0.25rem;
+    }
+    .kk-lib-card {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.5rem 0.75rem;
+      align-items: center;
+      padding: 0.65rem 0.75rem;
+      border-radius: 12px;
+      border: 1px solid rgba(139, 92, 246, 0.28);
+      background: rgba(22, 16, 38, 0.75);
+    }
+    .kk-lib-card h4 {
+      margin: 0 0 0.2rem;
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: #f5f3ff;
+    }
+    .kk-lib-card p {
+      margin: 0;
+      font-size: 0.72rem;
+      color: #94a3b8;
+    }
+    .kk-lib-card .kk-lib-meta {
+      font-size: 0.68rem;
+      color: #a78bfa;
+      font-weight: 700;
+      margin-top: 0.25rem;
+    }
+    .kk-lib-empty {
+      text-align: center;
+      padding: 1.5rem;
+      color: #94a3b8;
+      font-size: 0.85rem;
+    }
+    /* Haftalık program — öğrenci seçimi + takvim */
+    .hp-student-bar {
+      background: var(--yks-pro-card);
+      border: 1px solid var(--yks-pro-border);
+      border-radius: 14px;
+      padding: 1rem 1.1rem;
+      margin-bottom: 1rem;
+    }
+    .hp-student-bar__row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.65rem 1rem;
+      margin-bottom: 0.75rem;
+    }
+    .hp-student-bar__label {
+      font-size: 0.78rem;
+      font-weight: 800;
+      color: #c4b5fd;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .hp-student-bar__select {
+      flex: 1;
+      min-width: 200px;
+      max-width: 420px;
+      padding: 0.55rem 0.85rem;
+      border-radius: 12px;
+      border: 1px solid rgba(139, 92, 246, 0.45);
+      background: rgba(15, 10, 26, 0.65);
+      color: #f5f3ff;
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 600;
+    }
+    .hp-student-strip-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .hp-student-strip {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: nowrap;
+      align-items: center;
+      min-height: 48px;
+    }
+    .hp-student-chip {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.4rem 0.75rem 0.4rem 0.4rem;
+      border-radius: 999px;
+      border: 1px solid rgba(139, 92, 246, 0.35);
+      background: rgba(124, 58, 237, 0.12);
+      color: #e2e8f0;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .hp-student-chip.is-active {
+      border-color: #a78bfa;
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.45), rgba(91, 33, 182, 0.35));
+      box-shadow: 0 4px 16px rgba(124, 58, 237, 0.35);
+      color: #fff;
+    }
+    .hp-student-chip__av {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 800;
+      background: linear-gradient(145deg, #6d28d9, #4c1d95);
+      color: #fff;
+    }
+    .hp-empty {
+      text-align: center;
+      padding: 2.5rem 1rem;
+      color: var(--yks-pro-muted);
+      border: 1px dashed rgba(139, 92, 246, 0.35);
+      border-radius: 14px;
+      background: rgba(22, 16, 38, 0.45);
+    }
+    .hp-empty i {
+      display: block;
+      font-size: 1.5rem;
+      color: #a78bfa;
+      margin-bottom: 0.5rem;
+    }
+    .hp-workspace { margin-top: 0.5rem; }
+    .hp-layout {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 1rem;
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .hp-layout { grid-template-columns: 1fr; }
+    }
+    .hp-toolbox {
+      background: var(--yks-pro-card);
+      border: 1px solid var(--yks-pro-border);
+      border-radius: 14px;
+      padding: 1rem;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+    }
+    .hp-toolbox__title {
+      margin: 0 0 0.35rem;
+      font-size: 0.85rem;
+      font-weight: 800;
+      color: #e9d5ff;
+    }
+    .hp-toolbox__hint {
+      margin: 0 0 0.75rem;
+      font-size: 0.72rem;
+      color: var(--yks-pro-muted);
+    }
+    .hp-tool {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.65rem 0.75rem;
+      margin-bottom: 0.5rem;
+      border-radius: 12px;
+      border: 1px solid rgba(167, 139, 250, 0.4);
+      background: rgba(124, 58, 237, 0.15);
+      cursor: grab;
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #f5f3ff;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .hp-tool:last-child { margin-bottom: 0; }
+    .hp-tool:hover {
+      box-shadow: 0 6px 20px rgba(124, 58, 237, 0.25);
+      border-color: #a78bfa;
+    }
+    .hp-tool:active { cursor: grabbing; }
+    .hp-tool--dragging { opacity: 0.55; }
+    .hp-tool__ico { font-size: 1.25rem; }
+    .hp-week-wrap {
+      background: rgba(22, 16, 38, 0.5);
+      border: 1px solid var(--yks-pro-border);
+      border-radius: 14px;
+      padding: 0.75rem;
+      overflow: hidden;
+    }
+    .hp-week-head {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #c4b5fd;
+      margin-bottom: 0.65rem;
+      padding: 0 0.25rem;
+    }
+    .hp-week-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 0.45rem;
+      overflow-x: auto;
+      padding-bottom: 0.25rem;
+    }
+    @media (max-width: 1100px) {
+      .hp-week-grid { grid-template-columns: repeat(7, minmax(112px, 1fr)); }
+    }
+    .hp-day {
+      min-width: 0;
+      background: rgba(15, 10, 26, 0.55);
+      border: 1px dashed rgba(139, 92, 246, 0.35);
+      border-radius: 12px;
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+    }
+    .hp-day__head {
+      padding: 0.45rem 0.4rem;
+      font-size: 0.7rem;
+      font-weight: 800;
+      color: #ddd6fe;
+      border-bottom: 1px solid rgba(139, 92, 246, 0.22);
+      text-align: center;
+      line-height: 1.35;
+    }
+    .hp-day__num {
+      display: block;
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+    .hp-day__drop {
+      flex: 1;
+      min-height: 160px;
+      padding: 0.35rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .hp-day__drop.hp-day__drop--over {
+      background: rgba(124, 58, 237, 0.18);
+      border-radius: 8px;
+      outline: 2px dashed rgba(167, 139, 250, 0.55);
+      outline-offset: 2px;
+    }
+    .hp-week-card {
+      background: linear-gradient(145deg, rgba(124, 58, 237, 0.35), rgba(30, 27, 75, 0.6));
+      border: 1px solid rgba(167, 139, 250, 0.35);
+      border-radius: 10px;
+      padding: 0.45rem 0.5rem;
+      font-size: 0.72rem;
+      text-align: left;
+      position: relative;
+    }
+    .hp-week-card__type {
+      font-size: 0.7rem;
+      margin-bottom: 0.2rem;
+      opacity: 0.95;
+    }
+    .hp-week-card__title {
+      display: block;
+      font-weight: 800;
+      color: #f5f3ff;
+      font-size: 0.75rem;
+      line-height: 1.3;
+    }
+    .hp-week-card__meta {
+      display: block;
+      color: #cbd5e1;
+      font-size: 0.68rem;
+      margin-top: 0.15rem;
+    }
+    .hp-week-card__src {
+      display: block;
+      color: #94a3b8;
+      font-size: 0.62rem;
+      margin-top: 0.2rem;
+    }
+    .hp-week-card__del {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 1.35rem;
+      height: 1.35rem;
+      border: none;
+      border-radius: 6px;
+      background: rgba(15, 23, 42, 0.55);
+      color: #e2e8f0;
+      cursor: pointer;
+      font-size: 0.75rem;
+      line-height: 1;
+      padding: 0;
+    }
+    .hp-week-card__del:hover {
+      background: rgba(239, 68, 68, 0.45);
+      color: #fff;
+    }
+    .modal--hp {
+      background: linear-gradient(180deg, #1e1b4b 0%, #0f172a 100%);
+      border: 1px solid rgba(139, 92, 246, 0.35);
+      color: #e2e8f0;
+      max-width: 560px;
+    }
+    .modal--hp .modal__head {
+      background: linear-gradient(180deg, rgba(91, 33, 182, 0.35) 0%, rgba(15, 23, 42, 0.2) 100%);
+      border-bottom-color: rgba(139, 92, 246, 0.25);
+    }
+    .modal--hp .modal__title { color: #f5f3ff; }
+    .modal--hp .modal__subtitle { color: #94a3b8; }
+    .modal--hp .form-group label { color: #c4b5fd; }
+    .modal--hp input,
+    .modal--hp select,
+    .modal--hp textarea {
+      border-radius: 10px;
+      border: 1px solid rgba(139, 92, 246, 0.45);
+      background: rgba(15, 10, 26, 0.85);
+      color: #f5f3ff;
+      font-family: inherit;
+    }
+    .yks-timeline {
+      position: relative;
+      padding-left: 1.35rem;
+      border-left: 2px solid rgba(124, 58, 237, 0.35);
+    }
+    .yks-timeline__item {
+      position: relative;
+      padding-bottom: 1.15rem;
+    }
+    .yks-timeline__item::before {
+      content: "";
+      position: absolute;
+      left: -1.55rem;
+      top: 0.35rem;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #7c3aed;
+      box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.25);
+    }
+    .yks-timeline__card {
+      background: var(--yks-pro-card);
+      border: 1px solid var(--yks-pro-border);
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+    }
+    .yks-timeline__date {
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: #c4b5fd;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .yks-timeline__body {
+      margin-top: 0.45rem;
+      font-size: 0.85rem;
+      color: var(--yks-pro-text);
+      line-height: 1.5;
+    }
+    .yks-timeline__tag {
+      display: inline-block;
+      margin-top: 0.5rem;
+      font-size: 0.65rem;
+      font-weight: 800;
+      padding: 0.2rem 0.45rem;
+      border-radius: 6px;
+      background: rgba(124, 58, 237, 0.25);
+      color: #e9d5ff;
     }
     .sidebar__submenu--tm-nested {
       padding-left: 1.35rem !important;
@@ -451,7 +1398,47 @@
     .tm-workspace__save-lib { margin-left: auto; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.85rem; font-size: 0.78rem; font-weight: 700; border-radius: 10px; border: 1px solid rgba(16,185,129,0.45); background: rgba(16,185,129,0.12); color: #047857; cursor: pointer; font-family: inherit; }
     .tm-workspace__save-lib:hover { background: rgba(16,185,129,0.22); }
     .tm-workspace__header-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+    /* Muhasebe & Finans — mor tema */
+    .muhasebe-cari-table-wrap { overflow-x: auto; border-radius: 16px; border: 1px solid rgba(124, 58, 237, 0.2); }
+    .muhasebe-cari-table-wrap .data-table { min-width: 920px; margin: 0; }
+    .muhasebe-dash { padding: 0 0 2rem; }
+    .muhasebe-dash__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+    .muhasebe-dash__head .page-head__title { margin: 0; }
+    .btn--muhasebe-cta { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1.25rem; font-weight: 800; font-size: 0.95rem; border: none; border-radius: 14px; cursor: pointer; font-family: inherit;
+      background: linear-gradient(135deg, #6d28d9, #7c3aed); color: #fff; box-shadow: 0 8px 28px rgba(109, 40, 217, 0.45); transition: transform 0.15s, box-shadow 0.15s; }
+    .btn--muhasebe-cta:hover { transform: translateY(-1px); box-shadow: 0 12px 32px rgba(109, 40, 217, 0.5); }
+    .muhasebe-kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1.25rem 0 1.5rem; }
+    @media (max-width: 900px) { .muhasebe-kpi-grid { grid-template-columns: 1fr; } }
+    .muhasebe-kpi-card { background: linear-gradient(155deg, #1e1b4b 0%, #312e81 40%, #1e1030 100%); border-radius: 18px; padding: 1.2rem 1.35rem; border: 1px solid rgba(167, 139, 250, 0.35); box-shadow: 0 12px 40px rgba(15, 23, 42, 0.45); position: relative; overflow: hidden; }
+    .muhasebe-kpi-card::before { content: ""; position: absolute; top: -40%; right: -20%; width: 55%; height: 100%; background: radial-gradient(circle, rgba(167, 139, 250, 0.18) 0%, transparent 70%); pointer-events: none; }
+    .muhasebe-kpi-card__lbl { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #c4b5fd; margin-bottom: 0.35rem; }
+    .muhasebe-kpi-card__val { font-size: 1.75rem; font-weight: 800; color: #fff; letter-spacing: -0.03em; }
+    .muhasebe-kpi-card__sub { font-size: 0.75rem; color: #a5b4fc; margin-top: 0.35rem; opacity: 0.9; }
+    .muhasebe-section-title { display: flex; align-items: center; gap: 0.5rem; font-size: 1.05rem; font-weight: 800; color: #e9d5ff; margin: 1.75rem 0 0.85rem; }
+    .muhasebe-overdue-wrap { margin-top: 0.5rem; border-radius: 16px; border: 1px solid rgba(248, 113, 113, 0.35); background: linear-gradient(180deg, rgba(127, 29, 29, 0.25), rgba(15, 23, 42, 0.6)); overflow: hidden; }
+    .muhasebe-overdue-wrap .data-table { margin: 0; }
+    .fin-badge { display: inline-flex; align-items: center; padding: 0.22rem 0.55rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.02em; }
+    .fin-badge--done { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(52, 211, 153, 0.45); }
+    .fin-badge--debt { background: rgba(251, 146, 60, 0.18); color: #fdba74; border: 1px solid rgba(251, 146, 60, 0.45); }
+    .fin-badge--late { background: rgba(248, 113, 113, 0.2); color: #fecaca; border: 1px solid rgba(248, 113, 113, 0.45); }
+    .fin-badge--muted { background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); }
+    .btn-wa-remind { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.65rem; border-radius: 10px; border: 1px solid #22c55e; background: rgba(34, 197, 94, 0.15); color: #86efac; font-weight: 700; font-size: 0.78rem; cursor: pointer; font-family: inherit; }
+    .btn-wa-remind:hover { background: rgba(34, 197, 94, 0.28); }
+    /* Öğrenci detay ERP sekmeleri */
+    .sd-erp-tabs { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0 0 1rem; padding: 0.35rem; background: linear-gradient(180deg, rgba(30, 27, 75, 0.85), rgba(15, 23, 42, 0.92)); border-radius: 14px; border: 1px solid rgba(124, 58, 237, 0.25); }
+    .sd-erp-tab { border: 1px solid transparent; background: transparent; color: #a5b4fc; font-family: inherit; font-size: 0.78rem; font-weight: 700; padding: 0.5rem 0.85rem; border-radius: 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+    .sd-erp-tab:hover { color: #e9d5ff; background: rgba(124, 58, 237, 0.15); }
+    .sd-erp-tab.is-active { color: #fff; background: linear-gradient(135deg, #5b21b6, #7c3aed); border-color: rgba(196, 181, 253, 0.45); box-shadow: 0 4px 16px rgba(91, 33, 182, 0.35); }
+    .sd-erp-panels { min-height: 120px; }
+    .sd-erp-panel[hidden] { display: none !important; }
+    .sd-fin-alert { display: flex; align-items: center; gap: 0.65rem; padding: 0.85rem 1rem; border-radius: 12px; background: rgba(127, 29, 29, 0.45); border: 1px solid rgba(248, 113, 113, 0.5); color: #fecaca; font-weight: 700; font-size: 0.88rem; margin-bottom: 1rem; }
+    .sd-fin-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1rem; }
+    @media (max-width: 720px) { .sd-fin-kpis { grid-template-columns: 1fr; } }
+    .sd-fin-kpi { background: linear-gradient(145deg, rgba(49, 46, 129, 0.9), rgba(30, 27, 75, 0.95)); border: 1px solid rgba(167, 139, 250, 0.25); border-radius: 12px; padding: 0.85rem 1rem; }
+    .sd-fin-kpi__lbl { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: #c4b5fd; font-weight: 700; }
+    .sd-fin-kpi__val { font-size: 1.25rem; font-weight: 800; color: #fff; margin-top: 0.25rem; }
   </style>
+  <link rel="stylesheet" href="css/koc-panel-premium-light.css" />
   <!-- TestMaker: Cropper.js + pdf.js (head’de CSS); script’ler body sonunda (html2pdf, cropper, pdf) -->
 </head>
 <body>
@@ -462,7 +1449,7 @@
       <div class="sidebar__brand">
         <button type="button" class="sidebar__brand-btn" data-nav="dashboard" title="Ana sayfa">
           <div class="sidebar__logo"><i class="fa-solid fa-graduation-cap"></i></div>
-          <span class="sidebar__title">YKS Koçluk</span>
+          <span class="sidebar__title">DerecePanel</span>
         </button>
         <button type="button" class="sidebar__close" id="sidebarClose" aria-label="Menüyü kapat">
           <i class="fa-solid fa-xmark"></i>
@@ -477,10 +1464,26 @@
               <i class="fa-solid fa-chart-pie"></i><span>Dashboard</span>
             </button>
           </li>
-          <li>
-            <button type="button" class="sidebar__link" data-nav="ogrenciler">
+          <li class="sidebar__item--ogrenci has-submenu">
+            <button
+              type="button"
+              class="sidebar__link sidebar__link--tm-accordion"
+              id="sidebarOgrToggle"
+              aria-expanded="false"
+              aria-controls="sidebarOgrSubmenu"
+              title="Öğrenci menüsünü aç/kapat"
+            >
               <i class="fa-solid fa-user-graduate"></i><span>Öğrencilerim</span>
+              <span class="sidebar__tm-chevron" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
             </button>
+            <div class="sidebar__submenu sidebar__submenu--ogr-nested" id="sidebarOgrSubmenu" role="group" aria-label="Öğrenciler alt menü">
+              <button type="button" class="sidebar__sublink" data-nav="ogrenciler" title="Öğrenci listesi">
+                <i class="fa-solid fa-address-book"></i><span>Öğrenci listesi</span>
+              </button>
+              <button type="button" class="sidebar__sublink" data-nav="kaynak-kitap" title="Kaynak ve kitap takibi">
+                <i class="fa-solid fa-book-open"></i><span>Kaynak / Kitap Takibi</span>
+              </button>
+            </div>
           </li>
           <li>
             <button type="button" class="sidebar__link" data-nav="gorev-takibi">
@@ -488,17 +1491,70 @@
             </button>
           </li>
           <li>
-            <button type="button" class="sidebar__link" data-nav="denemeler">
-              <i class="fa-solid fa-chart-line"></i><span>Deneme Analizleri</span>
+            <button type="button" class="sidebar__link" data-nav="haftalik-program" title="Haftalık çalışma programı">
+              <i class="fa-solid fa-calendar-week"></i><span>Haftalık Program</span>
             </button>
           </li>
           <li>
-            <button type="button" class="sidebar__link" data-nav="randevu">
-              <i class="fa-solid fa-calendar-days"></i><span>Randevu &amp; Takvim</span>
+            <button type="button" class="sidebar__link" data-nav="hedef-simulator" title="Hedef üniversite ve net simülasyonu">
+              <i class="fa-solid fa-bullseye"></i><span>🎯 Hedef Simülatörü</span>
             </button>
           </li>
-          <li class="sidebar__item--testmaker sidebar__item--tm-open">
-            <button type="button" class="sidebar__link sidebar__link--tm-accordion" id="sidebarTmToggle" aria-expanded="true" aria-controls="sidebarTmSubmenu" title="TestMaker menüsünü aç/kapat">
+          <li>
+            <button type="button" class="sidebar__link" data-nav="gelen-sorular" title="Öğrencilerden gelen sorular">
+              <i class="fa-solid fa-inbox"></i><span>📥 Gelen Sorular</span>
+            </button>
+          </li>
+          <li class="sidebar__item--deneme has-submenu">
+            <button
+              type="button"
+              class="sidebar__link sidebar__link--tm-accordion"
+              id="sidebarDaToggle"
+              aria-expanded="false"
+              aria-controls="sidebarDaSubmenu"
+              title="Deneme menüsünü aç/kapat"
+            >
+              <i class="fa-solid fa-chart-line"></i><span>Deneme Analizleri</span>
+              <span class="sidebar__tm-chevron" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
+            </button>
+            <div class="sidebar__submenu sidebar__submenu--da-nested" id="sidebarDaSubmenu" role="group" aria-label="Deneme alt menü">
+              <button type="button" class="sidebar__sublink" data-nav="denemeler" title="Branş analizi ve kayıtlar">
+                <i class="fa-solid fa-table-list"></i><span>Denemeler</span>
+              </button>
+              <button type="button" class="sidebar__sublink" data-nav="optik-okuyucu" title="Toplu optik / Excel aktarımı">
+                <i class="fa-solid fa-barcode"></i><span>Optik okuyucu</span>
+              </button>
+              <button type="button" class="sidebar__sublink" data-nav="karne" title="Sınıf karne özeti ve yazdırma">
+                <i class="fa-solid fa-graduation-cap"></i><span>Karne</span>
+              </button>
+              <button type="button" class="sidebar__sublink" data-nav="konu-mr" title="Konu bazlı zayıf alan analizi">
+                <i class="fa-solid fa-x-ray"></i><span>Konu MR'ı (Röntgen)</span>
+              </button>
+            </div>
+          </li>
+          <li class="sidebar__item--randevu has-submenu">
+            <button
+              type="button"
+              class="sidebar__link sidebar__link--tm-accordion"
+              id="sidebarRvToggle"
+              aria-expanded="false"
+              aria-controls="sidebarRvSubmenu"
+              title="Randevu menüsünü aç/kapat"
+            >
+              <i class="fa-solid fa-calendar-days"></i><span>Randevu &amp; Takvim</span>
+              <span class="sidebar__tm-chevron" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
+            </button>
+            <div class="sidebar__submenu sidebar__submenu--rv-nested" id="sidebarRvSubmenu" role="group" aria-label="Randevu alt menü">
+              <button type="button" class="sidebar__sublink" data-nav="randevu" title="Takvim ve randevular">
+                <i class="fa-solid fa-calendar-check"></i><span>Takvim / Randevular</span>
+              </button>
+              <button type="button" class="sidebar__sublink" data-nav="kocluk-gorusmeleri" title="Birebir görüşme notları">
+                <i class="fa-solid fa-comments"></i><span>Koçluk Görüşmeleri (Notlar)</span>
+              </button>
+            </div>
+          </li>
+          <li class="sidebar__item--testmaker has-submenu">
+            <button type="button" class="sidebar__link sidebar__link--tm-accordion" id="sidebarTmToggle" aria-expanded="false" aria-controls="sidebarTmSubmenu" title="TestMaker menüsünü aç/kapat">
               <i class="fa-solid fa-file-circle-check"></i><span>TestMaker</span>
               <span class="sidebar__tm-chevron" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
             </button>
@@ -663,16 +1719,122 @@
             <h1 class="page-head__title">Öğrencilerim</h1>
             <button type="button" class="btn btn--sm btn--purple" id="btnPageAddStudent"><i class="fa-solid fa-user-plus"></i> Yeni Öğrenci</button>
           </div>
-          <p class="page-desc"><strong>Düzenle</strong> veya <strong>Sil</strong> ile kayıtları yönetin. Formlar Firestore’a yazılır.</p>
-          <div class="student-grid" id="studentsPageGrid"></div>
+          <p class="page-desc"><strong>Düzenle</strong> veya <strong>Sil</strong> ile kayıt yönetimi. Finans ve cari özet için sol menüden <strong>Muhasebe</strong> sayfasını kullanın.</p>
+          <div class="student-grid cards-row--wide" id="studentsCardsRoot">
+            <p class="table-empty" style="grid-column: 1 / -1; margin: 0">Yükleniyor…</p>
+          </div>
+        </div>
+
+        <div class="main-view" data-view="ogrenci-detay" id="view-ogrenci-detay" hidden>
+          <div class="sd-page">
+            <div class="sd-head">
+              <button type="button" class="btn btn--sm btn--purple sd-back" id="btnStudentDetailBack" data-nav="ogrenciler">
+                <i class="fa-solid fa-arrow-left"></i> Öğrencilere dön
+              </button>
+              <div class="sd-hero" id="studentDetailHero">
+                <img id="studentDetailAvatar" src="" alt="" width="72" height="72" />
+                <div class="sd-hero__text">
+                  <h2 id="studentDetailName">—</h2>
+                  <div class="sd-hero__meta" id="studentDetailMeta"></div>
+                </div>
+              </div>
+            </div>
+            <div class="sd-erp-tabs" role="tablist" aria-label="Öğrenci detay sekmeleri">
+              <button type="button" class="sd-erp-tab is-active" role="tab" data-sd-tab="0" id="sdTab0" aria-selected="true" aria-controls="sdPanel0"><i class="fa-solid fa-user"></i> Kişisel</button>
+              <button type="button" class="sd-erp-tab" role="tab" data-sd-tab="1" id="sdTab1" aria-selected="false" aria-controls="sdPanel1"><i class="fa-solid fa-book-open"></i> Akademik</button>
+              <button type="button" class="sd-erp-tab" role="tab" data-sd-tab="2" id="sdTab2" aria-selected="false" aria-controls="sdPanel2"><i class="fa-solid fa-people-roof"></i> Veli</button>
+              <button type="button" class="sd-erp-tab" role="tab" data-sd-tab="3" id="sdTab3" aria-selected="false" aria-controls="sdPanel3"><i class="fa-solid fa-lira-sign"></i> Muhasebe</button>
+            </div>
+            <div class="sd-erp-panels">
+              <div class="sd-erp-panel" role="tabpanel" id="sdPanel0" data-sd-panel="0" aria-labelledby="sdTab0">
+                <div class="sd-kpi-row" id="studentDetailKpis">
+                  <div class="sd-kpi"><div class="sd-kpi__val" id="sdKpiExams">0</div><div class="sd-kpi__lbl">Deneme kaydı</div></div>
+                  <div class="sd-kpi"><div class="sd-kpi__val" id="sdKpiTyt">—</div><div class="sd-kpi__lbl">TYT net (ort.)</div></div>
+                  <div class="sd-kpi"><div class="sd-kpi__val" id="sdKpiAyt">—</div><div class="sd-kpi__lbl">AYT net (ort.)</div></div>
+                  <div class="sd-kpi"><div class="sd-kpi__val" id="sdKpiTasks">0</div><div class="sd-kpi__lbl">Açık görev</div></div>
+                </div>
+                <div class="sd-section">
+                  <h3><i class="fa-solid fa-list-check"></i> Görevler</h3>
+                  <div id="studentDetailTasks" class="page-desc"></div>
+                </div>
+                <div class="sd-section">
+                  <h3><i class="fa-solid fa-calendar-days"></i> Randevular</h3>
+                  <div id="studentDetailAppts" class="page-desc"></div>
+                </div>
+                <div class="sd-section">
+                  <h3><i class="fa-solid fa-note-sticky"></i> Koç notu (yerel taslak)</h3>
+                  <p class="page-desc" style="margin-top:0">Bu not tarayıcınızda saklanır; isterseniz kopyalayıp öğrenci kaydına yapıştırabilirsiniz.</p>
+                  <textarea class="sd-note-area" id="studentDetailCoachNote" placeholder="Gözlem, hedef, veli görüşmesi notu…"></textarea>
+                  <button type="button" class="btn btn--sm btn--purple" id="btnStudentDetailSaveNote" style="margin-top:0.5rem"><i class="fa-solid fa-floppy-disk"></i> Notu kaydet</button>
+                </div>
+              </div>
+              <div class="sd-erp-panel" role="tabpanel" id="sdPanel1" data-sd-panel="1" hidden aria-labelledby="sdTab1">
+                <div class="sd-section">
+                  <h3><i class="fa-solid fa-chart-line"></i> Net trendi</h3>
+                  <div class="sd-chart-wrap"><canvas id="studentDetailTrendChart" aria-label="Öğrenci net trendi"></canvas></div>
+                </div>
+                <div class="sd-section">
+                  <h3><i class="fa-solid fa-table-list"></i> Tüm deneme sonuçları</h3>
+                  <div class="table-wrap">
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th>Deneme</th>
+                          <th>Tür</th>
+                          <th>Net</th>
+                          <th>Tarih</th>
+                          <th>Durum</th>
+                          <th>Branş özeti</th>
+                        </tr>
+                      </thead>
+                      <tbody id="studentDetailExamsBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+              <div class="sd-erp-panel" role="tabpanel" id="sdPanel2" data-sd-panel="2" hidden aria-labelledby="sdTab2">
+                <div class="sd-section">
+                  <h3><i class="fa-solid fa-people-roof"></i> Veli iletişim</h3>
+                  <div id="sdVeliPanel" class="page-desc"><p>—</p></div>
+                </div>
+              </div>
+              <div class="sd-erp-panel" role="tabpanel" id="sdPanel3" data-sd-panel="3" hidden aria-labelledby="sdTab3">
+                <div id="sdFinanceAlert" class="sd-fin-alert" hidden role="alert"></div>
+                <div class="sd-fin-kpis">
+                  <div class="sd-fin-kpi"><div class="sd-fin-kpi__lbl">Toplam anlaşılan tutar</div><div class="sd-fin-kpi__val" id="sdFinTotal">—</div></div>
+                  <div class="sd-fin-kpi"><div class="sd-fin-kpi__lbl">Şu ana kadar ödenen</div><div class="sd-fin-kpi__val" id="sdFinPaid">—</div></div>
+                  <div class="sd-fin-kpi"><div class="sd-fin-kpi__lbl">Kalan bakiye</div><div class="sd-fin-kpi__val" id="sdFinBalance">—</div></div>
+                </div>
+                <div style="margin-bottom:1rem">
+                  <button type="button" class="btn btn--sm btn--purple" id="btnSdQuickTahsilat"><i class="fa-solid fa-plus"></i> Tahsilat ekle</button>
+                </div>
+                <div class="sd-section" style="margin-top:0">
+                  <h3><i class="fa-solid fa-receipt"></i> Taksit / ödeme geçmişi</h3>
+                  <div class="table-wrap">
+                    <table class="data-table">
+                      <thead>
+                        <tr><th>Tarih</th><th>Tutar (₺)</th><th>Yöntem</th><th>Açıklama</th></tr>
+                      </thead>
+                      <tbody id="sdFinPaymentsBody"><tr><td colspan="4" class="table-empty">Kayıt yok.</td></tr></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="main-view" data-view="gorev-takibi" id="view-gorev-takibi" hidden>
           <div class="page-head">
             <h1 class="page-head__title">Görev Takibi</h1>
-            <button type="button" class="btn btn--sm btn--purple" id="btnGorevTakibiAdd">
-              <i class="fa-solid fa-plus"></i> Yeni ödev ekle
-            </button>
+            <div class="page-head__actions" style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center">
+              <button type="button" class="btn btn--sm btn--purple" data-ogrenci-verisi-kaydet id="btnOgrenciVerisiKaydetGorev" title="Seçili öğrenci için özet → localStorage">
+                <i class="fa-solid fa-floppy-disk"></i> Öğrenci verisini kaydet
+              </button>
+              <button type="button" class="btn btn--sm btn--purple" id="btnGorevTakibiAdd">
+                <i class="fa-solid fa-plus"></i> Yeni ödev ekle
+              </button>
+            </div>
           </div>
           <p class="page-desc">
             <strong>Öğrenci</strong> atayın, <strong>teslim tarihi</strong> ve <strong>öncelik</strong> belirleyin; kartları sütunlar arasında sürükleyin.
@@ -746,13 +1908,20 @@
             </div>
           </div>
 
-          <div class="kanban-board" id="kanbanBoard" role="region" aria-label="Görev panosu">
+          <div class="kanban-board kanban-board--4" id="kanbanBoard" role="region" aria-label="Görev panosu">
             <section class="kanban-col" data-kanban-col="todo">
               <header class="kanban-col__head">
                 <h2 class="kanban-col__title">Yapılacaklar</h2>
                 <span class="kanban-col__badge" id="kanbanBadgeTodo">0</span>
               </header>
               <div class="kanban-col__cards" id="kanbanTodo" data-drop-zone="todo"></div>
+            </section>
+            <section class="kanban-col kanban-col--late" data-kanban-col="late">
+              <header class="kanban-col__head">
+                <h2 class="kanban-col__title">Gecikenler</h2>
+                <span class="kanban-col__badge" id="kanbanBadgeLate">0</span>
+              </header>
+              <div class="kanban-col__cards" id="kanbanLate" data-drop-zone="late"></div>
             </section>
             <section class="kanban-col" data-kanban-col="doing">
               <header class="kanban-col__head">
@@ -771,69 +1940,484 @@
           </div>
         </div>
 
+        <div class="main-view" data-view="haftalik-program" id="view-haftalik-program" hidden>
+          <div class="page-head">
+            <h1 class="page-head__title">Haftalık Program</h1>
+          </div>
+          <section class="yks-pro-root" aria-label="Haftalık program">
+            <div class="yks-pro-hero">
+              <span class="yks-pro-hero__badge">Planlama</span>
+              <h1>Haftalık çalışma programı</h1>
+              <p>Öğrenci seçmeden takvim ve araç kutusu görünmez. Araçları günlere sürükleyin; görevler <strong>Görev Takibi</strong> panosu ile senkron olur.</p>
+            </div>
+            <div class="hp-student-bar">
+              <div class="hp-student-bar__row">
+                <label class="hp-student-bar__label" for="hpStudentSelect"><i class="fa-solid fa-user-graduate"></i> Öğrenci seç</label>
+                <select id="hpStudentSelect" class="hp-student-bar__select">
+                  <option value="">— Öğrenci seçin —</option>
+                </select>
+              </div>
+              <div class="hp-student-strip-wrap">
+                <div class="hp-student-strip" id="hpStudentStrip" role="tablist" aria-label="Öğrenci seçimi"></div>
+              </div>
+              <div class="hp-student-bar__row hp-student-bar__row--actions" style="margin-top:0.75rem;flex-wrap:wrap;gap:0.5rem">
+                <button type="button" class="btn btn--sm btn--purple" data-ogrenci-verisi-kaydet id="btnOgrenciVerisiKaydetHp" title="Haftalık plan ve görev özeti → localStorage (öğrenci paneli)">
+                  <i class="fa-solid fa-floppy-disk"></i> Öğrenci verisini kaydet
+                </button>
+              </div>
+            </div>
+            <div id="hpEmptyState" class="hp-empty">
+              <i class="fa-solid fa-arrow-up"></i>
+              <p>Takvimi ve sürükle-bırak araçlarını görmek için yukarıdan bir öğrenci seçin.</p>
+            </div>
+            <div id="hpWorkspace" class="hp-workspace" hidden>
+              <div class="hp-layout">
+                <aside class="hp-toolbox" aria-label="Araç kutusu">
+                  <h3 class="hp-toolbox__title"><i class="fa-solid fa-toolbox"></i> Araç kutusu</h3>
+                  <p class="hp-toolbox__hint">Kartı tutup ilgili güne bırakın</p>
+                  <div class="hp-tool hp-tool--konu" draggable="true" data-hp-tool="konu" title="Konu Çalışma">
+                    <span class="hp-tool__ico" aria-hidden="true">📖</span>
+                    <span class="hp-tool__txt">Konu Çalışma</span>
+                  </div>
+                  <div class="hp-tool hp-tool--soru" draggable="true" data-hp-tool="soru" title="Soru Çözme">
+                    <span class="hp-tool__ico" aria-hidden="true">📝</span>
+                    <span class="hp-tool__txt">Soru Çözme</span>
+                  </div>
+                  <div class="hp-tool hp-tool--deneme" draggable="true" data-hp-tool="deneme" title="Deneme Çözme">
+                    <span class="hp-tool__ico" aria-hidden="true">🎯</span>
+                    <span class="hp-tool__txt">Deneme Çözme</span>
+                  </div>
+                </aside>
+                <div class="hp-week-wrap">
+                  <div class="hp-week-head" id="hpWeekRangeLabel" aria-live="polite"></div>
+                  <div class="hp-week-grid" id="hpWeekGrid" role="group" aria-label="Haftanın günleri"></div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="main-view" data-view="konu-mr" id="view-konu-mr" hidden>
+          <div class="page-head">
+            <h1 class="page-head__title">Konu MR'ı (Röntgen)</h1>
+          </div>
+          <section class="yks-pro-root" aria-label="Konu MR analizi">
+            <div class="yks-pro-hero">
+              <span class="yks-pro-hero__badge">Analitik</span>
+              <h1>Konu röntgeni — zayıf alanlar</h1>
+              <p>Son denemelerde tekrar eden hata paternleri; öğrenci seçimi ve Firestore bağlantısı sonraki adımda eklenebilir. Aşağıdaki uyarılar örnek arayüzdür.</p>
+            </div>
+            <div class="yks-konu-alert yks-konu-alert--danger" role="alert">
+              <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+              <div>
+                <strong>Uyarı:</strong> Bu öğrenci son 3 denemedir sürekli <strong>Problemler</strong> konusunu kaçırıyor. Öneri: günlük 15 soru + hata günlüğü.
+              </div>
+            </div>
+            <div class="yks-konu-alert yks-konu-alert--warn" role="status">
+              <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+              <div>
+                <strong>Dikkat:</strong> <strong>Paragraf</strong> neti son iki denemede düşüş trendinde (ortalama −2,4 net).
+              </div>
+            </div>
+            <div style="margin-top:1rem;padding:1rem;background:rgba(22,16,38,0.85);border:1px solid rgba(139,92,246,0.28);border-radius:12px;color:#94a3b8;font-size:0.85rem">
+              <p style="margin:0 0 0.5rem;color:#e2e8f0;font-weight:700"><i class="fa-solid fa-chart-column"></i> Özet (örnek)</p>
+              <p style="margin:0">Önceki denemelerdeki konu bazlı net dağılımı burada grafik olarak gösterilebilir; veri kaynağı <code style="color:#c4b5fd">yksBranchDetail</code> ile eşleştirilebilir.</p>
+            </div>
+          </section>
+        </div>
+
+        <div class="main-view" data-view="kaynak-kitap" id="view-kaynak-kitap" hidden>
+          <div class="page-head">
+            <h1 class="page-head__title">Kaynak / Kitap Takibi</h1>
+            <div class="page-head__actions">
+              <button type="button" class="btn btn--sm btn--purple" id="btnKkYeniKaynak" disabled title="Önce öğrenci seçin">
+                <i class="fa-solid fa-book-medical"></i> Yeni Kaynak Ata
+              </button>
+            </div>
+          </div>
+          <section class="yks-pro-root" aria-label="Akıllı kaynak yönetimi">
+            <div class="yks-pro-hero">
+              <span class="yks-pro-hero__badge">Akıllı kaynak</span>
+              <h1>Akıllı Kaynak Yönetim ve Reçete</h1>
+              <p>Öğrenci seçmeden kitap listesi görünmez. Konu durumları, performans girişi ve kütüphane ataması bu ekranda (örnek veri, tarayıcıda saklanır).</p>
+            </div>
+            <div class="kk-student-bar">
+              <div class="kk-student-bar__row">
+                <label class="kk-student-bar__label" for="kkStudentSelect"><i class="fa-solid fa-user-graduate"></i> Öğrenci seç</label>
+                <select id="kkStudentSelect" class="kk-student-bar__select">
+                  <option value="">— Öğrenci seçin —</option>
+                </select>
+              </div>
+              <div class="kk-student-strip-wrap">
+                <div class="kk-student-strip" id="kkStudentStrip" role="tablist" aria-label="Öğrenci seçimi"></div>
+              </div>
+            </div>
+            <div id="kkEmptyState" class="kk-empty">
+              <i class="fa-solid fa-arrow-up"></i>
+              <p>Devam etmek için yukarıdan bir öğrenci seçin.</p>
+            </div>
+            <div id="kkBooksRoot" class="kk-books-root" hidden></div>
+          </section>
+        </div>
+
+        <div class="main-view" data-view="kocluk-gorusmeleri" id="view-kocluk-gorusmeleri" hidden>
+          <div class="page-head">
+            <h1 class="page-head__title">Koçluk Görüşmeleri</h1>
+            <button type="button" class="btn btn--sm btn--purple" id="btnKoclukNotEkle"><i class="fa-solid fa-plus"></i> Not ekle (taslak)</button>
+          </div>
+          <section class="yks-pro-root" aria-label="Görüşme notları">
+            <div class="yks-pro-hero">
+              <span class="yks-pro-hero__badge">Gizli notlar</span>
+              <h1>1-e-1 görüşme kayıtları</h1>
+              <p>Psikolojik ve stratejik gözlemler; yalnızca koç panelinde görünür. Örnek zaman çizelgesi — veri kaydı Firestore ile bağlanabilir.</p>
+            </div>
+            <div class="yks-timeline" id="yksKoclukTimeline">
+              <div class="yks-timeline__item">
+                <div class="yks-timeline__card">
+                  <div class="yks-timeline__date">18 Mart 2026</div>
+                  <div class="yks-timeline__body">
+                    Sınav kaygısı yüksek; önceki hafta uyku düzeni bozulmuş. Pomodoro + haftalık program önerildi. Veli ile görüşme talep edilmedi.
+                  </div>
+                  <span class="yks-timeline__tag">Strateji · motivasyon</span>
+                </div>
+              </div>
+              <div class="yks-timeline__item">
+                <div class="yks-timeline__card">
+                  <div class="yks-timeline__date">10 Mart 2026</div>
+                  <div class="yks-timeline__body">
+                    Paragraf branşında düşüşü kabul etti; günlük 2 paragraf + hata analizi taahhüdü. YDT hedefi netleştirildi.
+                  </div>
+                  <span class="yks-timeline__tag">Akademik</span>
+                </div>
+              </div>
+              <div class="yks-timeline__item">
+                <div class="yks-timeline__card">
+                  <div class="yks-timeline__date">2 Mart 2026</div>
+                  <div class="yks-timeline__body">
+                    İlk görüşme: zaman yönetimi zayıf, telefon kullanımı yüksek. Uygulama önerisi (Odak modu) konuşuldu.
+                  </div>
+                  <span class="yks-timeline__tag">Davranış</span>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
         <div class="main-view" data-view="denemeler" id="view-deneme-analiz" hidden>
           <div class="page-head">
             <h1 class="page-head__title">Deneme Analizleri</h1>
             <div class="page-head__actions">
-              <button type="button" class="btn btn--sm btn--purple" id="btnAddExamRecord"><i class="fa-solid fa-plus"></i> Deneme Kaydı</button>
+              <button type="button" class="btn btn--sm btn--purple" id="btnAddExamRecord"><i class="fa-solid fa-plus"></i> Hızlı deneme kaydı</button>
               <button type="button" class="btn btn--sm btn--purple" id="btnExamsFilter"><i class="fa-solid fa-filter"></i> Filtre: Tümü</button>
             </div>
           </div>
 
-          <section class="deneme-analiz-panel" aria-label="Hızlı net girişi ve trend">
-            <form class="deneme-analiz-form" id="formDenemeAnaliz" autocomplete="off">
-              <div class="deneme-analiz-form__grid">
-                <label class="deneme-analiz-field">
-                  <span>Öğrenci seç</span>
-                  <select id="daStudentSelect" required>
-                    <option value="">— Öğrenci seçin —</option>
-                  </select>
-                </label>
-                <label class="deneme-analiz-field">
-                  <span>Deneme adı</span>
-                  <input type="text" id="daDenemeName" placeholder="Örn. Paraf TYT-5" maxlength="120" required />
-                </label>
-                <label class="deneme-analiz-field deneme-analiz-field--narrow">
-                  <span>TYT neti</span>
-                  <input type="number" id="daTytNet" inputmode="decimal" step="0.25" min="0" max="120" placeholder="0" required />
-                </label>
-                <label class="deneme-analiz-field deneme-analiz-field--narrow">
-                  <span>AYT neti</span>
-                  <input type="number" id="daAytNet" inputmode="decimal" step="0.25" min="0" max="120" placeholder="0" required />
-                </label>
-                <div class="deneme-analiz-form__submit">
-                  <button type="submit" class="btn btn--purple deneme-analiz-save-btn"><i class="fa-solid fa-floppy-disk"></i> Kaydet</button>
+          <section class="eds-da yks-features-root" aria-label="YKS deneme performans analizi">
+            <header class="eds-da__masthead">
+              <div class="eds-da__breadcrumb">
+                <i class="fa-solid fa-house-chimney"></i> Panel <span>/</span> Öğrenci işlemleri <span>/</span> Deneme performans analizi
+              </div>
+              <h1>Deneme performans analizi</h1>
+              <p class="eds-da__sub">MEB YKS · TYT / AYT branş bazlı doğru–yanlış–boş ve konu takibi (ÖSYM net: D − Y/4)</p>
+            </header>
+
+            <div class="eds-da__toolbar">
+              <label>
+                <span>Öğrenci</span>
+                <select id="daStudentSelect">
+                  <option value="">— Öğrenci seçin —</option>
+                </select>
+              </label>
+              <label>
+                <span>Deneme adı</span>
+                <input type="text" id="daExamTitle" placeholder="Örn. TÖDER TYT-3" maxlength="120" autocomplete="off" />
+              </label>
+              <label>
+                <span>Tarih</span>
+                <input type="date" id="daExamDate" />
+              </label>
+              <div>
+                <span style="display:block;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:0.35rem">Sınav</span>
+                <div class="eds-da__exam-tabs" role="tablist" aria-label="TYT veya AYT">
+                  <button type="button" id="daTabTYT" class="is-active" data-da-exam="TYT" role="tab" aria-selected="true">TYT</button>
+                  <button type="button" id="daTabAYT" data-da-exam="AYT" role="tab" aria-selected="false">AYT</button>
                 </div>
               </div>
-            </form>
+              <label id="daAytAlanWrap" hidden>
+                <span>AYT alan</span>
+                <select id="daAytAlan" aria-label="AYT alan seçimi">
+                  <option value="sayisal">Sayısal</option>
+                  <option value="esit_agirlik">Eşit ağırlık</option>
+                  <option value="sozel">Sözel</option>
+                  <option value="dil">Dil</option>
+                </select>
+              </label>
+            </div>
 
-            <div class="deneme-analiz-chart-card">
-              <div class="deneme-analiz-chart-card__head">
-                <h2 class="deneme-analiz-chart-card__title"><i class="fa-solid fa-chart-line"></i> Net trendi</h2>
-                <p class="deneme-analiz-chart-card__hint">Kayıtlar bu cihazda saklanır; seçili öğrenci için TYT / AYT çizgileri güncellenir.</p>
+            <div class="eds-da__kpi-row" id="edsDaKpiRow">
+              <div class="eds-da__kpi">
+                <div class="eds-da__kpi-label">Toplam net</div>
+                <div class="eds-da__kpi-value" id="edsDaKpiNet">—</div>
+                <div class="eds-da__kpi-hint">Seçili sınav tipine göre</div>
               </div>
-              <div class="deneme-analiz-chart-wrap">
-                <canvas id="denemeAnalizChart" aria-label="TYT ve AYT net grafiği"></canvas>
+              <div class="eds-da__kpi">
+                <div class="eds-da__kpi-label">Toplam doğru</div>
+                <div class="eds-da__kpi-value" id="edsDaKpiD">—</div>
+                <div class="eds-da__kpi-hint">Branşlar toplamı</div>
+              </div>
+              <div class="eds-da__kpi">
+                <div class="eds-da__kpi-label">Toplam yanlış</div>
+                <div class="eds-da__kpi-value" id="edsDaKpiY">—</div>
+                <div class="eds-da__kpi-hint">Branşlar toplamı</div>
+              </div>
+              <div class="eds-da__kpi">
+                <div class="eds-da__kpi-label">Boş / başarı</div>
+                <div class="eds-da__kpi-value" id="edsDaKpiB">—</div>
+                <div class="eds-da__kpi-hint" id="edsDaKpiRate">Net / soru üstünden</div>
+              </div>
+            </div>
+
+            <div class="eds-da__layout">
+              <div class="eds-da__panel" id="edsDaBranchPanel">
+                <div class="eds-da__panel-head"><i class="fa-solid fa-table-list"></i> Branş ve dersler — D / Y / B</div>
+                <div id="edsDaBranchRoot"></div>
+              </div>
+              <aside class="eds-da__aside">
+                <div class="eds-da__chart-card">
+                  <h3><i class="fa-solid fa-chart-line"></i> Net trendi (yerel)</h3>
+                  <p class="eds-da__hint">Seçili öğrenci için bu cihazda saklanan TYT/AYT toplam net çizgileri.</p>
+                  <div class="eds-da__chart-wrap">
+                    <canvas id="denemeAnalizChart" aria-label="Net trend grafiği"></canvas>
+                  </div>
+                </div>
+                <div class="eds-da__chart-card">
+                  <h3><i class="fa-solid fa-chart-pie"></i> Branş dengesi (radar)</h3>
+                  <p class="eds-da__hint">Anlık branş netlerinin göreli karşılaştırması.</p>
+                  <div class="eds-da__chart-wrap eds-da__chart-wrap--radar">
+                    <canvas id="denemeRadarChart" aria-label="Branş radar grafiği"></canvas>
+                  </div>
+                </div>
+                <div class="eds-da__chart-card">
+                  <h3><i class="fa-solid fa-tags"></i> Gelişim için işaretlenen konular</h3>
+                  <p class="eds-da__hint">Zayıf olduğunu düşündüğünüz konuları seçin; kayıtta saklanır.</p>
+                  <div class="eds-da__topics" id="edsDaTopicTags"></div>
+                </div>
+              </aside>
+            </div>
+
+            <div class="eds-da__actions">
+              <button type="button" class="btn btn--purple btn-eds-primary" id="btnDaSaveLocal"><i class="fa-solid fa-chart-line"></i> Grafiğe ekle (yerel trend)</button>
+              <button type="button" class="btn btn--purple btn-eds-primary" id="btnDaSaveFirestore"><i class="fa-solid fa-cloud-arrow-up"></i> Firestore’a kaydet</button>
+              <button type="button" class="btn btn--ghost btn-eds-secondary" id="btnDaResetForm" title="Formu temizle"><i class="fa-solid fa-rotate-left"></i> Formu sıfırla</button>
+            </div>
+            <p class="eds-da__hint">Firestore kaydı, öğrenci listesindeki deneme kayıtları tablosunda görünür; ayrıca <code>yksBranchDetail</code> alanında branş ve konu detayı tutulur.</p>
+
+            <div class="eds-da__table-wrap">
+              <h2 class="deneme-analiz-table-heading">Deneme kayıtları</h2>
+              <div class="table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Öğrenci</th>
+                      <th>Tür</th>
+                      <th>Net</th>
+                      <th>Tarih</th>
+                      <th>Durum</th>
+                      <th>İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody id="examsPageBody"></tbody>
+                </table>
               </div>
             </div>
           </section>
+        </div>
 
-          <h2 class="deneme-analiz-table-heading">Firestore deneme kayıtları</h2>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Öğrenci</th>
-                  <th>Tür</th>
-                  <th>Net</th>
-                  <th>Tarih</th>
-                  <th>Durum</th>
-                  <th>İşlem</th>
-                </tr>
-              </thead>
-              <tbody id="examsPageBody"></tbody>
-            </table>
+        <div class="main-view" data-view="optik-okuyucu" id="view-optik-okuyucu" hidden>
+          <div class="page-head">
+            <h1 class="page-head__title">Optik okuyucu</h1>
           </div>
+          <section class="eds-da yks-features-root" aria-label="Optik toplu içe aktarma">
+            <header class="eds-da__masthead">
+              <div class="eds-da__breadcrumb">
+                <i class="fa-solid fa-house-chimney"></i> Panel <span>/</span> Deneme analizleri <span>/</span> Optik okuyucu
+              </div>
+              <h1>Optik sonuçları — ders bazlı</h1>
+              <p class="eds-da__sub">Elle girişte her branş için D/Y/B; toplu modda sütun düzenini seçerek Excel’den aktarın.</p>
+            </header>
+
+            <div class="optik-main-tabs" role="tablist" aria-label="Giriş türü">
+              <button type="button" class="is-active" id="optikTabManual" data-optik-main="manual" role="tab" aria-selected="true">
+                <i class="fa-solid fa-keyboard"></i> Elle giriş (ders bazlı form)
+              </button>
+              <button type="button" id="optikTabBulk" data-optik-main="bulk" role="tab" aria-selected="false">
+                <i class="fa-solid fa-paste"></i> Toplu optik / yapıştır
+              </button>
+            </div>
+
+            <div id="optikPanelManual">
+              <div class="da-tool-card" style="border:1px solid #cbd5e1;border-radius:10px;padding:1.15rem;margin-bottom:1rem">
+                <h3 style="margin:0 0 0.75rem;font-size:1rem;color:#1e3a5f"><i class="fa-solid fa-user-pen"></i> Deneme bilgisi</h3>
+                <div class="eds-da__toolbar" style="border:none;padding:0;margin:0;flex-wrap:wrap">
+                  <label>
+                    <span>Öğrenci</span>
+                    <select id="optikManualStudent">
+                      <option value="">— Öğrenci seçin —</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Deneme adı</span>
+                    <input type="text" id="optikManualExamName" placeholder="Örn. TÖDER TYT-4" maxlength="120" />
+                  </label>
+                  <label>
+                    <span>Tarih</span>
+                    <input type="date" id="optikManualExamDate" />
+                  </label>
+                  <div>
+                    <span style="display:block;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:0.35rem">Sınav</span>
+                    <div class="eds-da__exam-tabs" role="tablist">
+                      <button type="button" class="is-active" id="optikManualTabTYT" data-optik-manual-exam="TYT">TYT</button>
+                      <button type="button" id="optikManualTabAYT" data-optik-manual-exam="AYT">AYT</button>
+                    </div>
+                  </div>
+                  <label id="optikManualAytAlanWrap" hidden>
+                    <span>AYT alan</span>
+                    <select id="optikManualAytAlan">
+                      <option value="sayisal">Sayısal</option>
+                      <option value="esit_agirlik">Eşit ağırlık</option>
+                      <option value="sozel">Sözel</option>
+                      <option value="dil">Dil</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <div class="eds-da__kpi-row" id="optikManualKpiRow">
+                <div class="eds-da__kpi">
+                  <div class="eds-da__kpi-label">Toplam net</div>
+                  <div class="eds-da__kpi-value" id="optikManualKpiNet">—</div>
+                </div>
+                <div class="eds-da__kpi">
+                  <div class="eds-da__kpi-label">Doğru</div>
+                  <div class="eds-da__kpi-value" id="optikManualKpiD">—</div>
+                </div>
+                <div class="eds-da__kpi">
+                  <div class="eds-da__kpi-label">Yanlış</div>
+                  <div class="eds-da__kpi-value" id="optikManualKpiY">—</div>
+                </div>
+                <div class="eds-da__kpi">
+                  <div class="eds-da__kpi-label">Boş</div>
+                  <div class="eds-da__kpi-value" id="optikManualKpiB">—</div>
+                </div>
+              </div>
+              <div class="eds-da__panel" id="optikManualBranchPanel" style="margin-bottom:1rem">
+                <div class="eds-da__panel-head"><i class="fa-solid fa-table-list"></i> Branşlar — doğru / yanlış / boş</div>
+                <div id="optikManualBranchRoot"></div>
+              </div>
+              <div class="eds-da__actions">
+                <button type="button" class="btn btn--purple btn-eds-primary" id="btnOptikManualSave"><i class="fa-solid fa-cloud-arrow-up"></i> Firestore’a kaydet</button>
+                <button type="button" class="btn btn-eds-secondary" id="btnOptikManualReset"><i class="fa-solid fa-rotate-left"></i> Formu sıfırla</button>
+              </div>
+              <p id="optikManualResult" class="eds-da__hint"></p>
+            </div>
+
+            <div id="optikPanelBulk" hidden>
+              <div class="da-tool-card" style="border:1px solid #cbd5e1;border-radius:10px;padding:1.15rem;max-width:960px">
+                <h3 style="margin:0 0 0.5rem;font-size:1rem;color:#1e3a5f"><i class="fa-solid fa-file-csv"></i> Toplu aktarım</h3>
+                <label class="eds-da__hint" style="display:block;margin:0 0 0.5rem;font-weight:700">Aktarım formatı</label>
+                <select id="optikBulkMode" class="optik-bulk-mode-select" aria-label="Toplu aktarım formatı">
+                  <option value="simple">Tek NET (hızlı) — öğrenci + tek net</option>
+                  <option value="tyt_brans">TYT — 4 ana branş neti (Türkçe, Mat, Fen, Sosyal)</option>
+                  <option value="ayt_sayisal">AYT Sayısal — 4 ders neti</option>
+                  <option value="ayt_ea">AYT Eşit ağırlık — 4 ders neti</option>
+                  <option value="ayt_sozel">AYT Sözel — 7 ders neti</option>
+                  <option value="ayt_dil">AYT Dil — YDT neti</option>
+                </select>
+                <div id="optikBulkHint"></div>
+                <div class="eds-da__toolbar" style="margin-top:0.85rem;border:none;padding:0;flex-wrap:wrap">
+                  <label id="optikBulkSimpleExamWrap">
+                    <span>TYT / AYT (tek net modu)</span>
+                    <select id="optikBulkSimpleExamType">
+                      <option value="TYT">TYT</option>
+                      <option value="AYT">AYT</option>
+                    </select>
+                  </label>
+                  <p id="optikBulkTypeAuto" class="eds-da__hint" style="margin:0;align-self:flex-end;display:none">Sınav tipi seçilen formata göre otomatik ayarlanır.</p>
+                  <label>
+                    <span>Deneme adı</span>
+                    <input type="text" id="optikImportExamName" placeholder="Örn. Okul denemesi 3" maxlength="120" />
+                  </label>
+                  <label>
+                    <span>Tarih</span>
+                    <input type="date" id="optikImportExamDate" />
+                  </label>
+                </div>
+                <div style="margin-top:0.65rem;display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center">
+                  <label class="btn btn--sm btn--ghost" style="cursor:pointer;margin:0">
+                    <i class="fa-solid fa-folder-open"></i> CSV seç
+                    <input type="file" id="optikCsvFile" accept=".csv,text/csv,text/plain" hidden />
+                  </label>
+                  <button type="button" class="btn btn--sm" id="btnOptikClear" style="background:var(--gray-200);color:var(--gray-700)">Metni temizle</button>
+              </div>
+                <textarea id="optikBulkTextarea" rows="12" placeholder="Formatı yukarıdan seçin; örnek için «Örnek şablon»a tıklayın."></textarea>
+                <div class="eds-da__actions" style="margin-top:0.65rem">
+                  <button type="button" class="btn btn--purple btn-eds-primary" id="btnOptikImportRun"><i class="fa-solid fa-cloud-arrow-up"></i> Firestore’a aktar</button>
+                  <button type="button" class="btn btn-eds-secondary" id="btnOptikDemoFill"><i class="fa-solid fa-flask"></i> Örnek şablon</button>
+                </div>
+                <p id="optikImportResult" class="eds-da__hint" style="margin-top:0.65rem"></p>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="main-view" data-view="karne" id="view-karne" hidden>
+          <div class="page-head">
+            <h1 class="page-head__title">Toplu karne</h1>
+          </div>
+          <section class="eds-da yks-features-root" aria-label="Toplu karne">
+            <header class="eds-da__masthead">
+              <div class="eds-da__breadcrumb">
+                <i class="fa-solid fa-house-chimney"></i> Panel <span>/</span> Deneme analizleri <span>/</span> Karne
+              </div>
+              <h1>Sınıf karne özeti</h1>
+              <p class="eds-da__sub">Öğrenci ve deneme seçerek raporu daraltın; tüm sınıf veya tek öğrenci; PDF ve yazdırma.</p>
+            </header>
+            <div class="da-tool-card karne-tool-card" style="border:1px solid #cbd5e1;border-radius:10px;padding:1.15rem">
+              <div class="karne-filters eds-da__toolbar" style="border:none;padding:0;margin:0 0 1rem;flex-wrap:wrap;gap:0.75rem;align-items:flex-end">
+                <label style="min-width:200px">
+                  <span>Öğrenci</span>
+                  <select id="karneSelectStudent" class="karne-filter-select" aria-label="Karne için öğrenci">
+                    <option value="all">Tüm öğrenciler</option>
+                  </select>
+                </label>
+                <label style="min-width:260px">
+                  <span>Deneme kapsamı</span>
+                  <select id="karneSelectExam" class="karne-filter-select" aria-label="Karne için deneme filtresi">
+                    <option value="all">Tüm denemeler</option>
+                  </select>
+                </label>
+              </div>
+              <div class="eds-da__kpi-row" style="margin-bottom:1rem">
+                <div class="eds-da__kpi">
+                  <div class="eds-da__kpi-label">Kayıtlı öğrenci</div>
+                  <div class="eds-da__kpi-value" id="karneKpiStudents">—</div>
+                </div>
+                <div class="eds-da__kpi">
+                  <div class="eds-da__kpi-label">Toplam deneme kaydı</div>
+                  <div class="eds-da__kpi-value" id="karneKpiExams">—</div>
+                </div>
+              </div>
+              <div class="eds-da__actions" style="margin-bottom:0.75rem">
+                <button type="button" class="btn btn--purple btn-eds-primary" id="btnKarneBuild"><i class="fa-solid fa-rotate"></i> Karnı yenile</button>
+                <button type="button" class="btn btn-eds-secondary" id="btnKarnePrint"><i class="fa-solid fa-print"></i> Yazdır</button>
+                <button type="button" class="btn btn-eds-secondary" id="btnKarneCopyTsv"><i class="fa-solid fa-copy"></i> Excel (TSV)</button>
+                <button type="button" class="btn btn-eds-secondary" id="btnKarnePdf"><i class="fa-solid fa-file-pdf"></i> PDF indir</button>
+              </div>
+              <p class="eds-da__hint" style="margin:0 0 0.5rem;font-size:0.8rem">Özet tabloda TYT ve AYT için ayrı deneme sayısı, ortalama net ve sınıf sırası; alt bölümde geçmiş denemeler ve o denemedeki sıra.</p>
+              <div id="karnePrintArea" class="karne-print karne-print--scroll">
+                <p class="muted" style="margin:0">Öğrenci ve deneme seçin; «Karnı yenile» ile güncelleyin.</p>
+              </div>
+            </div>
+          </section>
         </div>
 
         <div class="main-view" data-view="randevu" id="view-randevu" hidden>
@@ -1106,7 +2690,7 @@
                         </div>
                       </div>
                       <div class="tm-a4-layout" id="tmA4Layout">
-                        <div class="tm-a4-empty tm-a4-empty--full" id="tmA4Empty">Kitaplıktan veya sağdan <strong>PDF</strong> açıp kırpın; kırpmadan sonra <strong>A–E</strong> şıkkını seçerek ekleyin. Cevap anahtarı her zaman <strong>son sayfada</strong> oluşur. Sorular iki sütunda (ortada çizgi) dizilir.</div>
+                        <div class="tm-a4-empty tm-a4-empty--full" id="tmA4Empty">Kitaplıktan veya sağdan <strong>PDF</strong> açıp kırpın; kırpmadan sonra <strong>A–E</strong> şıkkını seçerek ekleyin. Sıra: soru sayfaları → <strong>optik formu</strong> (ayrı A4) → <strong>kurumsal bilgi</strong> sayfası → <strong>cevap anahtarı</strong> (son A4). Sorular iki sütunda (ortada çizgi) dizilir.</div>
                         <div class="test-content-area" id="testContentArea" hidden>
                           <div id="column-1" class="test-column" data-tm-col="1"></div>
                           <div id="column-2" class="test-column test-column--with-rule" data-tm-col="2"></div>
@@ -1148,6 +2732,21 @@
                   </div>
                   <span class="tm-pdf-nav__total">/ <strong id="pdfPageTotal">0</strong> sayfa</span>
                 </div>
+                <div class="tm-ws-pdf-zoom-nav" id="tmWsPdfZoomNav" role="group" aria-label="PDF yakınlaştırma ve gezinme">
+                  <button type="button" class="tm-ws-pdf-zoombtn" id="tmWsPdfZoomOut" title="Uzaklaştır" disabled aria-label="Uzaklaştır">
+                    <i class="fa-solid fa-minus"></i>
+                  </button>
+                  <span class="tm-ws-pdf-zoom-label" id="tmWsPdfZoomLabel">%100</span>
+                  <button type="button" class="tm-ws-pdf-zoombtn" id="tmWsPdfZoomIn" title="Yakınlaştır" disabled aria-label="Yakınlaştır">
+                    <i class="fa-solid fa-plus"></i>
+                  </button>
+                  <button type="button" class="tm-ws-pdf-zoombtn tm-ws-pdf-panbtn" id="tmWsPdfPanToggle" title="Elle gezin (sürükleyerek kaydır)" disabled aria-pressed="false" aria-label="Elle gezin">
+                    <i class="fa-solid fa-hand"></i>
+                  </button>
+                  <button type="button" class="tm-ws-pdf-zoombtn" id="tmWsPdfZoomReset" title="Görünümü sığdır (100%)" disabled aria-label="Yakınlaştırmayı sıfırla">
+                    <i class="fa-solid fa-compress"></i>
+                  </button>
+                </div>
                 <div class="tm-add-a4-toolbar" hidden aria-hidden="true">
                   <button type="button" class="tm-btn-add-a4 tm-btn-add-a4--below-nav" id="tmBtnAddToA4" disabled>
                     <i class="fa-solid fa-scissors"></i> Seçimi A4’e ekle
@@ -1159,7 +2758,7 @@
                       <div class="tm-pdf-cropper-scroll-inner" id="tmWsPdfCropScrollInner" aria-label="PDF veya görsel — kaydırarak sayfa seçin"></div>
                     </div>
                     <p class="tm-pdf-cropper-hint tm-ws-crop-hint">
-                      <i class="fa-solid fa-crosshairs"></i> Köşeden sürükleyerek seçin; ardından <strong>doğru şıkkı</strong> (A–E) seçerek soruyu A4’e ekleyin.
+                      <i class="fa-solid fa-crosshairs"></i> Köşeden sürükleyerek seçin; ardından <strong>doğru şıkkı</strong> (A–E) seçerek soruyu A4’e ekleyin. Soruyu ortaya alıp <strong>+</strong> ile yakınlaştırın — yakınlaştırma ekranın ortasındaki bölgeyi büyütür (sayfa başına dönmez). Kaydırmak için <strong>el</strong>.
                     </p>
                     <div id="tmWsAnswerKeyRow" class="tm-ws-answer-key-row" hidden>
                       <span class="tm-ws-answer-key-row__lbl">Cevap şıkkı</span>
@@ -1375,12 +2974,27 @@
                         Sonraki <i class="fa-solid fa-chevron-right"></i>
                       </button>
                     </div>
+                    <div class="tm-pdf-cropper-zoom-nav" role="group" aria-label="Görünüm">
+                      <button type="button" class="tm-pdf-cropper-iconbtn tm-pdf-cropper-zoombtn" id="tmPdfCropZoomOut" title="Uzaklaştır" disabled aria-label="Uzaklaştır">
+                        <i class="fa-solid fa-minus"></i>
+                      </button>
+                      <span class="tm-pdf-cropper-zoom-label" id="tmPdfCropZoomLabel" title="Yakınlaştırma">%100</span>
+                      <button type="button" class="tm-pdf-cropper-iconbtn tm-pdf-cropper-zoombtn" id="tmPdfCropZoomIn" title="Yakınlaştır" disabled aria-label="Yakınlaştır">
+                        <i class="fa-solid fa-plus"></i>
+                      </button>
+                      <button type="button" class="tm-pdf-cropper-iconbtn tm-pdf-cropper-panbtn" id="tmPdfCropPanToggle" title="Elle gezin (sürükleyerek kaydır)" disabled aria-pressed="false" aria-label="Elle gezin">
+                        <i class="fa-solid fa-hand"></i>
+                      </button>
+                      <button type="button" class="tm-pdf-cropper-iconbtn tm-pdf-cropper-resetbtn" id="tmPdfCropZoomReset" title="Görünümü sığdır (100%)" disabled aria-label="Yakınlaştırmayı sıfırla">
+                        <i class="fa-solid fa-compress"></i>
+                      </button>
+                    </div>
                   </div>
                   <div class="tm-pdf-cropper-stage">
                     <div class="tm-pdf-cropper-canvas-wrap" id="tmPdfCropCanvasWrap">
                       <div class="tm-pdf-cropper-scroll-inner" id="tmPdfCropScrollInner" aria-label="PDF sayfaları — sürekli kaydırma"></div>
                     </div>
-                    <p class="tm-pdf-cropper-hint"><i class="fa-solid fa-crosshairs"></i> İmleci soru köşelerinden sürükleyerek dikdörtgen seçin.</p>
+                    <p class="tm-pdf-cropper-hint"><i class="fa-solid fa-crosshairs"></i> İmleci soru köşelerinden sürükleyerek dikdörtgen seçin. Soruyu görünümün ortasına alıp <strong>+</strong> ile yakınlaştırın (ortadaki alan büyür, sayfa başına dönmez). Kaydırmak için <strong>el</strong>.</p>
                   </div>
                 </div>
               </div>
@@ -1457,7 +3071,7 @@
             </nav>
           </header>
           <div class="soru-arsivi-page">
-            <p class="soru-arsivi-lead">PDF kırpıcıdan kaydettiğiniz sorular cihazınızda (localStorage) tutulur. Filtreleyin, önizleyin veya silin.</p>
+            <p class="soru-arsivi-lead">PDF kırpıcıdan kaydettiğiniz sorular cihazınızda (localStorage) tutulur. <strong>Sınav tipi</strong> ve <strong>Ders</strong> seçildiğinde <strong>Konu</strong> listesi MEB YKS müfredat mock verisine (<code>yksMufredatDatasi</code>) göre güncellenir. Kartlarda ders/konu, çözüm durumu ve Test Maker sepeti (mock) bulunur.</p>
             <form class="soru-arsivi-filters" id="soruArsiviFilterForm" autocomplete="off" onsubmit="return false;">
               <label class="soru-arsivi-field">
                 <span>Sınav tipi</span>
@@ -1530,30 +3144,118 @@
           </div>
         </div>
 
+        <div class="main-view" data-view="hedef-simulator" id="view-hedef-simulator" hidden>
+          <div class="page-head" style="margin: 0 1.5rem 1rem">
+            <h1 class="page-head__title">Hedef Simülatörü</h1>
+            <p class="page-desc">Öğrenci seçin; kayıttaki hedef üniversite / bölüm ve net alanlarına göre özetlenir.</p>
+          </div>
+          <div class="dp-hedef-student-bar">
+            <label for="dpHedefStudentSelect">Öğrenci</label>
+            <select id="dpHedefStudentSelect" aria-label="Hedef simülatörü için öğrenci">
+              <option value="">— Öğrenci seçin —</option>
+            </select>
+          </div>
+          <div class="dp-hedef-page" style="margin: 0 1.5rem">
+            <div class="dp-hedef-hero">
+              <h1 id="dpHedefUniTitle">Boğaziçi Üniversitesi</h1>
+              <p id="dpHedefBolumSub">Bilgisayar Mühendisliği — Güncel vs hedef net</p>
+            </div>
+            <div class="dp-hedef-chart-wrap">
+              <canvas id="dpHedefRadarCanvas" height="280" aria-label="Branş netleri radar grafiği"></canvas>
+            </div>
+            <div class="dp-hedef-bars-coach" id="dpHedefBarsCoach" aria-live="polite"></div>
+            <div class="dp-hedef-gap" id="dpHedefGapCoach">—</div>
+          </div>
+        </div>
+
+        <div class="main-view" data-view="gelen-sorular" id="view-gelen-sorular" hidden>
+          <div class="page-head" style="margin: 0 1.5rem 1rem">
+            <h1 class="page-head__title">Gelen Sorular</h1>
+            <p class="page-desc">Öğrenci panelindeki <strong>Koça Sor</strong> ile gönderilen mesajlar (aynı tarayıcı — localStorage demo).</p>
+          </div>
+          <div class="dp-inbox-page" style="margin: 0 1.5rem">
+            <div class="dp-inbox-grid" id="dpInboxGrid" role="list"></div>
+            <p class="dp-inbox-empty" id="dpInboxEmpty" hidden>Henüz gelen soru yok. Öğrenci panelinden bir mesaj gönderin.</p>
+          </div>
+        </div>
+
         <div class="main-view" data-view="muhasebe" id="view-muhasebe" hidden>
-          <div class="page-head">
-            <h1 class="page-head__title">Muhasebe</h1>
-            <button type="button" class="btn btn--sm btn--purple" id="btnNewPayment"><i class="fa-solid fa-lira-sign"></i> Tahsilat Kaydı</button>
+          <div class="muhasebe-dash">
+            <div class="page-head muhasebe-dash__head">
+              <h1 class="page-head__title">Muhasebe &amp; Finans</h1>
+              <button type="button" class="btn--muhasebe-cta" id="btnMuhasebeNewTahsilat"><span aria-hidden="true">💸</span> Yeni Tahsilat Ekle</button>
+            </div>
+            <p class="page-desc">Tahsilatlar, bekleyen alacaklar ve geciken ödemeler tek ekranda. Veriler öğrenci kayıtları ve tahsilat listesiyle eşlenir.</p>
+            <div class="muhasebe-kpi-grid" aria-label="Özet göstergeler">
+              <div class="muhasebe-kpi-card">
+                <div class="muhasebe-kpi-card__lbl">Bu ay tahsil edilen</div>
+                <div class="muhasebe-kpi-card__val" id="muhasebeKpiThisMonth">—</div>
+                <div class="muhasebe-kpi-card__sub">Takvim ayına göre</div>
+              </div>
+              <div class="muhasebe-kpi-card">
+                <div class="muhasebe-kpi-card__lbl">Beklenen ödemeler</div>
+                <div class="muhasebe-kpi-card__val" id="muhasebeKpiExpected">—</div>
+                <div class="muhasebe-kpi-card__sub">Toplam kalan bakiye</div>
+              </div>
+              <div class="muhasebe-kpi-card">
+                <div class="muhasebe-kpi-card__lbl">Geciken alacaklar</div>
+                <div class="muhasebe-kpi-card__val" id="muhasebeKpiOverdue">—</div>
+                <div class="muhasebe-kpi-card__sub">Vadesi geçen tutarlar (mock)</div>
+              </div>
+            </div>
+            <h2 class="muhasebe-section-title"><i class="fa-solid fa-table"></i> Öğrenci cari takibi</h2>
+            <div class="table-wrap muhasebe-cari-table-wrap" style="margin-bottom:1rem">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Öğrenci</th>
+                    <th>Alan / grup</th>
+                    <th>Toplam anlaşma</th>
+                    <th>Ödenen</th>
+                    <th>Kalan bakiye</th>
+                    <th>Durum</th>
+                    <th style="min-width:150px">İşlem</th>
+                  </tr>
+                </thead>
+                <tbody id="muhasebeCariBody">
+                  <tr><td colspan="7" class="table-empty">Yükleniyor…</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <h2 class="muhasebe-section-title"><i class="fa-solid fa-list-ul"></i> Tüm tahsilatlar</h2>
+            <div class="table-wrap" style="margin-bottom:1rem">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Öğrenci</th>
+                    <th>Tutar (₺)</th>
+                    <th>Tarih</th>
+                    <th>Yöntem</th>
+                    <th style="min-width:140px">İşlem</th>
+                  </tr>
+                </thead>
+                <tbody id="paymentsTableBody"><tr><td colspan="5" class="table-empty">Yükleniyor…</td></tr></tbody>
+              </table>
+            </div>
+            <div class="muhasebe-overdue-wrap">
+              <h2 class="muhasebe-section-title" style="margin:0;padding:1rem 1rem 0.5rem"><span aria-hidden="true">⚠️</span> Geciken ödemeler ve hatırlatmalar</h2>
+              <div class="table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Öğrenci adı</th>
+                      <th>Veli telefonu</th>
+                      <th>Geciken tutar</th>
+                      <th>Vade tarihi</th>
+                      <th style="min-width:120px">Hatırlat</th>
+                    </tr>
+                  </thead>
+                  <tbody id="muhasebeOverdueBody"><tr><td colspan="5" class="table-empty">Geciken kayıt yok.</td></tr></tbody>
+                </table>
+              </div>
+            </div>
           </div>
-          <p class="page-desc">Tahsilat kayıtlarını yönetin.</p>
-          <div class="table-wrap" style="margin-bottom:1.5rem">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Öğrenci</th>
-                  <th>Tutar (₺)</th>
-                  <th>Tarih</th>
-                  <th>Yöntem</th>
-                  <th style="min-width:140px">İşlem</th>
-                </tr>
-              </thead>
-              <tbody id="paymentsTableBody"><tr><td colspan="5" class="table-empty">Yükleniyor…</td></tr></tbody>
-            </table>
-          </div>
-          <div class="stat-cards">
-            <button type="button" class="stat-card" id="btnStatIncome"><span class="stat-card__val">—</span><span class="stat-card__lbl">Bu ay tahsilat</span></button>
-            <button type="button" class="stat-card" id="btnStatPending"><span class="stat-card__val">—</span><span class="stat-card__lbl">Bekleyen</span></button>
-          </div>
+          <button type="button" id="btnNewPayment" hidden aria-hidden="true" tabindex="-1"></button>
         </div>
       </div>
     </main>
@@ -1709,6 +3411,38 @@
                 <label for="st_targetTytNet">Hedef net</label>
                 <input id="st_targetTytNet" name="targetTytNet" inputmode="decimal" placeholder="Örn. 100" />
               </div>
+              <p class="student-erp-section-title">Hedef (YKS)</p>
+              <div class="form-group" style="grid-column: 1 / -1">
+                <label for="st_portalUsername">Portal kullanıcı adı</label>
+                <input
+                  id="st_portalUsername"
+                  name="portalUsername"
+                  maxlength="120"
+                  placeholder="Öğrenci giriş kullanıcı adı (panel ile eşleşsin)"
+                  autocomplete="off"
+                />
+                <small style="display: block; margin-top: 0.25rem; font-size: 0.76rem; color: #64748b"
+                  >Öğrenci panelinde hedefi göstermek için; süper admin ile açılan hesap kullanıcı adıyla aynı olmalı.</small
+                >
+              </div>
+              <div class="form-group yks-hedef-uni-wrap" style="grid-column: 1 / -1">
+                <label for="st_targetUniSearch">Hedef üniversite</label>
+                <input
+                  type="search"
+                  id="st_targetUniSearch"
+                  autocomplete="off"
+                  placeholder="Üniversite adı yazın (örn. boğaziçi, ankara)…"
+                />
+                <input type="hidden" name="targetUniversity" id="st_targetUniversity" value="" />
+                <div id="st_targetUniDropdown" class="yks-uni-dropdown" hidden role="listbox" aria-label="Üniversite sonuçları"></div>
+                <p id="st_targetUniPicked" class="yks-uni-picked" aria-live="polite"></p>
+              </div>
+              <div class="form-group" style="grid-column: 1 / -1">
+                <label for="st_targetDepartment">Hedef bölüm / program</label>
+                <select id="st_targetDepartment" name="targetDepartment" disabled>
+                  <option value="">— Önce üniversite seçin —</option>
+                </select>
+              </div>
             </div>
           </div>
           <div class="student-erp-panel" role="tabpanel" id="studentTabPanel2" aria-labelledby="studentTabBtn2" data-student-panel="2" hidden>
@@ -1843,6 +3577,24 @@
             <div class="form-group">
               <label for="editTargetTytNet">Hedef net</label>
               <input id="editTargetTytNet" inputmode="decimal" placeholder="Örn. 100" />
+            </div>
+            <p class="student-erp-section-title">Hedef (YKS)</p>
+            <div class="form-group" style="grid-column: 1 / -1">
+              <label for="editPortalUsername">Portal kullanıcı adı</label>
+              <input id="editPortalUsername" maxlength="120" placeholder="Öğrenci giriş kullanıcı adı" autocomplete="off" />
+            </div>
+            <div class="form-group yks-hedef-uni-wrap" style="grid-column: 1 / -1">
+              <label for="editTargetUniSearch">Hedef üniversite</label>
+              <input type="search" id="editTargetUniSearch" autocomplete="off" placeholder="Üniversite ara…" />
+              <input type="hidden" id="editTargetUniversity" value="" />
+              <div id="editTargetUniDropdown" class="yks-uni-dropdown" hidden role="listbox"></div>
+              <p id="editTargetUniPicked" class="yks-uni-picked" aria-live="polite"></p>
+            </div>
+            <div class="form-group" style="grid-column: 1 / -1">
+              <label for="editTargetDepartment">Hedef bölüm / program</label>
+              <select id="editTargetDepartment" disabled>
+                <option value="">— Önce üniversite seçin —</option>
+              </select>
             </div>
             <p class="student-erp-section-title">Veli iletişim</p>
             <div class="form-group">
@@ -2096,15 +3848,15 @@
             <input id="pay_amount" name="amount" type="number" min="0" step="0.01" required placeholder="0.00" />
           </div>
           <div class="form-group">
-            <label for="pay_date">Ödeme tarihi</label>
+            <label for="pay_date">Tahsilat tarihi</label>
             <input id="pay_date" name="paymentDate" type="date" />
           </div>
           <div class="form-group">
-            <label for="pay_method">Yöntem</label>
+            <label for="pay_method">Ödeme yöntemi</label>
             <select id="pay_method" name="paymentMethod">
               <option value="Nakit">Nakit</option>
-              <option value="Kredi kartı">Kredi kartı</option>
               <option value="Havale/EFT">Havale / EFT</option>
+              <option value="Kredi Kartı">Kredi kartı</option>
               <option value="Diğer">Diğer</option>
             </select>
           </div>
@@ -2182,6 +3934,94 @@
         </div>
       </form>
     </div>
+
+    <!-- Yeni kaynak ata — kütüphane (mock) -->
+    <div class="modal modal--lg modal--kk" id="kkModalAta" role="dialog" aria-labelledby="kkModalAtaTitle" hidden>
+      <div class="modal__head">
+        <div>
+          <h2 class="modal__title" id="kkModalAtaTitle"><i class="fa-solid fa-book-medical"></i> Yeni kaynak ata</h2>
+          <p class="modal__subtitle">Kütüphaneden seçin; seçili öğrenciye eklenir (yerel örnek veri).</p>
+        </div>
+        <button type="button" class="modal__close" data-close-modal aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal__body">
+        <div class="kk-lib-filters">
+          <label>
+            <span>Ders</span>
+            <select id="kkLibFilterSubject" aria-label="Ders filtresi">
+              <option value="">Tümü</option>
+              <option value="Matematik">Matematik</option>
+              <option value="Türkçe">Türkçe</option>
+              <option value="Fizik">Fizik</option>
+              <option value="Kimya">Kimya</option>
+            </select>
+          </label>
+          <label>
+            <span>Zorluk</span>
+            <select id="kkLibFilterDiff" aria-label="Zorluk filtresi">
+              <option value="">Tümü</option>
+              <option value="Kolay">Kolay</option>
+              <option value="Orta">Orta</option>
+              <option value="Zor">Zor</option>
+            </select>
+          </label>
+        </div>
+        <div class="kk-lib-list" id="kkLibList"></div>
+      </div>
+      <div class="modal__foot" style="margin: 0 -1.5rem -1.5rem;">
+        <button type="button" class="btn-modal-secondary" data-close-modal>Kapat</button>
+      </div>
+    </div>
+
+    <!-- Haftalık program — görev detayı -->
+    <div class="modal modal--lg modal--hp" id="hpWeeklyTaskModal" role="dialog" aria-labelledby="hpWeeklyTaskModalTitle" hidden>
+      <div class="modal__head">
+        <div>
+          <h2 class="modal__title" id="hpWeeklyTaskModalTitle"><i class="fa-solid fa-calendar-plus"></i> Görev planla</h2>
+          <p class="modal__subtitle" id="hpWeeklyTaskModalSubtitle">Ders, konu ve kaynak bilgilerini girin</p>
+        </div>
+        <button type="button" class="modal__close" data-close-modal aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal__body">
+        <input type="hidden" id="hpMtToolType" value="" />
+        <div class="form-grid form-grid--2">
+          <div class="form-group">
+            <label class="form-required" for="hpMtSubject">Ders adı</label>
+            <select id="hpMtSubject" required></select>
+          </div>
+          <div class="form-group">
+            <label class="form-required" for="hpMtTopic">Konu adı</label>
+            <select id="hpMtTopic" required></select>
+          </div>
+          <div class="form-group form-group--full">
+            <label for="hpMtResource">Kaynak / yayın</label>
+            <input type="text" id="hpMtResource" list="hpMtResourceList" placeholder="Örn. 345 TYT, Palme deneme…" />
+            <datalist id="hpMtResourceList">
+              <option value="345 TYT Matematik — Bilgi Sarmal"></option>
+              <option value="345 TYT Türkçe — Bilgi Sarmal"></option>
+              <option value="Paraf Yayınları TYT Denemeleri"></option>
+              <option value="AYT Matematik Soru Bankası"></option>
+            </datalist>
+          </div>
+          <div class="form-group form-group--full">
+            <label for="hpMtVideo">İzlenecek video / link</label>
+            <input type="url" id="hpMtVideo" placeholder="https://…" />
+          </div>
+          <div class="form-group">
+            <label class="form-required" for="hpMtDate">Tarih</label>
+            <input type="date" id="hpMtDate" required />
+          </div>
+          <div class="form-group form-group--full">
+            <label for="hpMtNotes">Notlar</label>
+            <textarea id="hpMtNotes" rows="3" maxlength="800" placeholder="Opsiyonel kısa not…"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal__foot" style="margin: 0 -1.5rem -1.5rem;">
+        <button type="button" class="btn-modal-secondary" data-close-modal>Vazgeç</button>
+        <button type="button" class="btn-modal-primary" id="hpMtSave"><i class="fa-solid fa-check"></i> Kaydet</button>
+      </div>
+    </div>
   </div>
 
   <div id="avatarGallerySheet" class="avatar-gallery-sheet" hidden aria-hidden="true">
@@ -2253,14 +4093,15 @@
         });
         var tmLiF = document.querySelector(".sidebar__item--testmaker");
         var tmAccF = document.getElementById("sidebarTmToggle");
-        if (tmLiF) tmLiF.classList.add("sidebar__item--tm-open");
+        if (tmLiF) tmLiF.classList.remove("sidebar__item--tm-open");
         if (tmAccF) {
-          tmAccF.setAttribute("aria-expanded", "true");
+          tmAccF.setAttribute("aria-expanded", "false");
           tmAccF.classList.remove("sidebar__link--active");
         }
       } catch (e) {}
     })();
   </script>
+  <script src="js/yks-hedef-uni-picker.js"></script>
   <script type="module" src="js/koc-panel.js"></script>
 </body>
 </html>
