@@ -702,19 +702,19 @@ document.getElementById("btnLogout").addEventListener("click", async function ()
   if (!confirm("Çıkış yapılsın mı?")) return;
   localStorage.removeItem("currentUser");
   await signOut(auth);
-  window.location.replace("login.html");
+  window.location.replace("index.html");
 });
 
 onAuthStateChanged(auth, async function (user) {
   if (!user) {
-    window.location.replace("login.html");
+    window.location.replace("index.html");
     return;
   }
   var snap = await getDoc(doc(db, "users", user.uid));
   var profile = snap.data();
   if (!profile || profile.role !== "admin") {
     await signOut(auth);
-    window.location.replace("login.html");
+    window.location.replace("index.html");
     return;
   }
   localStorage.setItem("currentUser", profile.username || "admin1");

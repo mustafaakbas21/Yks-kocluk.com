@@ -12531,7 +12531,7 @@ function initAllButtons() {
       if (!confirm("Çıkış yapılsın mı?")) return;
       localStorage.removeItem("currentUser");
       signOut(auth).finally(function () {
-        window.location.replace("login.html");
+        window.location.replace("index.html");
       });
     });
 
@@ -12694,7 +12694,7 @@ setTimeout(showLoadTimeoutWarning, 12000);
 
 onAuthStateChanged(auth, function (user) {
   if (!user) {
-    window.location.replace("login.html");
+    window.location.replace("index.html");
     return;
   }
   getDoc(doc(db, "users", user.uid))
@@ -12702,7 +12702,7 @@ onAuthStateChanged(auth, function (user) {
       var profile = snap.data();
       if (!profile || !profile.role) {
         return signOut(auth).then(function () {
-          window.location.replace("login.html");
+          window.location.replace("index.html");
         });
       }
       if (profile.role === "admin") {
@@ -12720,7 +12720,7 @@ onAuthStateChanged(auth, function (user) {
       }
       if (profile.role !== "coach") {
         return signOut(auth).then(function () {
-          window.location.replace("login.html");
+          window.location.replace("index.html");
         });
       }
       var uname = profile.username;
@@ -12730,7 +12730,7 @@ onAuthStateChanged(auth, function (user) {
     })
     .catch(function () {
       signOut(auth).finally(function () {
-        window.location.replace("login.html");
+        window.location.replace("index.html");
       });
     });
 });

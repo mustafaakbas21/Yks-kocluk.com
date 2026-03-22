@@ -51,7 +51,7 @@ onAuthStateChanged(auth, async function (user) {
   window.OspPortal.studentDocId = null;
 
   if (!user) {
-    window.location.replace("login.html");
+    window.location.replace("index.html");
     return;
   }
   try {
@@ -59,7 +59,7 @@ onAuthStateChanged(auth, async function (user) {
     var profile = snap.data();
     if (!profile || profile.role !== "student") {
       await signOut(auth);
-      window.location.replace("login.html");
+      window.location.replace("index.html");
       return;
     }
     var name = (profile.fullName || profile.username || "Öğrenci").trim();
@@ -131,5 +131,5 @@ document.getElementById("ospBtnLogout") &&
       localStorage.removeItem("yksRole");
     } catch (e) {}
     await signOut(auth);
-    window.location.replace("login.html");
+    window.location.replace("index.html");
   });
