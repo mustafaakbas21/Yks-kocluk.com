@@ -550,6 +550,110 @@
       background: linear-gradient(90deg, #7c3aed, #a78bfa);
       transition: width 0.35s ease;
     }
+    /* Kütüphanem — light / lila */
+    .kutu-page .kutu-hero {
+      background: linear-gradient(145deg, #faf5ff 0%, #f3e8ff 55%, #ede9fe 100%);
+      border: 1px solid #e9d5ff;
+      border-radius: 16px;
+      padding: 1.25rem 1.35rem;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 8px 28px rgba(109, 40, 217, 0.08);
+    }
+    .kutu-page .kutu-hero h2 {
+      margin: 0.35rem 0 0.5rem;
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #4c1d95;
+    }
+    .kutu-page .kutu-hero p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: #64748b;
+      line-height: 1.55;
+    }
+    .kutu-page .kutu-hero code {
+      font-size: 0.82rem;
+      color: #7c3aed;
+      background: rgba(124, 58, 237, 0.08);
+      padding: 0.1rem 0.35rem;
+      border-radius: 6px;
+    }
+    .kutu-form-card,
+    .kutu-list-card {
+      background: #fff;
+      border: 1px solid #ede9fe;
+      border-radius: 16px;
+      padding: 1.25rem 1.35rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 4px 20px rgba(109, 40, 217, 0.07);
+    }
+    .kutu-form-card__title {
+      margin: 0 0 1rem;
+      font-size: 1rem;
+      font-weight: 800;
+      color: #5b21b6;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+    .kutu-form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem 1.25rem;
+      align-items: end;
+    }
+    @media (max-width: 768px) {
+      .kutu-form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .kutu-form-grid .form-group label {
+      color: #4c1d95;
+      font-weight: 600;
+    }
+    .kutu-form-grid input,
+    .kutu-form-grid select {
+      border-radius: 12px;
+      border: 1px solid #e9d5ff;
+      padding: 0.55rem 0.75rem;
+      width: 100%;
+      box-sizing: border-box;
+      font-family: inherit;
+    }
+    .kutu-form-actions {
+      grid-column: 1 / -1;
+    }
+    .kutu-lib-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 0.85rem;
+    }
+    .kutu-lib-card {
+      border: 1px solid #ede9fe;
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+      background: linear-gradient(180deg, #faf5ff 0%, #fff 100%);
+    }
+    .kutu-lib-card h4 {
+      margin: 0 0 0.35rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #4c1d95;
+    }
+    .kutu-lib-meta {
+      margin: 0;
+      font-size: 0.82rem;
+      color: #64748b;
+    }
+    .kutu-modal-hint {
+      margin: 0.75rem 0 0;
+      font-size: 0.82rem;
+      color: #64748b;
+    }
+    .kutu-modal-hint i {
+      color: #7c3aed;
+      margin-right: 0.35rem;
+    }
     /* Kaynak / Akıllı reçete — accordion + şerit */
     .kk-student-bar {
       background: var(--yks-pro-card);
@@ -1483,6 +1587,9 @@
               <button type="button" class="sidebar__sublink" data-nav="kaynak-kitap" title="Kaynak ve kitap takibi">
                 <i class="fa-solid fa-book-open"></i><span>Kaynak / Kitap Takibi</span>
               </button>
+              <button type="button" class="sidebar__sublink" data-nav="kutuphanem" title="Koç kütüphanesi — kitap havuzu">
+                <i class="fa-solid fa-book"></i><span>📚 Kütüphanem</span>
+              </button>
             </div>
           </li>
           <li>
@@ -1828,7 +1935,7 @@
           <div class="page-head">
             <h1 class="page-head__title">Görev Takibi</h1>
             <div class="page-head__actions" style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center">
-              <button type="button" class="btn btn--sm btn--purple" data-ogrenci-verisi-kaydet id="btnOgrenciVerisiKaydetGorev" title="Seçili öğrenci için özet → localStorage">
+              <button type="button" class="btn btn--sm btn--purple" data-ogrenci-verisi-kaydet id="btnOgrenciVerisiKaydetGorev" title="Seçili öğrenci için özet → Firestore (öğrenci paneli)">
                 <i class="fa-solid fa-floppy-disk"></i> Öğrenci verisini kaydet
               </button>
               <button type="button" class="btn btn--sm btn--purple" id="btnGorevTakibiAdd">
@@ -1961,7 +2068,7 @@
                 <div class="hp-student-strip" id="hpStudentStrip" role="tablist" aria-label="Öğrenci seçimi"></div>
               </div>
               <div class="hp-student-bar__row hp-student-bar__row--actions" style="margin-top:0.75rem;flex-wrap:wrap;gap:0.5rem">
-                <button type="button" class="btn btn--sm btn--purple" data-ogrenci-verisi-kaydet id="btnOgrenciVerisiKaydetHp" title="Haftalık plan ve görev özeti → localStorage (öğrenci paneli)">
+                <button type="button" class="btn btn--sm btn--purple" data-ogrenci-verisi-kaydet id="btnOgrenciVerisiKaydetHp" title="Haftalık plan ve görev özeti → Firestore (öğrenci paneli)">
                   <i class="fa-solid fa-floppy-disk"></i> Öğrenci verisini kaydet
                 </button>
               </div>
@@ -2026,6 +2133,63 @@
           </section>
         </div>
 
+        <div class="main-view" data-view="kutuphanem" id="view-kutuphanem" hidden>
+          <div class="page-head">
+            <h1 class="page-head__title">📚 Kütüphanem</h1>
+            <p class="page-head__meta" style="margin:0;font-size:0.88rem;color:#64748b">Kitap havuzunuzu oluşturun; öğrencilere «Kaynak / Kitap Takibi» üzerinden atayın.</p>
+          </div>
+          <section class="yks-pro-root kutu-page" aria-label="Kütüphane">
+            <div class="kutu-hero">
+              <span class="yks-pro-hero__badge">Firestore</span>
+              <h2>Koç kütüphanesi</h2>
+              <p>Eklediğiniz kitaplar <code>kaynaklar</code> koleksiyonunda saklanır ve yalnızca sizin hesabınıza bağlıdır.</p>
+            </div>
+            <div class="kutu-form-card">
+              <h3 class="kutu-form-card__title"><i class="fa-solid fa-plus-circle"></i> Yeni kitap ekle</h3>
+              <form id="formKutuphaneYeni" class="kutu-form-grid">
+                <div class="form-group">
+                  <label class="form-required" for="kutuKitapAdi">Kitap adı</label>
+                  <input type="text" id="kutuKitapAdi" name="title" required maxlength="200" placeholder="Örn. 345 TYT Matematik" autocomplete="off" />
+                </div>
+                <div class="form-group">
+                  <label class="form-required" for="kutuDers">Ders</label>
+                  <select id="kutuDers" name="subject" required>
+                    <option value="">— Seçin —</option>
+                    <option value="Matematik">Matematik</option>
+                    <option value="Geometri">Geometri</option>
+                    <option value="Türkçe">Türkçe</option>
+                    <option value="Paragraf">Paragraf</option>
+                    <option value="Fizik">Fizik</option>
+                    <option value="Kimya">Kimya</option>
+                    <option value="Biyoloji">Biyoloji</option>
+                    <option value="Tarih">Tarih</option>
+                    <option value="Coğrafya">Coğrafya</option>
+                    <option value="Felsefe">Felsefe</option>
+                    <option value="Edebiyat">Edebiyat</option>
+                    <option value="İngilizce">İngilizce</option>
+                    <option value="AYT Matematik">AYT Matematik</option>
+                    <option value="AYT Edebiyat">AYT Edebiyat</option>
+                    <option value="Genel">Genel</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-required" for="kutuToplam">Toplam sayfa / test sayısı</label>
+                  <input type="number" id="kutuToplam" name="totalPages" required min="1" max="99999" step="1" placeholder="Örn. 320" />
+                </div>
+                <div class="form-group kutu-form-actions">
+                  <button type="submit" class="btn btn--purple"><i class="fa-solid fa-cloud-arrow-up"></i> Kütüphaneye kaydet</button>
+                </div>
+              </form>
+            </div>
+            <div class="kutu-list-card">
+              <h3 class="kutu-form-card__title"><i class="fa-solid fa-layer-group"></i> Kayıtlı kitaplar</h3>
+              <div id="kutuphaneListRoot" class="kutu-list-root">
+                <p class="kk-lib-empty" style="margin:0">Yükleniyor…</p>
+              </div>
+            </div>
+          </section>
+        </div>
+
         <div class="main-view" data-view="kaynak-kitap" id="view-kaynak-kitap" hidden>
           <div class="page-head">
             <h1 class="page-head__title">Kaynak / Kitap Takibi</h1>
@@ -2039,7 +2203,7 @@
             <div class="yks-pro-hero">
               <span class="yks-pro-hero__badge">Akıllı kaynak</span>
               <h1>Akıllı Kaynak Yönetim ve Reçete</h1>
-              <p>Öğrenci seçmeden kitap listesi görünmez. Konu durumları, performans girişi ve kütüphane ataması bu ekranda (örnek veri, tarayıcıda saklanır).</p>
+              <p>Öğrenci seçmeden kitap listesi görünmez. Atamalar Firestore <code>students/…/atananKaynaklar</code> altında saklanır; kütüphane <strong>Kütüphanem</strong> sayfasından yönetilir.</p>
             </div>
             <div class="kk-student-bar">
               <div class="kk-student-bar__row">
@@ -3422,8 +3586,31 @@
                   autocomplete="off"
                 />
                 <small style="display: block; margin-top: 0.25rem; font-size: 0.76rem; color: #64748b"
-                  >Öğrenci panelinde hedefi göstermek için; süper admin ile açılan hesap kullanıcı adıyla aynı olmalı.</small
+                  >Giriş için: sadece a-z, 0-9 ve _ · Aşağıdaki şifre ile öğrenci paneline giriş yapar (<code
+                    >kullanici@sistem.com</code
+                  >
+                  formatında, @sistem.com otomatik eklenir).</small
                 >
+              </div>
+              <div class="form-group">
+                <label for="st_studentPassword">Giriş şifresi</label>
+                <input
+                  type="password"
+                  id="st_studentPassword"
+                  autocomplete="new-password"
+                  minlength="6"
+                  placeholder="En az 6 karakter"
+                />
+              </div>
+              <div class="form-group">
+                <label for="st_studentPasswordConfirm">Şifre tekrar</label>
+                <input
+                  type="password"
+                  id="st_studentPasswordConfirm"
+                  autocomplete="new-password"
+                  minlength="6"
+                  placeholder="Aynı şifreyi tekrar yazın"
+                />
               </div>
               <div class="form-group yks-hedef-uni-wrap" style="grid-column: 1 / -1">
                 <label for="st_targetUniSearch">Hedef üniversite</label>
@@ -3935,41 +4122,53 @@
       </form>
     </div>
 
-    <!-- Yeni kaynak ata — kütüphane (mock) -->
+    <!-- Yeni kaynak ata — Firestore kütüphanesi -->
     <div class="modal modal--lg modal--kk" id="kkModalAta" role="dialog" aria-labelledby="kkModalAtaTitle" hidden>
       <div class="modal__head">
         <div>
           <h2 class="modal__title" id="kkModalAtaTitle"><i class="fa-solid fa-book-medical"></i> Yeni kaynak ata</h2>
-          <p class="modal__subtitle">Kütüphaneden seçin; seçili öğrenciye eklenir (yerel örnek veri).</p>
+          <p class="modal__subtitle">Kütüphaneden kitap seçin; seçili öğrenciye Firestore üzerinden atanır.</p>
         </div>
         <button type="button" class="modal__close" data-close-modal aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="modal__body">
-        <div class="kk-lib-filters">
-          <label>
-            <span>Ders</span>
+        <p class="modal__subtitle" style="margin: 0 0 1rem; font-size: 0.9rem">
+          Seçili öğrenci: <strong id="kkModalStudentLabel">—</strong>
+        </p>
+        <div class="form-grid form-grid--2 kk-lib-filters">
+          <label class="form-group">
+            <span>Ders filtresi</span>
             <select id="kkLibFilterSubject" aria-label="Ders filtresi">
               <option value="">Tümü</option>
               <option value="Matematik">Matematik</option>
+              <option value="Geometri">Geometri</option>
               <option value="Türkçe">Türkçe</option>
+              <option value="Paragraf">Paragraf</option>
               <option value="Fizik">Fizik</option>
               <option value="Kimya">Kimya</option>
+              <option value="Biyoloji">Biyoloji</option>
+              <option value="Tarih">Tarih</option>
+              <option value="Coğrafya">Coğrafya</option>
+              <option value="Felsefe">Felsefe</option>
+              <option value="Edebiyat">Edebiyat</option>
+              <option value="İngilizce">İngilizce</option>
+              <option value="AYT Matematik">AYT Matematik</option>
+              <option value="AYT Edebiyat">AYT Edebiyat</option>
+              <option value="Genel">Genel</option>
             </select>
           </label>
-          <label>
-            <span>Zorluk</span>
-            <select id="kkLibFilterDiff" aria-label="Zorluk filtresi">
-              <option value="">Tümü</option>
-              <option value="Kolay">Kolay</option>
-              <option value="Orta">Orta</option>
-              <option value="Zor">Zor</option>
+          <label class="form-group form-group--full">
+            <span class="form-required">Kitap / kaynak</span>
+            <select id="kkLibSelect" required aria-label="Kütüphanedeki kitap">
+              <option value="">— Kütüphaneden seçin —</option>
             </select>
           </label>
         </div>
-        <div class="kk-lib-list" id="kkLibList"></div>
+        <p class="kutu-modal-hint"><i class="fa-solid fa-circle-info"></i> Liste boşsa önce <strong>Kütüphanem</strong> sayfasından kitap ekleyin.</p>
       </div>
       <div class="modal__foot" style="margin: 0 -1.5rem -1.5rem;">
         <button type="button" class="btn-modal-secondary" data-close-modal>Kapat</button>
+        <button type="button" class="btn-modal-primary" id="btnKkAssignConfirm"><i class="fa-solid fa-user-plus"></i> Öğrenciye ata</button>
       </div>
     </div>
 

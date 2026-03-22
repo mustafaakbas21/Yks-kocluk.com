@@ -1,16 +1,13 @@
 /**
  * YKS Koçluk — Çoklu kiracı giriş (kullanıcı adı → @sistem.com)
  */
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import {
-  getAuth,
   signInWithEmailAndPassword,
   signOut,
   fetchSignInMethodsForEmail,
   createUserWithEmailAndPassword,
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import {
-  getFirestore,
   doc,
   setDoc,
   getDoc,
@@ -19,24 +16,11 @@ import {
   collection,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyD3RUiCIlcysC6S7TFMbChD8h0cfHeroP8",
-  authDomain: "yks-kocluk-8f7c6.firebaseapp.com",
-  projectId: "yks-kocluk-8f7c6",
-  storageBucket: "yks-kocluk-8f7c6.firebasestorage.app",
-  messagingSenderId: "928738467961",
-  appId: "1:928738467961:web:7e023f5b8f0ae3637874a8",
-  measurementId: "G-GGYN4VBFPR",
-};
+import { db, auth } from "./firebase-config.js";
 
 const EMAIL_DOMAIN = "@sistem.com";
 const ADMIN_EMAIL = "admin1" + EMAIL_DOMAIN;
 const ADMIN_PASSWORD = "admin123";
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
 
 function usernameToEmail(username) {
   var u = String(username || "")

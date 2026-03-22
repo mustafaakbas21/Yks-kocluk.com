@@ -1,9 +1,7 @@
 /**
  * Kurucu paneli — analitik, koç tablosu, Chart.js, operasyonlar
  */
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import {
-  getAuth,
   onAuthStateChanged,
   signOut,
   createUserWithEmailAndPassword,
@@ -12,7 +10,6 @@ import {
   sendPasswordResetEmail,
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import {
-  getFirestore,
   doc,
   getDoc,
   setDoc,
@@ -27,26 +24,9 @@ import {
   updateDoc,
   orderBy,
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyD3RUiCIlcysC6S7TFMbChD8h0cfHeroP8",
-  authDomain: "yks-kocluk-8f7c6.firebaseapp.com",
-  projectId: "yks-kocluk-8f7c6",
-  storageBucket: "yks-kocluk-8f7c6.firebasestorage.app",
-  messagingSenderId: "928738467961",
-  appId: "1:928738467961:web:7e023f5b8f0ae3637874a8",
-  measurementId: "G-GGYN4VBFPR",
-};
+import { db, auth, coachCreatorAuth as secondaryAuth, studentCreatorAuth as tertiaryAuth } from "./firebase-config.js";
 
 const EMAIL_DOMAIN = "@sistem.com";
-
-const primaryApp = initializeApp(firebaseConfig);
-const secondaryApp = initializeApp(firebaseConfig, "CoachCreator");
-const tertiaryApp = initializeApp(firebaseConfig, "StudentCreator");
-const auth = getAuth(primaryApp);
-const secondaryAuth = getAuth(secondaryApp);
-const tertiaryAuth = getAuth(tertiaryApp);
-const db = getFirestore(primaryApp);
 
 let coachesUnsub = null;
 let studentsUnsub = null;

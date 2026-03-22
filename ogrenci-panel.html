@@ -411,58 +411,50 @@
     renderOspHedefSimulator();
   };
 
-  var OSP_TASK_DONE_KEY = "yks_osp_task_done_v1";
-
-  function getOspTaskDoneMap() {
-    try {
-      var r = localStorage.getItem(OSP_TASK_DONE_KEY);
-      var o = r ? JSON.parse(r) : {};
-      return o && typeof o === "object" ? o : {};
-    } catch (e) {
-      return {};
-    }
+  function formatPlanUpdatedAt(u) {
+    if (!u) return "—";
+    if (typeof u.toDate === "function") return u.toDate().toLocaleString("tr-TR");
+    if (typeof u === "number") return new Date(u).toLocaleString("tr-TR");
+    if (u.seconds != null) return new Date(u.seconds * 1000).toLocaleString("tr-TR");
+    return "—";
   }
 
-  function persistOspTaskDone(taskId, done) {
-    try {
-      var m = getOspTaskDoneMap();
-      m[taskId] = !!done;
-      localStorage.setItem(OSP_TASK_DONE_KEY, JSON.stringify(m));
-    } catch (e) {}
-  }
-
-  function applyOgrenciVerisiFromStorage() {
-    try {
-      var raw = localStorage.getItem("ogrenciVerisi");
-      if (!raw) return;
-      var data = JSON.parse(raw);
-      if (!data || data.version !== 1 || !Array.isArray(data.week)) return;
-      var doneMap = getOspTaskDoneMap();
-      data.week.forEach(function (d) {
-        (d.tasks || []).forEach(function (t) {
-          if (doneMap[t.id]) t.done = true;
-        });
+  OSP.applyPlanFromFirestore = function (data) {
+    if (!data || data.version !== 1 || !Array.isArray(data.week)) return;
+    var doneMap = data.taskDoneMap || {};
+    data.week.forEach(function (d) {
+      (d.tasks || []).forEach(function (t) {
+        t.done = !!doneMap[t.id];
       });
-      OSP.week = data.week;
-      if (data.nextTaskId && data.nextTask) {
-        OSP.nextTaskId = data.nextTaskId;
-        OSP.nextTask = {
-          title: data.nextTask.title,
-          detail: data.nextTask.detail,
-          done: !!(doneMap[data.nextTaskId] || data.nextTask.done),
-        };
-      }
-      OSP.weekCompletionPct = computeWeekPct();
-      var ban = document.getElementById("ospCoachBanner");
-      if (ban) {
-        ban.textContent =
-          "Koç planı yüklendi (yerel simülasyon). " +
-          (data.studentName ? data.studentName + " · " : "") +
-          "Güncelleme: " +
-          new Date(data.updatedAt || Date.now()).toLocaleString("tr-TR");
-      }
-    } catch (e) {}
-  }
+    });
+    OSP.week = data.week;
+    if (data.nextTaskId && data.nextTask) {
+      OSP.nextTaskId = data.nextTaskId;
+      OSP.nextTask = {
+        title: data.nextTask.title,
+        detail: data.nextTask.detail,
+        done: !!(doneMap[data.nextTaskId] || data.nextTask.done),
+      };
+    }
+    OSP.weekCompletionPct = computeWeekPct();
+    var ban = document.getElementById("ospCoachBanner");
+    if (ban) {
+      ban.textContent =
+        "Koç planı (Firestore) · " +
+        (data.studentName ? data.studentName + " · " : "") +
+        "Güncelleme: " +
+        formatPlanUpdatedAt(data.updatedAt);
+    }
+    var nt = document.getElementById("ospNextTaskTitle");
+    var nm = document.getElementById("ospNextTaskMeta");
+    if (nt) nt.textContent = OSP.nextTask.title;
+    if (nm) nm.textContent = OSP.nextTask.detail;
+    var wg = document.getElementById("ospWgWeek");
+    if (wg) wg.textContent = "%" + OSP.weekCompletionPct;
+    renderWeek();
+    renderDashboardHero();
+    updateNextTaskUi();
+  };
 
   OSP.applyProfile = function (p) {
     if (!p) return;
@@ -474,18 +466,13 @@
     }
     var ban = document.getElementById("ospCoachBanner");
     if (ban) {
-      var bridgeHint = "";
-      try {
-        if (localStorage.getItem("ogrenciVerisi")) bridgeHint = " · Yerel köprü: koç planı senkron.";
-      } catch (e) {}
       if (p.coachId) {
         ban.textContent =
           "Bağlı koç ID: " +
           p.coachId +
-          " — Koç panelindeki öğrenci listesinde görünürsün." +
-          bridgeHint;
+          " — Koç panelindeki öğrenci listesinde görünürsün.";
       } else {
-        ban.textContent = "Koç ataması yok — yöneticinle iletişime geç." + bridgeHint;
+        ban.textContent = "Koç ataması yok — yöneticinle iletişime geç.";
       }
     }
   };
@@ -620,9 +607,9 @@
       OSP.nextTask.done = done;
     }
     if (taskId === OSP.nextTaskId && done) {
-      ospToast("Görev tamamlandı — koça bildirildi (demo).");
+      ospToast("Görev tamamlandı.");
     } else {
-      ospToast("İlerleme kaydedildi (demo).");
+      ospToast("İlerleme kaydedildi.");
     }
     renderWeek();
     renderDashboardHero();
@@ -630,7 +617,9 @@
     OSP.weekCompletionPct = computeWeekPct();
     var wg = document.getElementById("ospWgWeek");
     if (wg) wg.textContent = "%" + OSP.weekCompletionPct;
-    persistOspTaskDone(taskId, done);
+    if (window.OspPortal && typeof window.OspPortal.updateTaskDone === "function") {
+      void window.OspPortal.updateTaskDone(taskId, done);
+    }
   }
 
   function computeWeekPct() {
@@ -1128,7 +1117,6 @@
   }
 
   function init() {
-    applyOgrenciVerisiFromStorage();
     initOspPdfHaftalik();
 
     document.querySelectorAll("[data-osp-nav]").forEach(function (btn) {
