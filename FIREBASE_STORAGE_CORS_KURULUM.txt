@@ -1,0 +1,49 @@
+Firebase Storage CORS — GitHub Pages (mustafaakbas21.github.io)
+================================================================
+
+Konsoldaki "blocked by CORS policy" hatasi, Storage kovasinin sizin site adresine
+izin vermemesinden kaynaklanir. Bunu KOD ile degil, Google Cloud uzerinde tek seferlik
+ayarla duzeltirsiniz.
+
+ONKOSUL: Google Cloud SDK (gsutil) veya Cloud Shell
+-----------------------------------------------------
+1) https://console.cloud.google.com/ → Proje: yks-kocluk-8f7c6
+2) Ust menu → Cloud Shell ac (terminal)
+
+VEYA bilgisayarda: Google Cloud SDK kurulu olmali (gcloud + gsutil).
+
+KOMUT (bu proje klasorunde firebase-storage-cors.json dosyasi varken)
+-----------------------------------------------------------------------
+Asagidaki kova adlarindan BIri sizin projede gecerli olur; once kontrol edin:
+
+  Firebase Console → Build → Storage → dosya yolunda genelde:
+  gs://yks-kocluk-8f7c6.appspot.com
+  veya
+  gs://yks-kocluk-8f7c6.firebasestorage.app
+
+Cloud Shell'de:
+
+  gsutil cors set firebase-storage-cors.json gs://yks-kocluk-8f7c6.appspot.com
+
+Hata verirse diger kovayi deneyin:
+
+  gsutil cors set firebase-storage-cors.json gs://yks-kocluk-8f7c6.firebasestorage.app
+
+Dogrulama:
+
+  gsutil cors get gs://yks-kocluk-8f7c6.appspot.com
+
+Sonra sayfayi sert yenileyin (Ctrl+F5).
+
+FIREBASE AUTH — GitHub Pages
+-----------------------------
+Firebase Console → Authentication → Settings → Authorized domains listesine suyu ekleyin:
+
+  mustafaakbas21.github.io
+
+(Login / token icin gerekli; Storage CORS’tan ayri bir ayardir.)
+
+FIRESTORE "ERR_BLOCKED_BY_CLIENT"
+---------------------------------
+Bu genelde tarayici eklentisidir (uBlock, Privacy Badger vb.).
+Firestore ve googleapis isteklerini engelleyen eklentiyi bu site icin kapatmayi deneyin.
