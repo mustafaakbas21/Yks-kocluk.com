@@ -2898,7 +2898,7 @@
                         </div>
                       </div>
                       <div class="tm-a4-layout" id="tmA4Layout">
-                        <div class="tm-a4-empty tm-a4-empty--full" id="tmA4Empty">Kitaplıktan veya sağdan <strong>PDF</strong> açıp kırpın; kırpmadan sonra <strong>A–E</strong> şıkkını seçerek ekleyin. İlk sayfa: <strong>kurumsal kapak</strong>; ardından soru sayfaları; sonda <strong>cevap anahtarı</strong>. Hazır optik için üstteki <strong>Optik</strong> düğmesinden PDF indirin.</div>
+                        <div class="tm-a4-empty tm-a4-empty--full" id="tmA4Empty">Kitaplıktan veya sağdan <strong>PDF</strong> açıp kırpın; <strong>A–E</strong> şıkkıyla ekleyin. <strong>1. sayfa</strong> kurumsal kapaktır (soru yok); sorular <strong>2. sayfadan</strong> başlar; sonda <strong>cevap anahtarı</strong>. Hazır optik: üst şerit <strong>Optik</strong> ile PDF.</div>
                         <div class="test-content-area" id="testContentArea" hidden>
                           <div id="column-1" class="test-column" data-tm-col="1"></div>
                           <div id="column-2" class="test-column test-column--with-rule" data-tm-col="2"></div>
@@ -2966,7 +2966,7 @@
                       <div class="tm-pdf-cropper-scroll-inner" id="tmWsPdfCropScrollInner" aria-label="PDF veya görsel — kaydırarak sayfa seçin"></div>
                     </div>
                     <p class="tm-pdf-cropper-hint tm-ws-crop-hint">
-                      <i class="fa-solid fa-crosshairs"></i> Köşeden sürükleyerek seçin; ardından <strong>doğru şıkkı</strong> (A–E) seçerek soruyu A4’e ekleyin. Soruyu ortaya alıp <strong>+</strong> ile yakınlaştırın — yakınlaştırma ekranın ortasındaki bölgeyi büyütür (sayfa başına dönmez). Kaydırmak için <strong>el</strong>.
+                      <i class="fa-solid fa-crosshairs"></i> Köşeden sürükleyerek seçin; ardından <strong>doğru şıkkı</strong> (A–E) seçerek soruyu A4’e ekleyin. <strong>+</strong>/<strong>−</strong> veya <strong>Ctrl</strong>+tekerlek ile yakınlaştırın. <strong>Shift</strong>+tekerlek veya <strong>el</strong> ile yatay/dikey kaydırın.
                     </p>
                     <div id="tmWsAnswerKeyRow" class="tm-ws-answer-key-row" hidden>
                       <span class="tm-ws-answer-key-row__lbl">Cevap şıkkı</span>
@@ -3279,7 +3279,52 @@
             </nav>
           </header>
           <div class="soru-arsivi-page">
-            <p class="soru-arsivi-lead">PDF kırpıcıdan kaydettiğiniz sorular cihazınızda (localStorage) tutulur. <strong>Sınav tipi</strong> ve <strong>Ders</strong> seçildiğinde <strong>Konu</strong> listesi MEB YKS müfredat mock verisine (<code>yksMufredatDatasi</code>) göre güncellenir. Kartlarda ders/konu, çözüm durumu ve Test Maker sepeti (mock) bulunur.</p>
+            <form class="soru-arsivi-filters" id="soruArsiviUploadForm" autocomplete="off" onsubmit="return false;" style="border:1px dashed rgba(108,92,231,0.45);background:linear-gradient(180deg,rgba(108,92,231,0.07),#fff);margin-bottom:1rem">
+              <div class="soru-arsivi-field" style="min-width:100%;margin-bottom:0.15rem">
+                <span style="color:#6c5ce7;font-size:0.78rem"><i class="fa-solid fa-cloud-arrow-up"></i> Manuel Soru Yükle (PNG / JPG / PDF)</span>
+              </div>
+              <label class="soru-arsivi-field">
+                <span>Sınav</span>
+                <select id="arsivUploadSinav" aria-label="Yükleme sınav tipi">
+                  <option value="TYT">TYT</option>
+                  <option value="AYT">AYT</option>
+                </select>
+              </label>
+              <label class="soru-arsivi-field">
+                <span>Ders</span>
+                <select id="arsivUploadDers" aria-label="Yükleme ders"></select>
+              </label>
+              <label class="soru-arsivi-field">
+                <span>Konu</span>
+                <select id="arsivUploadKonu" aria-label="Yükleme konu"></select>
+              </label>
+              <label class="soru-arsivi-field">
+                <span>Zorluk</span>
+                <select id="arsivUploadZorluk" aria-label="Yükleme zorluk">
+                  <option>Kolay</option>
+                  <option selected>Orta</option>
+                  <option>Zor</option>
+                </select>
+              </label>
+              <div class="soru-arsivi-field soru-arsivi-field--drop" style="min-width:100%;flex-basis:100%">
+                <span>Bırakma alanı</span>
+                <div
+                  id="arsivUploadDropzone"
+                  class="soru-arsivi-dropzone"
+                  tabindex="0"
+                  role="button"
+                  aria-label="Görselleri veya PDF sürükleyip bırakın"
+                >
+                  <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i>
+                  <span>PNG / JPG / PDF dosyalarını buraya sürükleyin veya <strong>Dosya seç</strong> ile çoklu seçin.</span>
+                </div>
+              </div>
+              <input type="file" id="arsivUploadFile" accept="image/png,image/jpeg,image/jpg,application/pdf,.pdf" multiple hidden />
+              <button type="button" class="soru-arsivi-search-btn" id="btnArsivUploadPick" style="background:linear-gradient(135deg,#6c5ce7,#5b4fcf);margin-left:0"><i class="fa-solid fa-folder-open"></i> Dosya seç</button>
+              <button type="button" class="soru-arsivi-search-btn" id="btnArsivUploadSave" disabled style="opacity:0.85"><i class="fa-solid fa-floppy-disk"></i> Havuza kaydet</button>
+              <span id="arsivUploadFileName" style="font-size:0.82rem;color:#64748b;flex:1;min-width:12rem;overflow:hidden;text-overflow:ellipsis"></span>
+            </form>
+            <p class="soru-arsivi-lead">Sorular Firebase <strong>soru_havuzu</strong> koleksiyonunda tutulur. <strong>Sınav tipi</strong> ve <strong>Ders</strong> seçildiğinde <strong>Konu</strong> listesi müfredat verisine (<code>yksMufredatDatasi</code>) göre güncellenir. PDF dosyasında yalnızca <strong>ilk sayfa</strong> önizlenerek havuza eklenir; çok sayfalı kesim için <strong>Soru Kırpma</strong> sekmesini kullanın.</p>
             <form class="soru-arsivi-filters" id="soruArsiviFilterForm" autocomplete="off" onsubmit="return false;">
               <label class="soru-arsivi-field">
                 <span>Sınav tipi</span>

@@ -413,7 +413,7 @@
 
 .tm-a4-preview-scroll {
   flex: 1;
-  min-height: 0;
+  min-height: clamp(320px, 52vh, 720px);
   overflow: auto;
   padding: 1rem 1rem 1.5rem;
   display: flex;
@@ -1051,8 +1051,8 @@
   align-items: stretch;
   justify-content: flex-start;
   padding: 0.45rem;
-  max-height: min(56vh, 520px);
-  min-height: 240px;
+  max-height: min(72vh, 680px);
+  min-height: 320px;
   background-color: #12121a;
   background-image: linear-gradient(45deg, #1c1c24 25%, transparent 25%),
     linear-gradient(-45deg, #1c1c24 25%, transparent 25%),
@@ -1072,8 +1072,8 @@
 
 .tm-ws-pdf-crop-canvas-wrap.tm-pdf-cropper-canvas-wrap {
   flex: 1;
-  min-height: 200px;
-  max-height: min(48vh, 440px);
+  min-height: 300px;
+  max-height: min(62vh, 600px);
   width: 100%;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1083,8 +1083,28 @@
   cursor: crosshair;
 }
 
+/* tm-pdf-cropper.css max-width:100% yakınlaştırmayı bozuyordu (canvas her zaman sığdırılmış kalıyordu) */
+.tm-ws-pdf-crop-canvas-wrap .tm-pdf-crop-slot-canvas {
+  max-width: none;
+}
+
+/* Yakınlaştırınca yatay taşma: slot genişliği canvas ile aynı olsun (flex center scrollWidth’i büyütmezdi) */
+.tm-ws-pdf-crop-canvas-wrap .tm-pdf-cropper-scroll-inner {
+  align-items: flex-start;
+  width: max-content;
+  min-width: 100%;
+  box-sizing: border-box;
+}
+
+.tm-ws-pdf-crop-canvas-wrap .tm-pdf-cropper-page-slot {
+  width: auto;
+  max-width: none;
+  align-self: flex-start;
+}
+
 .tm-ws-pdf-crop-canvas-wrap.tm-pdf-cropper-canvas-wrap.tm-ws-pdf-crop--pan-mode {
   cursor: grab;
+  touch-action: none;
 }
 
 .tm-ws-pdf-crop-canvas-wrap.tm-pdf-cropper-canvas-wrap.tm-ws-pdf-crop--pan-dragging {
@@ -2465,6 +2485,79 @@
   min-height: 120mm;
 }
 
+.tm-corporate-cover-sheet__masthead {
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 2.2fr) 1fr;
+  align-items: start;
+  gap: 2mm 3mm;
+  padding: 0 1mm 3mm;
+  font-size: 8.5pt;
+  color: #0f172a;
+}
+
+.tm-corporate-cover-sheet__mast-inst {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  word-break: break-word;
+}
+
+.tm-corporate-cover-sheet__mast-center {
+  text-align: center;
+  line-height: 1.25;
+}
+
+.tm-corporate-cover-sheet__mast-course {
+  font-size: 11pt;
+  font-weight: 800;
+  color: #1e1b4b;
+}
+
+.tm-corporate-cover-sheet__mast-topic {
+  font-size: 8.5pt;
+  font-weight: 600;
+  color: #64748b;
+  margin-top: 1mm;
+}
+
+.tm-corporate-cover-sheet__mast-date {
+  text-align: right;
+  font-weight: 600;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.tm-corporate-cover-sheet__mast-rule {
+  border: none;
+  border-top: 1px solid #cbd5e1;
+  margin: 0 0 3mm;
+}
+
+.tm-corporate-cover-sheet__twocol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  min-height: 52mm;
+  margin-bottom: 4mm;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fafafa;
+}
+
+.tm-corporate-cover-sheet__twocol-cell {
+  min-height: 52mm;
+  background: #fff;
+}
+
+.tm-corporate-cover-sheet__twocol-cell:first-child {
+  border-right: 1px solid #cbd5e1;
+}
+
+.tm-corporate-cover-sheet--spread .tm-corporate-cover-sheet__accent {
+  margin-top: 0;
+}
+
 .tm-corporate-cover-sheet__accent {
   height: 5px;
   border-radius: 999px;
@@ -3534,6 +3627,22 @@
 
 .a4-paper.tm-a4-page--answer-key .tm-a4-layout {
   min-height: 0;
+}
+
+.a4-paper.tm-a4-page--answer-key {
+  background: #fff !important;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
+}
+
+.a4-paper.tm-a4-page--answer-key .tm-answer-key-sheet {
+  padding: 8mm 11mm 12mm;
+  min-height: 255mm;
+  box-sizing: border-box;
+}
+
+.a4-paper.tm-a4-page--answer-key .tm-answer-key-grid__cell {
+  background: #fff;
 }
 
 .tm-answer-key-sheet {

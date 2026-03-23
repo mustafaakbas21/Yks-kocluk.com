@@ -27,6 +27,15 @@ import {
 import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN, netFromDy, clampDy } from "./yks-exam-structure.js";
 import { yksMufredatDatasi } from "./yks-mufredat-data.js";
 import { db, auth, studentCreatorAuthKoc as studentCreatorAuth } from "./firebase-config.js";
+import {
+  saveSoruHavuzuEntry,
+  saveManyAiQuestionsToPool,
+  dataUrlToBlob,
+  fetchSoruHavuzuForCoach,
+  deleteSoruHavuzuDoc,
+  setSoruHavuzuCozuldu,
+  getPoolCoachKey,
+} from "./soru-havuzu-core.js";
 
 (function () {
   var el = document.getElementById("appointmentsRow");
@@ -46,6 +55,15 @@ function sanitizeStudentPortalUsername(s) {
 let kocPanelBootstrapped = false;
 
 /** SPA: script yüklendiği anda (auth beklemeden) gizli olması gereken katmanları kapat */
+(function kocPanelRemoveLegacyHavuzPicker() {
+  try {
+    var ov = document.getElementById("tmHavuzPickerOverlay");
+    if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+    var btn = document.getElementById("tmBtnOpenHavuzPicker");
+    if (btn && btn.parentNode) btn.parentNode.parentNode.removeChild(btn.parentNode);
+  } catch (e) {}
+})();
+
 (function kocPanelSpaShellEarly() {
   try {
     if (!document.body) return;
@@ -69,6 +87,24 @@ function getCoachId() {
     if (imp && String(imp).trim()) return String(imp).trim();
   } catch (e) {}
   return (localStorage.getItem("currentUser") || "").trim();
+}
+
+/** localStorage boşsa Firebase oturumundan kullanıcı adı (giriş e-postası @ öncesi) */
+function getCoachIdResolved() {
+  var c = getCoachId();
+  if (c) return c;
+  try {
+    var u = auth.currentUser;
+    if (u && u.email) {
+      var part = String(u.email)
+        .split("@")[0]
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, "");
+      if (part) return part;
+    }
+  } catch (e) {}
+  return getPoolCoachKey() || "";
 }
 
 function showImpersonateBanner(coachUsername) {
@@ -719,6 +755,21 @@ function initAiTestGenWizard() {
               console.error("AI taslak:", errApply);
               showToast("Taslak yerleştirilirken hata oluştu.");
             }
+            var cidAi = getCoachId();
+            if (cidAi && questions && questions.length) {
+              saveManyAiQuestionsToPool(cidAi, questions, {
+                ders: payload.subject,
+                konu: payload.topic,
+                zorluk: payload.diff,
+                sinavTipi: payload.exam || "",
+              })
+                .then(function (n) {
+                  if (n > 0) showToast("AI: " + n + " soru soru_havuzu koleksiyonuna kaydedildi.");
+                })
+                .catch(function (e) {
+                  console.warn("[soru_havuzu] AI persist:", e);
+                });
+            }
             if (btnAi) btnAi.disabled = false;
           });
         })
@@ -732,7 +783,7 @@ function initAiTestGenWizard() {
   });
 }
 
-/** Hazır optik formu — vektör çizim (tek sayfa A4 PDF indir) */
+/** Hazır optik formu — OMR benzeri tek sayfa A4 (jsPDF vektör; PDF indirme aynı) */
 function tmDownloadOptikTemplatePdf() {
   if (!(window.jspdf && window.jspdf.jsPDF)) {
     showToast("jsPDF yüklenemedi; sayfayı yenileyin.");
@@ -740,118 +791,241 @@ function tmDownloadOptikTemplatePdf() {
   }
   var J = window.jspdf.jsPDF;
   var doc = new J({ unit: "mm", format: "a4", orientation: "portrait" });
-  var M = [230, 0, 126];
-  var K = [0, 0, 0];
+  var Accent = [175, 0, 95];
+  var Ink = [35, 35, 42];
+  var Grid = [210, 210, 215];
+  var Black = [0, 0, 0];
   var fname =
     ((document.getElementById("tmWsTitle") && document.getElementById("tmWsTitle").value) || "Optik_Form")
       .trim()
       .replace(/[\\/:*?"<>|]/g, "-") || "Optik_Form";
 
+  var W = 210;
+  var H = 297;
+  var mL = 11;
+  var mR = 11;
+  var mT = 8;
+  var innerL = mL + 5;
+  var innerR = W - mR;
+  var innerW = innerR - innerL;
+
+  function setAccent() {
+    doc.setDrawColor.apply(doc, Accent);
+    doc.setTextColor.apply(doc, Accent);
+  }
+  function setInk() {
+    doc.setDrawColor.apply(doc, Ink);
+    doc.setTextColor.apply(doc, Ink);
+  }
+  function setGrid() {
+    doc.setDrawColor.apply(doc, Grid);
+  }
+
   doc.setFont("helvetica", "normal");
-  doc.setTextColor.apply(doc, M);
+
+  doc.setFillColor.apply(doc, Black);
+  var tmY;
+  for (tmY = mT + 4; tmY < H - 10; tmY += 8.2) {
+    doc.rect(3.2, tmY, 2.6, 4.8, "F");
+  }
+
+  setAccent();
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.text("OPTIK CEVAP FORMU", W / 2, mT + 3, { align: "center" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6.2);
+  doc.text("210 x 297 mm (A4)  |  Okuyucu hizasi icin sol kenar siyah bloklar", W / 2, mT + 7, { align: "center" });
+
+  setInk();
+  doc.setLineWidth(0.35);
+  setAccent();
+  doc.rect(innerL, mT + 10, innerW, 26);
+
+  doc.setLineWidth(0.12);
+  setInk();
   doc.setFontSize(7);
-  doc.text("210 x 297 mm (A4) — optik işaretleme şablonu", 105, 7, { align: "center" });
+  doc.text("ADI - SOYADI (duz harflerle yaziniz):", innerL + 2, mT + 15);
+  doc.line(innerL + 52, mT + 14.2, innerR - 2, mT + 14.2);
 
-  doc.setDrawColor.apply(doc, M);
-  doc.setLineWidth(0.2);
+  doc.text("TEST / DENEME ADI:", innerL + 2, mT + 21);
+  doc.line(innerL + 38, mT + 20.2, innerL + 118, mT + 20.2);
+  doc.text("SINAV TARIHI (GG.AA.YYYY):", innerL + 120, mT + 21);
+  doc.line(innerL + 158, mT + 20.2, innerR - 2, mT + 20.2);
 
-  function dottedLine(x1, y1, x2, y2) {
-    var len = Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
-    var steps = Math.max(8, Math.floor(len / 0.85));
-    var i;
-    for (i = 0; i < steps; i += 2) {
-      var t0 = i / steps;
-      var t1 = Math.min(1, (i + 1) / steps);
-      doc.line(x1 + (x2 - x1) * t0, y1 + (y2 - y1) * t0, x1 + (x2 - x1) * t1, y1 + (y2 - y1) * t1);
+  doc.setFontSize(6);
+  doc.setTextColor(120, 120, 125);
+  doc.text("Ad ve soyad arasinda bir bosluk birakiniz.", innerL + 2, mT + 25.5);
+  doc.setTextColor.apply(doc, Ink);
+
+  /** Daire merkezine göre metin — A4 OMR okunabilirliği için */
+  function tmOptikTextInCircle(cx, cy, txt, fontPt, useBold) {
+    doc.setFont("helvetica", useBold ? "bold" : "normal");
+    doc.setFontSize(fontPt);
+    setInk();
+    try {
+      doc.text(String(txt), cx, cy, { align: "center", baseline: "middle" });
+    } catch (err) {
+      var fh = (fontPt * 0.352778) / 2;
+      doc.text(String(txt), cx, cy + fh * 0.22, { align: "center" });
     }
   }
 
-  var hdrRow = 6.5;
-  var hdrTop = 10;
-  doc.setFontSize(7);
-  doc.text("ADI - SOYADI:", 10, hdrTop);
-  dottedLine(32, hdrTop - 0.6, 102, hdrTop - 0.6);
-  doc.text("SINIF:", 105, hdrTop);
-  dottedLine(118, hdrTop - 0.6, 200, hdrTop - 0.6);
-  doc.text("TESTIN ADI:", 10, hdrTop + hdrRow);
-  dottedLine(32, hdrTop + hdrRow - 0.6, 102, hdrTop + hdrRow - 0.6);
-  doc.text("SINAV TARIHI:", 105, hdrTop + hdrRow);
-  dottedLine(132, hdrTop + hdrRow - 0.6, 200, hdrTop + hdrRow - 0.6);
+  var blockTop = mT + 38;
+  var studentBlockH = 62;
+  setAccent();
+  doc.setLineWidth(0.28);
+  doc.rect(innerL, blockTop, innerW, studentBlockH);
 
-  doc.setFillColor.apply(doc, K);
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "bold");
+  doc.text("SINIF", innerL + 3, blockTop + 5.2);
+  doc.setFont("helvetica", "normal");
+  var grades = [
+    { t: "9", y: 0 },
+    { t: "10", y: 1 },
+    { t: "11", y: 2 },
+    { t: "12", y: 3 },
+    { t: "MZ", y: 4 },
+    { t: "HAZ", y: 5 },
+  ];
+  var gradeCircleR = 1.38;
+  var gx;
+  for (gx = 0; gx < grades.length; gx++) {
+    var gy = blockTop + 9.5 + grades[gx].y * 5.45;
+    doc.setFontSize(7.8);
+    setInk();
+    doc.text(grades[gx].t, innerL + 3.5, gy, { baseline: "middle" });
+    var gcx = innerL + 15;
+    setAccent();
+    doc.circle(gcx, gy, gradeCircleR);
+  }
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  setInk();
+  doc.text("KITAPCIK TURU (birini isaretleyiniz)", innerL + 24, blockTop + 5.2);
+  doc.setFont("helvetica", "normal");
+  var bk = ["A", "B", "C", "D", "E"];
+  var kitBubbleR = 1.38;
+  var kitGap = 9.2;
+  var kitCx0 = innerL + 30;
+  var kitCy = blockTop + 14.8;
   var bi;
-  for (bi = 0; bi < 8; bi++) {
-    doc.rect(3.5, 24 + bi * 30, 2.4, 11, "F");
+  for (bi = 0; bi < 5; bi++) {
+    var kcx = kitCx0 + bi * kitGap;
+    setAccent();
+    doc.circle(kcx, kitCy, kitBubbleR);
+    tmOptikTextInCircle(kcx, kitCy, bk[bi], 6.6, true);
   }
 
-  doc.setDrawColor.apply(doc, M);
-  doc.setTextColor.apply(doc, M);
+  doc.setFontSize(6);
+  setInk();
+  doc.text("Ornek:", innerL + 24, blockTop + 23.2);
+  var exY = blockTop + 21.8;
+  setAccent();
+  doc.circle(innerL + 36, exY, 1.25);
+  doc.setFontSize(5.8);
+  setInk();
+  doc.text("yanlis", innerL + 40, exY, { baseline: "middle" });
+  doc.setFillColor.apply(doc, Accent);
+  doc.circle(innerL + 54, exY, 1.25, "F");
+  doc.setFontSize(5.8);
+  setInk();
+  doc.text("dogru", innerL + 58, exY, { baseline: "middle" });
 
-  doc.setFontSize(7);
-  doc.text("SINIF", 9, 28);
-  var grades = ["9", "10", "11", "12", "HZ", "MZ"];
-  var gi;
-  for (gi = 0; gi < grades.length; gi++) {
-    var gy = 32 + gi * 5;
-    doc.text(grades[gi], 9, gy);
-    doc.circle(20, gy - 1, 1.1);
-  }
-
-  doc.text("KITAPCIK TURU", 9, 64);
-  var bk = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
-  for (gi = 0; gi < 10; gi++) {
-    var ly = 68 + (gi % 5) * 4.6;
-    var lx = gi < 5 ? 9 : 20;
-    doc.text(bk[gi], lx, ly);
-    doc.circle(lx + 5.5, ly - 1, 1.05);
-  }
-
-  doc.setFontSize(10);
-  doc.text("CEVAPLAR", 120, 26, { align: "center" });
-  doc.setFontSize(7.5);
-  var rowH = 3.95;
-  var y0 = 30;
-  var xL = 38;
-  var xR = 120;
-  var lettersOpt = ["A", "B", "C", "D", "E"];
-  var q;
-  for (q = 0; q < 25; q++) {
-    var yy = y0 + q * rowH;
-    doc.setFontSize(8);
-    doc.text(String(q + 1) + ".", xL, yy);
-    doc.text(String(q + 26) + ".", xR, yy);
-    doc.setFontSize(6.5);
-    var li;
-    for (li = 0; li < 5; li++) {
-      doc.setDrawColor.apply(doc, M);
-      doc.text(lettersOpt[li], xL + 11 + li * 5.9, yy - 0.15);
-      doc.circle(xL + 13.2 + li * 5.9, yy - 1.05, 1.08);
-      doc.text(lettersOpt[li], xR + 11 + li * 5.9, yy - 0.15);
-      doc.circle(xR + 13.2 + li * 5.9, yy - 1.05, 1.08);
-    }
-  }
-
-  doc.setFontSize(9);
-  doc.text("NUMARA (5 hane)", 10, 138);
-  doc.setFontSize(7);
-  var nx0 = 10;
-  var ny0 = 142;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.8);
+  doc.text("OGRENCI NUMARASI (10 hane)", innerL + 82, blockTop + 27.5);
+  doc.setFont("helvetica", "normal");
+  var digitCols = 10;
+  var digitColW = 6.85;
+  var digitRowH = 2.92;
+  var digitBubbleR = 1.18;
+  var nx0 = innerL + 80;
+  var nyHeader = blockTop + 31.2;
+  var nyGrid = blockTop + 34.2;
   var d;
-  for (d = 0; d < 5; d++) {
-    doc.text(String(d + 1) + ". hane", nx0 + d * 15.5, ny0);
+  for (d = 0; d < digitCols; d++) {
+    var colCx = nx0 + d * digitColW + digitColW / 2;
+    doc.setFontSize(5.8);
+    setInk();
+    doc.text(String(d + 1) + ".", colCx, nyHeader, { align: "center", baseline: "middle" });
     var digit;
     for (digit = 0; digit <= 9; digit++) {
-      doc.text(String(digit), nx0 + d * 15.5, ny0 + 4 + digit * 3.5);
-      doc.setDrawColor.apply(doc, M);
-      doc.circle(nx0 + d * 15.5 + 4.2, ny0 + 2.6 + digit * 3.5, 1);
+      var dcy = nyGrid + digit * digitRowH;
+      setAccent();
+      doc.circle(colCx, dcy, digitBubbleR);
+      tmOptikTextInCircle(colCx, dcy, String(digit), 5.1, false);
     }
   }
 
-  doc.setFontSize(7);
-  doc.setTextColor.apply(doc, M);
-  doc.text("FORM KODU: Y", 200, 292, { align: "right" });
+  var ansTop = blockTop + studentBlockH + 5;
+  setAccent();
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("CEVAPLAR", innerL + innerW / 2, ansTop, { align: "center" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6.8);
+  setInk();
+  doc.text("Her soruda yalnizca bir secenegi tamamen boyayiniz (A-E).", innerL + innerW / 2, ansTop + 4.5, { align: "center" });
+
+  var rowBoxH = 5.65;
+  var rowGap = 0.45;
+  var rowStride = rowBoxH + rowGap;
+  var yAns = ansTop + 10;
+  var midCol = innerL + innerW / 2;
+  var boxPad = 0.9;
+  var leftBoxX = innerL + boxPad;
+  var leftBoxW = innerW / 2 - boxPad * 1.75;
+  var rightBoxX = midCol + boxPad * 0.85;
+  var rightBoxW = innerW / 2 - boxPad * 1.75;
+  var colGap = 8.85;
+  var bubbleR = 1.38;
+  var optBubbleFs = 6.35;
+  var qNumFs = 8.2;
+  var lettersOpt = ["A", "B", "C", "D", "E"];
+  var ansGridH = 25 * rowStride - rowGap;
+  setGrid();
+  doc.setLineWidth(0.28);
+  doc.setDrawColor.apply(doc, Grid);
+  doc.rect(innerL + 0.4, yAns, innerW - 0.8, ansGridH);
+  var q;
+  for (q = 0; q < 25; q++) {
+    var rowCy = yAns + q * rowStride + rowBoxH / 2;
+    if (rowCy + rowBoxH / 2 > H - 21) break;
+    var boxTop = rowCy - rowBoxH / 2;
+    setGrid();
+    doc.setLineWidth(0.22);
+    doc.setDrawColor.apply(doc, Grid);
+    doc.rect(leftBoxX, boxTop, leftBoxW, rowBoxH);
+    doc.rect(rightBoxX, boxTop, rightBoxW, rowBoxH);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(qNumFs);
+    setInk();
+    doc.text(String(q + 1) + ".", leftBoxX + 2.2, rowCy, { baseline: "middle" });
+    doc.text(String(q + 26) + ".", rightBoxX + 2.2, rowCy, { baseline: "middle" });
+    var bubbleY = rowCy;
+    var li;
+    var optStartL = leftBoxX + 12.5;
+    var optStartR = rightBoxX + 12.5;
+    for (li = 0; li < 5; li++) {
+      var bxL = optStartL + li * colGap;
+      var bxR = optStartR + li * colGap;
+      setAccent();
+      doc.circle(bxL, bubbleY, bubbleR);
+      doc.circle(bxR, bubbleY, bubbleR);
+      tmOptikTextInCircle(bxL, bubbleY, lettersOpt[li], optBubbleFs, true);
+      tmOptikTextInCircle(bxR, bubbleY, lettersOpt[li], optBubbleFs, true);
+    }
+  }
+
+  setInk();
+  doc.setFontSize(5.8);
+  doc.text("DerecePanel - TestMaker optik sablonu", innerL, H - 9);
+  doc.text("FORM TURU: TYT / genel (5 secenek)", innerR, H - 9, { align: "right" });
   doc.setFontSize(6);
-  doc.text("Kurşun kalemle ilgili yuvarlakları tamamen doldurunuz.", 105, 296, { align: "center" });
+  doc.text("Kursun kalemle daireleri tamamen doldurunuz; silinti ve fazla isaret gecersiz sayilir.", W / 2, H - 5, { align: "center" });
 
   try {
     doc.save(fname + "_optik_sablon.pdf");
@@ -1390,8 +1564,16 @@ function tmSyncCorporateCoverContent() {
   if (hInst) hInst.textContent = inst || "—";
   var hCt = paper.querySelector("[data-tm-corp-ct]");
   if (hCt) hCt.textContent = (course || "—") + " · " + (topic || "—");
-  var hDate = paper.querySelector("[data-tm-corp-date]");
-  if (hDate) hDate.textContent = dateStr;
+  var hDateFact = paper.querySelector("[data-tm-corp-date-fact]") || paper.querySelector("[data-tm-corp-date]");
+  if (hDateFact) hDateFact.textContent = dateStr;
+  var hMastInst = paper.querySelector("[data-tm-corp-header-inst]");
+  if (hMastInst) hMastInst.textContent = inst || "KURUM ADI";
+  var hMastDate = paper.querySelector("[data-tm-corp-header-date]");
+  if (hMastDate) hMastDate.textContent = dateStr;
+  var hCourse = paper.querySelector("[data-tm-corp-course]");
+  if (hCourse) hCourse.textContent = course || "Ders";
+  var hTopic = paper.querySelector("[data-tm-corp-topic]");
+  if (hTopic) hTopic.textContent = topic || "Konu / ünite";
 }
 
 function tmSyncBookCoverContent() {
@@ -1512,20 +1694,33 @@ function tmEnsureCorporateCoverPaper() {
     single.hidden = false;
     single.removeAttribute("hidden");
     single.innerHTML =
-      '<div class="tm-corporate-cover-sheet">' +
+      '<div class="tm-corporate-cover-sheet tm-corporate-cover-sheet--spread">' +
+      '<header class="tm-corporate-cover-sheet__masthead">' +
+      '<span class="tm-corporate-cover-sheet__mast-inst" data-tm-corp-header-inst>KURUM ADI</span>' +
+      '<div class="tm-corporate-cover-sheet__mast-center">' +
+      '<div class="tm-corporate-cover-sheet__mast-course" data-tm-corp-course>Ders</div>' +
+      '<div class="tm-corporate-cover-sheet__mast-topic" data-tm-corp-topic>Konu / ünite</div>' +
+      "</div>" +
+      '<span class="tm-corporate-cover-sheet__mast-date" data-tm-corp-header-date>—</span>' +
+      "</header>" +
+      '<hr class="tm-corporate-cover-sheet__mast-rule" />' +
+      '<div class="tm-corporate-cover-sheet__twocol" aria-label="Kapak iki sütun alanı">' +
+      '<div class="tm-corporate-cover-sheet__twocol-cell"></div>' +
+      '<div class="tm-corporate-cover-sheet__twocol-cell"></div>' +
+      "</div>" +
       '<div class="tm-corporate-cover-sheet__accent" aria-hidden="true"></div>' +
       '<p class="tm-corporate-cover-sheet__kicker">Kurumsal test dökümanı</p>' +
       '<h2 class="tm-corporate-cover-sheet__title" data-tm-corp-title>Test başlığı</h2>' +
       '<ul class="tm-corporate-cover-sheet__facts">' +
       '<li><span>Kurum</span><strong data-tm-corp-inst>—</strong></li>' +
       '<li><span>Ders / konu</span><strong data-tm-corp-ct>—</strong></li>' +
-      '<li><span>Tarih</span><strong data-tm-corp-date>—</strong></li>' +
+      '<li><span>Tarih</span><strong data-tm-corp-date-fact>—</strong></li>' +
       "</ul>" +
       '<div class="tm-corporate-cover-sheet__sign">' +
       '<div class="tm-corporate-cover-sheet__sign-line"><span>Öğrenci adı soyadı</span></div>' +
       '<div class="tm-corporate-cover-sheet__sign-line"><span>İmza</span></div>' +
       "</div>" +
-      '<p class="tm-corporate-cover-sheet__note">Bu sayfa; soru kitapçığı öncesinde kurumsal bilgilendirme ve imza onayı içindir. Hazır optik formu şeritten ayrı PDF olarak indirilebilir; cevap anahtarı kitapçığın sonundadır.</p>' +
+      '<p class="tm-corporate-cover-sheet__note">Kapak sayfasıdır; sorular 2. sayfadan başlar. Cevap anahtarı son sayfadadır. Hazır optik için üst şeritte <strong>Optik</strong> ile PDF indirebilirsiniz.</p>' +
       "</div>";
   }
   var dupOptik = clone.querySelector(".tm-optik-strip");
@@ -8613,6 +8808,23 @@ function tmWsManualCropBindOnce() {
     tmWsManualCropRebuildView(tmWsCurrentPdfPage);
   }
 
+  wrap.addEventListener(
+    "wheel",
+    function (e) {
+      if (!tmWsPdfDoc || tmWsMcSingleImageMode) return;
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        applyWsZoomStep(e.deltaY < 0 ? 1 : -1);
+        return;
+      }
+      if (e.shiftKey) {
+        e.preventDefault();
+        wrap.scrollLeft += e.deltaY;
+      }
+    },
+    { passive: false }
+  );
+
   var zIn = document.getElementById("tmWsPdfZoomIn");
   var zOut = document.getElementById("tmWsPdfZoomOut");
   var zReset = document.getElementById("tmWsPdfZoomReset");
@@ -9878,6 +10090,8 @@ function tmApplyHeaderLogo() {
   document.querySelectorAll(".tm-header-logo-fallback").forEach(function (el) {
     el.hidden = !!tmHeaderLogoDataUrl;
   });
+
+  tmSyncCorporateCoverContent();
 }
 
 function tmApplyWorkspaceTemplate() {
@@ -10506,28 +10720,40 @@ function initPdfCropperModule() {
       var ders = (document.getElementById("tmCropDers") || {}).value || "";
       var konu = (document.getElementById("tmCropKonu") || {}).value || "";
       var zorluk = (document.getElementById("tmCropZorluk") || {}).value || "";
-      var id = "q_" + Date.now() + "_" + Math.random().toString(36).slice(2, 10);
-      var item = {
-        id: id,
-        sinavTipi: sinavTipi,
+      var cidCrop = getCoachId();
+      if (!cidCrop) {
+        showToast("Koç oturumu gerekli.");
+        return;
+      }
+      saveBtn.disabled = true;
+      var blob;
+      try {
+        blob = dataUrlToBlob(tmPdfCropLastPreviewDataUrl);
+      } catch (e1) {
+        console.error(e1);
+        showToast("Görsel işlenemedi.");
+        saveBtn.disabled = false;
+        return;
+      }
+      saveSoruHavuzuEntry({
+        coachKey: cidCrop,
+        imageBlob: blob,
         ders: ders,
         konu: konu,
         zorluk: zorluk,
-        imageBase64: tmPdfCropLastPreviewDataUrl,
-        page: tmPdfCropPage,
-        createdAt: Date.now(),
-      };
-      try {
-        var raw = localStorage.getItem("koc_soru_havuzu");
-        var arr = raw ? JSON.parse(raw) : [];
-        if (!Array.isArray(arr)) arr = [];
-        arr.push(item);
-        localStorage.setItem("koc_soru_havuzu", JSON.stringify(arr));
-        showToast("Manuel seçim soru havuzuna kaydedildi.");
-      } catch (err) {
-        console.error(err);
-        showToast("Kayıt başarısız (depolama sınırı olabilir).");
-      }
+        sinavTipi: sinavTipi,
+        source: "pdf_crop",
+      })
+        .then(function () {
+          showToast("Kırpma soru_havuzu koleksiyonuna kaydedildi.");
+        })
+        .catch(function (err) {
+          console.error(err);
+          showToast("Kayıt başarısız (Storage / Firestore kuralları?).");
+        })
+        .finally(function () {
+          saveBtn.disabled = false;
+        });
     });
 
   tmPdfCropUpdateZoomUi();
@@ -10611,18 +10837,25 @@ function soruArsivPopulateDers() {
   sel.innerHTML = opts;
 }
 
-function soruArsivReadPool() {
-  try {
-    var raw = localStorage.getItem("koc_soru_havuzu");
-    var arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? arr : [];
-  } catch (e) {
-    return [];
+var soruArsivFirestoreCache = [];
+
+async function soruArsivFetchPoolFresh() {
+  var cid = getCoachId();
+  if (!cid) {
+    soruArsivFirestoreCache = [];
+    return soruArsivFirestoreCache;
   }
+  try {
+    soruArsivFirestoreCache = await fetchSoruHavuzuForCoach(cid);
+  } catch (e) {
+    console.warn("[soru_havuzu] liste:", e);
+    soruArsivFirestoreCache = [];
+  }
+  return soruArsivFirestoreCache;
 }
 
-function soruArsivWritePool(arr) {
-  localStorage.setItem("koc_soru_havuzu", JSON.stringify(arr));
+function soruArsivReadPool() {
+  return soruArsivFirestoreCache;
 }
 
 function soruArsivReadSepet() {
@@ -10642,18 +10875,31 @@ function soruArsivWriteSepet(ids) {
 }
 
 function soruArsivToggleCozuldu(qid) {
-  var arr = soruArsivReadPool();
-  var i = -1;
-  for (var k = 0; k < arr.length; k++) {
-    if (String(arr[k].id) === String(qid)) {
-      i = k;
-      break;
-    }
-  }
-  if (i === -1) return;
-  arr[i].cozuldu = !arr[i].cozuldu;
-  soruArsivWritePool(arr);
-  renderSoruHavuzuArsivi();
+  soruArsivFetchPoolFresh()
+    .then(function () {
+      var arr = soruArsivReadPool();
+      var cur = null;
+      for (var k = 0; k < arr.length; k++) {
+        if (String(arr[k].id) === String(qid)) {
+          cur = arr[k];
+          break;
+        }
+      }
+      if (!cur) {
+        showToast("Kayıt bulunamadı.");
+        return null;
+      }
+      return setSoruHavuzuCozuldu(String(qid), !cur.cozuldu).then(function () {
+        return true;
+      });
+    })
+    .then(function (ok) {
+      if (ok === true) return renderSoruHavuzuArsivi();
+    })
+    .catch(function (e) {
+      console.warn(e);
+      showToast("Durum güncellenemedi.");
+    });
 }
 
 function soruArsivAddToSepet(qid) {
@@ -10679,20 +10925,22 @@ function soruArsivFilterItems(arr) {
   });
 }
 
-function renderSoruHavuzuArsivi() {
+async function renderSoruHavuzuArsivi() {
   var grid = document.getElementById("havuz-galeri-grid");
   if (!grid) return;
+  grid.innerHTML = '<p class="soru-arsivi-empty">Yükleniyor…</p>';
+  await soruArsivFetchPoolFresh();
   var all = soruArsivReadPool();
   var items = soruArsivFilterItems(all);
   if (!items.length) {
     grid.innerHTML =
-      '<p class="soru-arsivi-empty">Kriterlere uygun soru yok. Filtreleri “Tümü” yapıp tekrar deneyin veya PDF kırpıcıdan soru ekleyin.</p>';
+      '<p class="soru-arsivi-empty">Kriterlere uygun soru yok. Filtreleri “Tümü” yapıp tekrar deneyin, <strong>Soru Havuzu Yönetimi</strong> veya PDF kırpıcıdan ekleyin.</p>';
     return;
   }
   grid.innerHTML = items
     .map(function (it) {
       var id = escapeHtml(it.id);
-      var src = escapeHtml(it.imageBase64 || "");
+      var src = escapeHtml(it.imageUrl || it.imageBase64 || "");
       var st = it.sinavTipi
         ? '<span class="soru-arsivi-badge">' + escapeHtml(it.sinavTipi) + "</span>"
         : "";
@@ -10740,7 +10988,267 @@ function renderSoruHavuzuArsivi() {
 }
 
 var soruArsiviUiBound = false;
+var arsivUploadPendingFiles = [];
+
+function arsivFileIsImage(f) {
+  var t = (f.type || "").toLowerCase();
+  if (t.indexOf("image/") === 0) return true;
+  return /\.(png|jpe?g|webp)$/i.test(f.name || "");
+}
+
+function arsivFileIsPdf(f) {
+  var t = (f.type || "").toLowerCase();
+  return t === "application/pdf" || /\.pdf$/i.test(f.name || "");
+}
+
+function arsivAddFilesFromList(fileList) {
+  var arr = [];
+  if (!fileList || !fileList.length) return arr;
+  for (var i = 0; i < fileList.length; i++) {
+    var f = fileList[i];
+    if (arsivFileIsImage(f) || arsivFileIsPdf(f)) arr.push(f);
+  }
+  return arr;
+}
+
+function arsivUploadFillDersKonu() {
+  var sinEl = document.getElementById("arsivUploadSinav");
+  var dersEl = document.getElementById("arsivUploadDers");
+  var konuEl = document.getElementById("arsivUploadKonu");
+  if (!sinEl || !dersEl || !konuEl) return;
+  var ex = sinEl.value || "TYT";
+  var bag = yksAiCurriculum[ex] || {};
+  var dersler = Object.keys(bag).sort(function (a, b) {
+    return a.localeCompare(b, "tr");
+  });
+  dersEl.innerHTML = "";
+  dersler.forEach(function (d) {
+    var o = document.createElement("option");
+    o.value = d;
+    o.textContent = d;
+    dersEl.appendChild(o);
+  });
+  function fillKonu() {
+    var d = dersEl.value;
+    var list = (bag[d] || []).slice();
+    konuEl.innerHTML = "";
+    if (!list.length) {
+      var ox = document.createElement("option");
+      ox.value = "Genel";
+      ox.textContent = "Genel";
+      konuEl.appendChild(ox);
+      return;
+    }
+    list.forEach(function (t) {
+      var o = document.createElement("option");
+      o.value = t;
+      o.textContent = t;
+      konuEl.appendChild(o);
+    });
+  }
+  dersEl.onchange = fillKonu;
+  fillKonu();
+}
+
+function arsivPdfFirstPageToBlob(buf) {
+  if (typeof pdfjsLib === "undefined") return Promise.reject(new Error("pdfjs"));
+  return pdfjsLib
+    .getDocument({ data: buf })
+    .promise.then(function (doc) {
+      return doc.getPage(1);
+    })
+    .then(function (page) {
+      var vp = page.getViewport({ scale: 2 });
+      var canvas = document.createElement("canvas");
+      canvas.width = Math.floor(vp.width);
+      canvas.height = Math.floor(vp.height);
+      var ctx = canvas.getContext("2d");
+      return page.render({ canvasContext: ctx, viewport: vp }).promise.then(function () {
+        return new Promise(function (resolve, reject) {
+          canvas.toBlob(
+            function (b) {
+              if (b) resolve(b);
+              else reject(new Error("toBlob"));
+            },
+            "image/png",
+            0.92
+          );
+        });
+      });
+    });
+}
+
+function initArsivManualUploadUi() {
+  var form = document.getElementById("soruArsiviUploadForm");
+  if (!form || form.dataset.arsivBind === "1") return;
+  var pick = document.getElementById("btnArsivUploadPick");
+  var finp = document.getElementById("arsivUploadFile");
+  var save = document.getElementById("btnArsivUploadSave");
+  var fnEl = document.getElementById("arsivUploadFileName");
+  var sinEl = document.getElementById("arsivUploadSinav");
+  var drop = document.getElementById("arsivUploadDropzone");
+  if (!pick || !finp || !save) return;
+  form.dataset.arsivBind = "1";
+  try {
+    finp.setAttribute("multiple", "multiple");
+  } catch (e) {}
+
+  function updatePending(filesArr) {
+    arsivUploadPendingFiles = filesArr && filesArr.length ? filesArr.slice() : [];
+    if (fnEl) {
+      if (!arsivUploadPendingFiles.length) fnEl.textContent = "";
+      else if (arsivUploadPendingFiles.length === 1) fnEl.textContent = arsivUploadPendingFiles[0].name;
+      else fnEl.textContent = arsivUploadPendingFiles.length + " dosya seçildi";
+    }
+    save.disabled = arsivUploadPendingFiles.length === 0;
+  }
+
+  function onFilesChosen(fileList) {
+    var added = arsivAddFilesFromList(fileList);
+    if (!added.length) {
+      showToast("PNG, JPG, WebP veya PDF dosyası seçin.");
+      return;
+    }
+    updatePending(added);
+  }
+
+  arsivUploadFillDersKonu();
+  if (sinEl) sinEl.addEventListener("change", arsivUploadFillDersKonu);
+  pick.addEventListener("click", function () {
+    finp.click();
+  });
+  finp.addEventListener("change", function () {
+    if (finp.files && finp.files.length) onFilesChosen(finp.files);
+    else updatePending([]);
+  });
+
+  if (drop) {
+    drop.addEventListener("click", function (e) {
+      if (e.target === drop || drop.contains(e.target)) finp.click();
+    });
+    drop.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        finp.click();
+      }
+    });
+    drop.addEventListener("dragover", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      drop.classList.add("soru-arsivi-dropzone--active");
+    });
+    drop.addEventListener("dragleave", function (e) {
+      e.preventDefault();
+      if (e.target === drop) drop.classList.remove("soru-arsivi-dropzone--active");
+    });
+    drop.addEventListener("drop", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      drop.classList.remove("soru-arsivi-dropzone--active");
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length)
+        onFilesChosen(e.dataTransfer.files);
+    });
+  }
+
+  save.addEventListener("click", function () {
+    if (!arsivUploadPendingFiles.length) return;
+    var cid = getCoachIdResolved();
+    if (!cid) {
+      showToast("Koç kullanıcı adı bulunamadı (localStorage). Çıkış yapıp tekrar giriş deneyin.");
+      return;
+    }
+
+    function startUploadPipeline() {
+      if (!auth.currentUser || !auth.currentUser.uid) {
+        showToast("Firebase oturumu yok — birkaç saniye sonra tekrar deneyin veya sayfayı yenileyin.");
+        save.disabled = false;
+        return;
+      }
+      save.disabled = true;
+      var base = {
+        coachKey: cid,
+        ders: (document.getElementById("arsivUploadDers") || {}).value || "",
+        konu: (document.getElementById("arsivUploadKonu") || {}).value || "",
+        zorluk: (document.getElementById("arsivUploadZorluk") || {}).value || "",
+        sinavTipi: (document.getElementById("arsivUploadSinav") || {}).value || "",
+        source: "manual",
+      };
+      var files = arsivUploadPendingFiles.slice();
+      var idx = 0;
+      var ok = 0;
+
+      function runNext() {
+        if (idx >= files.length) {
+          showToast(ok + " soru havuza kaydedildi.");
+          finp.value = "";
+          updatePending([]);
+          save.disabled = true;
+          renderSoruHavuzuArsivi().catch(function () {});
+          return;
+        }
+        var f = files[idx];
+        idx++;
+        var job;
+        if (arsivFileIsImage(f)) {
+          job = saveSoruHavuzuEntry(Object.assign({}, base, { imageBlob: f }));
+        } else if (arsivFileIsPdf(f)) {
+          job = new Promise(function (resolve, reject) {
+            var r = new FileReader();
+            r.onload = function () {
+              arsivPdfFirstPageToBlob(new Uint8Array(r.result))
+                .then(function (blob) {
+                  return saveSoruHavuzuEntry(Object.assign({}, base, { imageBlob: blob, source: "manual_pdf_page1" }));
+                })
+                .then(resolve)
+                .catch(reject);
+            };
+            r.onerror = function () {
+              reject(new Error("Dosya okunamadı"));
+            };
+            r.readAsArrayBuffer(f);
+          });
+        } else {
+          runNext();
+          return;
+        }
+        Promise.resolve(job)
+          .then(function () {
+            ok++;
+            runNext();
+          })
+          .catch(function (e) {
+            console.error("[soru_havuzu]", e);
+            var msg =
+              e && (e.code || e.message)
+                ? String(e.code ? e.code + ": " + (e.message || "") : e.message)
+                : "bilinmeyen hata";
+            showToast("Kayıt başarısız: " + msg);
+            save.disabled = false;
+          });
+      }
+      runNext();
+    }
+
+    if (auth.currentUser && auth.currentUser.uid) {
+      startUploadPipeline();
+      return;
+    }
+    showToast("Oturum hazırlanıyor…");
+    var unsub = onAuthStateChanged(auth, function (u) {
+      try {
+        unsub();
+      } catch (e) {}
+      if (u && u.uid) startUploadPipeline();
+      else {
+        showToast("Giriş oturumu yok. Sayfayı yenileyin.");
+        save.disabled = false;
+      }
+    });
+  });
+}
+
 function initSoruArsiviModule() {
+  initArsivManualUploadUi();
   if (soruArsiviUiBound) return;
   soruArsiviUiBound = true;
   soruArsivPopulateDers();
@@ -10766,16 +11274,19 @@ function initSoruArsiviModule() {
       if (del) {
         var qidDel = del.getAttribute("data-havuz-del");
         if (!qidDel || !confirm("Bu soruyu arşivden silmek istiyor musunuz?")) return;
-        var arr = soruArsivReadPool().filter(function (x) {
-          return String(x.id) !== String(qidDel);
-        });
-        soruArsivWritePool(arr);
-        var sepet = soruArsivReadSepet().filter(function (id) {
-          return String(id) !== String(qidDel);
-        });
-        soruArsivWriteSepet(sepet);
-        showToast("Soru silindi.");
-        renderSoruHavuzuArsivi();
+        deleteSoruHavuzuDoc(qidDel)
+          .then(function () {
+            var sepet = soruArsivReadSepet().filter(function (id) {
+              return String(id) !== String(qidDel);
+            });
+            soruArsivWriteSepet(sepet);
+            showToast("Soru silindi.");
+            return renderSoruHavuzuArsivi();
+          })
+          .catch(function (e) {
+            console.warn(e);
+            showToast("Silinemedi (Firestore kuralları?).");
+          });
         return;
       }
       var coz = t.closest && t.closest("[data-havuz-cozum]");
@@ -10792,7 +11303,7 @@ function initSoruArsiviModule() {
     });
   if (grid && !grid.querySelector(".soru-arsivi-card")) {
     grid.innerHTML =
-      '<p class="soru-arsivi-empty">Filtreleri seçip <strong>Soru Ara</strong> ile yerel havuzdaki soruları listeleyin.</p>';
+      '<p class="soru-arsivi-empty">Filtreleri seçip <strong>Soru Ara</strong> ile Firestore <code>soru_havuzu</code> kayıtlarını listeleyin.</p>';
   }
 }
 
@@ -11113,6 +11624,15 @@ function bindTestMakerWorkspace() {
           '[data-tm-col="1"], [data-tm-col="2"], #column-1, #column-2, #tmA4Single'
         );
       if (!col || !pagesHost.contains(col)) return;
+      var dropPaper = col.closest(".a4-paper");
+      if (
+        dropPaper &&
+        (tmIsAnswerKeyPaper(dropPaper) ||
+          tmIsCorporateCoverPaper(dropPaper) ||
+          tmIsOptikHostPaper(dropPaper) ||
+          tmIsBookCoverPaper(dropPaper))
+      )
+        return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
       var blocks = Array.prototype.slice.call(col.querySelectorAll(".tm-a4-block.question-item"));
@@ -11474,7 +11994,10 @@ function navigateTo(view) {
     tmLibraryRenderList();
   }
   if (view === "pdf-cropper") initPdfCropperModule();
-  if (view === "soru-arsivi") initSoruArsiviModule();
+  if (view === "soru-arsivi") {
+    initSoruArsiviModule();
+    renderSoruHavuzuArsivi();
+  }
   var cre = document.getElementById("tmViewCreator");
   if (cre) cre.hidden = view !== "testmaker";
   if (view === "muhasebe") refreshMuhasebeDashboard();

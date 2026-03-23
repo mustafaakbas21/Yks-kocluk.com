@@ -67,6 +67,41 @@
   box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.2);
 }
 
+.soru-arsivi-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  text-align: center;
+  padding: 1rem 0.85rem;
+  min-height: 4.25rem;
+  border: 2px dashed rgba(108, 92, 231, 0.45);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(108, 92, 231, 0.05), #ffffff);
+  cursor: pointer;
+  font-size: 0.84rem;
+  line-height: 1.35;
+  color: #475569;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.soru-arsivi-dropzone i {
+  font-size: 1.45rem;
+  color: #6c5ce7;
+}
+
+.soru-arsivi-dropzone:focus {
+  outline: none;
+  border-color: rgba(108, 92, 231, 0.75);
+  box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.2);
+}
+
+.soru-arsivi-dropzone--active {
+  border-color: #6c5ce7;
+  background: rgba(108, 92, 231, 0.12);
+}
+
 .soru-arsivi-search-btn {
   margin-left: auto;
   display: inline-flex;
