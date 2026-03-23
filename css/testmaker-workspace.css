@@ -3529,7 +3529,7 @@
   opacity: 0.98;
 }
 
-/* AI mock soruları: placehold.co img + ince meta (açık tema) */
+/* AI üretilen sorular: ince meta + metin gövde (açık tema, Inter) */
 .tm-ai-soru-meta {
   margin: 0 0 0.35rem;
   padding: 0.2rem 0.15rem;
@@ -3541,10 +3541,52 @@
   font-family: system-ui, "Segoe UI", sans-serif;
 }
 
-.tm-a4-block--ai-mock .tm-ai-mock-q-img {
+.a4-pages-container .question-item.tm-a4-block--ai-mock .tm-a4-block__imgwrap {
+  align-items: flex-start;
+  justify-content: flex-start;
+  background: #ffffff;
+  padding: 0.55rem 0.65rem;
+  overflow: auto;
+}
+
+.tm-ai-q-body {
+  width: 100%;
   box-sizing: border-box;
-  vertical-align: middle;
-  max-width: 100%;
+  font-family: "Inter", "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.tm-ai-q-stem {
+  margin: 0 0 0.55rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+}
+
+.tm-ai-q-secenekler {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.38rem;
+}
+
+.tm-ai-q-secenek {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #1e293b;
+  line-height: 1.45;
+  padding: 0.08rem 0;
+  border-left: 3px solid #e2e8f0;
+  padding-left: 0.5rem;
+}
+
+.tm-ai-q-secenek__lbl {
+  font-weight: 800;
+  color: #4f46e5;
+  margin-right: 0.28rem;
 }
 
 .tm-ai-q-placeholder-caption {

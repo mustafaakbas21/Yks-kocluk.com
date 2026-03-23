@@ -34,6 +34,209 @@
   margin-bottom: 1.25rem;
 }
 
+.soru-arsivi-upload-panel {
+  align-items: flex-start;
+  border: 1px dashed rgba(108, 92, 231, 0.35);
+  background: linear-gradient(180deg, rgba(108, 92, 231, 0.06), #fff);
+}
+
+.soru-arsivi-upload-head {
+  flex: 1 1 100%;
+  margin-bottom: 0.25rem;
+}
+
+.soru-arsivi-upload-title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #3730a3;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.soru-arsivi-upload-sub {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #64748b;
+  line-height: 1.45;
+  max-width: 42rem;
+}
+
+.soru-arsivi-field--full {
+  min-width: 100%;
+  flex-basis: 100%;
+}
+
+.soru-arsivi-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.soru-arsivi-dropzone__hint {
+  display: block;
+  font-size: 0.74rem;
+  color: #94a3b8;
+  font-weight: 500;
+  max-width: 28rem;
+  margin-top: 0.15rem;
+}
+
+.soru-arsivi-upload-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  flex: 1 1 auto;
+}
+
+.soru-arsivi-file-pick-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.2rem;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 800;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #6c5ce7, #5b4fcf);
+  box-shadow: 0 4px 14px rgba(108, 92, 231, 0.3);
+  transition: transform 0.15s, box-shadow 0.15s;
+  margin: 0;
+}
+
+.soru-arsivi-file-pick-label:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(108, 92, 231, 0.38);
+}
+
+.soru-arsivi-btn-secondary {
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.soru-arsivi-btn-secondary:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.soru-arsivi-btn-secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.soru-arsivi-save-btn {
+  margin-left: 0;
+}
+
+.soru-arsivi-upload-panel.is-busy .soru-arsivi-save-btn,
+.soru-arsivi-upload-panel.is-busy .soru-arsivi-file-pick-label,
+.soru-arsivi-upload-panel.is-busy .soru-arsivi-btn-secondary {
+  pointer-events: none;
+  opacity: 0.72;
+}
+
+.soru-arsivi-upload-panel.is-busy .soru-arsivi-dropzone {
+  pointer-events: none;
+  opacity: 0.78;
+}
+
+.soru-arsivi-upload-status {
+  flex: 1 1 100%;
+  margin: 0;
+  min-height: 1.25em;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.soru-arsivi-upload-status--ok {
+  color: #047857;
+}
+
+.soru-arsivi-upload-status--err {
+  color: #b91c1c;
+}
+
+.soru-arsivi-upload-status--info {
+  color: #4338ca;
+}
+
+.soru-arsivi-file-summary {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 0.82rem;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.soru-arsivi-preview-strip {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem 0 0;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 0.35rem;
+}
+
+.soru-arsivi-preview-tile {
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+
+.soru-arsivi-preview-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.soru-arsivi-preview-tile--pdf {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #b91c1c;
+}
+
+.soru-arsivi-preview-tile--pdf i {
+  font-size: 1.35rem;
+}
+
+.soru-arsivi-pool-stat {
+  margin: 0 0 0.85rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #475569;
+}
+
 .soru-arsivi-field {
   display: flex;
   flex-direction: column;
@@ -125,6 +328,55 @@
   box-shadow: 0 6px 18px rgba(108, 92, 231, 0.38);
 }
 
+.soru-arsivi-bulk-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 800;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  box-shadow: 0 4px 14px rgba(109, 40, 217, 0.28);
+  transition: transform 0.15s, box-shadow 0.15s, outline 0.15s;
+}
+
+.soru-arsivi-bulk-mode-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(109, 40, 217, 0.38);
+}
+
+.soru-arsivi-bulk-mode-btn[aria-pressed="true"] {
+  outline: 2px solid rgba(167, 139, 250, 0.9);
+  outline-offset: 2px;
+}
+
+.soru-arsivi-bulk-del-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 800;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  box-shadow: 0 4px 14px rgba(185, 28, 28, 0.35);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.soru-arsivi-bulk-del-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(185, 28, 28, 0.45);
+}
+
 .soru-arsivi-empty {
   text-align: center;
   padding: 2.5rem 1rem;
@@ -142,6 +394,7 @@
 }
 
 .soru-arsivi-card {
+  position: relative;
   background: #fff;
   border-radius: 14px;
   border: 1px solid #e2e8f0;
@@ -149,6 +402,23 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.soru-secim-kutu {
+  position: absolute;
+  left: 0.5rem;
+  top: 0.5rem;
+  z-index: 4;
+  width: 1.15rem;
+  height: 1.15rem;
+  cursor: pointer;
+  display: none;
+  accent-color: #6d28d9;
+  margin: 0;
+}
+
+#havuz-galeri-grid.soru-arsivi--bulk-mode .soru-secim-kutu {
+  display: block;
 }
 
 .soru-arsivi-card__img-wrap {
@@ -336,6 +606,24 @@
 @media (max-width: 640px) {
   .soru-arsivi-search-btn {
     margin-left: 0;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .soru-arsivi-bulk-mode-btn,
+  .soru-arsivi-bulk-del-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .soru-arsivi-upload-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .soru-arsivi-file-pick-label,
+  .soru-arsivi-btn-secondary,
+  .soru-arsivi-save-btn {
     width: 100%;
     justify-content: center;
   }

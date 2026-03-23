@@ -29,7 +29,6 @@ import { yksMufredatDatasi } from "./yks-mufredat-data.js";
 import { db, auth, studentCreatorAuthKoc as studentCreatorAuth } from "./firebase-config.js";
 import {
   saveSoruHavuzuEntry,
-  saveManyAiQuestionsToPool,
   dataUrlToBlob,
   fetchSoruHavuzuForCoach,
   deleteSoruHavuzuDoc,
@@ -475,47 +474,61 @@ try {
 var tmAiGenWizardBound = false;
 
 /**
- * Sahte AI API: her seferinde yeni rastgele ID + placehold.co görsel kanıt URL’si.
- * @param {string} ders
- * @param {string} konu
- * @param {string} zorluk
- * @param {number} miktar
- * @returns {Promise<Array<{id:string,ders:string,konu:string,zorluk:string,imageUrl:string}>>}
+ * soru_havuzu: coach_id + ders + konu ile Firestore sorgusu; görsel URL’si olan kayıtlar, miktar kadar.
+ * Bileşik indeks yoksa istemci tarafında süzülür.
  */
 function fetchAIGeneratedQuestions(ders, konu, zorluk, miktar) {
   return new Promise(function (resolve, reject) {
+    var cid = getCoachIdResolved() || getCoachId();
+    if (!cid) {
+      reject(new Error("Koç oturumu yok"));
+      return;
+    }
     var n = Math.max(1, Math.min(80, parseInt(miktar, 10) || 1));
-    var dersStr = String(ders || "").trim() || "Ders";
-    var konuStr = String(konu || "").trim() || "Konu";
-    var zStr = String(zorluk || "").trim() || "Orta";
-    window.setTimeout(function () {
-      try {
-        var used = {};
-        var list = [];
-        for (var i = 0; i < n; i++) {
-          var rid;
-          do {
-            rid = Math.floor(1000 + Math.random() * 90000);
-          } while (used[rid]);
-          used[rid] = true;
-          var idTag = "#Q-" + rid;
-          var textBody =
-            dersStr + "\n" + konuStr + "\n" + "Zorluk: " + zStr + "\n" + "ID: " + rid;
-          var imageUrl =
-            "https://placehold.co/800x400/ffffff/1f2937?text=" + encodeURIComponent(textBody);
-          list.push({
-            id: idTag,
-            ders: dersStr,
-            konu: konuStr,
-            zorluk: zStr,
-            imageUrl: imageUrl,
-          });
-        }
-        resolve(list);
-      } catch (e) {
-        reject(e);
-      }
-    }, 400);
+    var dersStr = String(ders || "").trim();
+    var konuStr = String(konu || "").trim();
+
+    function mapWithImageLimit(rows) {
+      var matched = (rows || []).filter(function (it) {
+        var url = String((it && (it.imageUrl || it.imageBase64)) || "").trim();
+        return url.length > 0;
+      });
+      return matched.slice(0, n);
+    }
+
+    var qy = query(
+      collection(db, "soru_havuzu"),
+      where("coach_id", "==", cid),
+      where("ders", "==", dersStr),
+      where("konu", "==", konuStr)
+    );
+    getDocs(qy)
+      .then(function (snap) {
+        var out = [];
+        snap.forEach(function (d) {
+          var x = d.data();
+          out.push(
+            Object.assign({}, x, {
+              id: d.id,
+              firestoreId: d.id,
+            })
+          );
+        });
+        resolve(mapWithImageLimit(out));
+      })
+      .catch(function (e) {
+        console.warn("[soru_havuzu] bileşik sorgu veya indeks; istemci süzgeci:", e);
+        fetchSoruHavuzuForCoach(cid)
+          .then(function (all) {
+            var matched = (all || []).filter(function (it) {
+              if (dersStr && String(it.ders || "") !== dersStr) return false;
+              if (konuStr && String(it.konu || "") !== konuStr) return false;
+              return true;
+            });
+            resolve(mapWithImageLimit(matched));
+          })
+          .catch(reject);
+      });
   });
 }
 
@@ -554,13 +567,16 @@ function tmRemoveAllQuestionItemsFromA4() {
   tmRenumberTmQuestions();
 }
 
-/** Mock API çıktısı: placehold.co <img> + ince meta (açık tema); gri div kullanılmaz */
+/** Havuzdan gelen soru: üst başlık / meta / X aynı; gövde yalnızca imageUrl görseli. */
 function tmAppendAiMockQuestionBlock(q) {
-  var src = (q && (q.imageUrl || q.image)) || "";
-  if (!q || !src) return;
+  if (!q) return;
+  var src = String((q.imageUrl || q.imageBase64 || "")).trim();
+  if (!src) return;
+
   var wrap = document.createElement("div");
   wrap.className = "tm-a4-block question-item tm-a4-block--ai-mock";
-  if (q.id) wrap.setAttribute("data-tm-ai-qid", q.id);
+  var fid = q.id || q.firestoreId || "";
+  if (fid) wrap.setAttribute("data-tm-ai-qid", String(fid));
   wrap.draggable = true;
   wrap.setAttribute("data-tm-drag", "1");
   var badge = document.createElement("div");
@@ -573,15 +589,11 @@ function tmAppendAiMockQuestionBlock(q) {
   var imgW = document.createElement("div");
   imgW.className = "tm-a4-block__imgwrap";
   var img = document.createElement("img");
-  img.className = "tm-ai-mock-q-img";
   img.setAttribute("crossorigin", "anonymous");
   img.src = src;
-  img.alt = (q.id || "Soru") + " — " + (q.ders || "") + " / " + (q.konu || "");
+  img.alt = "Soru görseli";
   img.draggable = false;
-  img.setAttribute(
-    "style",
-    "width:100%;height:auto;border-radius:4px;border:1px solid #e5e7eb;display:block;"
-  );
+  img.setAttribute("style", "width:100%;max-height:250px;object-fit:contain;display:block;");
   imgW.appendChild(img);
   var xb = document.createElement("button");
   xb.type = "button";
@@ -617,7 +629,7 @@ function tmApplyAiGenerationToTestmaker(payload, questions) {
   if (topicEl) topicEl.value = payload.topic || "";
   if (titleEl) {
     titleEl.value =
-      "AI Test · " +
+      "Havuz Test · " +
       (payload.exam || "") +
       " · " +
       (payload.subject || "") +
@@ -667,9 +679,9 @@ function tmApplyAiGenerationToTestmaker(payload, questions) {
   } catch (eHdr) {}
   if (questions && questions.length) {
     tmAddAiMockQuestionsFromList(questions);
-    showToast("AI taslağı hazır: " + questions.length + " soru yerleştirildi.");
+    showToast("Havuzdan " + questions.length + " görsel soru teste yerleştirildi.");
   } else {
-    showToast("Sorular oluşturulamadı.");
+    showToast("Havuzda bu ders ve konuya uygun görsel soru bulunamadı.");
   }
 }
 
@@ -734,52 +746,44 @@ function initAiTestGenWizard() {
       tmAiGenNavigateTimer = null;
     }
     tmSetAiGenOverlayOpen(true);
-    tmAiGenNavigateTimer = window.setTimeout(function () {
-      tmAiGenNavigateTimer = null;
-      fetchAIGeneratedQuestions(payload.subject, payload.topic, payload.diff, payload.count)
-        .then(function (questions) {
-          try {
-            tmSetAiGenOverlayOpen(false);
-            navigateTo("testmaker");
-          } catch (errNav) {
-            console.error("AI üretim geçişi:", errNav);
-            showToast("Test tasarımına geçilemedi. Tekrar deneyin.");
-            tmSetAiGenOverlayOpen(false);
-            if (btnAi) btnAi.disabled = false;
-            return;
-          }
-          requestAnimationFrame(function () {
-            try {
-              tmApplyAiGenerationToTestmaker(payload, questions);
-            } catch (errApply) {
-              console.error("AI taslak:", errApply);
-              showToast("Taslak yerleştirilirken hata oluştu.");
-            }
-            var cidAi = getCoachId();
-            if (cidAi && questions && questions.length) {
-              saveManyAiQuestionsToPool(cidAi, questions, {
-                ders: payload.subject,
-                konu: payload.topic,
-                zorluk: payload.diff,
-                sinavTipi: payload.exam || "",
-              })
-                .then(function (n) {
-                  if (n > 0) showToast("AI: " + n + " soru soru_havuzu koleksiyonuna kaydedildi.");
-                })
-                .catch(function (e) {
-                  console.warn("[soru_havuzu] AI persist:", e);
-                });
-            }
-            if (btnAi) btnAi.disabled = false;
-          });
-        })
-        .catch(function (errFetch) {
-          console.error("fetchAIGeneratedQuestions:", errFetch);
-          showToast("Sorular üretilemedi. Tekrar deneyin.");
+    fetchAIGeneratedQuestions(payload.subject, payload.topic, payload.diff, payload.count)
+      .then(function (questions) {
+        if (!questions || !questions.length) {
+          tmSetAiGenOverlayOpen(false);
+          showToast("Havuzda seçilen ders ve konuya uygun görsel soru yok.");
+          if (btnAi) btnAi.disabled = false;
+          return;
+        }
+        try {
+          tmSetAiGenOverlayOpen(false);
+          navigateTo("testmaker");
+        } catch (errNav) {
+          console.error("Havuz → testmaker geçişi:", errNav);
+          showToast("Test tasarımına geçilemedi. Tekrar deneyin.");
           tmSetAiGenOverlayOpen(false);
           if (btnAi) btnAi.disabled = false;
+          return;
+        }
+        requestAnimationFrame(function () {
+          try {
+            tmApplyAiGenerationToTestmaker(payload, questions);
+          } catch (errApply) {
+            console.error("Havuz taslak:", errApply);
+            showToast("Taslak yerleştirilirken hata oluştu.");
+          }
+          if (btnAi) btnAi.disabled = false;
         });
-    }, 1500);
+      })
+      .catch(function (errFetch) {
+        console.error("fetchAIGeneratedQuestions:", errFetch);
+        showToast(
+          errFetch && errFetch.message
+            ? errFetch.message
+            : "Havuz soruları yüklenemedi. Oturum veya ağ bağlantısını kontrol edin."
+        );
+        tmSetAiGenOverlayOpen(false);
+        if (btnAi) btnAi.disabled = false;
+      });
   });
 }
 
@@ -10838,6 +10842,73 @@ function soruArsivPopulateDers() {
 }
 
 var soruArsivFirestoreCache = [];
+var soruArsivBulkModeActive = false;
+
+function soruArsivSyncBulkModeUi() {
+  var grid = document.getElementById("havuz-galeri-grid");
+  var delBtn = document.getElementById("btnArsivBulkDelete");
+  var modeBtn = document.getElementById("btnArsivBulkMode");
+  if (grid) grid.classList.toggle("soru-arsivi--bulk-mode", !!soruArsivBulkModeActive);
+  if (delBtn) {
+    if (soruArsivBulkModeActive) {
+      delBtn.removeAttribute("hidden");
+      delBtn.style.display = "";
+    } else {
+      delBtn.setAttribute("hidden", "");
+      delBtn.style.display = "none";
+    }
+  }
+  if (modeBtn) modeBtn.setAttribute("aria-pressed", soruArsivBulkModeActive ? "true" : "false");
+}
+
+function soruArsivToggleBulkMode() {
+  soruArsivBulkModeActive = !soruArsivBulkModeActive;
+  soruArsivSyncBulkModeUi();
+  if (!soruArsivBulkModeActive) {
+    var grid = document.getElementById("havuz-galeri-grid");
+    if (grid)
+      grid.querySelectorAll(".soru-secim-kutu").forEach(function (cb) {
+        cb.checked = false;
+      });
+  }
+}
+
+function soruArsivBulkDeleteSelected() {
+  var grid = document.getElementById("havuz-galeri-grid");
+  if (!grid) return;
+  var ids = [];
+  grid.querySelectorAll(".soru-secim-kutu:checked").forEach(function (cb) {
+    var id = cb.getAttribute("data-id");
+    if (id) ids.push(id);
+  });
+  if (!ids.length) {
+    showToast("Silinecek soru seçilmedi.");
+    return;
+  }
+  if (!confirm(ids.length + " soruyu kalıcı olarak silmek istiyor musunuz?")) return;
+  Promise.all(
+    ids.map(function (id) {
+      return deleteSoruHavuzuDoc(id);
+    })
+  )
+    .then(function () {
+      var set = {};
+      ids.forEach(function (x) {
+        set[String(x)] = true;
+      });
+      var sepet = soruArsivReadSepet().filter(function (sid) {
+        return !set[String(sid)];
+      });
+      soruArsivWriteSepet(sepet);
+      showToast(ids.length + " soru silindi.");
+      soruArsivBulkModeActive = false;
+      return renderSoruHavuzuArsivi();
+    })
+    .catch(function (e) {
+      console.warn(e);
+      showToast("Silme işlemi tamamlanamadı (Firestore kuralları veya ağ).");
+    });
+}
 
 async function soruArsivFetchPoolFresh() {
   var cid = getCoachId();
@@ -10917,10 +10988,12 @@ function soruArsivFilterItems(arr) {
   var sinav = (document.getElementById("arsivFilterSinav") || {}).value || "";
   var ders = (document.getElementById("arsivFilterDers") || {}).value || "";
   var konu = (document.getElementById("arsivFilterKonu") || {}).value || "";
+  var zorluk = (document.getElementById("arsivFilterZorluk") || {}).value || "";
   return arr.filter(function (it) {
     if (!soruArsivItemMatchesSinav(sinav, it)) return false;
     if (ders && (it.ders || "") !== ders) return false;
     if (konu && (it.konu || "") !== konu) return false;
+    if (zorluk && String(it.zorluk || "") !== zorluk) return false;
     return true;
   });
 }
@@ -10928,13 +11001,30 @@ function soruArsivFilterItems(arr) {
 async function renderSoruHavuzuArsivi() {
   var grid = document.getElementById("havuz-galeri-grid");
   if (!grid) return;
+  var statEl = document.getElementById("arsivPoolStat");
   grid.innerHTML = '<p class="soru-arsivi-empty">Yükleniyor…</p>';
   await soruArsivFetchPoolFresh();
   var all = soruArsivReadPool();
   var items = soruArsivFilterItems(all);
+  if (statEl) {
+    if (!all.length) {
+      statEl.hidden = true;
+      statEl.textContent = "";
+    } else {
+      statEl.hidden = false;
+      statEl.textContent =
+        items.length +
+        " soru listeleniyor · havuzda toplam " +
+        all.length +
+        " kayıt (filtreler: sınav, ders, konu, zorluk).";
+    }
+  }
   if (!items.length) {
     grid.innerHTML =
-      '<p class="soru-arsivi-empty">Kriterlere uygun soru yok. Filtreleri “Tümü” yapıp tekrar deneyin, <strong>Soru Havuzu Yönetimi</strong> veya PDF kırpıcıdan ekleyin.</p>';
+      all.length > 0
+        ? '<p class="soru-arsivi-empty">Seçili filtrelere uygun soru yok. Zorluk veya konuyu “Tümü” yapıp <strong>Soru Ara</strong> ile yenileyin.</p>'
+        : '<p class="soru-arsivi-empty">Havuzda henüz soru yok. Yukarıdan <strong>Manuel soru yükleme</strong> ile ekleyin veya <strong>Soru Kırpma</strong> sekmesini kullanın.</p>';
+    soruArsivSyncBulkModeUi();
     return;
   }
   grid.innerHTML = items
@@ -10950,7 +11040,9 @@ async function renderSoruHavuzuArsivi() {
       return (
         '<article class="soru-arsivi-card" data-havuz-q-id="' +
         id +
-        '"><div class="soru-arsivi-card__img-wrap"><img src="' +
+        '"><input type="checkbox" class="soru-secim-kutu" data-id="' +
+        id +
+        '" aria-label="Bu soruyu seç" /><div class="soru-arsivi-card__img-wrap"><img src="' +
         src +
         '" alt="Soru" loading="lazy" /></div><div class="soru-arsivi-card__body"><div class="soru-arsivi-card__badges">' +
         st +
@@ -10985,6 +11077,7 @@ async function renderSoruHavuzuArsivi() {
       );
     })
     .join("");
+  soruArsivSyncBulkModeUi();
 }
 
 var soruArsiviUiBound = false;
@@ -11009,6 +11102,76 @@ function arsivAddFilesFromList(fileList) {
     if (arsivFileIsImage(f) || arsivFileIsPdf(f)) arr.push(f);
   }
   return arr;
+}
+
+function arsivFileQueueKey(f) {
+  return (f.name || "") + "|" + f.size + "|" + (f.lastModified || 0);
+}
+
+function mergeArsivFileQueues(pending, incomingList) {
+  var map = {};
+  var order = [];
+  function pushUnique(f) {
+    if (!arsivFileIsImage(f) && !arsivFileIsPdf(f)) return;
+    var k = arsivFileQueueKey(f);
+    if (map[k]) return;
+    map[k] = true;
+    order.push(f);
+  }
+  (pending || []).forEach(pushUnique);
+  if (incomingList && incomingList.length) {
+    for (var i = 0; i < incomingList.length; i++) pushUnique(incomingList[i]);
+  }
+  return order;
+}
+
+var arsivPreviewObjectUrls = [];
+
+function arsivRevokeUploadPreviews() {
+  arsivPreviewObjectUrls.forEach(function (u) {
+    try {
+      URL.revokeObjectURL(u);
+    } catch (e) {}
+  });
+  arsivPreviewObjectUrls = [];
+}
+
+function arsivRenderUploadPreview(files) {
+  var wrap = document.getElementById("arsivUploadPreview");
+  if (!wrap) return;
+  arsivRevokeUploadPreviews();
+  wrap.innerHTML = "";
+  if (!files || !files.length) {
+    wrap.hidden = true;
+    return;
+  }
+  wrap.hidden = false;
+  files.forEach(function (f) {
+    var tile = document.createElement("div");
+    tile.className = "soru-arsivi-preview-tile";
+    tile.title = f.name || "";
+    if (arsivFileIsImage(f)) {
+      var u = URL.createObjectURL(f);
+      arsivPreviewObjectUrls.push(u);
+      var img = document.createElement("img");
+      img.src = u;
+      img.alt = f.name || "önizleme";
+      tile.appendChild(img);
+    } else if (arsivFileIsPdf(f)) {
+      tile.classList.add("soru-arsivi-preview-tile--pdf");
+      tile.innerHTML = '<i class="fa-solid fa-file-pdf" aria-hidden="true"></i><span>PDF</span>';
+      tile.title = (f.name || "") + " (yalnızca 1. sayfa)";
+    }
+    wrap.appendChild(tile);
+  });
+}
+
+function setArsivUploadStatus(message, kind) {
+  var el = document.getElementById("arsivUploadStatus");
+  if (!el) return;
+  el.textContent = message || "";
+  el.className = "soru-arsivi-upload-status";
+  if (kind) el.classList.add("soru-arsivi-upload-status--" + kind);
 }
 
 function arsivUploadFillDersKonu() {
@@ -11081,58 +11244,90 @@ function arsivPdfFirstPageToBlob(buf) {
 function initArsivManualUploadUi() {
   var form = document.getElementById("soruArsiviUploadForm");
   if (!form || form.dataset.arsivBind === "1") return;
-  var pick = document.getElementById("btnArsivUploadPick");
   var finp = document.getElementById("arsivUploadFile");
   var save = document.getElementById("btnArsivUploadSave");
+  var clearBtn = document.getElementById("btnArsivUploadClear");
   var fnEl = document.getElementById("arsivUploadFileName");
   var sinEl = document.getElementById("arsivUploadSinav");
   var drop = document.getElementById("arsivUploadDropzone");
-  if (!pick || !finp || !save) return;
+  if (!finp || !save) return;
   form.dataset.arsivBind = "1";
   try {
     finp.setAttribute("multiple", "multiple");
   } catch (e) {}
+
+  function setUploadBusy(busy) {
+    if (busy) form.classList.add("is-busy");
+    else form.classList.remove("is-busy");
+    save.disabled = busy || arsivUploadPendingFiles.length === 0;
+    if (clearBtn) clearBtn.disabled = busy || arsivUploadPendingFiles.length === 0;
+  }
 
   function updatePending(filesArr) {
     arsivUploadPendingFiles = filesArr && filesArr.length ? filesArr.slice() : [];
     if (fnEl) {
       if (!arsivUploadPendingFiles.length) fnEl.textContent = "";
       else if (arsivUploadPendingFiles.length === 1) fnEl.textContent = arsivUploadPendingFiles[0].name;
-      else fnEl.textContent = arsivUploadPendingFiles.length + " dosya seçildi";
+      else
+        fnEl.textContent =
+          arsivUploadPendingFiles.length +
+          " dosya kuyrukta · toplam ~" +
+          Math.round(
+            arsivUploadPendingFiles.reduce(function (a, f) {
+              return a + (f.size || 0);
+            }, 0) /
+              1024
+          ) +
+          " KB";
     }
+    arsivRenderUploadPreview(arsivUploadPendingFiles);
     save.disabled = arsivUploadPendingFiles.length === 0;
+    if (clearBtn) clearBtn.disabled = arsivUploadPendingFiles.length === 0;
+    if (!arsivUploadPendingFiles.length) setArsivUploadStatus("", null);
   }
 
-  function onFilesChosen(fileList) {
-    var added = arsivAddFilesFromList(fileList);
-    if (!added.length) {
-      showToast("PNG, JPG, WebP veya PDF dosyası seçin.");
+  function onIncomingFileList(fileList, mergeWithPending) {
+    var accepted = arsivAddFilesFromList(fileList);
+    if (fileList && fileList.length && !accepted.length) {
+      showToast("Yalnızca PNG, JPG, WebP veya PDF dosyaları kabul edilir.");
       return;
     }
-    updatePending(added);
+    if (!accepted.length) return;
+    var next = mergeWithPending ? mergeArsivFileQueues(arsivUploadPendingFiles, fileList) : accepted;
+    updatePending(next);
+    setArsivUploadStatus(next.length + " dosya yükleme için hazır. Etiketleri kontrol edip Havuza kaydet’e basın.", "info");
   }
 
   arsivUploadFillDersKonu();
   if (sinEl) sinEl.addEventListener("change", arsivUploadFillDersKonu);
-  pick.addEventListener("click", function () {
-    finp.click();
-  });
+
   finp.addEventListener("change", function () {
-    if (finp.files && finp.files.length) onFilesChosen(finp.files);
-    else updatePending([]);
+    if (!finp.files || !finp.files.length) {
+      try {
+        finp.value = "";
+      } catch (e) {}
+      return;
+    }
+    onIncomingFileList(finp.files, true);
+    try {
+      finp.value = "";
+    } catch (e) {}
   });
 
+  if (clearBtn) {
+    clearBtn.addEventListener("click", function () {
+      arsivRevokeUploadPreviews();
+      try {
+        finp.value = "";
+      } catch (e) {}
+      updatePending([]);
+      setArsivUploadStatus("Kuyruk temizlendi.", "ok");
+    });
+  }
+
   if (drop) {
-    drop.addEventListener("click", function (e) {
-      if (e.target === drop || drop.contains(e.target)) finp.click();
-    });
-    drop.addEventListener("keydown", function (e) {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        finp.click();
-      }
-    });
     drop.addEventListener("dragover", function (e) {
+      if (form.classList.contains("is-busy")) return;
       e.preventDefault();
       e.stopPropagation();
       drop.classList.add("soru-arsivi-dropzone--active");
@@ -11145,8 +11340,9 @@ function initArsivManualUploadUi() {
       e.preventDefault();
       e.stopPropagation();
       drop.classList.remove("soru-arsivi-dropzone--active");
+      if (form.classList.contains("is-busy")) return;
       if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length)
-        onFilesChosen(e.dataTransfer.files);
+        onIncomingFileList(e.dataTransfer.files, true);
     });
   }
 
@@ -11161,10 +11357,10 @@ function initArsivManualUploadUi() {
     function startUploadPipeline() {
       if (!auth.currentUser || !auth.currentUser.uid) {
         showToast("Firebase oturumu yok — birkaç saniye sonra tekrar deneyin veya sayfayı yenileyin.");
-        save.disabled = false;
+        setUploadBusy(false);
         return;
       }
-      save.disabled = true;
+      setUploadBusy(true);
       var base = {
         coachKey: cid,
         ders: (document.getElementById("arsivUploadDers") || {}).value || "",
@@ -11176,18 +11372,33 @@ function initArsivManualUploadUi() {
       var files = arsivUploadPendingFiles.slice();
       var idx = 0;
       var ok = 0;
+      var failed = [];
 
       function runNext() {
         if (idx >= files.length) {
-          showToast(ok + " soru havuza kaydedildi.");
-          finp.value = "";
-          updatePending([]);
-          save.disabled = true;
+          try {
+            finp.value = "";
+          } catch (e) {}
+          setUploadBusy(false);
+          if (failed.length) {
+            updatePending(failed);
+            setArsivUploadStatus(
+              ok + " kaydedildi · " + failed.length + " dosya hata verdi (kuyrukta kaldı). Ayrıntı için konsolu açın.",
+              "err"
+            );
+            showToast(ok + " kaydedildi, " + failed.length + " başarısız — başarısız dosyalar kuyrukta.");
+          } else {
+            updatePending([]);
+            setArsivUploadStatus(ok + " soru havuza eklendi.", "ok");
+            showToast(ok + " soru havuza kaydedildi.");
+          }
           renderSoruHavuzuArsivi().catch(function () {});
           return;
         }
         var f = files[idx];
         idx++;
+        var total = files.length;
+        setArsivUploadStatus("Kaydediliyor (" + idx + "/" + total + "): " + (f.name || "dosya") + "…", "info");
         var job;
         if (arsivFileIsImage(f)) {
           job = saveSoruHavuzuEntry(Object.assign({}, base, { imageBlob: f }));
@@ -11197,7 +11408,9 @@ function initArsivManualUploadUi() {
             r.onload = function () {
               arsivPdfFirstPageToBlob(new Uint8Array(r.result))
                 .then(function (blob) {
-                  return saveSoruHavuzuEntry(Object.assign({}, base, { imageBlob: blob, source: "manual_pdf_page1" }));
+                  return saveSoruHavuzuEntry(
+                    Object.assign({}, base, { imageBlob: blob, source: "manual_pdf_page1" })
+                  );
                 })
                 .then(resolve)
                 .catch(reject);
@@ -11217,13 +11430,9 @@ function initArsivManualUploadUi() {
             runNext();
           })
           .catch(function (e) {
-            console.error("[soru_havuzu]", e);
-            var msg =
-              e && (e.code || e.message)
-                ? String(e.code ? e.code + ": " + (e.message || "") : e.message)
-                : "bilinmeyen hata";
-            showToast("Kayıt başarısız: " + msg);
-            save.disabled = false;
+            console.error("[soru_havuzu]", f && f.name, e);
+            failed.push(f);
+            runNext();
           });
       }
       runNext();
@@ -11234,6 +11443,7 @@ function initArsivManualUploadUi() {
       return;
     }
     showToast("Oturum hazırlanıyor…");
+    setUploadBusy(true);
     var unsub = onAuthStateChanged(auth, function (u) {
       try {
         unsub();
@@ -11241,7 +11451,7 @@ function initArsivManualUploadUi() {
       if (u && u.uid) startUploadPipeline();
       else {
         showToast("Giriş oturumu yok. Sayfayı yenileyin.");
-        save.disabled = false;
+        setUploadBusy(false);
       }
     });
   });
@@ -11266,10 +11476,15 @@ function initSoruArsiviModule() {
       soruArsivFillKonuOptions();
     });
   if (btn) btn.addEventListener("click", renderSoruHavuzuArsivi);
+  var btnBulk = document.getElementById("btnArsivBulkMode");
+  var btnBulkDel = document.getElementById("btnArsivBulkDelete");
+  if (btnBulk) btnBulk.addEventListener("click", soruArsivToggleBulkMode);
+  if (btnBulkDel) btnBulkDel.addEventListener("click", soruArsivBulkDeleteSelected);
   var grid = document.getElementById("havuz-galeri-grid");
   if (grid)
     grid.addEventListener("click", function (ev) {
       var t = ev.target;
+      if (t && t.classList && t.classList.contains("soru-secim-kutu")) return;
       var del = t.closest && t.closest("[data-havuz-del]");
       if (del) {
         var qidDel = del.getAttribute("data-havuz-del");

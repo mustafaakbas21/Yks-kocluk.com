@@ -3279,9 +3279,12 @@
             </nav>
           </header>
           <div class="soru-arsivi-page">
-            <form class="soru-arsivi-filters" id="soruArsiviUploadForm" autocomplete="off" onsubmit="return false;" style="border:1px dashed rgba(108,92,231,0.45);background:linear-gradient(180deg,rgba(108,92,231,0.07),#fff);margin-bottom:1rem">
-              <div class="soru-arsivi-field" style="min-width:100%;margin-bottom:0.15rem">
-                <span style="color:#6c5ce7;font-size:0.78rem"><i class="fa-solid fa-cloud-arrow-up"></i> Manuel Soru Yükle (PNG / JPG / PDF)</span>
+            <form class="soru-arsivi-filters soru-arsivi-upload-panel" id="soruArsiviUploadForm" autocomplete="off" onsubmit="return false;">
+              <div class="soru-arsivi-upload-head">
+                <h3 class="soru-arsivi-upload-title"><i class="fa-solid fa-cloud-arrow-up"></i> Manuel soru yükleme</h3>
+                <p class="soru-arsivi-upload-sub">
+                  Çoklu PNG / JPG / WebP / PDF. PDF’de yalnızca <strong>ilk sayfa</strong> kaydedilir. Aynı etiketler tüm seçilen dosyalara uygulanır.
+                </p>
               </div>
               <label class="soru-arsivi-field">
                 <span>Sınav</span>
@@ -3306,25 +3309,44 @@
                   <option>Zor</option>
                 </select>
               </label>
-              <div class="soru-arsivi-field soru-arsivi-field--drop" style="min-width:100%;flex-basis:100%">
-                <span>Bırakma alanı</span>
-                <div
+              <input
+                type="file"
+                id="arsivUploadFile"
+                class="soru-arsivi-file-input"
+                accept="image/png,image/jpeg,image/jpg,image/webp,application/pdf,.pdf"
+                multiple
+                aria-label="Yüklenecek soru dosyaları"
+              />
+              <div class="soru-arsivi-field soru-arsivi-field--drop soru-arsivi-field--full">
+                <span>Dosya seç veya sürükle</span>
+                <label
+                  for="arsivUploadFile"
                   id="arsivUploadDropzone"
                   class="soru-arsivi-dropzone"
                   tabindex="0"
-                  role="button"
-                  aria-label="Görselleri veya PDF sürükleyip bırakın"
                 >
                   <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i>
-                  <span>PNG / JPG / PDF dosyalarını buraya sürükleyin veya <strong>Dosya seç</strong> ile çoklu seçin.</span>
-                </div>
+                  <span class="soru-arsivi-dropzone__text">Buraya bırakın veya alttaki <strong>Dosya seç</strong> ile çoklu seçim yapın.</span>
+                  <span class="soru-arsivi-dropzone__hint">Tekrar seçerek kuyruğa eklersiniz (aynı dosya adı + boyut tekrarlanmaz).</span>
+                </label>
               </div>
-              <input type="file" id="arsivUploadFile" accept="image/png,image/jpeg,image/jpg,application/pdf,.pdf" multiple hidden />
-              <button type="button" class="soru-arsivi-search-btn" id="btnArsivUploadPick" style="background:linear-gradient(135deg,#6c5ce7,#5b4fcf);margin-left:0"><i class="fa-solid fa-folder-open"></i> Dosya seç</button>
-              <button type="button" class="soru-arsivi-search-btn" id="btnArsivUploadSave" disabled style="opacity:0.85"><i class="fa-solid fa-floppy-disk"></i> Havuza kaydet</button>
-              <span id="arsivUploadFileName" style="font-size:0.82rem;color:#64748b;flex:1;min-width:12rem;overflow:hidden;text-overflow:ellipsis"></span>
+              <div class="soru-arsivi-upload-actions">
+                <label for="arsivUploadFile" class="soru-arsivi-file-pick-label">
+                  <i class="fa-solid fa-folder-open" aria-hidden="true"></i> Dosya seç
+                </label>
+                <button type="button" class="soru-arsivi-btn-secondary" id="btnArsivUploadClear" disabled>Temizle</button>
+                <button type="button" class="soru-arsivi-search-btn soru-arsivi-save-btn" id="btnArsivUploadSave" disabled>
+                  <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Havuza kaydet
+                </button>
+              </div>
+              <p id="arsivUploadStatus" class="soru-arsivi-upload-status" role="status" aria-live="polite"></p>
+              <p id="arsivUploadFileName" class="soru-arsivi-file-summary"></p>
+              <div id="arsivUploadPreview" class="soru-arsivi-preview-strip" hidden></div>
             </form>
-            <p class="soru-arsivi-lead">Sorular Firebase <strong>soru_havuzu</strong> koleksiyonunda tutulur. <strong>Sınav tipi</strong> ve <strong>Ders</strong> seçildiğinde <strong>Konu</strong> listesi müfredat verisine (<code>yksMufredatDatasi</code>) göre güncellenir. PDF dosyasında yalnızca <strong>ilk sayfa</strong> önizlenerek havuza eklenir; çok sayfalı kesim için <strong>Soru Kırpma</strong> sekmesini kullanın.</p>
+            <p class="soru-arsivi-lead">
+              Sorular <strong>Firebase</strong> <code>soru_havuzu</code> + <strong>Storage</strong> üzerinde tutulur. Görseller <code>coach_id</code> ile listelenir; dosyalar güvenli klasörde <code>uid</code> ile saklanır.
+              Çok sayfalı PDF kesimi için <strong>Soru Kırpma</strong> sekmesini kullanın.
+            </p>
             <form class="soru-arsivi-filters" id="soruArsiviFilterForm" autocomplete="off" onsubmit="return false;">
               <label class="soru-arsivi-field">
                 <span>Sınav tipi</span>
@@ -3346,8 +3368,31 @@
                   <option value="">Tümü</option>
                 </select>
               </label>
+              <label class="soru-arsivi-field">
+                <span>Zorluk</span>
+                <select id="arsivFilterZorluk" aria-label="Zorluk filtresi">
+                  <option value="">Tümü</option>
+                  <option>Kolay</option>
+                  <option>Orta</option>
+                  <option>Zor</option>
+                </select>
+              </label>
               <button type="button" class="soru-arsivi-search-btn" id="btnSoruArsiviAra"><i class="fa-solid fa-magnifying-glass"></i> Soru Ara 🔍</button>
+              <button type="button" class="soru-arsivi-bulk-mode-btn" id="btnArsivBulkMode" aria-pressed="false" title="Toplu seçim">
+                🗑️ Toplu Seçim Modu
+              </button>
+              <button
+                type="button"
+                class="soru-arsivi-bulk-del-btn"
+                id="btnArsivBulkDelete"
+                hidden
+                style="display: none"
+                title="Seçilenleri sil"
+              >
+                🚨 Seçilenleri Sil
+              </button>
             </form>
+            <p id="arsivPoolStat" class="soru-arsivi-pool-stat" aria-live="polite" hidden></p>
             <div id="havuz-galeri-grid" aria-live="polite"></div>
           </div>
         </div>
