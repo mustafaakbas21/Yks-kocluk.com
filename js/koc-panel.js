@@ -7,6 +7,9 @@ import {
   onAuthStateChanged,
   signOut,
   createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updatePassword,
+  updateEmail,
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import {
   collection,
@@ -3321,6 +3324,222 @@ async function migrateStudentDocumentId(oldId, newIdRaw) {
   }
 }
 
+function sdGetStudentPortalEmail(portalUsername) {
+  return String(portalUsername || "").trim() + STUDENT_EMAIL_DOMAIN;
+}
+
+async function loadStudentPortalCredentialsForDetail(st) {
+  var noEl = document.getElementById("studentDetailPortalNoAccount");
+  var block = document.getElementById("studentDetailPortalBlock");
+  var userEl = document.getElementById("studentDetailPortalUser");
+  var passEl = document.getElementById("studentDetailPortalPass");
+  var btnTog = document.getElementById("btnStudentDetailTogglePass");
+  var p1 = document.getElementById("sdPortalNewPass");
+  var p2 = document.getElementById("sdPortalNewPass2");
+  var uInp = document.getElementById("sdPortalNewUsername");
+  if (p1) p1.value = "";
+  if (p2) p2.value = "";
+  if (uInp) uInp.value = "";
+  if (!st) return;
+  var uname = String(st.portalUsername || "").trim();
+  var uidAuth = String(st.studentAuthUid || "").trim();
+  var hasLink = !!(uname && uidAuth);
+  if (noEl) {
+    if (!uname) {
+      noEl.hidden = false;
+      noEl.textContent =
+        "Bu öğrenci için henüz portal hesabı yok (yeni kayıtta kullanıcı adı ve şifre verilmediyse oluşturulmaz).";
+    } else if (!uidAuth) {
+      noEl.hidden = false;
+      noEl.textContent =
+        "Portal kullanıcı adı kayıtlı görünüyor ancak hesap bağlantısı (studentAuthUid) yok; öğrenciyi düzenleyerek eşleştirin veya destek alın.";
+    } else {
+      noEl.hidden = true;
+      noEl.textContent = "";
+    }
+  }
+  if (block) block.hidden = !hasLink;
+  if (userEl) userEl.textContent = uname || "—";
+  if (passEl) {
+    passEl.textContent = "—";
+    passEl.dataset.plain = "";
+  }
+  if (btnTog) {
+    btnTog.textContent = "Göster";
+    btnTog.disabled = !hasLink;
+  }
+  if (!hasLink) return;
+  try {
+    var us = await getDoc(doc(db, "users", uidAuth));
+    var pwd =
+      firestoreDocExists(us) && us.data() && us.data().plainPassword
+        ? String(us.data().plainPassword)
+        : "";
+    if (passEl) {
+      passEl.dataset.plain = pwd;
+      passEl.textContent = pwd ? "••••••••" : "(şifre metni kayıtlı değil)";
+    }
+    if (btnTog) btnTog.disabled = !pwd;
+  } catch (e) {
+    console.warn("[portal]", e);
+    if (passEl) passEl.textContent = "(yüklenemedi)";
+  }
+}
+
+async function studentDetailUpdatePortalPassword() {
+  var sid = currentStudentDetailId;
+  var st = sid ? cachedStudents.find(function (x) { return x.id === sid; }) : null;
+  if (!st || !st.studentAuthUid || !st.portalUsername) {
+    showToast("Portal hesabı yok veya eksik.");
+    return;
+  }
+  var p1 = document.getElementById("sdPortalNewPass");
+  var p2 = document.getElementById("sdPortalNewPass2");
+  var a = p1 ? String(p1.value || "") : "";
+  var b = p2 ? String(p2.value || "") : "";
+  if (a.length < 6) {
+    showToast("Yeni şifre en az 6 karakter olmalıdır.");
+    return;
+  }
+  if (a !== b) {
+    showToast("Yeni şifreler eşleşmiyor.");
+    return;
+  }
+  var btn = document.getElementById("btnStudentDetailChangePass");
+  if (btn) btn.disabled = true;
+  try {
+    var uref = doc(db, "users", st.studentAuthUid);
+    var us = await getDoc(uref);
+    var oldPass =
+      firestoreDocExists(us) && us.data().plainPassword ? String(us.data().plainPassword) : "";
+    if (!oldPass) {
+      showToast(
+        "Kayıtlı mevcut şifre bulunamadı. Öğrenci düzenlemeden portal şifresi atanmış olmalı veya şifre sıfırlama kullanın."
+      );
+      return;
+    }
+    var email = sdGetStudentPortalEmail(st.portalUsername);
+    var cred = await signInWithEmailAndPassword(studentCreatorAuth, email, oldPass);
+    await updatePassword(cred.user, a);
+    await updateDoc(uref, {
+      plainPassword: a,
+      lastPasswordChangeAt: serverTimestamp(),
+    });
+    try {
+      await signOut(studentCreatorAuth);
+    } catch (so) {}
+    if (p1) p1.value = "";
+    if (p2) p2.value = "";
+    showToast("Öğrenci şifresi güncellendi.");
+    await loadStudentPortalCredentialsForDetail(st);
+  } catch (err) {
+    console.error(err);
+    var msg = err && err.message ? String(err.message) : "Hata";
+    if (err && err.code === "auth/wrong-password") msg = "Kayıtlı şifre Firebase ile uyuşmuyor. Öğrenci şifresini sıfırlanıp tekrar deneyin.";
+    if (err && err.code === "auth/weak-password") msg = "Şifre çok zayıf.";
+    showToast("Şifre güncellenemedi: " + msg);
+    try {
+      await signOut(studentCreatorAuth);
+    } catch (so2) {}
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function studentDetailUpdatePortalUsername() {
+  var sid = currentStudentDetailId;
+  var st = sid ? cachedStudents.find(function (x) { return x.id === sid; }) : null;
+  if (!st || !st.studentAuthUid || !st.portalUsername) {
+    showToast("Portal hesabı yok veya eksik.");
+    return;
+  }
+  var inp = document.getElementById("sdPortalNewUsername");
+  var raw = inp ? String(inp.value || "").trim() : "";
+  var newU = sanitizeStudentPortalUsername(raw);
+  if (!newU) {
+    showToast("Yeni kullanıcı adı yalnızca a-z, 0-9 ve _ içerebilir.");
+    return;
+  }
+  if (newU === String(st.portalUsername).trim()) {
+    showToast("Bu kullanıcı adı zaten atanmış.");
+    return;
+  }
+  if (!confirm("Giriş adresi «" + newU + "@sistem.com» olacak. Öğrenci eski adla giriş yapamaz. Devam?")) return;
+  var btn = document.getElementById("btnStudentDetailChangePortalUser");
+  if (btn) btn.disabled = true;
+  try {
+    var uref = doc(db, "users", st.studentAuthUid);
+    var us = await getDoc(uref);
+    var oldPass =
+      firestoreDocExists(us) && us.data().plainPassword ? String(us.data().plainPassword) : "";
+    if (!oldPass) {
+      showToast("Kayıtlı şifre yok; kullanıcı adı değiştirilemez.");
+      return;
+    }
+    var oldEmail = sdGetStudentPortalEmail(st.portalUsername);
+    var newEmail = sdGetStudentPortalEmail(newU);
+    var cred = await signInWithEmailAndPassword(studentCreatorAuth, oldEmail, oldPass);
+    await updateEmail(cred.user, newEmail);
+    await updateDoc(uref, { username: newU });
+    await updateDoc(doc(db, "students", st.id), { portalUsername: newU });
+    try {
+      await signOut(studentCreatorAuth);
+    } catch (so) {}
+    var ix = cachedStudents.findIndex(function (x) {
+      return x.id === st.id;
+    });
+    if (ix >= 0) cachedStudents[ix].portalUsername = newU;
+    if (inp) inp.value = "";
+    showToast("Kullanıcı adı güncellendi. Giriş: «" + newU + "».");
+    await loadStudentPortalCredentialsForDetail(ix >= 0 ? cachedStudents[ix] : st);
+  } catch (err) {
+    console.error(err);
+    var msg = err && err.message ? String(err.message) : "Hata";
+    if (err && err.code === "auth/email-already-in-use") msg = "Bu kullanıcı adı zaten alınmış.";
+    if (err && err.code === "auth/requires-recent-login") msg = "Güvenlik: tekrar giriş gerekir.";
+    showToast("Kullanıcı adı güncellenemedi: " + msg);
+    try {
+      await signOut(studentCreatorAuth);
+    } catch (so2) {}
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function bindStudentDetailPortalButtons() {
+  var t = document.getElementById("btnStudentDetailTogglePass");
+  if (t && !t.dataset.bound) {
+    t.dataset.bound = "1";
+    t.addEventListener("click", function () {
+      var passEl = document.getElementById("studentDetailPortalPass");
+      var plain = passEl && passEl.dataset.plain;
+      if (!plain) return;
+      var masked = passEl.textContent.indexOf("•") !== -1;
+      if (masked) {
+        passEl.textContent = plain;
+        t.textContent = "Gizle";
+      } else {
+        passEl.textContent = "••••••••";
+        t.textContent = "Göster";
+      }
+    });
+  }
+  var bp = document.getElementById("btnStudentDetailChangePass");
+  if (bp && !bp.dataset.bound) {
+    bp.dataset.bound = "1";
+    bp.addEventListener("click", function () {
+      void studentDetailUpdatePortalPassword();
+    });
+  }
+  var bu = document.getElementById("btnStudentDetailChangePortalUser");
+  if (bu && !bu.dataset.bound) {
+    bu.dataset.bound = "1";
+    bu.addEventListener("click", function () {
+      void studentDetailUpdatePortalUsername();
+    });
+  }
+}
+
 function parseTrNum(s) {
   if (s == null || s === "") return NaN;
   return parseFloat(String(s).replace(",", ".").trim());
@@ -3589,6 +3808,7 @@ function renderStudentDetailPage() {
     var notes = sdLoadNotesMap();
     noteEl.value = notes[sid] || "";
   }
+  void loadStudentPortalCredentialsForDetail(st);
 }
 
 function openStudentDetail(studentId) {
@@ -11213,6 +11433,50 @@ function arsivUploadFillDersKonu() {
   fillKonu();
 }
 
+function arsivPromiseWithTimeout(promise, ms, errMsg) {
+  return new Promise(function (resolve, reject) {
+    var settled = false;
+    var t = setTimeout(function () {
+      if (settled) return;
+      settled = true;
+      reject(
+        new Error(
+          errMsg ||
+            "İşlem " +
+              Math.round(ms / 1000) +
+              " sn içinde tamamlanmadı (ağ veya Firebase Storage/Firestore)."
+        )
+      );
+    }, ms);
+    Promise.resolve(promise).then(
+      function (v) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(t);
+        resolve(v);
+      },
+      function (e) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(t);
+        reject(e);
+      }
+    );
+  });
+}
+
+function arsivFormatFirebaseErr(e) {
+  if (!e) return "bilinmeyen hata";
+  var c = e.code;
+  var m = e.message || "";
+  if (c === "storage/unauthorized" || /storage\/unauthorized/i.test(m))
+    return "Storage erişim reddedildi (kurallar veya oturum).";
+  if (c === "storage/canceled") return "Yükleme iptal edildi.";
+  if (String(c || "").indexOf("permission") !== -1 || /insufficient permissions/i.test(m))
+    return "Firestore izni yok (kurallar).";
+  return String(c ? c + ": " + m : m);
+}
+
 function arsivPdfFirstPageToBlob(buf) {
   if (typeof pdfjsLib === "undefined") return Promise.reject(new Error("pdfjs"));
   return pdfjsLib
@@ -11361,6 +11625,7 @@ function initArsivManualUploadUi() {
         return;
       }
       setUploadBusy(true);
+      var UPLOAD_TIMEOUT_MS = 180000;
       var base = {
         coachKey: cid,
         ders: (document.getElementById("arsivUploadDers") || {}).value || "",
@@ -11383,10 +11648,10 @@ function initArsivManualUploadUi() {
           if (failed.length) {
             updatePending(failed);
             setArsivUploadStatus(
-              ok + " kaydedildi · " + failed.length + " dosya hata verdi (kuyrukta kaldı). Ayrıntı için konsolu açın.",
+              ok + " kaydedildi · " + failed.length + " dosya atlandı. Son hatalar konsolda.",
               "err"
             );
-            showToast(ok + " kaydedildi, " + failed.length + " başarısız — başarısız dosyalar kuyrukta.");
+            showToast(ok + " kaydedildi, " + failed.length + " başarısız (kuyrukta kaldı).");
           } else {
             updatePending([]);
             setArsivUploadStatus(ok + " soru havuza eklendi.", "ok");
@@ -11401,7 +11666,9 @@ function initArsivManualUploadUi() {
         setArsivUploadStatus("Kaydediliyor (" + idx + "/" + total + "): " + (f.name || "dosya") + "…", "info");
         var job;
         if (arsivFileIsImage(f)) {
-          job = saveSoruHavuzuEntry(Object.assign({}, base, { imageBlob: f }));
+          job = saveSoruHavuzuEntry(
+            Object.assign({}, base, { imageBlob: f, fileName: f.name || "" })
+          );
         } else if (arsivFileIsPdf(f)) {
           job = new Promise(function (resolve, reject) {
             var r = new FileReader();
@@ -11409,7 +11676,11 @@ function initArsivManualUploadUi() {
               arsivPdfFirstPageToBlob(new Uint8Array(r.result))
                 .then(function (blob) {
                   return saveSoruHavuzuEntry(
-                    Object.assign({}, base, { imageBlob: blob, source: "manual_pdf_page1" })
+                    Object.assign({}, base, {
+                      imageBlob: blob,
+                      source: "manual_pdf_page1",
+                      fileName: (f.name || "") + "_p1.png",
+                    })
                   );
                 })
                 .then(resolve)
@@ -11424,18 +11695,33 @@ function initArsivManualUploadUi() {
           runNext();
           return;
         }
-        Promise.resolve(job)
+        arsivPromiseWithTimeout(
+          job,
+          UPLOAD_TIMEOUT_MS,
+          "Zaman aşımı (" + Math.round(UPLOAD_TIMEOUT_MS / 1000) + " sn) — " + (f.name || "dosya")
+        )
           .then(function () {
             ok++;
             runNext();
           })
           .catch(function (e) {
             console.error("[soru_havuzu]", f && f.name, e);
+            setArsivUploadStatus(
+              "Hata · " + (f.name || "dosya") + ": " + arsivFormatFirebaseErr(e),
+              "err"
+            );
             failed.push(f);
             runNext();
           });
       }
-      runNext();
+
+      var tok = auth.currentUser.getIdToken(true).catch(function (e) {
+        console.warn("[arsiv] token yenileme:", e);
+        return null;
+      });
+      Promise.resolve(tok).then(function () {
+        runNext();
+      });
     }
 
     if (auth.currentUser && auth.currentUser.uid) {
@@ -13582,6 +13868,8 @@ function initAllButtons() {
       });
     });
   })();
+
+  bindStudentDetailPortalButtons();
 
   var btnChStudentId = document.getElementById("btnStudentDetailChangeId");
   if (btnChStudentId && !btnChStudentId.dataset.bound) {

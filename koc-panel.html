@@ -1887,6 +1887,72 @@
                       Deneme, randevu, görev ve kaynak atamaları bu ID ile ilişkilidir; güncelleme ilgili kayıtları taşır.
                     </p>
                   </div>
+                  <div class="sd-portal-row" id="studentDetailPortalSection">
+                    <span class="sd-id-row__label">Öğrenci portal girişi</span>
+                    <p class="sd-portal-row__none" id="studentDetailPortalNoAccount" hidden></p>
+                    <div id="studentDetailPortalBlock" class="sd-portal-row__block" hidden>
+                      <div class="sd-portal-row__row">
+                        <div>
+                          <span class="sd-portal-row__sublabel">Aktif kullanıcı adı</span>
+                          <code class="sd-id-row__code" id="studentDetailPortalUser">—</code>
+                        </div>
+                        <div>
+                          <span class="sd-portal-row__sublabel">Kayıtlı şifre</span>
+                          <div class="sd-portal-pass-line">
+                            <code class="sd-id-row__code sd-portal-pass-line__val" id="studentDetailPortalPass">—</code>
+                            <button type="button" class="btn btn--sm btn--outline" id="btnStudentDetailTogglePass">
+                              Göster
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="sd-portal-row__forms">
+                        <div class="sd-portal-field">
+                          <span class="sd-portal-row__sublabel">Şifre değiştir</span>
+                          <div class="sd-portal-inline">
+                            <input
+                              type="password"
+                              id="sdPortalNewPass"
+                              class="sd-id-row__input"
+                              placeholder="Yeni şifre (en az 6 karakter)"
+                              autocomplete="new-password"
+                            />
+                            <input
+                              type="password"
+                              id="sdPortalNewPass2"
+                              class="sd-id-row__input"
+                              placeholder="Yeni şifre tekrar"
+                              autocomplete="new-password"
+                            />
+                            <button type="button" class="btn btn--sm btn--purple" id="btnStudentDetailChangePass">
+                              <i class="fa-solid fa-key"></i> Şifreyi güncelle
+                            </button>
+                          </div>
+                        </div>
+                        <div class="sd-portal-field">
+                          <span class="sd-portal-row__sublabel">Kullanıcı adı değiştir (giriş: yeniadı@sistem.com)</span>
+                          <div class="sd-portal-inline">
+                            <input
+                              type="text"
+                              id="sdPortalNewUsername"
+                              class="sd-id-row__input"
+                              maxlength="40"
+                              placeholder="Yeni kullanıcı adı (a-z, 0-9, _)"
+                              autocomplete="off"
+                              spellcheck="false"
+                            />
+                            <button type="button" class="btn btn--sm btn--purple" id="btnStudentDetailChangePortalUser">
+                              <i class="fa-solid fa-user-pen"></i> Kullanıcı adını güncelle
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <p class="sd-id-row__hint sd-portal-row__hint-foot">
+                        Öğrenci <strong>login</strong> e-postası <code>kullaniciadi@sistem.com</code> biçimindedir. Şifre hem Firebase’de hem
+                        <code>users</code> kaydında güncellenir.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

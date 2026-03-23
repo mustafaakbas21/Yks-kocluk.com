@@ -38,6 +38,21 @@ export function dataUrlToBlob(dataUrl) {
   return new Blob([u8], { type: mime });
 }
 
+/** Boş MIME (bazı tarayıcılar) için dosya adından; Storage contentType ile uyumlu uzantı */
+function guessImageExtAndMime(blob, fileName) {
+  var t = (blob && blob.type && String(blob.type).trim()) || "";
+  var lower = t.toLowerCase();
+  if (lower.indexOf("png") >= 0) return { ext: "png", mime: "image/png" };
+  if (lower.indexOf("webp") >= 0) return { ext: "webp", mime: "image/webp" };
+  if (lower.indexOf("jpeg") >= 0 || lower.indexOf("jpg") >= 0)
+    return { ext: "jpg", mime: lower || "image/jpeg" };
+  var name = String(fileName || "").toLowerCase();
+  if (/\.png$/i.test(name)) return { ext: "png", mime: "image/png" };
+  if (/\.webp$/i.test(name)) return { ext: "webp", mime: "image/webp" };
+  if (/\.jpe?g$/i.test(name)) return { ext: "jpg", mime: "image/jpeg" };
+  return { ext: "png", mime: "image/png" };
+}
+
 /**
  * @param {object} p
  * @param {string} p.coachKey
@@ -57,7 +72,10 @@ export async function saveSoruHavuzuEntry(p) {
   if (!imageUrl && blob) {
     var uid = auth.currentUser && auth.currentUser.uid;
     if (!uid) throw new Error("Oturum yok — önce giriş yapın (Storage).");
-    var ext = blob.type && blob.type.indexOf("png") >= 0 ? "png" : "jpg";
+    var fn = (p && p.fileName) || (blob && blob.name) || "";
+    var guess = guessImageExtAndMime(blob, fn);
+    var ext = guess.ext;
+    var mime = guess.mime;
     /** Storage kuralları çoğunlukla path'te auth.uid ister; coach_id Firestore'da kullanıcı adı olarak kalır */
     var path =
       "soru_havuzu/" +
@@ -69,7 +87,7 @@ export async function saveSoruHavuzuEntry(p) {
       "." +
       ext;
     var r = ref(storage, path);
-    await uploadBytes(r, blob, { contentType: blob.type || "image/png" });
+    await uploadBytes(r, blob, { contentType: mime });
     imageUrl = await getDownloadURL(r);
   }
   if (!imageUrl) throw new Error("Görsel yüklenemedi.");
