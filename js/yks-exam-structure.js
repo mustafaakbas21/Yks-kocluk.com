@@ -134,6 +134,19 @@ export function netFromDy(d, y) {
   return Math.max(0, d - y / 4);
 }
 
+/**
+ * Net kuralı: ÖSYM (4 yanlış 1 doğru), 3 yanlış 1 doğru (yayın/okul), katı 3:1 (tam sayılı).
+ * @param {"osym"|"y3"|"y3floor"} rule
+ */
+export function netFromDyWithRule(d, y, rule) {
+  d = Number(d) || 0;
+  y = Number(y) || 0;
+  var r = rule || "osym";
+  if (r === "y3") return Math.max(0, d - y / 3);
+  if (r === "y3floor") return Math.max(0, d - Math.floor(y / 3));
+  return Math.max(0, d - y / 4);
+}
+
 export function clampDy(soru, d, y) {
   var dd = Math.max(0, Math.min(soru, Number(d) || 0));
   var yy = Math.max(0, Math.min(soru - dd, Number(y) || 0));

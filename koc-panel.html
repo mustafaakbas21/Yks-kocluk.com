@@ -2486,7 +2486,23 @@
                   <option value="dil">Dil</option>
                 </select>
               </label>
+              <label>
+                <span>Deneme şablonu</span>
+                <select id="daLinkExamDef" aria-label="Kayıtlı deneme şablonu">
+                  <option value="">— Yok —</option>
+                </select>
+              </label>
+              <label>
+                <span>Net kuralı</span>
+                <select class="js-yks-scoring-rule" id="daScoringRule" aria-label="Net hesaplama kuralı" title="ÖSYM: D − Y/4">
+                  <option value="osym">ÖSYM (4Y → 1D)</option>
+                  <option value="y3">3 yanlış = 1 doğru (D − Y/3)</option>
+                  <option value="y3floor">3 yanlış = 1D (tam sayı)</option>
+                </select>
+              </label>
             </div>
+
+            <div id="examDefProRoot" class="exam-def-pro-mount" aria-live="polite"></div>
 
             <div class="eds-da__kpi-row" id="edsDaKpiRow">
               <div class="eds-da__kpi">
@@ -2587,6 +2603,9 @@
               <button type="button" id="optikTabBulk" data-optik-main="bulk" role="tab" aria-selected="false">
                 <i class="fa-solid fa-paste"></i> Toplu optik / yapıştır
               </button>
+              <button type="button" id="optikTabAdvanced" data-optik-main="adv" role="tab" aria-selected="false">
+                <i class="fa-solid fa-eye"></i> OCR / dosya
+              </button>
             </div>
 
             <div id="optikPanelManual">
@@ -2621,6 +2640,20 @@
                       <option value="esit_agirlik">Eşit ağırlık</option>
                       <option value="sozel">Sözel</option>
                       <option value="dil">Dil</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Deneme şablonu</span>
+                    <select id="optikLinkExamDef" aria-label="Şablon bağla">
+                      <option value="">— Yok —</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Net kuralı</span>
+                    <select class="js-yks-scoring-rule" id="optikScoringRule" aria-label="Net kuralı">
+                      <option value="osym">ÖSYM (D − Y/4)</option>
+                      <option value="y3">D − Y/3</option>
+                      <option value="y3floor">Tam sayı (floor Y/3)</option>
                     </select>
                   </label>
                 </div>
@@ -2700,6 +2733,26 @@
                 <p id="optikImportResult" class="eds-da__hint" style="margin-top:0.65rem"></p>
               </div>
             </div>
+
+            <div id="optikPanelAdvanced" hidden>
+              <div class="da-tool-card" style="border:1px solid #cbd5e1;border-radius:10px;padding:1.15rem;max-width:960px">
+                <h3 style="margin:0 0 0.5rem;font-size:1rem;color:#1e3a5f"><i class="fa-solid fa-scanner-image"></i> Gelişmiş OCR (Tesseract)</h3>
+                <p class="eds-da__hint" style="margin:0 0 0.75rem">Tarayıcı/yazıcı çıktısı yükleyin; görüntü gri ton + siyah-beyaz eşikle hazırlanır. Ağ gerekir (Tesseract WASM).</p>
+                <label class="btn btn--sm btn--ghost" style="cursor:pointer">
+                  <i class="fa-solid fa-image"></i> Görüntü seç
+                  <input type="file" id="optikOcrFile" accept="image/*" hidden />
+                </label>
+                <button type="button" class="btn btn--purple btn--sm" id="optikOcrRun"><i class="fa-solid fa-wand-magic-sparkles"></i> Metin oku</button>
+                <div style="margin:0.75rem 0;overflow:auto;max-height:280px;border:1px solid #e2e8f0;border-radius:8px;background:#0f172a">
+                  <canvas id="optikOcrPreview" style="display:block;max-width:100%;height:auto"></canvas>
+                </div>
+                <pre id="optikOcrOutput" class="optik-ocr-output" style="max-height:140px;overflow:auto;font-size:0.75rem;background:#f8fafc;padding:0.65rem;border-radius:8px"></pre>
+                <h4 style="margin:1rem 0 0.35rem;font-size:0.9rem">DAT / CSV birleştir</h4>
+                <p class="eds-da__hint" style="margin:0 0 0.35rem">Satır: <code>öğrenci_no veya ad [tab veya ;] cevaplar</code> — harfler toplu alana eklenir.</p>
+                <textarea id="optikDatPaste" rows="4" placeholder="Örn: 1001	ABCDEABCDE..." style="width:100%;box-sizing:border-box;border-radius:8px;border:1px solid #e2e8f0;padding:0.5rem;font-family:inherit"></textarea>
+                <button type="button" class="btn btn--sm" id="optikDatMerge" style="margin-top:0.5rem">Toplu alana aktar</button>
+              </div>
+            </div>
           </section>
         </div>
 
@@ -2745,6 +2798,12 @@
                 <button type="button" class="btn btn-eds-secondary" id="btnKarnePrint"><i class="fa-solid fa-print"></i> Yazdır</button>
                 <button type="button" class="btn btn-eds-secondary" id="btnKarneCopyTsv"><i class="fa-solid fa-copy"></i> Excel (TSV)</button>
                 <button type="button" class="btn btn-eds-secondary" id="btnKarnePdf"><i class="fa-solid fa-file-pdf"></i> PDF indir</button>
+                <button type="button" class="btn btn-eds-secondary" id="btnKarneBulkPdf"><i class="fa-solid fa-file-lines"></i> Toplu liste PDF</button>
+              </div>
+              <div id="karneBulkExamMount" class="karne-bulk-mount" aria-live="polite"></div>
+              <div id="karneStudentTrendMount" class="karne-trend-mount" hidden>
+                <h3 class="karne-trend-mount__title">Önceki denemeler — net trendi</h3>
+                <div class="karne-chart-wrap"><canvas id="karneStudentTrendCanvas" height="220" aria-label="Net trend"></canvas></div>
               </div>
               <p class="eds-da__hint" style="margin:0 0 0.5rem;font-size:0.8rem">Özet tabloda TYT ve AYT için ayrı deneme sayısı, ortalama net ve sınıf sırası; alt bölümde geçmiş denemeler ve o denemedeki sıra.</p>
               <div id="karnePrintArea" class="karne-print karne-print--scroll">
@@ -2828,6 +2887,10 @@
                   <section class="tm-ribbon-group tm-ribbon-group--file" aria-labelledby="tmRibbonLblDosya">
                     <h3 class="tm-ribbon-group__title" id="tmRibbonLblDosya">Dosya</h3>
                     <div class="tm-ribbon-group__body tm-ribbon-group__body--actions" role="group" aria-label="Dışa aktar">
+                      <label class="tm-ribbon-kurum-field" for="kurumAdiInput">
+                        <span class="tm-ribbon-kurum-field__lbl">Kurum adı</span>
+                        <input type="text" id="kurumAdiInput" class="tm-input-elite" placeholder="Kurum Adı Giriniz" maxlength="120" autocomplete="organization" />
+                      </label>
                       <button type="button" class="tm-btn-pdf-dl tm-btn-export-pdf tm-btn-export-pdf--hero" id="tmBtnPdfDownload" title="PDF indir"><i class="fa-solid fa-file-pdf"></i> PDF İndir</button>
                       <button type="button" class="tm-btn-library-save tm-btn-export-lib" id="tmBtnSaveToLibrary" title="Yerel kütüphaneye (IndexedDB) kaydeder"><i class="fa-solid fa-layer-group"></i> Kütüphaneye Kaydet</button>
                       <button type="button" class="tm-btn-ai-pool-append" id="tmBtnAiAppendPool" title="Havuzdan soru ekle"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> AI ile Soru Ekle</button>
@@ -2945,7 +3008,7 @@
                       <div id="tmA4Watermark" class="tm-a4-watermark" hidden aria-hidden="true"></div>
                       <div class="tm-paper-header tm-paper-header--osym" id="tmHeaderOsym">
                         <div class="tm-h-osym__top">
-                          <span class="tm-h-osym__inst" id="tmH_osym_inst"></span>
+                          <span class="tm-h-osym__inst" id="pdfKurumAdiPreview"></span>
                           <span class="tm-h-osym__date" id="tmH_osym_date"></span>
                         </div>
                         <div class="tm-h-osym__course" id="tmH_osym_course"></div>
@@ -3626,6 +3689,28 @@
               <option value="">— Öğrenci seçin —</option>
             </select>
           </div>
+          <div class="dp-hedef-filters net-sihirbazi-select-row" style="margin: 0 1.5rem 1rem">
+            <div class="net-sihirbazi-select">
+              <label for="dpHedefFilterCity">Şehir</label>
+              <select id="dpHedefFilterCity" aria-label="Üniversite şehri filtresi"></select>
+            </div>
+            <div class="net-sihirbazi-select">
+              <label for="dpHedefFilterPuan">Puan türü</label>
+              <select id="dpHedefFilterPuan" aria-label="Program puan türü filtresi">
+                <option value="">Tümü</option>
+                <option value="sayisal">Sayısal ağırlıklı</option>
+                <option value="sozel_ea">Sözel / EA</option>
+                <option value="dil">Dil</option>
+              </select>
+            </div>
+            <div class="net-sihirbazi-select">
+              <label for="dpHedefFilterClose">Net yakınlığı</label>
+              <select id="dpHedefFilterClose" aria-label="Mevcut netlere göre sıralama">
+                <option value="">A–Z (bölüm adı)</option>
+                <option value="near">Mevcut netlerime en yakın bölümler</option>
+              </select>
+            </div>
+          </div>
           <div class="dp-hedef-atlas-bar net-sihirbazi-select-row" style="margin: 0 1.5rem 1rem">
             <div class="net-sihirbazi-select net-sihirbazi-select--search">
               <label for="dpHedefUniFilter">Üniversite ara</label>
@@ -3649,6 +3734,15 @@
               <h1 id="dpHedefUniTitle">Boğaziçi Üniversitesi</h1>
               <p id="dpHedefBolumSub">Bilgisayar Mühendisliği — Güncel vs hedef net</p>
             </div>
+            <div class="dp-hedef-prob-block" id="dpHedefProbBlock" hidden>
+              <div class="dp-hedef-prob__row">
+                <span class="dp-hedef-prob__lbl">Kazanma olasılığı (simülasyon)</span>
+                <strong class="dp-hedef-prob__pct" id="dpHedefProbPct">—</strong>
+              </div>
+              <div class="dp-hedef-prob__track" aria-hidden="true"><div class="dp-hedef-prob__fill" id="dpHedefProbFill"></div></div>
+              <p class="dp-hedef-prob__hint">Güncel netler ile şablon taban puanı birleştirilerek yaklaşık gösterilir; resmî yerleştirme değildir.</p>
+            </div>
+            <div id="dpHedefPerSubjectGaps" class="dp-hedef-subgap" aria-live="polite"></div>
             <div class="dp-hedef-chart-wrap">
               <canvas id="dpHedefRadarCanvas" height="280" aria-label="Branş netleri radar grafiği"></canvas>
             </div>
@@ -3661,11 +3755,11 @@
         <div class="main-view" data-view="net-sihirbazi" id="view-net-sihirbazi" hidden>
           <div class="page-head" style="margin: 0 1.5rem 1rem">
             <h1 class="page-head__title">TYT-AYT Net Sihirbazı</h1>
-            <p class="page-desc">Üniversite ve bölüm seçin; YÖK Atlas örnek şablonuna göre branş bazlı hedef net tablosu oluşturulur.</p>
+            <p class="page-desc">Üniversite ve program türünü seçin; hedef netler Appwrite’da varsa oradan yüklenir, yoksa taban puanına göre tahmini dağılım üretilir.</p>
           </div>
           <div class="net-sihirbazi-page" style="margin: 0 1.5rem 2rem">
             <p class="net-sihirbazi-hint">
-              Üniversite listesi genişletilmiştir; arama kutusuyla süzebilirsiniz. Bölüm olarak program türü şablonu seçilir (Tıp, mühendislik, hukuk, EA, dil vb.).
+              Arama kutularıyla üniversite ve program türünü süzebilirsiniz. Gerçek hedef netler için Appwrite koleksiyonu <code style="font-size:0.85em">yks_net_sihirbazi_targets</code> (alan: <code style="font-size:0.85em">programKey</code>, <code style="font-size:0.85em">rowsJson</code>) kullanılır.
             </p>
             <div class="dp-hedef-atlas-bar net-sihirbazi-select-row">
               <div class="net-sihirbazi-select net-sihirbazi-select--search">
@@ -3688,7 +3782,7 @@
             <div class="dp-hedef-hero net-sihirbazi-hero">
               <h1 id="dpNsUniTitle">Üniversite ve bölüm seçin</h1>
               <p id="dpNsDeptSub">Net Sihirbazı — hedef net tablosu</p>
-              <p id="dpNsTabanSub" class="net-sihirbazi-meta">Aşağıdan seçim yapın. Veri simülasyondur.</p>
+              <p id="dpNsTabanSub" class="net-sihirbazi-meta">Seçim yapın; veri yüklenirken iskelet gösterilir.</p>
             </div>
             <div id="dpNsNetTableWrap" class="dp-hedef-net-table-host net-sihirbazi-table-host" aria-live="polite"></div>
           </div>

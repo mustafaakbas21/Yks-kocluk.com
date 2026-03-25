@@ -2,6 +2,8 @@
  * Hedef Simülatörü — YÖK Atlas örnek verisi ile radar / bar / net tablosu ortak mantığı
  */
 
+import { YKS_AYT_BY_ALAN } from "./yks-exam-structure.js";
+
 export function parseStudentNetVal(v) {
   var n = parseFloat(String(v == null ? "" : v).replace(",", "."));
   return isNaN(n) ? null : n;
@@ -67,6 +69,73 @@ export function buildSimulatorRows(atlasProgram, student) {
   return buildDefaultRowsFromStudent(student);
 }
 
+/** Öğrenci kartı / deneme alanından YKS AYT anahtarı (sayisal | sozel | esit_agirlik | dil). */
+export function normalizeStudentYksAlanKey(student) {
+  if (!student) return "sayisal";
+  var ft = String(student.fieldType || student.yksAlan || "").toLocaleLowerCase("tr");
+  var eg = String(student.examGroup || student.track || student.paket || "").toLocaleLowerCase("tr");
+  var blob = ft + " " + eg;
+  if (/\b(dil|ydt)\b/.test(blob) || /yabancı\s*dil/i.test(blob)) return "dil";
+  if (/sözel|sozel/.test(blob)) return "sozel";
+  if (/eşit|esit|ea\b|e\.a\.|eşit\s*ağırlık|esit\s*agirlik/.test(blob)) return "esit_agirlik";
+  if (/sayısal|sayisal/.test(blob)) return "sayisal";
+  return "sayisal";
+}
+
+export function studentAytTableSectionTitle(alanKey) {
+  if (alanKey === "sozel") return "AYT Netleri (Sözel BÖLÜM)";
+  if (alanKey === "sayisal") return "AYT Netleri (Sayısal BÖLÜM)";
+  if (alanKey === "esit_agirlik") return "AYT Netleri (Eşit Ağırlık BÖLÜMÜ)";
+  if (alanKey === "dil") return "AYT Netleri (Dil BÖLÜMÜ)";
+  var pack = YKS_AYT_BY_ALAN[alanKey] || YKS_AYT_BY_ALAN.sayisal;
+  return "AYT Netleri (" + (pack.label || alanKey) + ")";
+}
+
+/**
+ * Simülatör satırlarında AYT kısmını öğrenci alanına göre süzer (DOM / grafikte yanlış ders kalmasın).
+ */
+export function filterSimulatorRowsForStudentAlan(rows, alanKey) {
+  if (!rows || !rows.length) return rows || [];
+  var pack = YKS_AYT_BY_ALAN[alanKey] || YKS_AYT_BY_ALAN.sayisal;
+  return rows.filter(function (r) {
+    var sec = String(r.section || "").toUpperCase();
+    if (sec !== "AYT") return true;
+    var lab = String(r.label || "").toLocaleLowerCase("tr");
+    for (var i = 0; i < pack.branches.length; i++) {
+      var bl = pack.branches[i].label.toLocaleLowerCase("tr");
+      if (!bl) continue;
+      if (lab.indexOf(bl) !== -1) return true;
+      var parts = bl.split(/\s+/);
+      for (var j = 0; j < parts.length; j++) {
+        if (parts[j].length >= 3 && lab.indexOf(parts[j]) !== -1) return true;
+      }
+    }
+    return false;
+  });
+}
+
+/** Taban puan + branş oranından gösterim amaçlı olasılık % (simülasyon). */
+export function computeHedefWinProbabilityPercent(rows, baseScore2025) {
+  var n = 0;
+  var sum = 0;
+  (rows || []).forEach(function (r) {
+    if (!(r.target > 0)) return;
+    sum += Math.min(1.2, Math.max(0, r.current / r.target));
+    n++;
+  });
+  var br = n ? sum / n : 0.55;
+  var bs = Number(baseScore2025);
+  var baseF = !isNaN(bs) && bs > 0 ? Math.min(1, Math.max(0, (bs - 260) / 300)) : 0.55;
+  var pct = Math.round(br * 58 + baseF * 32);
+  return Math.min(96, Math.max(8, pct));
+}
+
+export function hedefProbabilityBarClass(pct) {
+  if (pct >= 70) return "is-green";
+  if (pct >= 40) return "is-amber";
+  return "is-red";
+}
+
 export function sumGap(rows) {
   return rows.reduce(function (s, r) {
     return s + Math.max(0, r.target - r.current);
@@ -76,7 +145,8 @@ export function sumGap(rows) {
 /**
  * @param {Array<{ label: string, current: number, target: number, section?: string }>} rows
  */
-export function netTemplateTableHtml(rows) {
+export function netTemplateTableHtml(rows, options) {
+  options = options || {};
   if (!rows || !rows.length) return "";
   function isTyt(r) {
     return (r.section || "").toUpperCase() === "TYT" || /^TYT\b/i.test(r.label);
@@ -86,6 +156,7 @@ export function netTemplateTableHtml(rows) {
   }
   var tyt = rows.filter(isTyt);
   var ayt = rows.filter(isAyt);
+  var aytTitle = options.aytSectionTitle || "AYT netleri";
   function sectionRows(list, title) {
     if (!list.length) return "";
     var sec =
@@ -117,7 +188,7 @@ export function netTemplateTableHtml(rows) {
     '<table class="hedef-atlas-net-table">' +
     "<thead><tr><th>Ders</th><th>YÖK Atlas hedef neti</th><th>Güncel net</th><th>Fark</th></tr></thead><tbody>" +
     sectionRows(tyt, "TYT netleri") +
-    sectionRows(ayt, "AYT netleri") +
+    sectionRows(ayt, aytTitle) +
     "</tbody></table>" +
     '<p class="hedef-atlas-net-footnote">Örnek veri — resmî YÖK yerleştirme taban puanları değildir.</p>' +
     "</div>"

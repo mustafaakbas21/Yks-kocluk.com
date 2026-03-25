@@ -311,7 +311,7 @@
         <!-- TYT-AYT Net Sihirbazı -->
         <section class="osp-view osp-net-sihirbazi-page" data-osp-view="net-sihirbazi" id="ospViewNetSihirbazi" hidden>
           <p class="net-sihirbazi-hint" style="margin:0 0 0.75rem;font-size:0.88rem;color:var(--osp-muted);">
-            Üniversite listesi genişletilmiştir; arama kutusuyla süzebilirsiniz. Bölüm olarak program türü şablonu seçilir.
+            Üniversite ve program türünü seçin; hedef netler sunucuda tanımlıysa yüklenir, yoksa taban puanına göre tahmin gösterilir. Arama kutularıyla süzebilirsiniz.
           </p>
           <div class="osp-hedef-atlas-bar">
             <div class="net-sihirbazi-select-row osp-net-sihirbazi-row">
@@ -336,7 +336,7 @@
           <div class="osp-hedef-hero">
             <p class="osp-hedef-hero__uni" id="ospNsUniTitle">Üniversite ve bölüm seçin</p>
             <p class="osp-hedef-hero__bolum" id="ospNsDeptSub">Net Sihirbazı — hedef net tablosu</p>
-            <p class="osp-net-sihirbazi-meta" id="ospNsTabanSub">Aşağıdan seçim yapın. Veri simülasyondur.</p>
+            <p class="osp-net-sihirbazi-meta" id="ospNsTabanSub">Seçim yapın; veri yüklenirken iskelet gösterilir.</p>
           </div>
           <div id="ospNsNetTableWrap" class="osp-hedef-net-table-host" aria-live="polite"></div>
         </section>
@@ -807,6 +807,10 @@
     if (!row) return;
     if (row.targetUniversity) OSP.targetUniversity = String(row.targetUniversity).trim();
     if (row.targetDepartment) OSP.targetDepartment = String(row.targetDepartment).trim();
+    if (row.fieldType != null && String(row.fieldType).trim() !== "") OSP.fieldType = String(row.fieldType).trim();
+    else if (row.yksAlan != null && String(row.yksAlan).trim() !== "") OSP.fieldType = String(row.yksAlan).trim();
+    if (row.examGroup != null && String(row.examGroup).trim() !== "") OSP.examGroup = String(row.examGroup).trim();
+    if (row.track != null && String(row.track).trim() !== "") OSP.track = String(row.track).trim();
     var c = parseFloat(String(row.currentTytNet != null ? row.currentTytNet : "").replace(",", "."));
     var t = parseFloat(String(row.targetTytNet != null ? row.targetTytNet : "").replace(",", "."));
     if (!isNaN(c)) {

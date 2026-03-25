@@ -15,7 +15,8 @@
         return r.json();
       })
       .then(function (j) {
-        DATA = Array.isArray(j.universities) ? j.universities : [];
+        var raw = Array.isArray(j.universities) ? j.universities : [];
+        DATA = dedupeUniversitiesByNormName(raw);
         loadPromise = null;
         return DATA;
       })
@@ -32,6 +33,36 @@
       .toLocaleLowerCase("tr")
       .replace(/\s+/g, " ")
       .trim();
+  }
+
+  /** Aynı görünen üniversite adı listede yalnızca bir kez (ilk kayıt korunur). */
+  function dedupeUniversitiesByNormName(arr) {
+    var seen = Object.create(null);
+    var out = [];
+    (arr || []).forEach(function (u) {
+      if (!u || !u.name) return;
+      var k = norm(u.name);
+      if (!k || seen[k]) return;
+      seen[k] = true;
+      var copy = Object.assign({}, u);
+      if (Array.isArray(copy.departments)) {
+        copy.departments = dedupeDepartmentStrings(copy.departments);
+      }
+      out.push(copy);
+    });
+    return out;
+  }
+
+  function dedupeDepartmentStrings(depts) {
+    var seen = Object.create(null);
+    var out = [];
+    (depts || []).forEach(function (d) {
+      var k = norm(String(d));
+      if (!k || seen[k]) return;
+      seen[k] = true;
+      out.push(String(d).trim());
+    });
+    return out;
   }
 
   function findUniByName(name) {
@@ -66,7 +97,7 @@
     if (!uniName) return;
     var u = findUniByName(uniName);
     if (!u || !Array.isArray(u.departments)) return;
-    u.departments.forEach(function (d) {
+    dedupeDepartmentStrings(u.departments).forEach(function (d) {
       var o = document.createElement("option");
       o.value = d;
       o.textContent = d;

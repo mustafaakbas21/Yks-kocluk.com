@@ -3,9 +3,22 @@
  * Menüye özellik eklemek için: window.YKSPanel.onNavigate(fn) veya data-nav ile navigate
  */
 
-import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN, netFromDy, clampDy } from "./yks-exam-structure.js";
+import {
+  YKS_TYT_BRANCHES,
+  YKS_AYT_BY_ALAN,
+  netFromDy,
+  netFromDyWithRule,
+  clampDy,
+} from "./yks-exam-structure.js";
+import { initExamDefinitionProfessionalUI } from "./exam-definition-module.js";
+import { initOptikAdvancedBindings } from "./optik-advanced-module.js";
 import { yksMufredatDatasi } from "./mufredat-data.js";
-import { findAtlasProgramById, TR_UNIVERSITIES_UNIQUE, PROGRAM_TEMPLATES_UI } from "./yok-atlas-data.js";
+import {
+  findAtlasProgramById,
+  TR_UNIVERSITIES_UNIQUE,
+  PROGRAM_TEMPLATES_UI,
+  buildProgramFromUniTemplate,
+} from "./yok-atlas-data.js";
 import {
   buildSimulatorRows,
   netTemplateTableHtml,
@@ -13,6 +26,11 @@ import {
   parseStudentNetVal as parseStudentNetValAtlas,
   wireSearchFilterForSelect,
   sortNamedItemsAlphabeticalTr,
+  normalizeStudentYksAlanKey,
+  studentAytTableSectionTitle,
+  filterSimulatorRowsForStudentAlan,
+  computeHedefWinProbabilityPercent,
+  hedefProbabilityBarClass,
 } from "./hedef-atlas-helpers.js";
 import { initNetSihirbazi, initYksPuanHesaplama } from "./net-sihirbazi-ui.js";
 import {
@@ -55,6 +73,17 @@ import {
 import { parseFlexibleDate, formatDateTimeTr } from "./date-format.js";
 
 import { client, storage } from "./appwrite-config.js";
+
+/** Aktif görünüme göre deneme/optik net kuralı (ÖSYM / Y3). */
+function coachNetFromBranchDy(d, y) {
+  var optikView = document.getElementById("view-optik-okuyucu");
+  var daView = document.getElementById("view-deneme-analiz");
+  var el = null;
+  if (optikView && !optikView.hidden) el = document.getElementById("optikScoringRule");
+  else if (daView && !daView.hidden) el = document.getElementById("daScoringRule");
+  if (!el) el = document.querySelector(".js-yks-scoring-rule");
+  return netFromDyWithRule(d, y, el && el.value ? el.value : "osym");
+}
 
 (function () {
   var el = document.getElementById("appointmentsRow");
@@ -1826,7 +1855,10 @@ function tmLoadLayoutFromLibrary(rec) {
   tmApplyWorkspaceTemplate();
   if (p.meta) {
     var M = p.meta;
-    if (M.institution && document.getElementById("tmWsInstitution")) document.getElementById("tmWsInstitution").value = M.institution;
+    if (M.institution) {
+      if (document.getElementById("tmWsInstitution")) document.getElementById("tmWsInstitution").value = M.institution;
+      if (document.getElementById("kurumAdiInput")) document.getElementById("kurumAdiInput").value = M.institution;
+    }
     if (M.course && document.getElementById("tmWsCourse")) document.getElementById("tmWsCourse").value = M.course;
     if (M.topic && document.getElementById("tmWsTopic")) document.getElementById("tmWsTopic").value = M.topic;
     if (M.testDate && document.getElementById("tmWsTestDate")) document.getElementById("tmWsTestDate").value = M.testDate;
@@ -2006,12 +2038,6 @@ function tmTotalQuestionBlocks() {
   var c = document.getElementById("a4-pages-container");
   if (c) return c.querySelectorAll(".tm-a4-block.question-item").length;
   return document.querySelectorAll("#tmA4Paper .tm-a4-block.question-item, #tmA4Layout .tm-a4-block.question-item").length;
-}
-
-function tmGetTargetColumnForSlot(paper, slotIndex0, perPage) {
-  var half = perPage / 2;
-  var colKey = slotIndex0 < half ? "1" : "2";
-  return paper.querySelector('[data-tm-col="' + colKey + '"]');
 }
 
 function tmRehomeOptikStrip() {
@@ -2482,38 +2508,42 @@ function tmSyncAnswerKeyPage() {
 }
 
 function tmAppendBlockToPaginatedColumns(block) {
-  var limit = tmGetQuestionsPerPage();
   var papers = tmGetQuestionPapers();
   if (!papers.length) return;
-  var last = papers[papers.length - 1];
-  var count = tmCountQuestionsOnPaper(last);
-  var col = null;
-  var overflow = false;
 
-  // Varsayılan akış: önce mevcut sayfaya, sıradaki slot/kolona ekle.
-  if (count < limit) {
-    col = tmGetTargetColumnForSlot(last, count, limit);
-    if (col) {
-      col.appendChild(block);
-      // Yükseklik bazlı son kontrol: slot doluluk sınırı taşarsa yeni sayfaya kaydır.
-      if (col.clientHeight > 0 && col.scrollHeight > col.clientHeight + 2) {
-        overflow = true;
-        try {
-          col.removeChild(block);
-        } catch (_eRm) {}
-      }
-    }
-  } else {
-    overflow = true;
+  function columnOverflows(col) {
+    if (!col) return true;
+    if (col.clientHeight <= 0) return false;
+    return col.scrollHeight > col.clientHeight + 2;
   }
 
-  if (!col || overflow) {
-    last = tmCreateNewA4Page();
-    if (!last) return;
-    var freshCol = tmGetTargetColumnForSlot(last, 0, limit);
-    if (!freshCol) return;
-    freshCol.appendChild(block);
+  function tryAppendToColumn(paper, col) {
+    if (!col) return false;
+    col.appendChild(block);
+    if (!columnOverflows(col)) return true;
+    try {
+      col.removeChild(block);
+    } catch (_eRm) {}
+    return false;
   }
+
+  var lastPaper = papers[papers.length - 1];
+  var col1 = lastPaper.querySelector('[data-tm-col="1"]');
+  var col2 = lastPaper.querySelector('[data-tm-col="2"]');
+  var has2 = col2 && col2.querySelector(".tm-a4-block.question-item");
+  // Okuma sırası: sol sütun dolunca sağ; son soru hangi sütundaysa yeni blok hemen altına (aynı sütun).
+  var lastCol = has2 ? col2 : col1;
+
+  if (tryAppendToColumn(lastPaper, lastCol || col1)) return;
+  if (lastCol === col1 && col2 && tryAppendToColumn(lastPaper, col2)) return;
+
+  var fresh = tmCreateNewA4Page();
+  if (!fresh) return;
+  var f1 = fresh.querySelector('[data-tm-col="1"]');
+  var f2 = fresh.querySelector('[data-tm-col="2"]');
+  if (tryAppendToColumn(fresh, f1)) return;
+  if (tryAppendToColumn(fresh, f2)) return;
+  if (f1) f1.appendChild(block);
 }
 
 function tmAddQuestionToA4(imageSrc, answerLetter) {
@@ -3143,6 +3173,129 @@ function firestoreDocExists(snap) {
 var dpHedefRadarChart = null;
 var dpInboxDelegationBound = false;
 
+var DP_HEDEF_CITY_PREFIXES = [
+  ["istanbul", "İstanbul"],
+  ["bogazici", "İstanbul"],
+  ["itu", "İstanbul"],
+  ["istanbul_", "İstanbul"],
+  ["ankara", "Ankara"],
+  ["hacettepe", "Ankara"],
+  ["gazi", "Ankara"],
+  ["odtu", "Ankara"],
+  ["bilkent", "Ankara"],
+  ["izmir", "İzmir"],
+  ["ege", "İzmir"],
+  ["dokuz", "İzmir"],
+  ["iyte", "İzmir"],
+  ["bursa", "Bursa"],
+  ["uludag", "Bursa"],
+  ["antalya", "Antalya"],
+  ["akdeniz", "Antalya"],
+  ["adana", "Adana"],
+  ["eskisehir", "Eskişehir"],
+  ["gaziantep", "Gaziantep"],
+  ["trabzon", "Trabzon"],
+  ["ktu", "Trabzon"],
+  ["samsun", "Samsun"],
+  ["konya", "Konya"],
+  ["selcuk", "Konya"],
+  ["mersin", "Mersin"],
+  ["erzurum", "Erzurum"],
+  ["ataturk", "Erzurum"],
+  ["elazig", "Elazığ"],
+  ["kahraman", "Kahramanmaraş"],
+  ["malatya", "Malatya"],
+  ["balikesir", "Balıkesir"],
+  ["canakkale", "Çanakkale"],
+  ["kocaeli", "Kocaeli"],
+  ["sakarya", "Sakarya"],
+];
+
+function dpHedefInferCity(u) {
+  var id = String((u && u.id) || "");
+  for (var i = 0; i < DP_HEDEF_CITY_PREFIXES.length; i++) {
+    if (id.indexOf(DP_HEDEF_CITY_PREFIXES[i][0]) !== -1) return DP_HEDEF_CITY_PREFIXES[i][1];
+  }
+  var nm = String((u && u.name) || "").toLocaleLowerCase("tr");
+  var cities = [
+    "İstanbul",
+    "Ankara",
+    "İzmir",
+    "Bursa",
+    "Antalya",
+    "Adana",
+    "Eskişehir",
+    "Trabzon",
+    "Samsun",
+    "Erzurum",
+    "Gaziantep",
+    "Konya",
+    "Kayseri",
+    "Mersin",
+    "Denizli",
+    "Balıkesir",
+    "Tekirdağ",
+    "Sakarya",
+    "Kocaeli",
+  ];
+  for (var c = 0; c < cities.length; c++) {
+    if (nm.indexOf(cities[c].toLocaleLowerCase("tr")) !== -1) return cities[c];
+  }
+  return "Diğer / Belirsiz";
+}
+
+function dpHedefTemplatePuanGroup(t) {
+  var n = String((t && t.name) || "").toLocaleLowerCase("tr");
+  if (/dil|ydt|çeviri|i̇ngilizce|ingilizce|almanca|fransızca|fransizca|mütercim/.test(n)) return "dil";
+  if (
+    /hukuk|psikoloji|sosyoloji|siyaset|uluslararası|uluslararasi|i̇letişim|iletisim|gazetecilik|çalışma|calisma|felsefe/.test(
+      n
+    )
+  )
+    return "sozel_ea";
+  if (/i̇ktisat|iktisat|işletme|isletme|yönetim|yonetim|maliye|kamu/.test(n)) return "sozel_ea";
+  return "sayisal";
+}
+
+function dpHedefSumAbsNetDistance(rows) {
+  var s = 0;
+  (rows || []).forEach(function (r) {
+    s += Math.abs(Number(r.target) - Number(r.current));
+  });
+  return s;
+}
+
+function dpHedefSortTemplatesByCloseness(templates, studentLike, uniIdFallback) {
+  var uid = uniIdFallback || "bogazici";
+  return templates.slice().sort(function (a, b) {
+    var pa = buildProgramFromUniTemplate(uid, a.id);
+    var pb = buildProgramFromUniTemplate(uid, b.id);
+    var da = pa ? dpHedefSumAbsNetDistance(buildSimulatorRows(pa, studentLike)) : 1e9;
+    var db = pb ? dpHedefSumAbsNetDistance(buildSimulatorRows(pb, studentLike)) : 1e9;
+    return da - db;
+  });
+}
+
+function populateDpHedefCityFilterOnce() {
+  var sel = document.getElementById("dpHedefFilterCity");
+  if (!sel || sel.dataset.dpHedefCityInit) return;
+  sel.dataset.dpHedefCityInit = "1";
+  var cities = Object.create(null);
+  TR_UNIVERSITIES_UNIQUE.forEach(function (u) {
+    cities[dpHedefInferCity(u)] = true;
+  });
+  var list = Object.keys(cities).sort(function (a, b) {
+    return a.localeCompare(b, "tr");
+  });
+  sel.innerHTML = '<option value="">Tüm şehirler</option>';
+  list.forEach(function (c) {
+    var o = document.createElement("option");
+    o.value = c;
+    o.textContent = c;
+    sel.appendChild(o);
+  });
+}
+
 function renderDpHedefSimulator() {
   var canvas = document.getElementById("dpHedefRadarCanvas");
   var barsEl = document.getElementById("dpHedefBarsCoach");
@@ -3169,32 +3322,79 @@ function renderDpHedefSimulator() {
     }
   }
 
+  populateDpHedefCityFilterOnce();
+
   var uniSel = document.getElementById("dpHedefUniSelect");
   var deptSel = document.getElementById("dpHedefDeptSelect");
   var uniFilter = document.getElementById("dpHedefUniFilter");
   var deptFilter = document.getElementById("dpHedefDeptFilter");
-  if (uniSel && deptSel && !uniSel.dataset.dpHedefPopulated) {
-    uniSel.dataset.dpHedefPopulated = "1";
+  var cityF = document.getElementById("dpHedefFilterCity");
+  var puanF = document.getElementById("dpHedefFilterPuan");
+  var closeF = document.getElementById("dpHedefFilterClose");
+
+  var prevUni = uniSel && uniSel.value ? String(uniSel.value) : "";
+  var prevDept = deptSel && deptSel.value ? String(deptSel.value) : "";
+
+  var cityVal = cityF && cityF.value ? String(cityF.value) : "";
+  var puanVal = puanF && puanF.value ? String(puanF.value) : "";
+  var closeVal = closeF && closeF.value ? String(closeF.value) : "";
+
+  var sid = sel && sel.value ? String(sel.value) : "";
+  var student = sid ? cachedStudents.find(function (x) { return x.id === sid; }) : null;
+  var studentLike = student
+    ? {
+        currentTytNet: student.currentTytNet,
+        targetTytNet: student.targetTytNet,
+      }
+    : null;
+
+  var unisFiltered = TR_UNIVERSITIES_UNIQUE.filter(function (u) {
+    return !cityVal || dpHedefInferCity(u) === cityVal;
+  });
+
+  var tmpls = PROGRAM_TEMPLATES_UI.filter(function (t) {
+    return !puanVal || dpHedefTemplatePuanGroup(t) === puanVal;
+  });
+
+  var sortUid = prevUni && unisFiltered.some(function (x) { return x.id === prevUni; }) ? prevUni : "bogazici";
+  if (closeVal === "near" && student) {
+    tmpls = dpHedefSortTemplatesByCloseness(tmpls, studentLike, sortUid);
+  } else {
+    tmpls = sortNamedItemsAlphabeticalTr(tmpls);
+  }
+
+  if (uniSel) {
     uniSel.innerHTML = '<option value="">— Üniversite seçin —</option>';
-    sortNamedItemsAlphabeticalTr(TR_UNIVERSITIES_UNIQUE).forEach(function (u) {
+    sortNamedItemsAlphabeticalTr(unisFiltered).forEach(function (u) {
       var o = document.createElement("option");
       o.value = u.id;
       o.textContent = u.name;
       uniSel.appendChild(o);
     });
+    if (prevUni && unisFiltered.some(function (x) { return x.id === prevUni; })) uniSel.value = prevUni;
+  }
+  if (deptSel) {
     deptSel.innerHTML = '<option value="">— Bölüm / program türü seçin —</option>';
-    sortNamedItemsAlphabeticalTr(PROGRAM_TEMPLATES_UI).forEach(function (t) {
+    tmpls.forEach(function (t) {
       var o = document.createElement("option");
       o.value = t.id;
       o.textContent = t.name;
       deptSel.appendChild(o);
     });
+    if (prevDept && tmpls.some(function (x) { return x.id === prevDept; })) deptSel.value = prevDept;
+  }
+
+  if (uniSel && uniFilter && !uniSel.dataset.dpHedefSearchWired) {
+    uniSel.dataset.dpHedefSearchWired = "1";
     wireSearchFilterForSelect(uniFilter, uniSel);
+  }
+  if (deptSel && deptFilter && !deptSel.dataset.dpHedefSearchWired) {
+    deptSel.dataset.dpHedefSearchWired = "1";
     wireSearchFilterForSelect(deptFilter, deptSel);
   }
-  if (uniSel && deptSel && !uniSel.dataset.dpHedefBound) {
-    uniSel.dataset.dpHedefBound = "1";
-    deptSel.dataset.dpHedefBound = "1";
+  if (uniSel && deptSel && !uniSel.dataset.dpHedefChangeBound) {
+    uniSel.dataset.dpHedefChangeBound = "1";
+    deptSel.dataset.dpHedefChangeBound = "1";
     uniSel.addEventListener("change", function () {
       renderDpHedefSimulator();
     });
@@ -3202,9 +3402,6 @@ function renderDpHedefSimulator() {
       renderDpHedefSimulator();
     });
   }
-
-  var sid = sel && sel.value ? String(sel.value) : "";
-  var student = sid ? cachedStudents.find(function (x) { return x.id === sid; }) : null;
 
   var uniId = uniSel && uniSel.value ? String(uniSel.value) : "";
   var tmplId = deptSel && deptSel.value ? String(deptSel.value) : "";
@@ -3231,13 +3428,9 @@ function renderDpHedefSimulator() {
     if (bolEl) bolEl.textContent = "Öğrenci kartından hedef atanabilir; aşağıdan örnek program seçilebilir.";
   }
 
-  var studentLike = student
-    ? {
-        currentTytNet: student.currentTytNet,
-        targetTytNet: student.targetTytNet,
-      }
-    : null;
+  var alanKey = student ? normalizeStudentYksAlanKey(student) : "sayisal";
   var rows = buildSimulatorRows(atlasProgram, studentLike);
+  rows = filterSimulatorRowsForStudentAlan(rows, alanKey);
   var labels = rows.map(function (r) {
     return r.label;
   });
@@ -3252,7 +3445,8 @@ function renderDpHedefSimulator() {
   if (barsEl) {
     barsEl.innerHTML = rows
       .map(function (r) {
-        var pct = Math.min(100, (r.current / r.target) * 100);
+        var denom = r.target > 0 ? r.target : 1;
+        var pct = Math.min(100, (r.current / denom) * 100);
         var gap = Math.max(0, r.target - r.current);
         var gapTxt = gap > 0 ? "−" + gap.toFixed(1) + " net" : "Hedefe ulaşıldı";
         return (
@@ -3281,7 +3475,53 @@ function renderDpHedefSimulator() {
           ? " — TYT net alanından ölçeklendirildi."
           : " — Varsayılan örnek veri (öğrencide güncel/hedef net girilince güncellenir).");
   }
-  if (tableWrap) tableWrap.innerHTML = netTemplateTableHtml(rows);
+  if (tableWrap) {
+    tableWrap.innerHTML = netTemplateTableHtml(rows, { aytSectionTitle: studentAytTableSectionTitle(alanKey) });
+  }
+
+  var probBlock = document.getElementById("dpHedefProbBlock");
+  var probPct = document.getElementById("dpHedefProbPct");
+  var probFill = document.getElementById("dpHedefProbFill");
+  var subGaps = document.getElementById("dpHedefPerSubjectGaps");
+  if (probBlock && probPct && probFill) {
+    if (atlasProgram && rows.length) {
+      probBlock.hidden = false;
+      var pctP = computeHedefWinProbabilityPercent(rows, atlasProgram.baseScore2025);
+      probPct.textContent = "%" + pctP;
+      probFill.style.width = pctP + "%";
+      probFill.className = "dp-hedef-prob__fill " + hedefProbabilityBarClass(pctP);
+    } else {
+      probBlock.hidden = true;
+    }
+  }
+  if (subGaps) {
+    var need = rows
+      .filter(function (r) {
+        return r.target - r.current > 0.05;
+      })
+      .sort(function (a, b) {
+        return b.target - b.current - (a.target - a.current);
+      })
+      .slice(0, 12)
+      .map(function (r) {
+        var g = r.target - r.current;
+        return (
+          "<li><strong>" +
+          escapeHtml(r.label) +
+          "</strong> dersinden yaklaşık <strong>" +
+          g.toFixed(1) +
+          "</strong> net daha yapmalısın.</li>"
+        );
+      })
+      .join("");
+    subGaps.innerHTML = atlasProgram
+      ? need
+        ? '<p class="dp-hedef-subgap__title">Net hedefi farkı (şablon)</p><ul class="dp-hedef-subgap__list">' +
+          need +
+          '</ul><p class="dp-hedef-subgap__note">Örnek YÖK şablon satırlarına göre; resmî taban net değildir.</p>'
+        : '<p class="dp-hedef-subgap__muted">Bu şablonda tüm satırlarda hedefe ulaşılmış veya üzeri görünüyor.</p>'
+      : '<p class="dp-hedef-subgap__muted">Üniversite ve bölüm şablonu seçince ders bazlı net farkı listelenir.</p>';
+  }
 
   var ctx = canvas.getContext("2d");
   if (dpHedefRadarChart) {
@@ -3324,6 +3564,15 @@ function renderDpHedefSimulator() {
 }
 
 function initDpHedefSimulator() {
+  ["dpHedefFilterCity", "dpHedefFilterPuan", "dpHedefFilterClose"].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el && !el.dataset.dpHedefFilterListener) {
+      el.dataset.dpHedefFilterListener = "1";
+      el.addEventListener("change", function () {
+        renderDpHedefSimulator();
+      });
+    }
+  });
   renderDpHedefSimulator();
 }
 
@@ -4670,6 +4919,29 @@ function karneNetFromRowEntry(row) {
   return netFromDy(cl.d, cl.y);
 }
 
+function karneAllowedAytKeysForAlan(alan) {
+  var pack = YKS_AYT_BY_ALAN[alan] || YKS_AYT_BY_ALAN.sayisal;
+  var o = Object.create(null);
+  pack.branches.forEach(function (b) {
+    o[b.id] = true;
+    o["ayt_" + b.id] = true;
+  });
+  return o;
+}
+
+function karneFilterAytDetailList(list, alan) {
+  var allow = karneAllowedAytKeysForAlan(alan);
+  return (list || []).filter(function (b) {
+    var k = String(b.key || "");
+    if (allow[k]) return true;
+    return !!allow[k.replace(/^ayt_/, "")];
+  });
+}
+
+function karneFilterAytBranchAggList(list, alan) {
+  return karneFilterAytDetailList(list, alan);
+}
+
 /** yksBranchDetail → TYT / AYT branş net listeleri */
 function karneExtractBranchesFromYksDetail(detail) {
   var out = { tyt: [], ayt: [] };
@@ -4796,6 +5068,7 @@ function buildKarneStudentSummaries(opt) {
   }
   var rows = studentsList.map(function (s) {
     var sid = s.id;
+    var studentAlan = normalizeStudentYksAlanKey(s);
     var ex = karneFilterExamList(examsForStudent(sid), examKey);
     var tyt = [];
     var ayt = [];
@@ -4825,6 +5098,7 @@ function buildKarneStudentSummaries(opt) {
         var k = karneExamStableKey(e);
         var rr = rankMap[k] && rankMap[k][sid];
         var br = karneExtractBranchesFromYksDetail(e.yksBranchDetail);
+        var detailAytF = karneFilterAytDetailList(br.ayt, studentAlan);
         return {
           examName: e.examName || "Deneme",
           date: e.date || "",
@@ -4834,8 +5108,9 @@ function buildKarneStudentSummaries(opt) {
           rank: rr ? rr.rank : "",
           totalInClass: rr ? rr.total : "",
           detailTyt: br.tyt,
-          detailAyt: br.ayt,
-          hasDetail: br.tyt.length > 0 || br.ayt.length > 0,
+          detailAyt: detailAytF,
+          hasDetail: br.tyt.length > 0 || detailAytF.length > 0,
+          branchDetail: e.yksBranchDetail || null,
         };
       })
       .sort(function (a, b) {
@@ -4848,12 +5123,14 @@ function buildKarneStudentSummaries(opt) {
       var rr = branchRanks.tyt[b.key] && branchRanks.tyt[b.key][sid];
       b.rankDisp = rr ? rr.rank + " / " + rr.total : "—";
     });
+    branchAgg.ayt = karneFilterAytBranchAggList(branchAgg.ayt, studentAlan);
     branchAgg.ayt.forEach(function (b) {
       var rr = branchRanks.ayt[b.key] && branchRanks.ayt[b.key][sid];
       b.rankDisp = rr ? rr.rank + " / " + rr.total : "—";
     });
     return {
       studentId: sid,
+      studentAlanKey: studentAlan,
       name: s.name || s.studentName || "—",
       nTyt: tyt.length,
       nAyt: ayt.length,
@@ -4954,6 +5231,201 @@ function karneHtmlExamBranchMini(list, kind) {
   });
   h += "</tbody></table></div>";
   return h;
+}
+
+/** yksBranchDetail.rows → D/Y/B tablosu (konu hiyerarşisi şablonda; satır bazlı D/Y ayrı kayıt gerektirir). */
+function karneHtmlDyTableFromDetail(detail) {
+  if (!detail || !detail.rows || typeof detail.rows !== "object") return "";
+  var examMode = String(detail.examMode || "TYT").toUpperCase();
+  var tytMap = karneBuildTytBranchLabelMap();
+  var aytMap = karneBuildAytBranchLabelMap(detail.aytAlan || "sayisal");
+  var h =
+    '<div class="karne-dyb-block"><h5 class="karne-dyb-block__title">Branş bazlı doğru / yanlış / boş</h5>';
+  h += '<table class="karne-branch-table karne-branch-table--dyb"><thead><tr><th>Alan</th><th>D</th><th>Y</th><th>B</th><th>Net</th></tr></thead><tbody>';
+  Object.keys(detail.rows).forEach(function (k) {
+    var row = detail.rows[k];
+    if (!row || row.soru == null) return;
+    var cl = clampDy(row.soru, row.d, row.y);
+    var b = Math.max(0, row.soru - cl.d - cl.y);
+    var lab =
+      examMode === "AYT"
+        ? aytMap[k] || String(k).replace(/^ayt_/, "")
+        : tytMap[k] || k;
+    var nn = netFromDy(cl.d, cl.y);
+    h +=
+      "<tr><td>" +
+      escapeHtml(lab) +
+      "</td><td>" +
+      cl.d +
+      "</td><td>" +
+      cl.y +
+      "</td><td>" +
+      b +
+      "</td><td>" +
+      nn.toFixed(2) +
+      "</td></tr>";
+  });
+  h += "</tbody></table>";
+  h +=
+    '<p class="karne-dyb-block__note">Konu bazlı D/Y/B için deneme şablonu (<code>exam_definitions</code>) ve soru numaralı cevap kaydı kullanılabilir.</p></div>';
+  return h;
+}
+
+function buildKarneBulkExamLeaderboardHtml(filt) {
+  if (!filt || filt.examKey === "all" || filt.studentId !== "all") return "";
+  var examKey = filt.examKey;
+  var rankMap = buildKarnePerExamRankMap();
+  var rows = [];
+  cachedStudents.forEach(function (s) {
+    var exList = examsForStudent(s.id).filter(function (e) {
+      return karneExamStableKey(e) === examKey;
+    });
+    if (!exList.length) return;
+    var e = exList[0];
+    var net = parseTrNum(e.net);
+    if (isNaN(net)) return;
+    var rr = rankMap[examKey] && rankMap[examKey][s.id];
+    var parts = karneExtractBranchesFromYksDetail(e.yksBranchDetail);
+    var sub = [];
+    parts.tyt.forEach(function (b) {
+      sub.push(b.label.slice(0, 10) + " " + b.net.toFixed(1));
+    });
+    parts.ayt.forEach(function (b) {
+      sub.push(b.label.slice(0, 10) + " " + b.net.toFixed(1));
+    });
+    rows.push({
+      name: s.name || s.studentName,
+      net: net,
+      rank: rr ? rr.rank : "—",
+      total: rr ? rr.total : "—",
+      subj: sub.join(" · "),
+    });
+  });
+  rows.sort(function (a, b) {
+    return b.net - a.net;
+  });
+  if (!rows.length) return '<p class="karne-empty">Bu deneme için kayıtlı öğrenci yok.</p>';
+  var h = '<div class="karne-bulk-card"><h3 class="karne-bulk__title">Deneme bazlı toplu liste (kurum içi)</h3>';
+  h +=
+    '<table class="karne-table karne-table--bulk"><thead><tr><th>Sıra</th><th>Öğrenci</th><th>Toplam net</th><th>Sıra (sınıf)</th><th>Ders netleri</th></tr></thead><tbody>';
+  rows.forEach(function (r, idx) {
+    h +=
+      "<tr><td>" +
+      (idx + 1) +
+      "</td><td><strong>" +
+      escapeHtml(r.name) +
+      "</strong></td><td>" +
+      r.net.toFixed(2) +
+      "</td><td>" +
+      escapeHtml(String(r.rank)) +
+      " / " +
+      escapeHtml(String(r.total)) +
+      '</td><td style="font-size:0.78rem;line-height:1.35">' +
+      escapeHtml(r.subj || "—") +
+      "</td></tr>";
+  });
+  h += "</tbody></table></div>";
+  return h;
+}
+
+var karneTrendChartInst = null;
+
+function karneRenderStudentTrendChart(studentId, filt) {
+  var canvas = document.getElementById("karneStudentTrendCanvas");
+  if (!canvas || typeof Chart === "undefined") return;
+  if (karneTrendChartInst) {
+    karneTrendChartInst.destroy();
+    karneTrendChartInst = null;
+  }
+  var rows = buildKarneStudentSummaries({ studentId: studentId, examKey: filt && filt.examKey ? filt.examKey : "all" });
+  if (!rows.length) return;
+  var hist = rows[0].examHistory || [];
+  var pts = hist
+    .filter(function (x) {
+      return x.net != null;
+    })
+    .slice()
+    .sort(function (a, b) {
+      return String(a.date || "").localeCompare(String(b.date || ""));
+    });
+  if (pts.length < 2) return;
+  var labels = pts.map(function (p) {
+    return (p.date || "").slice(0, 10) || p.examName;
+  });
+  var data = pts.map(function (p) {
+    return p.net;
+  });
+  karneTrendChartInst = new Chart(canvas, {
+    type: "line",
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: "Toplam net (TYT/AYT satırı)",
+          data: data,
+          borderColor: "#7c3aed",
+          backgroundColor: "rgba(124, 58, 237, 0.12)",
+          tension: 0.35,
+          fill: true,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: true } },
+      scales: {
+        y: { beginAtZero: true },
+      },
+    },
+  });
+}
+
+function karneMountBulkAndTrend(filt) {
+  var bulkEl = document.getElementById("karneBulkExamMount");
+  if (bulkEl) bulkEl.innerHTML = buildKarneBulkExamLeaderboardHtml(filt || karneGetFilters());
+  var trendWrap = document.getElementById("karneStudentTrendMount");
+  var f = filt || karneGetFilters();
+  var one = f.studentId && f.studentId !== "all";
+  if (trendWrap) trendWrap.hidden = !one;
+  if (one) karneRenderStudentTrendChart(f.studentId, f);
+}
+
+function downloadKarneBulkPdf() {
+  var bulk = document.getElementById("karneBulkExamMount");
+  if (!bulk || !bulk.querySelector(".karne-bulk-card")) {
+    showToast("Önce «Karnı yenile» yapın; deneme filtresi «Tümü» olmamalı ve öğrenci «Tüm öğrenciler» seçili olmalı.");
+    return;
+  }
+  var h2p = window.html2pdf;
+  if (typeof h2p !== "function") {
+    showToast("PDF kütüphanesi yüklenemedi.");
+    return;
+  }
+  var wrap = document.createElement("div");
+  wrap.className = "karne-pdf-export-root";
+  wrap.style.cssText =
+    "position:absolute;left:-12000px;top:0;width:900px;opacity:1;background:#fff;padding:16px;color:#0f172a;";
+  wrap.innerHTML = bulk.innerHTML;
+  document.body.appendChild(wrap);
+  var fname = "deneme-toplu-" + new Date().toISOString().slice(0, 10) + ".pdf";
+  h2p()
+    .set({
+      margin: 8,
+      filename: fname,
+      html2canvas: { scale: 1.2, useCORS: true },
+      jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
+    })
+    .from(wrap)
+    .save()
+    .then(function () {
+      if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+      showToast("Toplu liste PDF indirildi.");
+    })
+    .catch(function () {
+      if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+      showToast("PDF oluşturulamadı.");
+    });
 }
 
 function buildKarneReportHtml() {
@@ -5069,7 +5541,7 @@ function buildKarneReportHtml() {
     h += "</div>";
     h += '<div class="karne-student-split">';
     h += karneHtmlMiniBranchTable("TYT — ders ortalamaları", "tyt", r.tytBranches);
-    h += karneHtmlMiniBranchTable("AYT — ders ortalamaları", "ayt", r.aytBranches);
+    h += karneHtmlMiniBranchTable(studentAytTableSectionTitle(r.studentAlanKey || "sayisal"), "ayt", r.aytBranches);
     h += "</div>";
     if (!r.examHistory.length) {
       h += '<p class="karne-empty">Kayıtlı deneme yok.</p>';
@@ -5097,11 +5569,12 @@ function buildKarneReportHtml() {
           "</strong></td><td>" +
           rankCell +
           "</td></tr>";
-        if (ex.hasDetail) {
+        if (ex.hasDetail || ex.branchDetail) {
           h += '<tr class="karne-exam-detail"><td colspan="5">';
           h += '<div class="karne-exam-detail__box">';
           h += karneHtmlExamBranchMini(ex.detailTyt, "tyt");
           h += karneHtmlExamBranchMini(ex.detailAyt, "ayt");
+          h += karneHtmlDyTableFromDetail(ex.branchDetail);
           h += "</div></td></tr>";
         }
       });
@@ -5122,6 +5595,11 @@ function renderKarneReport() {
   var el = document.getElementById("karnePrintArea");
   if (el) el.innerHTML = buildKarneReportHtml();
   refreshKarneKpis();
+  try {
+    karneMountBulkAndTrend(karneGetFilters());
+  } catch (e) {
+    console.warn("[karne bulk/trend]", e);
+  }
 }
 
 function buildKarneTsv() {
@@ -5201,15 +5679,12 @@ function downloadKarnePdf() {
       }
       await tmWaitForImagesDeep(wrap, 8000);
       await karneTwoRaf();
-      await new Promise(function (r) {
-        setTimeout(r, 60);
-      });
       var opt = {
         margin: [6, 6, 6, 6],
         filename: fname,
         image: { type: "jpeg", quality: 0.86 },
         html2canvas: {
-          scale: Math.min(1.5, Math.max(1.1, Math.min(window.devicePixelRatio || 1, 1.5) * 1.1)),
+          scale: 1.4,
           useCORS: true,
           allowTaint: true,
           logging: false,
@@ -5226,9 +5701,7 @@ function downloadKarnePdf() {
       if (worker && typeof worker.then === "function") {
         await worker;
       } else {
-        await new Promise(function (r) {
-          setTimeout(r, 900);
-        });
+        await karneTwoRaf();
       }
       showToast("PDF indirildi.");
     } catch (err) {
@@ -5287,7 +5760,7 @@ function optikManualComputeTotals() {
     totalD += cl.d;
     totalY += cl.y;
     totalSoru += r.soru;
-    totalNet += netFromDy(cl.d, cl.y);
+    totalNet += coachNetFromBranchDy(cl.d, cl.y);
   });
   var totalB = Math.max(0, totalSoru - totalD - totalY);
   return { totalNet: totalNet, totalD: totalD, totalY: totalY, totalB: totalB, totalSoru: totalSoru };
@@ -5297,14 +5770,14 @@ function optikManualBranchNetForKey(key) {
   var r = optikManualState.rows[key];
   if (!r || !r.soru) return 0;
   var cl = clampDy(r.soru, r.d, r.y);
-  return netFromDy(cl.d, cl.y);
+  return coachNetFromBranchDy(cl.d, cl.y);
 }
 
 function optikManualHtmlDyRow(label, rowKey, soru) {
   optikManualSyncRowInput(rowKey, soru);
   var r = optikManualState.rows[rowKey];
   var b = Math.max(0, soru - r.d - r.y);
-  var n = netFromDy(r.d, r.y);
+  var n = coachNetFromBranchDy(r.d, r.y);
   return (
     "<tr><td style=\"text-align:left;font-weight:600\">" +
     escapeHtml(label) +
@@ -5432,7 +5905,7 @@ function optikManualBuildSubjectBreakdownText() {
   Object.keys(o.rows).forEach(function (k) {
     var r = o.rows[k];
     var cl = clampDy(r.soru, r.d, r.y);
-    lines.push(k + ": D" + cl.d + " Y" + cl.y + " → " + netFromDy(cl.d, cl.y).toFixed(2) + " net");
+    lines.push(k + ": D" + cl.d + " Y" + cl.y + " → " + coachNetFromBranchDy(cl.d, cl.y).toFixed(2) + " net");
   });
   return lines.join("\n");
 }
@@ -5530,6 +6003,8 @@ function bindOptikManualForm() {
       var exD = dateEl && dateEl.value;
       var examDateTs = exD ? Timestamp.fromDate(new Date(exD)) : null;
       var examType = optikManualState.examMode;
+      var odef = document.getElementById("optikLinkExamDef");
+      var oid = odef && odef.value ? String(odef.value).trim() : "";
       var payload = {
         studentId: sid,
         studentName: st.name || st.studentName || "",
@@ -5544,6 +6019,9 @@ function bindOptikManualForm() {
         coachExamNote: "",
         yksBranchDetail: optikManualBuildBranchDetailObject(),
       };
+      if (oid) payload.examDefinitionId = oid;
+      var orule = document.getElementById("optikScoringRule");
+      if (orule && orule.value) payload.scoringRule = orule.value;
       try {
         payload.createdAt = serverTimestamp();
         payload.coach_id = getCoachId();
@@ -5558,6 +6036,15 @@ function bindOptikManualForm() {
         alert(err.message || err);
       }
     });
+
+  var optRule = document.getElementById("optikScoringRule");
+  if (optRule && !optRule.dataset.karneBound) {
+    optRule.dataset.karneBound = "1";
+    optRule.addEventListener("change", function () {
+      optikManualRecomputeFromDom();
+      renderOptikManualBranchRoot();
+    });
+  }
 }
 
 /* --- Optik toplu içe aktarma — format seçimi --- */
@@ -5700,21 +6187,27 @@ function initOptikKarneTools() {
 
   var tabManual = document.getElementById("optikTabManual");
   var tabBulk = document.getElementById("optikTabBulk");
+  var tabAdv = document.getElementById("optikTabAdvanced");
   var panelManual = document.getElementById("optikPanelManual");
   var panelBulk = document.getElementById("optikPanelBulk");
+  var panelAdv = document.getElementById("optikPanelAdvanced");
   function setOptikMain(which) {
-    var isMan = which === "manual";
-    if (panelManual) panelManual.hidden = !isMan;
-    if (panelBulk) panelBulk.hidden = isMan;
+    if (panelManual) panelManual.hidden = which !== "manual";
+    if (panelBulk) panelBulk.hidden = which !== "bulk";
+    if (panelAdv) panelAdv.hidden = which !== "adv";
     if (tabManual) {
-      tabManual.classList.toggle("is-active", isMan);
-      tabManual.setAttribute("aria-selected", isMan ? "true" : "false");
+      tabManual.classList.toggle("is-active", which === "manual");
+      tabManual.setAttribute("aria-selected", which === "manual" ? "true" : "false");
     }
     if (tabBulk) {
-      tabBulk.classList.toggle("is-active", !isMan);
-      tabBulk.setAttribute("aria-selected", !isMan ? "true" : "false");
+      tabBulk.classList.toggle("is-active", which === "bulk");
+      tabBulk.setAttribute("aria-selected", which === "bulk" ? "true" : "false");
     }
-    if (isMan) initOptikManualPage();
+    if (tabAdv) {
+      tabAdv.classList.toggle("is-active", which === "adv");
+      tabAdv.setAttribute("aria-selected", which === "adv" ? "true" : "false");
+    }
+    if (which === "manual") initOptikManualPage();
   }
   if (tabManual && !tabManual.dataset.bound) {
     tabManual.dataset.bound = "1";
@@ -5727,6 +6220,18 @@ function initOptikKarneTools() {
     tabBulk.addEventListener("click", function () {
       setOptikMain("bulk");
     });
+  }
+  if (tabAdv && !tabAdv.dataset.bound) {
+    tabAdv.dataset.bound = "1";
+    tabAdv.addEventListener("click", function () {
+      setOptikMain("adv");
+    });
+  }
+
+  try {
+    initOptikAdvancedBindings({ showToast: showToast });
+  } catch (e) {
+    console.warn("[optik_advanced]", e);
   }
 
   var dIn = document.getElementById("optikImportExamDate");
@@ -5826,6 +6331,13 @@ function initOptikKarneTools() {
     btnPdf.dataset.bound = "1";
     btnPdf.addEventListener("click", function () {
       downloadKarnePdf();
+    });
+  }
+  var btnBulkPdf = document.getElementById("btnKarneBulkPdf");
+  if (btnBulkPdf && !btnBulkPdf.dataset.bound) {
+    btnBulkPdf.dataset.bound = "1";
+    btnBulkPdf.addEventListener("click", function () {
+      downloadKarneBulkPdf();
     });
   }
   var btnP = document.getElementById("btnKarnePrint");
@@ -6941,12 +7453,16 @@ function normalizeGender(gender) {
 }
 
 /**
- * Otomatik avatar: seçilen cinsiyete göre sabit (belirlenen) avatar URL’si döndürür.
+ * Otomatik avatar: cinsiyete göre 1–20 arası rastgele numaralı yerel PNG yolu döndürür.
+ * Örn. Erkek + 5 → img/avatars/male/male_5.png, Kadın + 12 → img/avatars/female/female_12.png
  * Not: Eski kayıtlarda "Tesettür" gelirse normalizeGender -> "Kadın" yapar.
  */
 function getAvatarByGender(cinsiyet) {
   var g = normalizeGender(cinsiyet);
-  return g === "Erkek" ? erkekAvatarları[0] : kadinAvatarları[0];
+  var n = Math.floor(Math.random() * 20) + 1;
+  return g === "Erkek"
+    ? "img/avatars/male/male_" + n + ".png"
+    : "img/avatars/female/female_" + n + ".png";
 }
 
 function getAvatarPoolByGender(gender) {
@@ -7433,7 +7949,7 @@ function edsComputeTotals() {
     totalD += cl.d;
     totalY += cl.y;
     totalSoru += r.soru;
-    totalNet += netFromDy(cl.d, cl.y);
+    totalNet += coachNetFromBranchDy(cl.d, cl.y);
   });
   var totalB = Math.max(0, totalSoru - totalD - totalY);
   return { totalNet: totalNet, totalD: totalD, totalY: totalY, totalB: totalB, totalSoru: totalSoru };
@@ -7443,7 +7959,7 @@ function edsBranchNetForKey(key) {
   var r = edsDaState.rows[key];
   if (!r || !r.soru) return 0;
   var cl = clampDy(r.soru, r.d, r.y);
-  return netFromDy(cl.d, cl.y);
+  return coachNetFromBranchDy(cl.d, cl.y);
 }
 
 function edsTytRadarArrays() {
@@ -7598,7 +8114,7 @@ function edsHtmlDyRow(label, rowKey, soru) {
   edsSyncRowInput(rowKey, soru);
   var r = edsDaState.rows[rowKey];
   var b = Math.max(0, soru - r.d - r.y);
-  var n = netFromDy(r.d, r.y);
+  var n = coachNetFromBranchDy(r.d, r.y);
   return (
     "<tr><td style=\"text-align:left;font-weight:600\">" +
     escapeHtml(label) +
@@ -7757,7 +8273,7 @@ function edsBuildSubjectBreakdownText() {
   Object.keys(o.rows).forEach(function (k) {
     var r = o.rows[k];
     var cl = clampDy(r.soru, r.d, r.y);
-    lines.push(k + ": D" + cl.d + " Y" + cl.y + " → " + netFromDy(cl.d, cl.y).toFixed(2) + " net");
+    lines.push(k + ": D" + cl.d + " Y" + cl.y + " → " + coachNetFromBranchDy(cl.d, cl.y).toFixed(2) + " net");
   });
   if (o.weakTopics.length) lines.push("İşaretlenen konular: " + o.weakTopics.join(", "));
   return lines.join("\n");
@@ -7771,6 +8287,15 @@ function initDenemeAnalizPage() {
   renderEdsBranchRoot();
   renderEdsTopicChips();
   renderDenemeAnalizChart();
+  try {
+    initExamDefinitionProfessionalUI({
+      getCoachId: getCoachId,
+      showToast: showToast,
+      onListChanged: function () {},
+    });
+  } catch (e) {
+    console.warn("[exam_definition_ui]", e);
+  }
 }
 
 function bindDenemeAnalizForm() {
@@ -7889,6 +8414,8 @@ function bindDenemeAnalizForm() {
       var exD = dateEl && dateEl.value;
       var examDateTs = exD ? Timestamp.fromDate(new Date(exD)) : null;
       var examType = edsDaState.examMode;
+      var defSel = document.getElementById("daLinkExamDef");
+      var defId = defSel && defSel.value ? String(defSel.value).trim() : "";
       var payload = {
         studentId: sid,
         studentName: st.name || st.studentName || "",
@@ -7903,6 +8430,9 @@ function bindDenemeAnalizForm() {
         coachExamNote: "",
         yksBranchDetail: edsBuildBranchDetailObject(),
       };
+      if (defId) payload.examDefinitionId = defId;
+      var daRule = document.getElementById("daScoringRule");
+      if (daRule && daRule.value) payload.scoringRule = daRule.value;
       try {
         payload.createdAt = serverTimestamp();
         payload.coach_id = getCoachId();
@@ -7919,6 +8449,16 @@ function bindDenemeAnalizForm() {
   sel.addEventListener("change", function () {
     renderDenemeAnalizChart();
   });
+
+  var daRule = document.getElementById("daScoringRule");
+  if (daRule && !daRule.dataset.karneBound) {
+    daRule.dataset.karneBound = "1";
+    daRule.addEventListener("change", function () {
+      edsRecomputeFromDom();
+      renderEdsBranchRoot();
+      edsUpdateKpi();
+    });
+  }
 }
 
 /* --- Haftalık program + mockTasks (Görev Takibi ile senkron) --- */
@@ -9790,6 +10330,7 @@ function tmResetTestCreatorWorkspace() {
   setVal("tmHdrStudentInput", "");
   setVal("tmHdrNetInput", "");
   setVal("tmWsInstitution", "");
+  setVal("kurumAdiInput", "");
 
   var subj = document.getElementById("tmWsSubject");
   if (subj) subj.selectedIndex = 0;
@@ -9843,6 +10384,7 @@ function tmOnWorkspaceRefreshClick() {
     (document.getElementById("tmWsCourse") && document.getElementById("tmWsCourse").value.trim()) ||
     (document.getElementById("tmWsTopic") && document.getElementById("tmWsTopic").value.trim()) ||
     (document.getElementById("tmWsInstitution") && document.getElementById("tmWsInstitution").value.trim()) ||
+    (document.getElementById("kurumAdiInput") && document.getElementById("kurumAdiInput").value.trim()) ||
     (document.getElementById("tmHdrStudentInput") && document.getElementById("tmHdrStudentInput").value.trim()) ||
     (document.getElementById("tmHdrNetInput") && document.getElementById("tmHdrNetInput").value.trim());
   if (n > 0 || hasSrc || metaTouched) {
@@ -11295,30 +11837,36 @@ function tmWsDownloadPdf() {
   blocker.style.cssText =
     "position:fixed;inset:0;background:rgba(15,23,42,0.58);z-index:2147483646;display:flex;align-items:center;justify-content:center;padding:1.5rem;";
   blocker.innerHTML =
-    '<div style="text-align:center;max-width:24rem;line-height:1.5">' +
+    '<div style="text-align:center;max-width:26rem;line-height:1.45">' +
     '<p id="tmPdfBlockerLine1" style="margin:0 0 0.35rem;color:#f8fafc;font:600 15px system-ui,Segoe UI,sans-serif">Resimler hazırlanıyor… <span id="tmPdfBlockerPct">0</span>% bitti</p>' +
     '<p id="tmPdfBlockerLine2" style="margin:0;color:#e2e8f0;font:500 12px system-ui,Segoe UI,sans-serif;opacity:0.92">Görseller indiriliyor…</p>' +
+    '<p id="tmPdfBlockerLine3" style="display:none;margin:0.65rem 0 0;padding:0 0.25rem;color:#fecaca;font:500 11px system-ui,Segoe UI,sans-serif;opacity:0.95;line-height:1.45">Lütfen işlem bitene kadar başka sekmeye geçmeyin; tarayıcı işlemi yavaşlatabilir veya durdurabilir.</p>' +
     "</div>";
   document.body.appendChild(blocker);
 
   function tmPdfBlockerSetPreparePct(n) {
     var pct = document.getElementById("tmPdfBlockerPct");
     var line2 = document.getElementById("tmPdfBlockerLine2");
+    var line3 = document.getElementById("tmPdfBlockerLine3");
     if (pct) pct.textContent = String(Math.max(0, Math.min(100, Math.round(n))));
     if (line2) line2.textContent = "Görseller indiriliyor…";
+    if (line3) line3.style.display = "none";
   }
 
   function tmPdfBlockerSetPagePhase(cur, totalPages) {
     var line1 = document.getElementById("tmPdfBlockerLine1");
     var line2 = document.getElementById("tmPdfBlockerLine2");
+    var line3 = document.getElementById("tmPdfBlockerLine3");
     if (line1) {
       line1.textContent = "PDF sayfaları işleniyor… (sayfa " + cur + " / " + totalPages + ")";
     }
     if (line2) line2.textContent = "Sayfa görüntüsü oluşturuluyor; lütfen bekleyin.";
+    if (line3) line3.style.display = "block";
   }
 
   var pdf = null;
   var anyPageOk = false;
+  var TM_HTML2CANVAS_SCALE = 1.4;
 
   function tmCenterPaperInScrollHost(paper, host) {
     if (!paper || !host || !host.contains(paper)) return;
@@ -11348,7 +11896,7 @@ function tmWsDownloadPdf() {
             requestAnimationFrame(function () {
               requestAnimationFrame(function () {
                 if (scrollHost) tmCenterPaperInScrollHost(paper, scrollHost);
-                setTimeout(rafDone, 90);
+                rafDone();
               });
             });
           });
@@ -11364,17 +11912,14 @@ function tmWsDownloadPdf() {
           return new Promise(function (afterInline) {
             requestAnimationFrame(function () {
               requestAnimationFrame(function () {
-                setTimeout(afterInline, 55);
+                afterInline();
               });
             });
           });
         })
         .then(function () {
-          /* A4 çıktısı için 1.2–1.75 scale yeterli; 2+ gereksiz piksel (html2canvas yavaşlar). */
-          var dpr = window.devicePixelRatio || 1;
-          var scaleCap = Math.min(1.75, Math.max(1.2, Math.min(dpr, 1.75) * 1.05));
           return html2canvas(paper, {
-            scale: scaleCap,
+            scale: TM_HTML2CANVAS_SCALE,
             useCORS: true,
             allowTaint: true,
             logging: false,
@@ -11437,6 +11982,16 @@ function tmWsDownloadPdf() {
             anyPageOk = true;
           } catch (err) {
             console.error("tmWsDownloadPdf toDataURL / addImage", idx + 1, err);
+          } finally {
+            try {
+              if (canvas && canvas.getContext) {
+                canvas.width = 0;
+                canvas.height = 0;
+              }
+            } catch (_cw) {}
+            try {
+              if (canvas && canvas.remove) canvas.remove();
+            } catch (_rm) {}
           }
         })
         .catch(function (e) {
@@ -13684,6 +14239,22 @@ function bindTestMakerWorkspace() {
     if (el) el.addEventListener("input", tmSyncPaperHeaders);
     if (el) el.addEventListener("change", tmSyncPaperHeaders);
   });
+  var kurumAdiInp = document.getElementById("kurumAdiInput");
+  var instFly = document.getElementById("tmWsInstitution");
+  if (kurumAdiInp) {
+    if (instFly && instFly.value) kurumAdiInp.value = instFly.value;
+    kurumAdiInp.addEventListener("input", function () {
+      if (instFly) instFly.value = kurumAdiInp.value;
+      tmSyncPaperHeaders();
+    });
+  }
+  if (instFly && kurumAdiInp) {
+    var syncInstFlyToKurumRibbon = function () {
+      kurumAdiInp.value = instFly.value;
+    };
+    instFly.addEventListener("input", syncInstFlyToKurumRibbon);
+    instFly.addEventListener("change", syncInstFlyToKurumRibbon);
+  }
   var td = document.getElementById("tmWsTestDate");
   if (td) {
     td.addEventListener("change", tmSyncPaperHeaders);

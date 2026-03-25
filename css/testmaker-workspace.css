@@ -3177,6 +3177,32 @@
   gap: 0.45rem;
 }
 
+.tm-ribbon-kurum-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  min-width: 148px;
+  flex: 1 1 168px;
+  max-width: 240px;
+  margin-right: 0.15rem;
+}
+
+.tm-ribbon-kurum-field__lbl {
+  font-size: 0.58rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+}
+
+.tm-ribbon-kurum-field .tm-input-elite {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.42rem 0.55rem;
+  border-radius: 10px;
+  font-size: 0.82rem;
+}
+
 .tm-btn-export-pdf--hero {
   padding: 0.58rem 1.1rem !important;
   font-size: 0.86rem !important;

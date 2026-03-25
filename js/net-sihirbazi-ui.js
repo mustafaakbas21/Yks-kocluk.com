@@ -5,18 +5,14 @@
 import {
   TR_UNIVERSITIES_UNIQUE,
   PROGRAM_TEMPLATES_UI,
-  buildProgramFromUniTemplate,
 } from "./yok-atlas-catalog.js";
-import { netTemplateTableHtml, wireSearchFilterForSelect, sortNamedItemsAlphabeticalTr } from "./hedef-atlas-helpers.js";
-
-function buildDemoRowsFromProgram(program) {
-  if (!program || !program.rows) return [];
-  return program.rows.map(function (r) {
-    var t = r.targetNet;
-    var c = Math.round(Math.min(t, t * 0.9) * 10) / 10;
-    return { label: r.section + " " + r.name, current: c, target: t, section: r.section };
-  });
-}
+import { wireSearchFilterForSelect, sortNamedItemsAlphabeticalTr } from "./hedef-atlas-helpers.js";
+import {
+  resolveNetSihirbaziProgram,
+  buildMotorDisplayRows,
+  netSihirbaziMotorTableHtml,
+  netSihirbaziSkeletonHtml,
+} from "./net-sihirbazi-engine.js";
 
 /**
  * @param {{ uniSelectId: string, deptSelectId: string, tableWrapId: string, uniTitleId?: string, deptTitleId?: string, subtitleId?: string, uniFilterId?: string, deptFilterId?: string }} options
@@ -53,31 +49,70 @@ export function initNetSihirbazi(options) {
   wireSearchFilterForSelect(uniFilter, uSel);
   wireSearchFilterForSelect(deptFilter, dSel);
 
+  function renderEmptyState() {
+    if (uniTitle) uniTitle.textContent = "Üniversite ve bölüm seçin";
+    if (deptTitle) deptTitle.textContent = "Net Sihirbazı — ders bazlı hedef tablosu";
+    if (subEl)
+      subEl.textContent =
+        "Hedef netler Appwrite’da tanımlıysa canlı çekilir; yoksa taban puanına göre tahmini dağılım üretilir.";
+    wrap.innerHTML =
+      '<p class="net-sihirbazi-placeholder">Üniversite ve bölüm seçildiğinde tablo oluşturulur.</p>';
+  }
+
   function render() {
-    var prog = buildProgramFromUniTemplate(uSel.value, dSel.value);
-    if (prog && prog.rows && prog.rows.length) {
-      if (uniTitle) uniTitle.textContent = prog.university;
-      if (deptTitle) deptTitle.textContent = prog.department;
-      if (subEl)
-        subEl.textContent =
-          "Taban (örnek): " +
-          prog.baseScore2025 +
-          " · Şablon + üniversiteye göre simülasyon · Resmî YÖK tabanı değildir.";
-      wrap.innerHTML = netTemplateTableHtml(buildDemoRowsFromProgram(prog));
-    } else {
-      if (uniTitle) uniTitle.textContent = "Üniversite ve bölüm seçin";
-      if (deptTitle) deptTitle.textContent = "Net Sihirbazı — ders bazlı hedef tablosu";
-      if (subEl)
-        subEl.textContent =
-          "Listedeki tüm üniversiteler ve onlarca bölüm şablonu eşleştirilebilir. Veri eğitim simülasyonudur.";
-      wrap.innerHTML =
-        '<p class="net-sihirbazi-placeholder">Üniversite ve bölüm seçildiğinde TYT ve AYT netleri tabloda listelenir.</p>';
+    var uid = uSel.value;
+    var tid = dSel.value;
+    if (!uid || !tid) {
+      renderEmptyState();
+      return;
     }
+    wrap.innerHTML = netSihirbaziSkeletonHtml();
+    resolveNetSihirbaziProgram(uid, tid)
+      .then(function (prog) {
+        try {
+          if (!prog || !prog.rows || !prog.rows.length) {
+            if (uniTitle) uniTitle.textContent = "Üniversite ve bölüm seçin";
+            if (deptTitle) deptTitle.textContent = "Net Sihirbazı";
+            if (subEl) subEl.textContent = "Bu eşleşme için program üretilemedi.";
+            wrap.innerHTML =
+              '<p class="net-sihirbazi-placeholder">Bu bölüm için net verisi bekleniyor veya seçim geçersiz.</p>';
+            return;
+          }
+          if (uniTitle) uniTitle.textContent = prog.university;
+          if (deptTitle) deptTitle.textContent = prog.department;
+          if (subEl) {
+            var src =
+              prog.dataSource === "appwrite"
+                ? "Kaynak: Appwrite hedef netleri · Taban (ref.): "
+                : "Kaynak: taban puanına göre tahmini dağılım · Taban (ref.): ";
+            subEl.textContent =
+              src +
+              prog.baseScore2025 +
+              " · Koleksiyon `yks_net_sihirbazi_targets` ile gerçek netleri bağlayabilirsiniz.";
+          }
+          var display = buildMotorDisplayRows(prog);
+          wrap.innerHTML = netSihirbaziMotorTableHtml(display, {});
+        } catch (inner) {
+          console.error("[Net Sihirbazı] render:", inner);
+          wrap.innerHTML =
+            '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Tablo oluşturulurken bir hata oluştu. Lütfen yeniden deneyin.</p>';
+        }
+      })
+      .catch(function (err) {
+        console.error("[Net Sihirbazı] yükleme:", err);
+        wrap.innerHTML =
+          '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Veri yüklenemedi. Bağlantınızı kontrol edip tekrar deneyin.</p>';
+      });
   }
 
   uSel.addEventListener("change", render);
   dSel.addEventListener("change", render);
-  render();
+  try {
+    render();
+  } catch (e) {
+    console.error("[Net Sihirbazı] ilk render:", e);
+    renderEmptyState();
+  }
 }
 
 function readNet(id) {

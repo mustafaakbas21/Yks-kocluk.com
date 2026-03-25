@@ -8,6 +8,9 @@ import {
   sumGap,
   wireSearchFilterForSelect,
   sortNamedItemsAlphabeticalTr,
+  filterSimulatorRowsForStudentAlan,
+  studentAytTableSectionTitle,
+  normalizeStudentYksAlanKey,
 } from "./hedef-atlas-helpers.js";
 
 var ospHedefRadarChart = null;
@@ -48,7 +51,8 @@ export function renderOspHedefSimulator() {
     if (bEl && O.targetDepartment) bEl.textContent = O.targetDepartment + " — Hedef net";
     else if (bEl) bEl.textContent = "Koç kaydından hedef net";
   }
-  var rows = buildSimulatorRows(program, student);
+  var alanKey = normalizeStudentYksAlanKey(student);
+  var rows = filterSimulatorRowsForStudentAlan(buildSimulatorRows(program, student), alanKey);
 
   var labels = rows.map(function (r) {
     return r.label;
@@ -93,7 +97,10 @@ export function renderOspHedefSimulator() {
         ? " — Koç kaydındaki güncel/hedef TYT netine göre ölçeklendirildi."
         : " — Program seçin veya koç panelinden net girin.");
 
-  if (tableWrap) tableWrap.innerHTML = netTemplateTableHtml(rows);
+  if (tableWrap)
+    tableWrap.innerHTML = netTemplateTableHtml(rows, {
+      aytSectionTitle: studentAytTableSectionTitle(alanKey),
+    });
 
   if (canvas && typeof Chart !== "undefined") {
     var ctx = canvas.getContext("2d");
