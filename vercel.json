@@ -1,14 +1,15 @@
 {
-  "rewrites": [
+  "redirects": [
     {
-      "source": "/(.*)",
+      "source": "/",
       "has": [
         {
           "type": "host",
           "value": "admin.derecepanel.com"
         }
       ],
-      "destination": "/super-admin.html"
+      "destination": "/super-admin.html",
+      "permanent": false
     }
   ]
 }

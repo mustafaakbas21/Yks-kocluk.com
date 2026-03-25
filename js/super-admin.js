@@ -31,6 +31,7 @@ import {
   coachCreatorAuth as secondaryAuth,
   studentCreatorAuth as tertiaryAuth,
   verifyAppwriteAccount,
+  getAppSettings,
 } from "./appwrite-compat.js";
 import {
   storage,
@@ -172,6 +173,189 @@ function saSetLoading(active, text) {
 function saHideLoadingOverlay() {
   var el = document.getElementById("saAuthLoading");
   if (el) el.style.display = "none";
+}
+
+const SA_GATE_RATE_LIMIT_TR_MESSAGE =
+  "Çok fazla hatalı deneme yaptınız. Lütfen 15 dakika bekleyin veya internetinizi değiştirip tekrar deneyin.";
+
+function isKurucuRoleGate(role) {
+  return role === "admin" || role === "kurucu" || role === "admin_roster";
+}
+
+function sanitizeUsernameGate(v) {
+  return String(v || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "");
+}
+
+function inferUsernameFromEmailGate(email) {
+  var local = String(email || "").split("@")[0] || "";
+  return sanitizeUsernameGate(local);
+}
+
+async function findProfileGateForLogin(authUser, fallbackUsername) {
+  var uid = authUser && authUser.uid ? String(authUser.uid) : "";
+  var email = authUser && authUser.email ? String(authUser.email).toLowerCase() : "";
+  var uname = sanitizeUsernameGate(fallbackUsername || inferUsernameFromEmailGate(email));
+
+  try {
+    var usersById = await databases.listDocuments(APPWRITE_DATABASE_ID, "users", [
+      Query.equal("$id", uid),
+      Query.limit(1),
+    ]);
+    if (usersById && usersById.documents && usersById.documents.length) return usersById.documents[0];
+  } catch (e) {
+    console.warn("[super-admin gate] users by id:", e && e.message);
+  }
+
+  if (uname) {
+    try {
+      var usersByUsername = await databases.listDocuments(APPWRITE_DATABASE_ID, "users", [
+        Query.equal("username", uname),
+        Query.limit(1),
+      ]);
+      if (usersByUsername && usersByUsername.documents && usersByUsername.documents.length) {
+        return usersByUsername.documents[0];
+      }
+    } catch (e2) {
+      console.warn("[super-admin gate] users by username:", e2 && e2.message);
+    }
+  }
+
+  return null;
+}
+
+function saGateGetShellEls() {
+  return {
+    gate: document.getElementById("saLoginGate"),
+    shell: document.getElementById("saAppShell"),
+  };
+}
+
+function saShowLoginGate() {
+  saHideLoadingOverlay();
+  var x = saGateGetShellEls();
+  if (x.shell) x.shell.hidden = true;
+  if (x.gate) x.gate.hidden = false;
+}
+
+function saShowAppShell() {
+  var x = saGateGetShellEls();
+  if (x.gate) x.gate.hidden = true;
+  if (x.shell) x.shell.hidden = false;
+}
+
+function saHideGateError() {
+  var el = document.getElementById("saGateError");
+  if (el) el.classList.remove("is-visible");
+}
+
+function saShowGateError(msg) {
+  var el = document.getElementById("saGateError");
+  if (el) {
+    el.textContent = msg;
+    el.classList.add("is-visible");
+  } else alert(msg);
+}
+
+function saSetGateSubmitBusy(isBusy) {
+  var btn = document.getElementById("saGateSubmit");
+  if (!btn) return;
+  btn.disabled = !!isBusy;
+  var label = btn.querySelector("span");
+  if (label) label.textContent = isBusy ? "Giriş yapılıyor…" : "Giriş yap";
+}
+
+function saTranslateGateLoginError(msg) {
+  var m = String(msg || "");
+  if (/rate limit|too many requests|429|general_rate_limit_exceeded/i.test(m)) return SA_GATE_RATE_LIMIT_TR_MESSAGE;
+  if (/password/i.test(m) && (/8|256|between/i.test(m) || /characters/i.test(m)))
+    return "Şifre 8 ile 256 karakter arasında olmalıdır.";
+  if (/Invalid `email` param|email.*invalid/i.test(m)) return "E-posta biçimi geçersiz.";
+  if (/invalid credentials|wrong password/i.test(m)) return "E-posta veya şifre hatalı.";
+  return m || "Giriş başarısız.";
+}
+
+function initSaGatePasswordToggle() {
+  var btn = document.getElementById("saGatePwToggle");
+  var input = document.getElementById("saGatePassword");
+  if (!btn || !input) return;
+  var iconPlain = btn.querySelector(".sa-gate-eye-plain");
+  var iconSlash = btn.querySelector(".sa-gate-eye-slash");
+
+  function applyVisibility(isPlainVisible) {
+    input.type = isPlainVisible ? "text" : "password";
+    btn.setAttribute("aria-pressed", isPlainVisible ? "true" : "false");
+    btn.setAttribute("aria-label", isPlainVisible ? "Şifreyi gizle" : "Şifreyi göster");
+    if (iconPlain && iconSlash) {
+      iconPlain.hidden = isPlainVisible;
+      iconSlash.hidden = !isPlainVisible;
+    }
+  }
+
+  btn.addEventListener("click", function () {
+    applyVisibility(input.type === "password");
+  });
+}
+
+function saTeardownAdminSubscriptions() {
+  if (coachesUnsub) {
+    try {
+      coachesUnsub();
+    } catch (e) {}
+    coachesUnsub = null;
+  }
+  if (studentsUnsub) {
+    try {
+      studentsUnsub();
+    } catch (e) {}
+    studentsUnsub = null;
+  }
+  if (quotesUnsub) {
+    try {
+      quotesUnsub();
+    } catch (e) {}
+    quotesUnsub = null;
+  }
+  if (settingsUnsub) {
+    try {
+      settingsUnsub();
+    } catch (e) {}
+    settingsUnsub = null;
+  }
+  saAuthBootstrapped = false;
+  saSessionGateDone = false;
+}
+
+function saBootstrapDashboardSubscriptions() {
+  if (saAuthBootstrapped) return;
+  saAuthBootstrapped = true;
+  subscribeCoachesList();
+  subscribeStudentsList();
+  subscribeQuoteRequests();
+  subscribeMaintenanceSettings();
+}
+
+function saActivateDashboardSession(profile, passwordPlain) {
+  saSessionGateDone = true;
+  var uname = (profile && profile.username) || "admin1";
+  localStorage.setItem("currentUser", uname);
+  try {
+    localStorage.setItem("yksRole", (profile && profile.role) || "");
+  } catch (_) {}
+  try {
+    var saMail = (auth.currentUser && auth.currentUser.email) || "";
+    if (saMail && passwordPlain) {
+      sessionStorage.setItem(SA_REAUTH_EMAIL_KEY, String(saMail).toLowerCase());
+      sessionStorage.setItem(SA_REAUTH_PW_KEY, passwordPlain);
+    }
+  } catch (_) {}
+  saBootstrapDashboardSubscriptions();
+  saHideLoadingOverlay();
+  var x = saGateGetShellEls();
+  if (x.gate) x.gate.hidden = true;
+  if (x.shell) x.shell.hidden = false;
 }
 
 function normalizeRoleName(role) {
@@ -2769,8 +2953,6 @@ var btnSaLogout = document.getElementById("btnLogout");
 if (btnSaLogout) {
   btnSaLogout.addEventListener("click", async function () {
   if (!confirm("Çıkış yapılsın mı?")) return;
-  clearSaReauthCache();
-  localStorage.removeItem("currentUser");
   try {
     await signOut(auth);
   } catch (err) {
@@ -2779,7 +2961,6 @@ if (btnSaLogout) {
       alert("Bir sorun oluştu.");
     } catch (e2) {}
   }
-  window.location.replace("panel-admin-auth.html");
   });
 }
 
@@ -2820,7 +3001,7 @@ async function runSuperAdminSessionGate() {
       try {
         await signOut(auth);
       } catch (_e) {}
-      window.location.replace("panel-admin-auth.html");
+      saShowLoginGate();
       return;
     }
     var uid = vr.user.$id;
@@ -2831,7 +3012,7 @@ async function runSuperAdminSessionGate() {
       try {
         await signOut(auth);
       } catch (_e) {}
-      window.location.replace("panel-admin-auth.html");
+      saShowLoginGate();
       return;
     }
     var normalizedRole = normalizeRoleName(profile.role);
@@ -2840,24 +3021,16 @@ async function runSuperAdminSessionGate() {
       try {
         await signOut(auth);
       } catch (_e) {}
-      window.location.replace("panel-admin-auth.html");
+      saShowLoginGate();
       return;
     }
-    saSessionGateDone = true;
-    localStorage.setItem("currentUser", profile.username || "admin1");
-    if (!saAuthBootstrapped) {
-      saAuthBootstrapped = true;
-      subscribeCoachesList();
-      subscribeStudentsList();
-      subscribeQuoteRequests();
-      subscribeMaintenanceSettings();
-    }
+    saActivateDashboardSession(profile, null);
   } catch (err) {
     console.error("VERI CEKME HATASI:", err);
     try {
       await signOut(auth);
     } catch (_e) {}
-    window.location.replace("panel-admin-auth.html");
+    saShowLoginGate();
   } finally {
     saGateRunning = false;
     saHideLoadingOverlay();
@@ -2873,12 +3046,115 @@ function scheduleSuperAdminSessionGate() {
 }
 scheduleSuperAdminSessionGate();
 
+initSaGatePasswordToggle();
+
+var saGateFormEl = document.getElementById("saGateForm");
+if (saGateFormEl) {
+  saGateFormEl.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    saHideGateError();
+    var emailEl = document.getElementById("saGateEmail");
+    var passEl = document.getElementById("saGatePassword");
+    var email = (emailEl && emailEl.value && String(emailEl.value).trim().toLowerCase()) || "";
+    var password = (passEl && passEl.value) || "";
+    if (!email) {
+      saShowGateError("E-posta girin.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      saShowGateError("Geçerli bir e-posta adresi girin.");
+      return;
+    }
+    if (!password) {
+      saShowGateError("Şifre girin.");
+      return;
+    }
+    if (password.length < 8 || password.length > 256) {
+      saShowGateError("Şifre 8 ile 256 karakter arasında olmalıdır.");
+      return;
+    }
+
+    saSetGateSubmitBusy(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      var u = auth.currentUser;
+      if (!u) throw new Error("Oturum açılamadı.");
+
+      var profile = await findProfileGateForLogin(u, inferUsernameFromEmailGate(u.email || email));
+      if (!profile || !profile.role) {
+        await signOut(auth);
+        saShowGateError("Hesap yapılandırılmamış. Yönetici ile iletişime geçin.");
+        return;
+      }
+      if (!isKurucuRoleGate(profile.role)) {
+        await signOut(auth);
+        saShowGateError("Bu hesap kurucu yetkisine sahip değil.");
+        return;
+      }
+
+      try {
+        var appSettings = await getAppSettings();
+        if (appSettings.maintenance && !isKurucuRoleGate(profile.role)) {
+          await signOut(auth);
+          saShowGateError("Bakımdayız.");
+          return;
+        }
+      } catch (se) {
+        console.warn("[super-admin gate] settings:", se);
+      }
+
+      if (profile.frozen === true) {
+        await signOut(auth);
+        saShowGateError("Bu hesap dondurulmuş.");
+        return;
+      }
+
+      try {
+        await updateDoc(doc(db, "users", u.uid), { lastLogin: serverTimestamp() });
+      } catch (e) {
+        console.warn("[super-admin gate] lastLogin:", e);
+      }
+
+      var norm = normalizeRoleName(profile.role);
+      if (norm !== "admin") {
+        await signOut(auth);
+        saShowGateError("Bu hesap kurucu yetkisine sahip değil.");
+        return;
+      }
+
+      saActivateDashboardSession(profile, password);
+    } catch (err) {
+      var rawMsg = err && err.message != null ? String(err.message) : "";
+      var messageLower = rawMsg.toLowerCase();
+      var code = err && err.code;
+      if (/^429$/.test(String(code || "")) || /too-many-requests|rate limit|general_rate_limit_exceeded/.test(messageLower)) {
+        saShowGateError(SA_GATE_RATE_LIMIT_TR_MESSAGE);
+      } else if (
+        code === "auth/invalid-credential" ||
+        code === "auth/wrong-password" ||
+        code === "auth/user-not-found" ||
+        /invalid credentials|wrong password|user.*not found/.test(messageLower)
+      ) {
+        saShowGateError("E-posta veya şifre hatalı. Kurucu hesabınızın doğru olduğundan emin olun.");
+      } else {
+        saShowGateError(saTranslateGateLoginError(rawMsg));
+      }
+    } finally {
+      saSetGateSubmitBusy(false);
+    }
+  });
+}
+
 onAuthStateChanged(auth, function (user) {
   console.log("Mevcut Kullanıcı Verisi:", user);
   if (!user && saSessionGateDone) {
     if (saTransientAuth) return;
-    saHideLoadingOverlay();
-    window.location.replace("panel-admin-auth.html");
+    saTeardownAdminSubscriptions();
+    try {
+      clearSaReauthCache();
+      localStorage.removeItem("currentUser");
+    } catch (_e) {}
+    saShowLoginGate();
   }
 });
 
