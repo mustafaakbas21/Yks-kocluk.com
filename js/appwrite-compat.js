@@ -299,12 +299,42 @@ const authState = {
   started: false,
 };
 
+/**
+ * Appwrite oturumu gerçekten bitmiş mi (401 / unauthorized)?
+ * Geçici ağ veya 5xx hatalarında false döner — oturum düşürülmez.
+ */
+function __isAppwriteSessionInvalidError(e) {
+  if (!e) return false;
+  var code = e.code;
+  var type = String(e.type || "").toLowerCase();
+  var msg = String(e.message || "").toLowerCase();
+  if (code === 401 || code === "401") return true;
+  if (
+    type === "user_unauthorized" ||
+    type === "general_unauthorized" ||
+    type === "general_unauthorized_scope"
+  )
+    return true;
+  return /unauthorized|invalid_credentials|session.*invalid|jwt.*expired|missing.*session/i.test(
+    msg
+  );
+}
+
 async function refreshCurrentUser() {
   try {
     const u = await account.get();
     authState.currentUser = makeAuthUser(u);
-  } catch (_e) {
-    authState.currentUser = null;
+  } catch (e) {
+    if (__isAppwriteSessionInvalidError(e)) {
+      authState.currentUser = null;
+    } else if (authState.currentUser) {
+      console.warn(
+        "[auth] refreshCurrentUser: geçici hata — oturum korunuyor (Zoho/API 401 vb. burada işlenmez).",
+        e && e.message
+      );
+    } else {
+      authState.currentUser = null;
+    }
   }
   return authState.currentUser;
 }

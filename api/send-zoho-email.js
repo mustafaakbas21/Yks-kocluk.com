@@ -11,7 +11,16 @@
  *
  * Zoho dokümantasyonu: POST https://mail.zoho.eu/api/accounts/{accountId}/messages (EU)
  * OAuth kapsamı: ZohoMail.messages.CREATE veya ZohoMail.messages.ALL
+ * ZOHO_MAIL_AUTH_SCHEME — "zoho" (Zoho-oauthtoken) veya "bearer"
  */
+
+function zohoMailAuthHeader(accessToken, env) {
+  const scheme = String(env.ZOHO_MAIL_AUTH_SCHEME || "zoho").toLowerCase();
+  if (scheme === "bearer") {
+    return { Authorization: "Bearer " + accessToken };
+  }
+  return { Authorization: "Zoho-oauthtoken " + accessToken };
+}
 
 async function zohoRefreshAccessToken(env) {
   const tokenUrl =
@@ -24,7 +33,10 @@ async function zohoRefreshAccessToken(env) {
   });
   const res = await fetch(tokenUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
     body,
   });
   const text = await res.text();
@@ -32,11 +44,28 @@ async function zohoRefreshAccessToken(env) {
   try {
     json = JSON.parse(text);
   } catch {
+    console.error(
+      "[send-zoho-email] Token yanıtı JSON değil. HTTP",
+      res.status,
+      "body:",
+      text.slice(0, 2000)
+    );
     throw new Error("Zoho token yanıtı JSON değil: " + text.slice(0, 200));
   }
   if (!res.ok || !json.access_token) {
+    console.error(
+      "[send-zoho-email] Token alınamadı. HTTP",
+      res.status,
+      "URL:",
+      tokenUrl,
+      "body:",
+      JSON.stringify(json)
+    );
     throw new Error(
-      json.error || json.message || "Zoho access token alınamadı (" + res.status + ")"
+      json.error ||
+        json.message ||
+        "Zoho access token alınamadı (" + res.status + "): " +
+          (text ? text.slice(0, 500) : "")
     );
   }
   return json.access_token;
@@ -49,20 +78,43 @@ function firstApiData(payload) {
   return null;
 }
 
-async function zohoGetJson(url, accessToken) {
+async function zohoGetJson(url, accessToken, env) {
+  const authHeaders = zohoMailAuthHeader(accessToken, env);
   const res = await fetch(url, {
-    headers: { Authorization: "Zoho-oauthtoken " + accessToken },
+    headers: {
+      ...authHeaders,
+      Accept: "application/json",
+    },
   });
   const text = await res.text();
   let json;
   try {
-    json = JSON.parse(text);
+    json = text ? JSON.parse(text) : {};
   } catch {
+    console.error(
+      "[send-zoho-email] Mail API JSON parse. HTTP",
+      res.status,
+      "URL:",
+      url,
+      "raw:",
+      text.slice(0, 2000)
+    );
     throw new Error("Beklenmeyen yanıt: " + text.slice(0, 180));
   }
   if (!res.ok) {
+    const detail =
+      (json && (json.message || json.error || json.data)) || text || "";
+    console.error(
+      "[send-zoho-email] Mail API hata. HTTP",
+      res.status,
+      "URL:",
+      url,
+      "body:",
+      typeof detail === "string" ? detail : JSON.stringify(detail).slice(0, 2000)
+    );
     throw new Error(
-      (json && (json.message || json.error)) || "İstek başarısız " + res.status
+      (typeof detail === "string" ? detail : JSON.stringify(detail)) ||
+        "İstek başarısız " + res.status
     );
   }
   return json;
@@ -153,9 +205,9 @@ export default async function handler(req, res) {
     if (!accountId) {
       let accPayload;
       try {
-        accPayload = await zohoGetJson(v1Base + "/accounts", accessToken);
+        accPayload = await zohoGetJson(v1Base + "/accounts", accessToken, env);
       } catch (_acc) {
-        accPayload = await zohoGetJson(legacyBase + "/accounts", accessToken);
+        accPayload = await zohoGetJson(legacyBase + "/accounts", accessToken, env);
       }
       const accounts = firstApiData(accPayload) || [];
       const first = accounts[0];
@@ -185,10 +237,11 @@ export default async function handler(req, res) {
       encodeURIComponent(accountId) +
       "/messages";
 
+    const sendAuth = zohoMailAuthHeader(accessToken, env);
     const zRes = await fetch(sendUrl, {
       method: "POST",
       headers: {
-        Authorization: "Zoho-oauthtoken " + accessToken,
+        ...sendAuth,
         "Content-Type": "application/json",
         Accept: "application/json",
       },
@@ -198,12 +251,22 @@ export default async function handler(req, res) {
     const zText = await zRes.text();
     let zJson;
     try {
-      zJson = JSON.parse(zText);
+      zJson = zText ? JSON.parse(zText) : {};
     } catch {
       zJson = { raw: zText };
     }
 
     if (!zRes.ok) {
+      console.error(
+        "[send-zoho-email] Gönderim hata. HTTP",
+        zRes.status,
+        "URL:",
+        sendUrl,
+        "authScheme:",
+        String(env.ZOHO_MAIL_AUTH_SCHEME || "zoho"),
+        "body:",
+        zText.slice(0, 2000)
+      );
       const msg =
         (zJson && (zJson.message || zJson.error || zJson.data)) ||
         zText.slice(0, 300) ||
@@ -231,8 +294,10 @@ export default async function handler(req, res) {
       meta: { accountId: String(accountId) },
     });
   } catch (e) {
-    console.error("[send-zoho-email]", e);
     const msg = e && e.message ? String(e.message) : "Gönderim sırasında hata.";
+    console.error("[send-zoho-email] exception:", e);
+    console.error("[send-zoho-email] message:", msg);
+    if (e && e.stack) console.error("[send-zoho-email] stack:", e.stack);
     return res.status(200).json({
       ok: false,
       error:

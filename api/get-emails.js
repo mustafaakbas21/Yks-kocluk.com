@@ -2,7 +2,16 @@
  * Vercel Serverless — Zoho Mail gelen kutusu listesi
  * Ortam: ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN
  * İsteğe bağlı: ZOHO_ACCOUNT_ID, ZOHO_MAIL_API_BASE, ZOHO_ACCOUNTS_TOKEN_URL, ZOHO_INBOX_FOLDER_ID
+ * ZOHO_MAIL_AUTH_SCHEME — "zoho" (Zoho-oauthtoken) veya "bearer"
  */
+
+function zohoMailAuthHeader(accessToken, env) {
+  const scheme = String(env.ZOHO_MAIL_AUTH_SCHEME || "zoho").toLowerCase();
+  if (scheme === "bearer") {
+    return { Authorization: "Bearer " + accessToken };
+  }
+  return { Authorization: "Zoho-oauthtoken " + accessToken };
+}
 
 async function zohoRefreshAccessToken(env) {
   const tokenUrl =
@@ -15,7 +24,10 @@ async function zohoRefreshAccessToken(env) {
   });
   const res = await fetch(tokenUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
     body,
   });
   const text = await res.text();
@@ -23,11 +35,28 @@ async function zohoRefreshAccessToken(env) {
   try {
     json = JSON.parse(text);
   } catch {
+    console.error(
+      "[get-emails] Token yanıtı JSON değil. HTTP",
+      res.status,
+      "body:",
+      text.slice(0, 2000)
+    );
     throw new Error("Zoho token yanıtı JSON değil: " + text.slice(0, 200));
   }
   if (!res.ok || !json.access_token) {
+    console.error(
+      "[get-emails] Token alınamadı. HTTP",
+      res.status,
+      "URL:",
+      tokenUrl,
+      "body:",
+      JSON.stringify(json)
+    );
     throw new Error(
-      json.error || json.message || "Zoho access token alınamadı (" + res.status + ")"
+      json.error ||
+        json.message ||
+        "Zoho access token alınamadı (" + res.status + "): " +
+          (text ? text.slice(0, 500) : "")
     );
   }
   return json.access_token;
@@ -40,20 +69,43 @@ function firstApiData(payload) {
   return null;
 }
 
-async function zohoGetJson(url, accessToken) {
+async function zohoGetJson(url, accessToken, env) {
+  const authHeaders = zohoMailAuthHeader(accessToken, env);
   const res = await fetch(url, {
-    headers: { Authorization: "Zoho-oauthtoken " + accessToken },
+    headers: {
+      ...authHeaders,
+      Accept: "application/json",
+    },
   });
   const text = await res.text();
   let json;
   try {
-    json = JSON.parse(text);
+    json = text ? JSON.parse(text) : {};
   } catch {
+    console.error(
+      "[get-emails] JSON parse. HTTP",
+      res.status,
+      "URL:",
+      url,
+      "raw:",
+      text.slice(0, 2000)
+    );
     throw new Error("Beklenmeyen yanıt: " + text.slice(0, 180));
   }
   if (!res.ok) {
+    const detail =
+      (json && (json.message || json.error || json.data)) || text || "";
+    console.error(
+      "[get-emails] Mail API hata. HTTP",
+      res.status,
+      "URL:",
+      url,
+      "body:",
+      typeof detail === "string" ? detail : JSON.stringify(detail).slice(0, 2000)
+    );
     throw new Error(
-      (json && (json.message || json.error)) || "İstek başarısız " + res.status
+      (typeof detail === "string" ? detail : JSON.stringify(detail)) ||
+        "İstek başarısız " + res.status
     );
   }
   return json;
@@ -93,7 +145,7 @@ export default async function handler(req, res) {
 
     let accountId = env.ZOHO_ACCOUNT_ID ? String(env.ZOHO_ACCOUNT_ID).trim() : "";
     if (!accountId) {
-      const accPayload = await zohoGetJson(apiBase + "/accounts", accessToken);
+      const accPayload = await zohoGetJson(apiBase + "/accounts", accessToken, env);
       const accounts = firstApiData(accPayload) || [];
       const first = accounts[0];
       accountId =
@@ -115,7 +167,8 @@ export default async function handler(req, res) {
     if (!folderId) {
       const folderPayload = await zohoGetJson(
         apiBase + "/accounts/" + encodeURIComponent(accountId) + "/folders",
-        accessToken
+        accessToken,
+        env
       );
       const folders = firstApiData(folderPayload) || [];
       const inbox = folders.find(function (f) {
@@ -154,7 +207,7 @@ export default async function handler(req, res) {
       "&start=0&limit=" +
       limit;
 
-    const listPayload = await zohoGetJson(listUrl, accessToken);
+    const listPayload = await zohoGetJson(listUrl, accessToken, env);
     const rows = firstApiData(listPayload) || listPayload.messages || listPayload.data || [];
 
     const emails = (Array.isArray(rows) ? rows : []).map(function (m, idx) {
@@ -218,10 +271,13 @@ export default async function handler(req, res) {
       meta: { accountId: String(accountId), folderId: String(folderId) },
     });
   } catch (e) {
-    console.error("[get-emails]", e);
+    const msg = e && e.message ? String(e.message) : "Zoho Mail listesi alınamadı.";
+    console.error("[get-emails] exception:", e);
+    console.error("[get-emails] message:", msg);
+    if (e && e.stack) console.error("[get-emails] stack:", e.stack);
     return res.status(200).json({
       ok: false,
-      error: e && e.message ? String(e.message) : "Zoho Mail listesi alınamadı.",
+      error: msg,
       emails: [],
     });
   }

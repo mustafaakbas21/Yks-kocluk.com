@@ -5,10 +5,19 @@
  *   ZOHO_MAIL_API_V1_BASE (varsayılan https://mail.zoho.eu/api/v1),
  *   ZOHO_MAIL_API_LEGACY_BASE (varsayılan https://mail.zoho.eu/api — liste/ içerik için geri dönüş),
  *   ZOHO_ACCOUNTS_TOKEN_URL
+ *   ZOHO_MAIL_AUTH_SCHEME — Mail API Authorization: "zoho" (varsayılan, Zoho-oauthtoken) veya "bearer"
  *
  * GET /api/get-zoho-emails — gelen kutusu listesi
  * GET /api/get-zoho-emails?messageId=...&accountId=... — ileti gövdesi (modal)
  */
+
+function zohoMailAuthHeader(accessToken, env) {
+  const scheme = String(env.ZOHO_MAIL_AUTH_SCHEME || "zoho").toLowerCase();
+  if (scheme === "bearer") {
+    return { Authorization: "Bearer " + accessToken };
+  }
+  return { Authorization: "Zoho-oauthtoken " + accessToken };
+}
 
 async function zohoRefreshAccessToken(env) {
   const tokenUrl =
@@ -21,19 +30,39 @@ async function zohoRefreshAccessToken(env) {
   });
   const res = await fetch(tokenUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
     body,
   });
   const text = await res.text();
   let json;
   try {
     json = JSON.parse(text);
-  } catch {
+  } catch (parseErr) {
+    console.error(
+      "[get-zoho-emails] Token yanıtı JSON değil. HTTP",
+      res.status,
+      "body:",
+      text.slice(0, 2000)
+    );
     throw new Error("Zoho token yanıtı JSON değil: " + text.slice(0, 200));
   }
   if (!res.ok || !json.access_token) {
+    console.error(
+      "[get-zoho-emails] Token alınamadı. HTTP",
+      res.status,
+      "URL:",
+      tokenUrl,
+      "body:",
+      JSON.stringify(json)
+    );
     throw new Error(
-      json.error || json.message || "Zoho access token alınamadı (" + res.status + ")"
+      json.error ||
+        json.message ||
+        "Zoho access token alınamadı (" + res.status + "): " +
+          (text ? text.slice(0, 500) : "")
     );
   }
   return json.access_token;
@@ -46,20 +75,47 @@ function firstApiData(payload) {
   return null;
 }
 
-async function zohoGetJson(url, accessToken) {
+async function zohoGetJson(url, accessToken, env) {
+  const authHeaders = zohoMailAuthHeader(accessToken, env);
   const res = await fetch(url, {
-    headers: { Authorization: "Zoho-oauthtoken " + accessToken },
+    headers: {
+      ...authHeaders,
+      Accept: "application/json",
+    },
   });
   const text = await res.text();
   let json;
   try {
-    json = JSON.parse(text);
+    json = text ? JSON.parse(text) : {};
   } catch {
-    throw new Error("Beklenmeyen yanıt: " + text.slice(0, 180));
+    console.error(
+      "[get-zoho-emails] Mail API JSON parse hatası. HTTP",
+      res.status,
+      "URL:",
+      url,
+      "raw:",
+      text.slice(0, 2000)
+    );
+    throw new Error("Beklenmeyen yanıt (JSON değil): " + text.slice(0, 300));
   }
   if (!res.ok) {
+    const detail =
+      (json && (json.message || json.error || json.data)) ||
+      text ||
+      "";
+    console.error(
+      "[get-zoho-emails] Mail API hata. HTTP",
+      res.status,
+      "URL:",
+      url,
+      "Authorization şeması:",
+      String(env.ZOHO_MAIL_AUTH_SCHEME || "zoho"),
+      "body:",
+      typeof detail === "string" ? detail : JSON.stringify(detail).slice(0, 2000)
+    );
     throw new Error(
-      (json && (json.message || json.error)) || "İstek başarısız " + res.status
+      (typeof detail === "string" ? detail : JSON.stringify(detail)) ||
+        "İstek başarısız " + res.status
     );
   }
   return json;
@@ -120,9 +176,9 @@ export default async function handler(req, res) {
     if (!accountId) {
       var accPayload;
       try {
-        accPayload = await zohoGetJson(v1Base + "/accounts", accessToken);
+        accPayload = await zohoGetJson(v1Base + "/accounts", accessToken, env);
       } catch (_acc) {
-        accPayload = await zohoGetJson(legacyBase + "/accounts", accessToken);
+        accPayload = await zohoGetJson(legacyBase + "/accounts", accessToken, env);
       }
       const accounts = firstApiData(accPayload) || [];
       const first = accounts[0];
@@ -162,7 +218,7 @@ export default async function handler(req, res) {
       let lastErr = "";
       for (let i = 0; i < tryUrls.length; i++) {
         try {
-          detail = await zohoGetJson(tryUrls[i], accessToken);
+          detail = await zohoGetJson(tryUrls[i], accessToken, env);
           break;
         } catch (e) {
           lastErr = e && e.message ? String(e.message) : "err";
@@ -209,12 +265,14 @@ export default async function handler(req, res) {
       try {
         folderPayload = await zohoGetJson(
           v1Base + "/accounts/" + encodeURIComponent(accountId) + "/folders",
-          accessToken
+          accessToken,
+          env
         );
       } catch (_f) {
         folderPayload = await zohoGetJson(
           legacyBase + "/accounts/" + encodeURIComponent(accountId) + "/folders",
-          accessToken
+          accessToken,
+          env
         );
       }
       const folders = firstApiData(folderPayload) || [];
@@ -263,7 +321,7 @@ export default async function handler(req, res) {
     let listErr = "";
     for (let j = 0; j < listUrls.length; j++) {
       try {
-        listPayload = await zohoGetJson(listUrls[j], accessToken);
+        listPayload = await zohoGetJson(listUrls[j], accessToken, env);
         break;
       } catch (e2) {
         listErr = e2 && e2.message ? String(e2.message) : "list";
@@ -340,10 +398,13 @@ export default async function handler(req, res) {
       meta: { accountId: String(accountId), folderId: String(folderId), apiV1: v1Base },
     });
   } catch (e) {
-    console.error("[get-zoho-emails]", e);
+    const msg = e && e.message ? String(e.message) : "Zoho Mail isteği başarısız.";
+    console.error("[get-zoho-emails] handler exception:", e);
+    console.error("[get-zoho-emails] error.message:", msg);
+    if (e && e.stack) console.error("[get-zoho-emails] stack:", e.stack);
     return res.status(200).json({
       ok: false,
-      error: e && e.message ? String(e.message) : "Zoho Mail isteği başarısız.",
+      error: msg,
       emails: [],
     });
   }

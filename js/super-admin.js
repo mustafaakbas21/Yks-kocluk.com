@@ -351,6 +351,7 @@ function saBootstrapDashboardSubscriptions() {
 
 function saActivateDashboardSession(profile, passwordPlain) {
   saSessionGateDone = true;
+  saSessionGateTransientRetries = 0;
   var uname = (profile && profile.username) || "admin1";
   localStorage.setItem("currentUser", uname);
   try {
@@ -3008,6 +3009,10 @@ if (saStUsernameEl) saStUsernameEl.addEventListener("input", saBindStEmailPrevie
 
 var saSessionGateDone = false;
 var saGateRunning = false;
+var saSessionGateTransientRetries = 0;
+var SA_GATE_MAX_TRANSIENT_RETRIES = 3;
+/** true iken finally overlay kapatmaz (yeniden deneme bekleniyor) */
+var saGateRetryPending = false;
 
 function saIsMissingSessionError(err) {
   var code = String((err && (err.code || err.status || err.responseCode)) || "").trim();
@@ -3053,18 +3058,38 @@ async function runSuperAdminSessionGate() {
     saActivateDashboardSession(profile, null);
   } catch (err) {
     if (saIsMissingSessionError(err)) {
-      // Sadece gerçekten oturum yoksa login akışına düş.
+      saSessionGateTransientRetries = 0;
       saShowLoginGate();
     } else {
-      // Geçici ağ/Appwrite gecikmelerinde oturumu öldürme; kullanıcıyı sayfada tut.
-      console.error("[super-admin] Oturum doğrulama geçici hatası:", err);
+      console.error("[super-admin] Oturum doğrulama geçici hatası (login zorlanmıyor, yeniden deneniyor):", err);
+      if (saSessionGateTransientRetries < SA_GATE_MAX_TRANSIENT_RETRIES) {
+        saSessionGateTransientRetries += 1;
+        saShowGateError(
+          "Bağlantı veya sunucu gecikmesi. Tekrar deneniyor… (" +
+            saSessionGateTransientRetries +
+            "/" +
+            SA_GATE_MAX_TRANSIENT_RETRIES +
+            ")"
+        );
+        saSetLoading(true, "Yeniden deneniyor…");
+        saGateRetryPending = true;
+        setTimeout(function () {
+          saGateRetryPending = false;
+          saGateRunning = false;
+          runSuperAdminSessionGate();
+        }, 2800);
+        return;
+      }
+      saSessionGateTransientRetries = 0;
       saHideLoadingOverlay();
+      saShowGateError("Oturum doğrulanamadı. Sayfayı yenileyin veya ağınızı kontrol edin.");
       saShowLoginGate();
-      saShowGateError("Oturum doğrulanamadı. İnternetinizi kontrol edip tekrar deneyin.");
     }
   } finally {
-    saGateRunning = false;
-    saHideLoadingOverlay();
+    if (!saGateRetryPending) {
+      saGateRunning = false;
+      saHideLoadingOverlay();
+    }
   }
 }
 

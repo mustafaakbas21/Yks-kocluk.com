@@ -1959,6 +1959,11 @@ function tmGetQuestionsPerPage() {
   return 4;
 }
 
+/** Çift sütun: sayfa başı 4 veya 6 soru → sütun başına 2 veya 3 hücre (CSS ile aynı) */
+function tmGetSlotsPerColumn() {
+  return tmGetQuestionsPerPage() / 2;
+}
+
 function tmGetAllPapers() {
   var c = document.getElementById("a4-pages-container");
   if (c) {
@@ -2025,12 +2030,13 @@ function tmGetOrderedQuestionBlocks() {
         order.push(el);
       });
     });
+    var sing = paper.querySelector(".tm-a4-single");
+    if (sing) {
+      sing.querySelectorAll(".tm-a4-block.question-item").forEach(function (el) {
+        order.push(el);
+      });
+    }
   });
-  if (order.length === 0) {
-    document.querySelectorAll("#tmA4Single .tm-a4-block.question-item").forEach(function (el) {
-      order.push(el);
-    });
-  }
   return order;
 }
 
@@ -2518,8 +2524,9 @@ function tmAppendBlockToPaginatedColumns(block) {
 
   function columnOverflows(col) {
     if (!col) return true;
-    if (col.clientHeight <= 0) return false;
-    return col.scrollHeight > col.clientHeight + 2;
+    var maxSlots = tmGetSlotsPerColumn();
+    var n = col.querySelectorAll(".tm-a4-block.question-item").length;
+    return n > maxSlots;
   }
 
   function tryAppendToColumn(paper, col) {
@@ -2602,6 +2609,12 @@ function tmRedistributeAllQuestions() {
         blocks.push(b);
       });
     });
+    var sing = paper.querySelector(".tm-a4-single");
+    if (sing) {
+      sing.querySelectorAll(".tm-a4-block.question-item").forEach(function (b) {
+        blocks.push(b);
+      });
+    }
   });
   blocks.forEach(function (b) {
     b.remove();
@@ -16087,6 +16100,9 @@ function bootstrapKocPanelAfterAuth() {
 }
 
 var kocAuthResolved = false;
+/** Appwrite anlık null yayınında hemen login'e atlama (ms) */
+var KOC_AUTH_NULL_REDIRECT_MS = 4500;
+var kocAuthNullRedirectTimer = null;
 
 function loadKocPanelForUser(user) {
   if (!user || !user.uid) return;
@@ -16149,10 +16165,24 @@ function loadKocPanelForUser(user) {
 
 onAuthStateChanged(auth, function (user) {
   if (!user) {
+    if (kocAuthNullRedirectTimer) {
+      clearTimeout(kocAuthNullRedirectTimer);
+      kocAuthNullRedirectTimer = null;
+    }
     if (kocAuthResolved) {
-      window.location.replace("login.html");
+      kocAuthNullRedirectTimer = setTimeout(function () {
+        kocAuthNullRedirectTimer = null;
+        try {
+          if (auth && auth.currentUser) return;
+        } catch (_e) {}
+        window.location.replace("login.html");
+      }, KOC_AUTH_NULL_REDIRECT_MS);
     }
     return;
+  }
+  if (kocAuthNullRedirectTimer) {
+    clearTimeout(kocAuthNullRedirectTimer);
+    kocAuthNullRedirectTimer = null;
   }
   kocAuthResolved = true;
   loadKocPanelForUser(user);
@@ -16160,7 +16190,7 @@ onAuthStateChanged(auth, function (user) {
 
 setTimeout(function () {
   if (kocAuthResolved) return;
-  verifyAppwriteAccount(5000)
+  verifyAppwriteAccount(15000)
     .then(function (vr) {
       if (kocAuthResolved) return;
       if (vr.ok && vr.user) {
@@ -16172,16 +16202,29 @@ setTimeout(function () {
             return Promise.resolve("appwrite-session");
           },
         });
-      } else {
-        window.location.replace("login.html");
+        return;
       }
+      var errMsg = vr.error && vr.error.message ? String(vr.error.message) : "";
+      if (/zaman aşımı|timeout|timed out|failed to fetch|network/i.test(errMsg)) {
+        console.warn(
+          "[koc-panel] verifyAppwriteAccount yedek yolu: zaman aşımı/ağ — login'e zorlanmıyor.",
+          errMsg
+        );
+        return;
+      }
+      window.location.replace("login.html");
     })
     .catch(function (err) {
       console.error("[koc-panel] verifyAppwriteAccount (yedek oturum)", err);
+      var em = err && err.message ? String(err.message) : "";
+      if (/zaman aşımı|timeout|timed out|failed to fetch|network/i.test(em)) {
+        console.warn("[koc-panel] yedek oturum catch: geçici hata — login yok.");
+        return;
+      }
       try {
         if (typeof showToast === "function") showToast("Bir sorun oluştu.");
         else alert("Bir sorun oluştu.");
       } catch (e2) {}
       if (!kocAuthResolved) window.location.replace("login.html");
     });
-}, 0);
+}, 1800);
