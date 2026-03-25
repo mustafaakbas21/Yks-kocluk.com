@@ -47,6 +47,11 @@ import {
 } from "./appwrite-config.js";
 import { Query, Account } from "./appwrite-browser.js";
 import { parseFlexibleDate, formatDateTimeTr } from "./date-format.js";
+import {
+  configureZohoInboxPreset,
+  loadEmails,
+  wireZohoInbox,
+} from "./zoho-mail-inbox.js";
 
 const EMAIL_DOMAIN = "@sistem.com";
 var saAccountApi = null;
@@ -1130,6 +1135,7 @@ function saCanonicalRoute() {
     "arac-yks",
     "destek",
     "admin-yonetimi",
+    "gelen-kutusu",
     "sistem",
   ];
   if (pages.indexOf(k) >= 0) return k;
@@ -1464,6 +1470,11 @@ function saApplyRoute() {
   }
   if (route === "sistem") {
     loadSaSystemStatusOnce();
+  }
+  if (route === "gelen-kutusu") {
+    configureZohoInboxPreset("sa");
+    wireZohoInbox();
+    loadEmails();
   }
 }
 
@@ -3512,7 +3523,11 @@ setInterval(measureSystemSpeeds, 30000);
 
 window.addEventListener("hashchange", saApplyRoute);
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", saApplyRoute);
+  document.addEventListener("DOMContentLoaded", function () {
+    wireZohoInbox();
+    saApplyRoute();
+  });
 } else {
+  wireZohoInbox();
   saApplyRoute();
 }

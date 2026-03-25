@@ -71,6 +71,11 @@ import {
   normalizeSoruPoolDocForAi,
 } from "./soru-havuzu-core.js";
 import { parseFlexibleDate, formatDateTimeTr } from "./date-format.js";
+import {
+  configureZohoInboxPreset,
+  loadEmails,
+  wireZohoInbox,
+} from "./zoho-mail-inbox.js";
 
 import { client, storage } from "./appwrite-config.js";
 
@@ -14374,6 +14379,14 @@ function navigateTo(view) {
     rvAcc.classList.toggle("sidebar__link--active", inRv);
     rvAcc.setAttribute("aria-expanded", inRv ? "true" : "false");
   }
+  var gelenLi = document.querySelector(".sidebar__item--gelen");
+  var gelenAcc = document.getElementById("sidebarGelenToggle");
+  if (gelenLi && gelenAcc) {
+    var inGelen = view === "gelen-sorular" || view === "gelen-kutusu";
+    gelenLi.classList.toggle("sidebar__item--gelen-open", inGelen);
+    gelenAcc.classList.toggle("sidebar__link--active", inGelen);
+    gelenAcc.setAttribute("aria-expanded", inGelen ? "true" : "false");
+  }
   var tmLiNav = document.querySelector(".sidebar__item--testmaker");
   var tmAccNav = document.getElementById("sidebarTmToggle");
   if (tmLiNav && tmAccNav) {
@@ -14493,6 +14506,11 @@ function navigateTo(view) {
     bindDpInboxDelegationOnce();
     renderDpGelenSorular();
   }
+  if (view === "gelen-kutusu") {
+    configureZohoInboxPreset("koc");
+    wireZohoInbox();
+    loadEmails();
+  }
   window.dispatchEvent(new CustomEvent("yks:navigate", { detail: { view: view } }));
   } catch (err) {
     console.error("[YKSPanel] navigateTo:", err);
@@ -14563,7 +14581,8 @@ function closeSidebarAccordionsExcept(exceptLi) {
     [".sidebar__item--testmaker", "sidebar__item--tm-open", "sidebarTmToggle"],
     [".sidebar__item--deneme", "sidebar__item--da-open", "sidebarDaToggle"],
     [".sidebar__item--ogrenci", "sidebar__item--ogr-open", "sidebarOgrToggle"],
-    [".sidebar__item--randevu", "sidebar__item--rv-open", "sidebarRvToggle"]
+    [".sidebar__item--randevu", "sidebar__item--rv-open", "sidebarRvToggle"],
+    [".sidebar__item--gelen", "sidebar__item--gelen-open", "sidebarGelenToggle"]
   ];
   pairs.forEach(function (row) {
     var li = document.querySelector(row[0]);
@@ -14617,7 +14636,8 @@ function initNavigation() {
       { liSel: ".sidebar__item--testmaker", openClass: "sidebar__item--tm-open", btnId: "sidebarTmToggle" },
       { liSel: ".sidebar__item--deneme", openClass: "sidebar__item--da-open", btnId: "sidebarDaToggle" },
       { liSel: ".sidebar__item--ogrenci", openClass: "sidebar__item--ogr-open", btnId: "sidebarOgrToggle" },
-      { liSel: ".sidebar__item--randevu", openClass: "sidebar__item--rv-open", btnId: "sidebarRvToggle" }
+      { liSel: ".sidebar__item--randevu", openClass: "sidebar__item--rv-open", btnId: "sidebarRvToggle" },
+      { liSel: ".sidebar__item--gelen", openClass: "sidebar__item--gelen-open", btnId: "sidebarGelenToggle" }
     ];
     items.forEach(function (cfg) {
       var li = document.querySelector(cfg.liSel);

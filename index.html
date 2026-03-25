@@ -11,346 +11,410 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@23.0.0/dist/iife/sdk.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="DerecePanel — YKS 2026 için akıllı koçluk, ders planı ve deneme analizi platformu." />
+  <meta name="description" content="DerecePanel — YKS için kurumsal koçluk, deneme analizi, optik ve TestMaker. Tek panelde veri, disiplin ve operasyon." />
+  <meta name="theme-color" content="#2d1f3d" />
   <title>DerecePanel — YKS Koçluk Platformu</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="css/landing_stil.css" />
   <link rel="stylesheet" href="css/site-credit.css" />
   <link rel="stylesheet" href="css/sorun-bildir.css" />
 </head>
-<body>
-  <header class="landing-header" id="landingHeader">
-    <nav class="landing-nav" aria-label="Ana menü">
-      <a href="#" class="landing-logo">
-        <span class="landing-logo__mark" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></span>
-        DerecePanel
-      </a>
+<body class="sd-body">
+  <a class="sd-skip" href="#icerik">İçeriğe geç</a>
 
-      <div class="landing-nav__links">
-        <a href="#neden">Neden biz?</a>
-        <a href="#sistemimiz">Sistemimiz</a>
+  <header class="sd-header" id="sdHeader">
+    <nav class="sd-nav" aria-label="Ana menü">
+      <a href="/" class="sd-brand">derecepanel</a>
+      <div class="sd-nav__links">
         <a href="#ozellikler">Özellikler</a>
+        <a href="#showcase">Modüller</a>
         <a href="#guven">Güven</a>
+        <a href="#sss">SSS</a>
         <a href="#paketler">Paketler</a>
       </div>
-
-      <div class="landing-nav__cta">
-        <a href="login.html" class="btn btn--primary">Giriş Yap / Kayıt Ol</a>
-        <button type="button" class="landing-nav__toggle" id="navToggle" aria-expanded="false" aria-controls="navDrawer" aria-label="Menüyü aç">
-          <i class="fa-solid fa-bars" id="navToggleIcon"></i>
+      <div class="sd-nav__end">
+        <a href="/login" class="sd-nav__cta" aria-label="Panele giriş">
+          <span class="sd-nav__cta-icon" aria-hidden="true"><i class="fa-solid fa-heart"></i></span>
+          <span>Giriş</span>
+        </a>
+        <button type="button" class="sd-nav__toggle" id="sdNavToggle" aria-expanded="false" aria-controls="sdNavDrawer" aria-label="Menü">
+          <i class="fa-solid fa-bars" id="sdNavToggleIcon"></i>
         </button>
       </div>
     </nav>
-
-    <div class="landing-nav__drawer" id="navDrawer" hidden>
-      <a href="#neden">Neden biz?</a>
-      <a href="#sistemimiz">Sistemimiz</a>
+    <div class="sd-nav__drawer" id="sdNavDrawer" hidden>
       <a href="#ozellikler">Özellikler</a>
+      <a href="#showcase">Modüller</a>
       <a href="#guven">Güven</a>
+      <a href="#sss">SSS</a>
       <a href="#paketler">Paketler</a>
-      <a href="login.html" class="btn btn--primary btn--block" style="margin-top: 0.5rem">Giriş Yap / Kayıt Ol</a>
+      <a href="/login" class="sd-btn sd-btn--dark sd-btn--block">Panele git</a>
     </div>
   </header>
 
-  <main>
-    <section class="hero" aria-labelledby="heroTitle">
-      <div class="hero__bg" aria-hidden="true"></div>
-      <div class="hero__mesh" aria-hidden="true"></div>
-      <div class="hero__inner">
-        <div class="hero__content js-reveal">
-          <p class="hero__eyebrow"><i class="fa-solid fa-sparkles" aria-hidden="true"></i> Kurumsal YKS koçluk altyapısı</p>
-          <h1 id="heroTitle" class="hero__title">
-            YKS 2026&apos;da <span class="hero__script">dereceye</span> giden<br />
-            <span class="hero__gradient">en net rota</span>
-          </h1>
-          <p class="hero__lead">
-            Koçluk, planlama ve analiz <strong>tek güvenli panelde</strong>. Hedef netliği, deneme takibi ve kurum operasyonu
-            aynı mimaride — <strong>DerecePanel</strong> ile öğrenciden kurucuya kesintisiz izlenebilirlik.
+  <main id="icerik">
+    <section class="sd-hero" aria-labelledby="sdHeroTitle">
+      <div class="sd-hero__inner">
+        <h1 id="sdHeroTitle" class="sd-hero__title">
+          <span class="sd-hero__wave" aria-hidden="true">👋</span> Merhaba! <span class="sd-hero__brand">DerecePanel</span> ile YKS sürecinizi tek çatıda yönetin.
+        </h1>
+        <p class="sd-hero__lead">
+          Kurumsal koçluk, deneme analizi, optik okuma ve raporlama — <strong>parçalı araçlar değil</strong>, koç ve öğrenci için tasarlanmış tek platform.
+        </p>
+
+        <div class="sd-hero__desk" aria-hidden="true">
+          <div class="sd-desk sd-desk--mug">
+            <div class="sd-desk__steam"></div>
+          </div>
+          <div class="sd-desk sd-desk--books"></div>
+          <div class="sd-desk sd-desk--ruler"></div>
+          <div class="sd-desk sd-desk--sphere"></div>
+          <div class="sd-desk sd-desk--glass"></div>
+          <div class="sd-desk sd-desk--duck"></div>
+          <div class="sd-desk sd-desk--laptop">
+            <div class="sd-desk__screen"></div>
+          </div>
+        </div>
+
+        <div class="sd-hero__cta">
+          <a href="/login" class="sd-btn sd-btn--dark sd-btn--lg">Panele giriş</a>
+          <a href="#ozellikler" class="sd-btn sd-btn--ghost sd-btn--lg">Özellikleri keşfet</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="sd-features" id="ozellikler" aria-labelledby="sdOzTitle">
+      <div class="sd-features__inner">
+        <header class="sd-features__head sd-reveal">
+          <p class="sd-features__eyebrow">Platform özellikleri</p>
+          <h2 id="sdOzTitle" class="sd-features__title">Koçluk operasyonunun ihtiyaç duyduğu katmanlar</h2>
+          <p class="sd-features__lead">
+            Planlamadan rapora tek veri modeli: öğrenci, koç ve kurum aynı panelde buluşur. Aşağıdaki başlıklar çekirdek yetenekleri özetler;
+            detaylı anlatımlar için <a href="#showcase">modül bölümüne</a> geçebilirsiniz.
           </p>
-          <ul class="hero__stats" aria-label="Öne çıkan metrikler">
-            <li><strong>3</strong><span>rol · tek oturum</span></li>
-            <li><strong>7/24</strong><span>bulut erişim</span></li>
-            <li><strong>Yıllık</strong><span>öngörülebilir lisans</span></li>
+        </header>
+        <div class="sd-features__grid">
+          <article class="sd-fcard sd-reveal">
+            <span class="sd-fcard__icon" aria-hidden="true"><i class="fa-solid fa-calendar-week"></i></span>
+            <h3 class="sd-fcard__h">Haftalık ders planı</h3>
+            <p class="sd-fcard__p">Sürükle-bırak veya liste ile haftalık program; görevlerle bağlantılı çalışma yükü.</p>
+          </article>
+          <article class="sd-fcard sd-reveal">
+            <span class="sd-fcard__icon" aria-hidden="true"><i class="fa-solid fa-stopwatch"></i></span>
+            <h3 class="sd-fcard__h">Pomodoro &amp; odak</h3>
+            <p class="sd-fcard__p">Öğrenci panelinde zaman blokları, mola hatırlatıcıları ve günlük ritim takibi.</p>
+          </article>
+          <article class="sd-fcard sd-reveal">
+            <span class="sd-fcard__icon" aria-hidden="true"><i class="fa-solid fa-bullseye"></i></span>
+            <h3 class="sd-fcard__h">Hedef &amp; geri sayım</h3>
+            <p class="sd-fcard__p">TYT/AYT hedef bantları, sınav tarihine geri sayım ve eksik konu önceliklendirme.</p>
+          </article>
+          <article class="sd-fcard sd-reveal">
+            <span class="sd-fcard__icon" aria-hidden="true"><i class="fa-solid fa-book-open"></i></span>
+            <h3 class="sd-fcard__h">Soru havuzu &amp; atama</h3>
+            <p class="sd-fcard__p">Branş ve zorluk filtreli arşiv; koçun öğrenciye soru seti ataması ve takip.</p>
+          </article>
+          <article class="sd-fcard sd-reveal">
+            <span class="sd-fcard__icon" aria-hidden="true"><i class="fa-solid fa-file-pdf"></i></span>
+            <h3 class="sd-fcard__h">TestMaker &amp; PDF</h3>
+            <p class="sd-fcard__p">Seçilen sorulardan test üretimi, şablonlar ve sınıfa hazır PDF çıktısı.</p>
+          </article>
+          <article class="sd-fcard sd-reveal">
+            <span class="sd-fcard__icon" aria-hidden="true"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+            <h3 class="sd-fcard__h">Yapay zekâ asistanı</h3>
+            <p class="sd-fcard__p">Koç panelinde içerik ve test üretimini hızlandıran akıllı araçlar (pakete göre).</p>
+          </article>
+          <article class="sd-fcard sd-reveal">
+            <span class="sd-fcard__icon" aria-hidden="true"><i class="fa-solid fa-users-gear"></i></span>
+            <h3 class="sd-fcard__h">Çoklu rol</h3>
+            <p class="sd-fcard__p">Koç, öğrenci ve kurucu görünümleri; tek oturum altyapısında rol bazlı menü ve yetki.</p>
+          </article>
+          <article class="sd-fcard sd-reveal">
+            <span class="sd-fcard__icon" aria-hidden="true"><i class="fa-solid fa-receipt"></i></span>
+            <h3 class="sd-fcard__h">Operasyon özeti</h3>
+            <p class="sd-fcard__p">Randevu, görev ve tahsilat akışına dair özet ekranlar; kurum içi koordinasyon.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="sd-showcase" id="showcase" aria-label="Öne çıkan modüller">
+      <article class="sd-spotlight sd-reveal">
+        <div class="sd-spotlight__art sd-spotlight__art--peach">
+          <div class="sd-illust sd-illust--optik" role="img" aria-label="Optik form illüstrasyonu">
+            <div class="sd-illust__sheet"></div>
+            <div class="sd-illust__bubbles">
+              <span>A</span><span>B</span><span>C</span><span>D</span><span>E</span>
+            </div>
+            <div class="sd-illust__scan"></div>
+          </div>
+        </div>
+        <div class="sd-spotlight__text">
+          <p class="sd-label">Optik okuyucu</p>
+          <h2 class="sd-spotlight__title">Yüksek çözünürlüklü tarama, OCR ve toplu içe aktarım</h2>
+          <p class="sd-spotlight__desc">
+            Tarayıcı veya yazıcı çıktıları için görüntü ön işleme; Tesseract tabanlı okuma, ayrıca DAT/CSV ile veriyi hesaplama motoruna aktarın. Net kurallarınızı (ÖSYM, 3 yanlış 1 doğru vb.) seçerek sonuçları standartlaştırın.
+          </p>
+          <ul class="sd-spotlight__points">
+            <li>Gri tonlama, eşikleme ve hizalama ile optik form görüntüsünü okumaya hazır hale getirme</li>
+            <li>Elle düzeltme ve toplu içe aktarma ile aynı hesaplama motoruna bağlama</li>
+            <li>Deneme tanımındaki cevap anahtarı ile otomatik karşılaştırma ve net üretimi</li>
           </ul>
-          <div class="hero__trust" role="presentation">
-            <span class="hero__trust-pill"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Rol bazlı yetki</span>
-            <span class="hero__trust-pill"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Canlı analitik</span>
-            <span class="hero__trust-pill"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> PDF &amp; TestMaker</span>
-          </div>
-          <div class="hero__actions">
-            <a href="login.html" class="btn btn--primary btn--lg"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i> Panele giriş</a>
-            <a href="#neden" class="btn btn--outline btn--lg">Neden DerecePanel?</a>
-          </div>
+          <p class="sd-byline">
+            <span class="sd-avatar" aria-hidden="true"></span>
+            <span>DerecePanel · Optik &amp; veri girişi</span>
+          </p>
         </div>
-        <div class="hero__visual js-reveal js-reveal-delay-1">
-          <div class="hero-mockup-wrap">
-            <div class="hero-mockup__chrome" aria-hidden="true">
-              <span></span><span></span><span></span>
+      </article>
+
+      <article class="sd-spotlight sd-spotlight--flip sd-reveal">
+        <div class="sd-spotlight__art sd-spotlight__art--forest">
+          <div class="sd-illust sd-illust--deneme" role="img" aria-label="Deneme ve cevap anahtarı illüstrasyonu">
+            <div class="sd-illust__clipboard"></div>
+            <div class="sd-illust__key">
+              <span></span><span></span><span></span><span></span>
             </div>
-            <img
-              class="hero-mockup"
-              src="assets/hero-koc-panel.png"
-              alt=""
-              width="640"
-              height="420"
-              loading="eager"
-            />
+            <div class="sd-illust__stamp"></div>
           </div>
-          <p class="hero-mockup-caption">Koç paneli önizlemesi — veriler yalnızca bulanıklaştırılmıştır.</p>
         </div>
-      </div>
+        <div class="sd-spotlight__text">
+          <p class="sd-label">Denemeler</p>
+          <h2 class="sd-spotlight__title">TYT/AYT yapısında sınav tanımı ve entegre cevap anahtarı</h2>
+          <p class="sd-spotlight__desc">
+            Deneme adı, kod, tarih ve ders/konu hiyerarşisi; soru sayıları ÖSYM düzenine uygun. Cevap anahtarını form üzerinden A–E olarak girin; konular Appwrite’da yapılandırılmış kalır, karne analizinde kullanılır.
+          </p>
+          <ul class="sd-spotlight__points">
+            <li>TYT (120 soru) ve AYT alanlarına uygun şablonlar ve branş bazlı soru dağılımı</li>
+            <li>Konu ağacının veritabanında saklanması: karne ve konu bazlı D/Y/B raporlarına temel</li>
+            <li>Tek denemeye bağlı öğrenci kayıtları; kurum içi sıralama ve geçmiş karşılaştırma</li>
+          </ul>
+          <p class="sd-byline">
+            <span class="sd-avatar sd-avatar--g2" aria-hidden="true"></span>
+            <span>DerecePanel · Sınav yönetimi</span>
+          </p>
+        </div>
+      </article>
+
+      <article class="sd-spotlight sd-reveal">
+        <div class="sd-spotlight__art sd-spotlight__art--navy">
+          <div class="sd-illust sd-illust--karne" role="img" aria-label="Karne ve grafik illüstrasyonu">
+            <div class="sd-illust__card"></div>
+            <div class="sd-illust__bars">
+              <i></i><i></i><i></i><i></i><i></i>
+            </div>
+            <div class="sd-illust__line"></div>
+          </div>
+        </div>
+        <div class="sd-spotlight__text">
+          <p class="sd-label">Karne &amp; analiz</p>
+          <h2 class="sd-spotlight__title">Öğrenci karnesi, konu kırılımı ve önceki denemelere göre trend</h2>
+          <p class="sd-spotlight__desc">
+            Toplam net, ders bazlı netler ve detaylı doğru/yanlış/boş görünümü. Önceki denemelerle çizgi grafik ve kurum içi sıralama; bireysel ve toplu PDF çıktıları ile profesyonel raporlama.
+          </p>
+          <ul class="sd-spotlight__points">
+            <li>Öğrenci seçerek bireysel karne; toplu liste ve sıralama tablosu aynı deneme için</li>
+            <li>Ders ve mümkün olduğunda konu hiyerarşisine göre detaylı analiz görünümü</li>
+            <li>Trend grafiği ve PDF dışa aktarım ile veli ve kurum sunumlarına uygun çıktı</li>
+          </ul>
+          <p class="sd-byline">
+            <span class="sd-avatar sd-avatar--g3" aria-hidden="true"></span>
+            <span>DerecePanel · Raporlama</span>
+          </p>
+        </div>
+      </article>
+
+      <article class="sd-spotlight sd-spotlight--flip sd-reveal">
+        <div class="sd-spotlight__art sd-spotlight__art--plum-soft">
+          <div class="sd-illust sd-illust--pdf" role="img" aria-label="Test ve PDF illüstrasyonu">
+            <div class="sd-illust__paper"></div>
+            <div class="sd-illust__pdf-corner">PDF</div>
+            <div class="sd-illust__spark"></div>
+          </div>
+        </div>
+        <div class="sd-spotlight__text">
+          <p class="sd-label">TestMaker &amp; içerik</p>
+          <h2 class="sd-spotlight__title">Soru havuzundan test, şablon ve baskıya hazır PDF</h2>
+          <p class="sd-spotlight__desc">
+            Havuzdan seçim, haftalık plan ve Pomodoro ile öğrenci ritmi, görev ve randevu özeti — operasyonu tek panelde tutun.
+          </p>
+          <ul class="sd-spotlight__points">
+            <li>Soru havuzundan branş ve etiket filtreleriyle test oluşturma, şablon seçimi</li>
+            <li>PDF ve baskı düzenine uygun çıktı; arşiv ve kaynak atama ile öğrenci tarafında görünürlük</li>
+            <li>Görev, randevu ve tahsilat özetleriyle kurum günlük operasyonunun tek ekranda izlenmesi</li>
+          </ul>
+          <p class="sd-byline">
+            <span class="sd-avatar sd-avatar--g4" aria-hidden="true"></span>
+            <span>DerecePanel · İçerik üretimi</span>
+          </p>
+        </div>
+      </article>
+
+      <p class="sd-viewall sd-reveal">
+        <a href="#paketler">Tüm paketleri gör <span aria-hidden="true">→</span></a>
+      </p>
     </section>
 
-    <section class="section value-strip" id="neden" aria-labelledby="nedenTitle">
-      <div class="section__inner">
-        <header class="section__head js-reveal">
-          <p class="section__kicker">Neden DerecePanel?</p>
-          <h2 id="nedenTitle" class="section__title">Kurumunuza göre ölçeklenen profesyonel katman</h2>
-          <p class="section__desc">
-            Sadece “takip yazılımı” değil; <strong>koç–öğrenci–kurucu</strong> üçgeninde veri, iletişim ve operasyonu birleştiren tam kapsamlı vitrin.
-          </p>
-        </header>
-        <div class="value-grid">
-          <article class="value-card value-card--accent js-reveal">
-            <div class="value-card__icon" aria-hidden="true"><i class="fa-solid fa-layer-group"></i></div>
-            <h3 class="value-card__title">Tek platform, çok rol</h3>
-            <p class="value-card__text">Koç, öğrenci ve kurucu aynı güvenli oturum altyapısında; ek kurulum veya ayrı lisans karmaşası yok.</p>
-          </article>
-          <article class="value-card js-reveal js-reveal-delay-1">
-            <div class="value-card__icon" aria-hidden="true"><i class="fa-solid fa-gauge-high"></i></div>
-            <h3 class="value-card__title">Karar için veri</h3>
-            <p class="value-card__text">Deneme netleri, branş kırılımları ve trendler zaman içinde birikir; zayıf halkaları erken görürsünüz.</p>
-          </article>
-          <article class="value-card js-reveal js-reveal-delay-2">
-            <div class="value-card__icon" aria-hidden="true"><i class="fa-solid fa-building-columns"></i></div>
-            <h3 class="value-card__title">Kurumsal ölçek</h3>
-            <p class="value-card__text">Öğrenci kotası ve modüller paketlerle büyür; tek şubeden çok koçlu yapılara kadar aynı çekirdek mimari.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section class="section sistem" id="sistemimiz">
-      <div class="section__inner">
-        <header class="section__head section__head--wide js-reveal">
-          <p class="section__kicker">Sistemimiz</p>
-          <h2 class="section__title">Veriye dayalı, koç destekli hazırlık</h2>
-          <p class="section__desc">
-            DerecePanel, YKS ve LGS sürecinde <strong>öğrenci</strong> ile <strong>koç</strong> ve gerektiğinde
-            <strong>kurucu</strong> ekibini tek çatı altında toplar. Günlük çalışma ritmi, deneme sonuçları ve hedef
-            takibi aynı panelde birleşir; veli ve kurum içi iletişim için gereken izlenebilirlik hazırdır.
-          </p>
-          <p class="section__desc section__desc--tight">
-            Kurumunuz büyüdükçe <strong>öğrenci kotası</strong> ve <strong>koç sayısı</strong> paketlerle ölçeklenir;
-            küçük dershanelerden çok şubeli yapılara kadar aynı mimari üzerinden ilerlersiniz.
+    <section class="sd-band" id="guven" aria-labelledby="sdGuvenTitle">
+      <div class="sd-band__inner">
+        <header class="sd-band__head sd-reveal">
+          <p class="sd-band__eyebrow">Güven &amp; altyapı</p>
+          <h2 id="sdGuvenTitle" class="sd-band__title">Kurumsal kullanıma uygun, ölçeklenebilir mimari</h2>
+          <p class="sd-band__lead">
+            Verileriniz modern bulut bileşenleri üzerinde tutulur; kurum olarak sunucu kurmanız veya yama yönetmeniz gerekmez.
+            Erişim, kimlik doğrulama ve rol ayrımları panel tasarımının merkezindedir.
           </p>
         </header>
 
-        <div class="sistem__detail js-reveal">
-          <div class="sistem__detail-text">
-            <h3 class="sistem__detail-title">Nasıl çalışır?</h3>
-            <ul class="sistem__detail-list">
-              <li><strong>Koç paneli:</strong> öğrenci listesi, haftalık program, görev ve randevu takibi, deneme / optik analizi, muhasebe özetleri ve TestMaker ile içerik üretimi.</li>
-              <li><strong>Öğrenci paneli:</strong> atanmış plan, Pomodoro, kaynak ve deneme görünümü; koçun belirlediği hedefe göre şeffaf ilerleme.</li>
-              <li><strong>Kurucu görünümü:</strong> koç ve öğrenci hesap yönetimi, operasyonel özetler ve (isteğe bağlı) kurumsal paketlerle çoklu şube düzeni.</li>
-              <li><strong>Veri akışı:</strong> deneme netleri ve branş kırılımları zaman içinde birikir; eksik konular ve trendler hem koç hem öğrenci tarafında anlamlı hale gelir.</li>
-            </ul>
-          </div>
-          <aside class="sistem__detail-aside" aria-label="Öne çıkanlar">
-            <p class="sistem__aside-kicker">Öne çıkan</p>
-            <ul class="sistem__aside-bullets">
-              <li>Tek oturum mantığıyla rol bazlı erişim</li>
-              <li>Mobil uyumlu tarayıcıdan çalışma; ekstra kurulum yok</li>
-              <li>Bulut tabanlı kayıt; tarafınızdan sunucu işletmeciliği gerekmez</li>
-              <li>Yıllık lisans modeli ile öngörülebilir maliyet</li>
-            </ul>
-          </aside>
+        <div class="sd-trust-detail">
+          <article class="sd-tcard sd-reveal">
+            <div class="sd-tcard__top">
+              <span class="sd-tcard__icon" aria-hidden="true"><i class="fa-solid fa-user-shield"></i></span>
+              <h3 class="sd-tcard__h">Kimlik &amp; yetkilendirme</h3>
+            </div>
+            <p class="sd-tcard__p">
+              Oturumlar güvenli kimlik doğrulama ile açılır; koç, öğrenci ve kurucu için menü ve veri erişimi rol bazlıdır.
+              Bir kullanıcı yalnızca kendi yetki alanındaki kayıtları görür ve düzenler.
+            </p>
+          </article>
+          <article class="sd-tcard sd-reveal">
+            <div class="sd-tcard__top">
+              <span class="sd-tcard__icon" aria-hidden="true"><i class="fa-solid fa-database"></i></span>
+              <h3 class="sd-tcard__h">Veri katmanı</h3>
+            </div>
+            <p class="sd-tcard__p">
+              Deneme tanımları, sınav kayıtları ve konu hiyerarşisi yapılandırılmış koleksiyonlarda saklanır; yedekleme ve ölçek
+              bulut sağlayıcısı tarafından yönetilir. İstemci tarafında ekstra veritabanı işletmeciliği gerekmez.
+            </p>
+          </article>
+          <article class="sd-tcard sd-reveal">
+            <div class="sd-tcard__top">
+              <span class="sd-tcard__icon" aria-hidden="true"><i class="fa-solid fa-network-wired"></i></span>
+              <h3 class="sd-tcard__h">Şifreli iletişim</h3>
+            </div>
+            <p class="sd-tcard__p">
+              Panel HTTPS üzerinden sunulur; tarayıcı ile sunucu arasındaki trafik şifrelidir. Kurum ağı veya uzaktan erişimde
+              standart web güvenliği uygulamaları geçerlidir.
+            </p>
+          </article>
+          <article class="sd-tcard sd-reveal">
+            <div class="sd-tcard__top">
+              <span class="sd-tcard__icon" aria-hidden="true"><i class="fa-solid fa-arrows-rotate"></i></span>
+              <h3 class="sd-tcard__h">Güncellemeler</h3>
+            </div>
+            <p class="sd-tcard__p">
+              Özellik ve düzeltmeler merkezi dağıtım ile gelir; öğrenci ve koçların uygulama mağazasından kurulum yapmasına gerek kalmaz.
+              Tarayıcıyı yenilemek genellikle yeterlidir.
+            </p>
+          </article>
+          <article class="sd-tcard sd-reveal">
+            <div class="sd-tcard__top">
+              <span class="sd-tcard__icon" aria-hidden="true"><i class="fa-solid fa-tablet-screen-button"></i></span>
+              <h3 class="sd-tcard__h">Cihazdan bağımsız erişim</h3>
+            </div>
+            <p class="sd-tcard__p">
+              Arayüz masaüstü ve tablet odaklı responsive tasarıma sahiptir; dershane bilgisayarı veya kişisel cihazdan panele
+              bağlanılabilir. Ek lisans anahtarı veya kurumsal VPN zorunluluğu yoktur.
+            </p>
+          </article>
+          <article class="sd-tcard sd-reveal">
+            <div class="sd-tcard__top">
+              <span class="sd-tcard__icon" aria-hidden="true"><i class="fa-solid fa-life-ring"></i></span>
+              <h3 class="sd-tcard__h">Destek &amp; süreklilik</h3>
+            </div>
+            <p class="sd-tcard__p">
+              Paketinize göre e-posta veya öncelikli kanallardan destek; VIP paketlerde SLA ve adanmış iletişim seçenekleri.
+              Kesintisiz hizmet hedefi, altyapı sağlayıcısının uptime politikaları ile uyumludur.
+            </p>
+          </article>
         </div>
 
-        <div class="sistem__grid sistem__grid--six">
-          <article class="sistem__card js-reveal">
-            <strong>%100</strong>
-            <span>Web tabanlı; kurulum ve lisans anahtarı derdi yok</span>
-          </article>
-          <article class="sistem__card js-reveal js-reveal-delay-1">
-            <strong>7/24</strong>
-            <span>Soru havuzu ve dijital materyallere kesintisiz erişim</span>
-          </article>
-          <article class="sistem__card js-reveal js-reveal-delay-2">
-            <strong>1 Panel</strong>
-            <span>Koç, öğrenci ve kurucu rolleri aynı güvenli oturum altyapısında</span>
-          </article>
-          <article class="sistem__card js-reveal">
-            <strong>Analitik</strong>
-            <span>TYT / AYT net trendi, deneme geçmişi ve hedefe uzaklık takibi</span>
-          </article>
-          <article class="sistem__card js-reveal js-reveal-delay-1">
-            <strong>Operasyon</strong>
-            <span>Görev, randevu ve tahsilat akışı; kurum içi koordinasyon tek ekranda</span>
-          </article>
-          <article class="sistem__card js-reveal js-reveal-delay-2">
-            <strong>Ölçek</strong>
-            <span>Tek şubeden çok koçlu yapılara kadar paketlerle büyüyen kota</span>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section class="section features" id="ozellikler">
-      <div class="section__inner">
-        <header class="section__head js-reveal">
-          <p class="section__kicker">Özellikler</p>
-          <h2 class="section__title">Modüller — tek çatı altında</h2>
-          <p class="section__desc">
-            Günlük disiplinden yapay zekâ destekli içerik üretimine kadar; ihtiyaç duyduğunuz katmanlar modern, sade arayüzle bir arada.
-          </p>
-        </header>
-        <div class="card-grid card-grid--dense">
-          <article class="feature-card js-reveal">
-            <div class="feature-card__icon" aria-hidden="true"><i class="fa-solid fa-calendar-days"></i></div>
-            <h3>İnteraktif ders programı</h3>
-            <p>Haftalık planı düzenleyin; hedeflere göre çalışma yükünü dengeleyin.</p>
-          </article>
-          <article class="feature-card js-reveal js-reveal-delay-1">
-            <div class="feature-card__icon" aria-hidden="true"><i class="fa-solid fa-hourglass-half"></i></div>
-            <h3>Pomodoro odak merkezi</h3>
-            <p>Öğrenci panelinde zaman blokları ve mola hatırlatıcılarıyla ritim.</p>
-          </article>
-          <article class="feature-card js-reveal js-reveal-delay-2">
-            <div class="feature-card__icon" aria-hidden="true"><i class="fa-solid fa-bullseye"></i></div>
-            <h3>Hedef &amp; sayaç</h3>
-            <p>TYT/AYT geri sayım ve hedef bandı; eksik konulara öncelik verin.</p>
-          </article>
-          <article class="feature-card js-reveal js-reveal-delay-3">
-            <div class="feature-card__icon" aria-hidden="true"><i class="fa-solid fa-database"></i></div>
-            <h3>Soru havuzu &amp; filtre</h3>
-            <p>Branş bazlı içerik; koçun atadığı setlere hızlı erişim.</p>
-          </article>
-          <article class="feature-card js-reveal">
-            <div class="feature-card__icon" aria-hidden="true"><i class="fa-solid fa-file-pdf"></i></div>
-            <h3>TestMaker &amp; PDF</h3>
-            <p>Seçilen sorulardan test üretimi, şablon ve PDF çıktısı.</p>
-          </article>
-          <article class="feature-card js-reveal js-reveal-delay-1">
-            <div class="feature-card__icon" aria-hidden="true"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
-            <h3>Yapay zekâ asistanı</h3>
-            <p>İçerik ve test üretiminde hızlandırıcı araçlar (koç paneli).</p>
-          </article>
-          <article class="feature-card js-reveal js-reveal-delay-2">
-            <div class="feature-card__icon" aria-hidden="true"><i class="fa-solid fa-chart-pie"></i></div>
-            <h3>Deneme &amp; net analizi</h3>
-            <p>Sınav kayıtları, trendler ve görsel özetler; zayıf alanları görün.</p>
-          </article>
-          <article class="feature-card js-reveal js-reveal-delay-3">
-            <div class="feature-card__icon" aria-hidden="true"><i class="fa-solid fa-wallet"></i></div>
-            <h3>Operasyon &amp; muhasebe özeti</h3>
-            <p>Randevu, görev ve tahsilat akışına dair özet görünümler.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section class="section trust-band" id="guven" aria-labelledby="guvenTitle">
-      <div class="section__inner">
-        <header class="section__head section__head--wide js-reveal">
-          <p class="section__kicker">Güven &amp; altyapı</p>
-          <h2 id="guvenTitle" class="section__title">Kurumsal standartlarda çalışan mimari</h2>
-          <p class="section__desc">
-            Oturum yönetimi ve veri katmanı modern bulut bileşenleriyle kurgulanır; kurumunuz ekstra sunucu işletmek zorunda kalmaz.
-          </p>
-        </header>
-        <ul class="trust-band__grid">
-          <li class="trust-band__item js-reveal">
-            <i class="fa-solid fa-lock" aria-hidden="true"></i>
-            <div>
-              <strong>Şifreli oturum</strong>
-              <span>Rol bazlı erişim; güvenli kimlik doğrulama.</span>
-            </div>
-          </li>
-          <li class="trust-band__item js-reveal js-reveal-delay-1">
-            <i class="fa-solid fa-cloud" aria-hidden="true"></i>
-            <div>
-              <strong>Bulut ölçek</strong>
-              <span>Yedekli altyapı; tarayıcıdan erişim, kurulum yok.</span>
-            </div>
-          </li>
-          <li class="trust-band__item js-reveal js-reveal-delay-2">
-            <i class="fa-solid fa-mobile-screen" aria-hidden="true"></i>
-            <div>
-              <strong>Mobil uyum</strong>
-              <span>Responsive arayüz; masaüstü ve tablet odaklı kullanım.</span>
-            </div>
-          </li>
-          <li class="trust-band__item js-reveal js-reveal-delay-3">
-            <i class="fa-solid fa-headset" aria-hidden="true"></i>
-            <div>
-              <strong>Destek hattı</strong>
-              <span>Pakete göre e-posta ve öncelikli yanıt süreleri.</span>
-            </div>
-          </li>
+        <ul class="sd-trust-strip sd-reveal" aria-label="Özet güven maddeleri">
+          <li><i class="fa-solid fa-check" aria-hidden="true"></i> Rol bazlı veri erişimi</li>
+          <li><i class="fa-solid fa-check" aria-hidden="true"></i> Bulutta barındırılan kayıtlar</li>
+          <li><i class="fa-solid fa-check" aria-hidden="true"></i> Kurulum gerektirmeyen dağıtım</li>
+          <li><i class="fa-solid fa-check" aria-hidden="true"></i> Şeffaf güncelleme modeli</li>
         </ul>
       </div>
     </section>
 
-    <section class="section pricing" id="paketler">
-      <div class="section__inner">
-        <header class="section__head js-reveal">
-          <p class="section__kicker">Paketler</p>
-          <h2 class="section__title">Size Uygun Paketi Seçin</h2>
-          <p class="section__desc">
-            Yıllık lisans modeli; kurum büyüklüğüne göre öğrenci kotası ve modüller ölçeklenir. Fiyatlar <strong>KDV hariç</strong> gösterilir.
-          </p>
+    <section class="sd-faq-wrap" id="sss" aria-labelledby="sdSssTitle">
+      <div class="sd-faq-inner">
+        <h2 id="sdSssTitle" class="sd-faq__page-title sd-reveal">Sık sorulanlar</h2>
+        <div class="sd-faq">
+          <details class="sd-faq__item sd-reveal">
+            <summary>Kurulum veya sunucu gerekir mi?</summary>
+            <p>Hayır. DerecePanel tarayıcıdan çalışır; altyapı bulut üzerinde yönetilir.</p>
+          </details>
+          <details class="sd-faq__item sd-reveal">
+            <summary>Kaç koç ve öğrenci desteklenir?</summary>
+            <p>Paketlere göre öğrenci kotası ve koç sayısı ölçeklenir; büyük kurumlar için VIP seçenekleri vardır.</p>
+          </details>
+          <details class="sd-faq__item sd-reveal">
+            <summary>Deneme verileri nasıl girilir?</summary>
+            <p>Elle giriş, optik görüntü işleme veya CSV/DAT benzeri toplu içe aktarım ile kayıt oluşturulabilir.</p>
+          </details>
+          <details class="sd-faq__item sd-reveal">
+            <summary>Fiyatlar KDV dahil mi?</summary>
+            <p>Paket kartlarında gösterilen tutarlar <strong>KDV hariç</strong> iletilir; teklifte netleştirilir.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="sd-pricing" id="paketler" aria-labelledby="sdPaketTitle">
+      <div class="sd-pricing__inner">
+        <header class="sd-pricing__head sd-reveal">
+          <h2 id="sdPaketTitle" class="sd-pricing__h">Paketler</h2>
+          <p class="sd-pricing__sub">Yıllık lisans; KDV hariç gösterilir.</p>
         </header>
-        <div class="pricing-grid">
-          <article class="price-card js-reveal">
-            <h3 class="price-card__name">Standart</h3>
-            <p class="price-card__tagline">Tek şube · küçük kurumlar</p>
-            <p class="price-card__price">₺10.000 <small>/ yıl</small></p>
-            <p class="price-card__hint">3 koça kadar · 120 öğrenciye kadar kotası</p>
-            <ul>
-              <li>Koç paneli + öğrenci paneli (temel)</li>
-              <li>İnteraktif ders programı ve Pomodoro</li>
-              <li>Deneme analizi (standart raporlar)</li>
-              <li>Soru havuzu (çekirdek içerik)</li>
-              <li>E-posta desteği (2 iş günü içinde yanıt)</li>
+        <div class="sd-price-grid">
+          <article class="sd-price sd-reveal">
+            <h3 class="sd-price__name">Standart</h3>
+            <p class="sd-price__tag">Tek şube · küçük kurumlar</p>
+            <p class="sd-price__amt">₺10.000 <small>/ yıl</small></p>
+            <p class="sd-price__hint">3 koça kadar · 120 öğrenciye kadar</p>
+            <ul class="sd-price__list">
+              <li>Koç + öğrenci paneli (temel)</li>
+              <li>Haftalık plan ve Pomodoro</li>
+              <li>Deneme analizi (standart)</li>
+              <li>Soru havuzu (çekirdek)</li>
+              <li>E-posta destek (2 iş günü)</li>
             </ul>
-            <button type="button" class="btn btn--outline btn--block" data-open-quote data-package="Standart">Teklif iste</button>
+            <button type="button" class="sd-btn sd-btn--outline sd-btn--block" data-open-quote data-package="Standart">Teklif iste</button>
           </article>
-
-          <article class="price-card price-card--featured js-reveal js-reveal-delay-1">
-            <span class="price-card__badge">En Çok Tercih Edilen</span>
-            <h3 class="price-card__name">Premium</h3>
-            <p class="price-card__tagline">Çoklu koç · orta ölçek</p>
-            <p class="price-card__price">₺28.900 <small>/ yıl</small></p>
-            <p class="price-card__hint">8 koça kadar · 450 öğrenciye kadar kotası</p>
-            <ul>
-              <li>Standart paketteki tüm modüller</li>
-              <li>Hedef simülatörü ve gelişmiş net analizi</li>
-              <li>TestMaker (PDF / kırpma / şablonlar)</li>
-              <li>Optik ve deneme analizi entegrasyonu</li>
-              <li>Öncelikli destek (aynı iş günü)</li>
-              <li>Yılda 2 kez uzaktan eğitim oturumu</li>
+          <article class="sd-price sd-price--hit sd-reveal">
+            <span class="sd-price__badge">En çok tercih edilen</span>
+            <h3 class="sd-price__name">Premium</h3>
+            <p class="sd-price__tag">Çoklu koç · orta ölçek</p>
+            <p class="sd-price__amt">₺28.900 <small>/ yıl</small></p>
+            <p class="sd-price__hint">8 koça kadar · 450 öğrenciye kadar</p>
+            <ul class="sd-price__list">
+              <li>Standart’taki tüm modüller</li>
+              <li>Gelişmiş net analizi</li>
+              <li>TestMaker (PDF / şablon)</li>
+              <li>Optik &amp; deneme entegrasyonu</li>
+              <li>Öncelikli destek (aynı gün)</li>
+              <li>Yılda 2 uzaktan eğitim</li>
             </ul>
-            <button type="button" class="btn btn--primary btn--block" data-open-quote data-package="Premium">Teklif iste</button>
+            <button type="button" class="sd-btn sd-btn--dark sd-btn--block" data-open-quote data-package="Premium">Teklif iste</button>
           </article>
-
-          <article class="price-card js-reveal js-reveal-delay-2">
-            <h3 class="price-card__name">VIP Derece</h3>
-            <p class="price-card__tagline">Zincir &amp; kurumsal</p>
-            <p class="price-card__price">₺59.900+ <small>/ yıl</small></p>
-            <p class="price-card__hint">Sınırsız koç · 2.000+ öğrenci kotası (özel anlaşma) ve SLA</p>
-            <ul>
-              <li>Premium’daki tüm özellikler</li>
-              <li>Çoklu şube ve kurum içi roller</li>
-              <li>Özel entegrasyon (CSV, API, web kancası — kapsama göre)</li>
+          <article class="sd-price sd-reveal">
+            <h3 class="sd-price__name">VIP Derece</h3>
+            <p class="sd-price__tag">Zincir &amp; kurumsal</p>
+            <p class="sd-price__amt">₺59.900+ <small>/ yıl</small></p>
+            <p class="sd-price__hint">Sınırsız koç · 2000+ öğrenci · SLA</p>
+            <ul class="sd-price__list">
+              <li>Premium’daki her şey</li>
+              <li>Çoklu şube ve roller</li>
+              <li>Özel entegrasyon (kapsama göre)</li>
               <li>Adanmış hesap yöneticisi</li>
-              <li>7/24 öncelikli destek ve SLA garantisi</li>
-              <li>Özel eğitim ve kurulum asistanlığı</li>
+              <li>7/24 öncelikli destek</li>
+              <li>Özel eğitim &amp; kurulum</li>
             </ul>
-            <button type="button" class="btn btn--outline btn--block" data-open-quote data-package="VIP Derece">Teklif iste</button>
+            <button type="button" class="sd-btn sd-btn--outline sd-btn--block" data-open-quote data-package="VIP Derece">Teklif iste</button>
           </article>
         </div>
       </div>
@@ -389,37 +453,35 @@
         </label>
         <p id="quoteFormMsg" class="quote-modal__msg" hidden role="status"></p>
         <div class="quote-modal__actions">
-          <button type="button" class="btn btn--outline" data-quote-close>İptal</button>
-          <button type="submit" class="btn btn--primary" id="quoteSubmit">Gönder</button>
+          <button type="button" class="sd-btn sd-btn--outline" data-quote-close>İptal</button>
+          <button type="submit" class="sd-btn sd-btn--dark" id="quoteSubmit">Gönder</button>
         </div>
       </form>
     </div>
   </div>
 
-  <footer class="landing-footer">
-    <div class="landing-footer__cta">
-      <div class="landing-footer__cta-inner">
-        <p class="landing-footer__cta-text"><strong>Hazır mısınız?</strong> Ekibinizle birlikte panele giriş yapın veya paket için teklif isteyin.</p>
-        <div class="landing-footer__cta-btns">
-          <a href="login.html" class="btn btn--primary">Giriş yap</a>
-          <a href="#paketler" class="btn btn--outline btn--on-dark">Paketleri gör</a>
-        </div>
-      </div>
-    </div>
-    <div class="landing-footer__inner">
-      <div>
-        <div class="landing-footer__brand"><span class="landing-footer__logo-mark" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></span> DerecePanel</div>
-        <p class="landing-footer__tagline">YKS koçluk ve kurum operasyonu için tek panel.</p>
-        <p class="landing-footer__copy">© <span id="footerYear"></span> DerecePanel. Tüm hakları saklıdır.</p>
-        <p class="landing-footer__contact">
-          <a href="mailto:info@derecepanel.com"><i class="fa-regular fa-envelope" aria-hidden="true"></i> info@derecepanel.com</a>
+  <footer class="sd-footer">
+    <div class="sd-footer__plum">
+      <div class="sd-footer__cols">
+        <nav class="sd-footer__nav" aria-label="Site">
+          <a href="#ozellikler">Özellikler</a>
+          <a href="#showcase">Modüller</a>
+          <a href="#guven">Güven</a>
+          <a href="#paketler">Paketler</a>
+          <a href="/login">Giriş</a>
+        </nav>
+        <p class="sd-footer__blurb">
+          YKS koçluk ve kurum operasyonu için <strong>DerecePanel</strong>. Sorularınız için
+          <a href="mailto:info@derecepanel.com">info@derecepanel.com</a>
         </p>
       </div>
-      <nav class="landing-footer__links" aria-label="Yasal">
-        <a href="#">Kullanım Koşulları</a>
-        <a href="#">Gizlilik Politikası</a>
-        <a href="#">KVKK Aydınlatma</a>
-      </nav>
+      <div class="sd-footer__legal">
+        <span>© <span id="footerYear"></span> DerecePanel</span>
+        <span class="sd-footer__sep">·</span>
+        <a href="#">Kullanım koşulları</a>
+        <a href="#">Gizlilik</a>
+        <a href="#">KVKK</a>
+      </div>
     </div>
     <p class="site-credit site-credit--index">
       Mustafa AKBAŞ - Furkan Şehmus KIYAR - Veysel Anıl KARAASLAN tarafından üretildi
@@ -428,17 +490,17 @@
 
   <script>
     (function () {
-      var header = document.getElementById("landingHeader");
-      var toggle = document.getElementById("navToggle");
-      var drawer = document.getElementById("navDrawer");
-      var toggleIcon = document.getElementById("navToggleIcon");
+      var header = document.getElementById("sdHeader");
+      var toggle = document.getElementById("sdNavToggle");
+      var drawer = document.getElementById("sdNavDrawer");
+      var toggleIcon = document.getElementById("sdNavToggleIcon");
       var yearEl = document.getElementById("footerYear");
 
       if (yearEl) yearEl.textContent = String(new Date().getFullYear());
 
       function setScrolled() {
         if (!header) return;
-        header.classList.toggle("is-scrolled", window.scrollY > 12);
+        header.classList.toggle("is-scrolled", window.scrollY > 8);
       }
       setScrolled();
       window.addEventListener("scroll", setScrolled, { passive: true });
@@ -448,9 +510,7 @@
         drawer.classList.remove("is-open");
         drawer.hidden = true;
         toggle.setAttribute("aria-expanded", "false");
-        if (toggleIcon) {
-          toggleIcon.className = "fa-solid fa-bars";
-        }
+        if (toggleIcon) toggleIcon.className = "fa-solid fa-bars";
       }
 
       function openDrawer() {
@@ -460,9 +520,7 @@
           drawer.classList.add("is-open");
         });
         toggle.setAttribute("aria-expanded", "true");
-        if (toggleIcon) {
-          toggleIcon.className = "fa-solid fa-xmark";
-        }
+        if (toggleIcon) toggleIcon.className = "fa-solid fa-xmark";
       }
 
       if (toggle && drawer) {
@@ -470,23 +528,16 @@
           if (drawer.classList.contains("is-open")) closeDrawer();
           else openDrawer();
         });
-        drawer.querySelectorAll('a[href^="#"]').forEach(function (a) {
-          a.addEventListener("click", function () {
-            closeDrawer();
-          });
-        });
-        drawer.querySelectorAll('a[href="login.html"]').forEach(function (a) {
-          a.addEventListener("click", function () {
-            closeDrawer();
-          });
+        drawer.querySelectorAll("a").forEach(function (a) {
+          a.addEventListener("click", closeDrawer);
         });
       }
 
       window.addEventListener("resize", function () {
-        if (window.innerWidth > 900 && drawer) closeDrawer();
+        if (window.innerWidth > 768 && drawer) closeDrawer();
       });
 
-      var revealEls = document.querySelectorAll(".js-reveal");
+      var revealEls = document.querySelectorAll(".sd-reveal");
       if ("IntersectionObserver" in window && revealEls.length) {
         var obs = new IntersectionObserver(
           function (entries) {
@@ -497,7 +548,7 @@
               }
             });
           },
-          { root: null, rootMargin: "0px 0px -8% 0px", threshold: 0.08 }
+          { root: null, rootMargin: "0px 0px -5% 0px", threshold: 0.05 }
         );
         revealEls.forEach(function (el) {
           obs.observe(el);

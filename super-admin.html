@@ -570,11 +570,287 @@
       opacity: 0.85;
       font-size: 0.88rem;
     }
+    .sa-nav-emoji {
+      font-size: 1rem;
+      line-height: 1;
+      width: 1.25rem;
+      text-align: center;
+      display: inline-block;
+    }
     .sa-nav-link.is-active {
       background: rgba(168, 85, 247, 0.12);
       border-color: rgba(168, 85, 247, 0.35);
       color: #e9d5ff;
     }
+
+    /* Zoho Gelen Kutusu — Bento + açık tema */
+    .sa-mail-wrap {
+      border-radius: 22px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      background: linear-gradient(165deg, #f8fafc 0%, #f1f5f9 45%, #e2e8f0 100%);
+      padding: 1.5rem 1.35rem 1.75rem;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    }
+    .sa-mail-wrap .section-title {
+      color: #0f172a;
+    }
+    .sa-mail-wrap .section-title i {
+      color: #6366f1;
+    }
+    .sa-inbox-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .sa-inbox-toolbar .btn-ghost {
+      border-color: rgba(15, 23, 42, 0.12);
+      color: #334155;
+      background: rgba(255, 255, 255, 0.7);
+    }
+    .sa-inbox-toolbar .btn-ghost:hover {
+      color: #0f172a;
+      border-color: rgba(99, 102, 241, 0.35);
+    }
+    .sa-inbox-hint {
+      font-size: 0.85rem;
+      color: #64748b;
+      margin: 0 0 1rem;
+      line-height: 1.55;
+      max-width: 72ch;
+    }
+    .sa-inbox-loader {
+      border-radius: 16px;
+      padding: 1.25rem 1.35rem;
+      background: rgba(255, 255, 255, 0.65);
+      border: 1px solid rgba(15, 23, 42, 0.06);
+      margin-bottom: 1rem;
+    }
+    .sa-inbox-loader > p {
+      margin: 0 0 1rem;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #4338ca;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .sa-inbox-loader > p::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #6366f1;
+      box-shadow: 0 0 14px rgba(99, 102, 241, 0.55);
+      animation: saInboxPulse 1s ease-in-out infinite;
+    }
+    @keyframes saInboxPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.55; transform: scale(0.92); }
+    }
+    #saInboxSkeleton .sa-mail-bento__grid {
+      margin: 0;
+    }
+    .sa-mail-bento__grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 0.85rem;
+    }
+    .sa-mail-bento__card {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      text-align: left;
+      gap: 0.45rem;
+      padding: 1rem 1.05rem 0.95rem;
+      border-radius: 16px;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      background: #ffffff;
+      color: #0f172a;
+      cursor: pointer;
+      font-family: inherit;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+      min-height: 108px;
+    }
+    .sa-mail-bento__card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.1);
+      border-color: rgba(99, 102, 241, 0.25);
+    }
+    .sa-mail-bento__card--unread {
+      border-color: rgba(99, 102, 241, 0.35);
+      background: linear-gradient(145deg, #ffffff 0%, #eef2ff 100%);
+    }
+    .sa-mail-bento__card--unread .sa-mail-bento__from,
+    .sa-mail-bento__card--unread .sa-mail-bento__subject {
+      font-weight: 800;
+    }
+    .sa-mail-bento__from {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #64748b;
+      width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .sa-mail-bento__subject {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #0f172a;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .sa-mail-bento__date {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-top: auto;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .sa-mail-bento__card--skeleton {
+      pointer-events: none;
+      min-height: 108px;
+      background: #f1f5f9;
+      border-style: dashed;
+    }
+    .sa-mail-sk {
+      display: block;
+      border-radius: 8px;
+      background: linear-gradient(90deg, #e2e8f0 0%, #f1f5f9 50%, #e2e8f0 100%);
+      background-size: 200% 100%;
+      animation: saShimmer 1.2s ease-in-out infinite;
+    }
+    .sa-mail-sk--from { height: 12px; width: 55%; }
+    .sa-mail-sk--subj { height: 36px; width: 100%; }
+    .sa-mail-sk--date { height: 10px; width: 40%; margin-top: 0.35rem; }
+    @keyframes saShimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .sa-mail-empty {
+      margin: 0;
+      padding: 2rem;
+      text-align: center;
+      color: #64748b;
+      font-size: 0.9rem;
+      background: rgba(255, 255, 255, 0.75);
+      border-radius: 16px;
+      border: 1px dashed rgba(15, 23, 42, 0.12);
+    }
+    .sa-mail-wrap .sa-sys-err {
+      color: #991b1b;
+      background: rgba(254, 226, 226, 0.95);
+      border-color: rgba(248, 113, 113, 0.45);
+    }
+    .sa-mail-modal[hidden] {
+      display: none !important;
+    }
+    .sa-mail-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 0;
+    }
+    .sa-mail-modal__backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(3, 3, 6, 0.65);
+      backdrop-filter: blur(6px);
+    }
+    .sa-mail-modal__panel {
+      position: relative;
+      width: min(520px, 100vw);
+      max-height: 100vh;
+      overflow: auto;
+      background: #ffffff;
+      color: #0f172a;
+      box-shadow: -12px 0 48px rgba(0, 0, 0, 0.25);
+      padding: 1.35rem 1.35rem 1.75rem;
+      border-left: 1px solid rgba(15, 23, 42, 0.08);
+      animation: saMailSlide 0.28s ease;
+    }
+    @keyframes saMailSlide {
+      from { transform: translateX(100%); opacity: 0.9; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .sa-mail-modal__head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.85rem;
+    }
+    .sa-mail-modal__head h3 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.35;
+      color: #0f172a;
+    }
+    .sa-mail-modal__close {
+      flex-shrink: 0;
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      border: 1px solid rgba(15, 23, 42, 0.1);
+      background: #f8fafc;
+      color: #475569;
+      font-size: 1.25rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .sa-mail-modal__close:hover {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+    .sa-mail-modal__meta {
+      font-size: 0.8rem;
+      color: #64748b;
+      margin: 0 0 1rem;
+      line-height: 1.45;
+    }
+    .sa-mail-modal__body {
+      font-size: 0.88rem;
+      line-height: 1.55;
+      color: #334155;
+    }
+    .sa-mail-modal__loading,
+    .sa-mail-modal__err {
+      margin: 0;
+      color: #64748b;
+    }
+    .sa-mail-modal__err { color: #b91c1c; }
+    .sa-mail-modal__pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 0;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 0.82rem;
+      background: #f8fafc;
+      padding: 1rem;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+    }
+    .sa-mail-modal__html {
+      overflow-x: auto;
+    }
+    .sa-mail-modal__html img {
+      max-width: 100%;
+      height: auto;
+    }
+
     .sa-view {
       display: none;
     }
@@ -1148,6 +1424,7 @@
     }
   </style>
   <link rel="stylesheet" href="css/site-credit.css" />
+  <link rel="stylesheet" href="css/zoho-compose.css" />
 </head>
 <body class="has-site-credit">
   <div id="saLoginGate" class="sa-login-gate" hidden>
@@ -1237,6 +1514,7 @@
           <a class="sa-nav-link" href="#ozet" data-sa-route="ozet"><i class="fa-solid fa-gauge-high"></i> Özet istatistikler</a>
           <a class="sa-nav-link" href="#bakim" data-sa-route="bakim"><i class="fa-solid fa-screwdriver-wrench"></i> Bakım modu</a>
           <a class="sa-nav-link" href="#teklifler" data-sa-route="teklifler"><i class="fa-solid fa-file-invoice"></i> Teklif talepleri</a>
+          <a class="sa-nav-link" href="#gelen-kutusu" data-sa-route="gelen-kutusu"><span class="sa-nav-emoji" aria-hidden="true">📩</span> Gelen Kutusu</a>
           <a class="sa-nav-link" href="#admin-yonetimi" data-sa-route="admin-yonetimi"><i class="fa-solid fa-shield-halved"></i> Admin Yönetimi</a>
         </div>
         <div class="sa-nav-group">
@@ -1651,6 +1929,43 @@
         </div>
       </div>
     </section>
+
+    <section class="sa-view" data-sa-page="gelen-kutusu" aria-label="Gelen kutusu Zoho">
+      <div class="sa-mail-wrap">
+        <h2 class="section-title"><i class="fa-solid fa-envelope-open-text"></i> Gelen Kutusu</h2>
+        <p class="sa-inbox-hint">
+          <strong>info@derecepanel.com</strong> ve bağlı Zoho hesabındaki gelen postalar listelenir.
+          Vercel ortamında <span class="mono">ZOHO_CLIENT_ID</span>, <span class="mono">ZOHO_CLIENT_SECRET</span>,
+          <span class="mono">ZOHO_REFRESH_TOKEN</span> gerekir. API tabanı:
+          <span class="mono">https://mail.zoho.eu/api/v1/</span> (gerekirse
+          <span class="mono">ZOHO_MAIL_API_V1_BASE</span> / EU için
+          <span class="mono">ZOHO_MAIL_API_LEGACY_BASE</span>).
+        </p>
+        <div class="sa-inbox-toolbar">
+          <button type="button" class="btn-ghost" id="btnZohoInboxRefresh" title="Listeyi yenile">
+            <i class="fa-solid fa-rotate"></i> Yenile
+          </button>
+        </div>
+        <p id="saInboxError" class="sa-sys-err" hidden></p>
+        <div id="saInboxLoader" class="sa-inbox-loader" hidden>
+          <p>Mailler senkronize ediliyor…</p>
+          <div id="saInboxSkeleton" aria-hidden="true"></div>
+        </div>
+        <div id="saInboxList" class="sa-inbox-list-mount"></div>
+      </div>
+    </section>
+
+    <div id="saMailModal" class="sa-mail-modal" hidden role="dialog" aria-modal="true" aria-labelledby="saMailModalSubject">
+      <div class="sa-mail-modal__backdrop" data-sa-mail-close tabindex="-1"></div>
+      <div class="sa-mail-modal__panel">
+        <div class="sa-mail-modal__head">
+          <h3 id="saMailModalSubject">—</h3>
+          <button type="button" class="sa-mail-modal__close" data-sa-mail-close aria-label="Kapat">×</button>
+        </div>
+        <p id="saMailModalMeta" class="sa-mail-modal__meta"></p>
+        <div id="saMailModalBody" class="sa-mail-modal__body"></div>
+      </div>
+    </div>
 
     <section class="sa-view" data-sa-page="arac-net">
       <div class="card">
