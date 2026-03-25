@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="DerecePanel — Koç ve öğrenci girişi" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="description" content="DerecePanel oturum" />
   <script type="importmap">
     {
       "imports": {
@@ -12,14 +13,13 @@
     }
   </script>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@23.0.0/dist/iife/sdk.js"></script>
-  <title>Giriş — DerecePanel</title>
+  <title>Oturum — DerecePanel</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="css/login-page.css" />
   <link rel="stylesheet" href="css/site-credit.css" />
-  <link rel="stylesheet" href="css/sorun-bildir.css" />
 </head>
 <body class="has-site-credit">
   <div class="auth-shell">
@@ -38,7 +38,7 @@
       </h1>
       <p class="auth-brand__lead">
         Bu ekran sadece bir giriş kapısı değil — <strong>sınıfınız ve kontrol kulesiniz</strong> aynı yerde. Netlerinizi izleyin,
-        öğrencilerinize dönün, koç veya öğrenci oturumuyla panele erişin.
+        öğrencilerinize dönün, tek oturumla tüm rollere erişin.
       </p>
 
       <section class="auth-features" aria-labelledby="auth-features-title">
@@ -46,7 +46,7 @@
           <p class="auth-features__eyebrow"><i class="fa-solid fa-sparkles" aria-hidden="true"></i> Özellikler</p>
           <h2 id="auth-features-title" class="auth-features__title">Panelde neler var?</h2>
           <p class="auth-features__intro">
-            YKS sürecini uçtan uca yönetmek için tasarlandı: hedeflerden deneme analizine, kaynak arşivine kadar tek platform.
+            YKS sürecini uçtan uca yönetmek için tasarlandı: hedeflerden deneme analizine, kaynak arşivinden raporlara kadar tek platform.
           </p>
         </div>
 
@@ -158,48 +158,33 @@
     <div class="auth-aside">
       <div class="auth-card">
         <div class="auth-card__head">
-          <h2>Hoş geldiniz</h2>
-          <p>Sisteme giriş yapmak için rolünüzü seçin: <strong>koç</strong> veya <strong>öğrenci</strong>.</p>
+          <h2>Kurucu oturumu</h2>
+          <p>Yetkili hesabınızın e-posta ve şifresi ile giriş yapın.</p>
         </div>
 
-        <div id="loginError" class="login-error" role="alert"></div>
+        <div id="adminAuthError" class="login-error" role="alert"></div>
 
-        <div class="login-tabs" role="tablist" aria-label="Giriş türü">
-          <button type="button" id="tabCoach" data-mode="coach" class="is-active" role="tab" aria-selected="true">
-            <span class="login-tab__icon" aria-hidden="true"><i class="fa-solid fa-chalkboard-user"></i></span>
-            <span class="login-tab__label">Koç</span>
-          </button>
-          <button type="button" id="tabStudent" data-mode="student" role="tab" aria-selected="false">
-            <span class="login-tab__icon" aria-hidden="true"><i class="fa-solid fa-graduation-cap"></i></span>
-            <span class="login-tab__label">Öğrenci</span>
-          </button>
-        </div>
-
-        <p id="modeHint" class="mode-hint">
-          Koç hesabınızla giriş yapın. Sadece <strong>kullanıcı adı</strong> ve şifre yeterlidir.
-        </p>
-
-        <form id="loginForm" novalidate>
+        <form id="adminAuthForm" novalidate>
           <div class="login-field">
-            <label for="loginUsername">Kullanıcı adı</label>
+            <label for="adminAuthEmail">E-posta</label>
             <div class="login-input-wrap">
-              <span class="login-input-wrap__icon" aria-hidden="true"><i class="fa-solid fa-user"></i></span>
+              <span class="login-input-wrap__icon" aria-hidden="true"><i class="fa-solid fa-envelope"></i></span>
               <input
-                id="loginUsername"
-                name="username"
-                type="text"
+                id="adminAuthEmail"
+                name="email"
+                type="email"
                 autocomplete="username"
                 required
-                placeholder="ornek_koc"
+                placeholder="kurucu@sistem.com"
               />
             </div>
           </div>
           <div class="login-field">
-            <label for="loginPassword">Şifre</label>
+            <label for="adminAuthPassword">Şifre</label>
             <div class="login-input-wrap login-input-wrap--password">
               <span class="login-input-wrap__icon" aria-hidden="true"><i class="fa-solid fa-key"></i></span>
               <input
-                id="loginPassword"
+                id="adminAuthPassword"
                 name="password"
                 type="password"
                 autocomplete="current-password"
@@ -212,31 +197,28 @@
               <button
                 type="button"
                 class="login-password-toggle"
-                id="loginPasswordToggle"
+                id="adminAuthPasswordToggle"
                 aria-label="Şifreyi göster"
                 aria-pressed="false"
                 tabindex="0"
               >
-                <!-- Şifre gizliyken: çizgisiz göz -->
                 <span class="login-password-toggle__icon login-password-toggle__icon--plain" aria-hidden="true">
                   <i class="fa-solid fa-eye"></i>
                 </span>
-                <!-- Şifre görünürken: üstü çizili göz -->
                 <span class="login-password-toggle__icon login-password-toggle__icon--slashed" hidden aria-hidden="true">
                   <i class="fa-solid fa-eye-slash"></i>
                 </span>
               </button>
             </div>
           </div>
-          <button type="submit" class="login-submit" id="loginSubmit">
+          <button type="submit" class="login-submit" id="adminAuthSubmit">
             <span>Giriş yap</span>
             <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
           </button>
         </form>
 
         <p class="auth-card__foot">
-          <span class="auth-card__beta">Beta</span> — Sorun yaşarsanız kurumunuzdaki koç ile iletişime geçin.
-          <a href="index.html#paketler">Paketleri incele</a>
+          <span class="auth-card__beta">Güvenli oturum</span> — Bu ekran yalnızca yetkili hesaplar içindir.
         </p>
       </div>
     </div>
@@ -246,7 +228,6 @@
     Mustafa AKBAŞ - Furkan Şehmus KIYAR - Veysel Anıl KARAASLAN tarafından üretildi
   </p>
 
-  <script type="module" src="js/sorun-bildir.js"></script>
-  <script type="module" src="js/login.js"></script>
+  <script type="module" src="js/admin-auth.js"></script>
 </body>
 </html>

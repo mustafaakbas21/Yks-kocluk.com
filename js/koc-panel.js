@@ -1,17 +1,28 @@
 /**
- * YKS Koçluk — Panel (Firestore + tüm butonlar)
+ * YKS Koçluk — Panel (Appwrite + tüm butonlar)
  * Menüye özellik eklemek için: window.YKSPanel.onNavigate(fn) veya data-nav ile navigate
  */
 
+import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN, netFromDy, clampDy } from "./yks-exam-structure.js";
+import { yksMufredatDatasi } from "./mufredat-data.js";
+import { findAtlasProgramById, TR_UNIVERSITIES_UNIQUE, PROGRAM_TEMPLATES_UI } from "./yok-atlas-data.js";
+import {
+  buildSimulatorRows,
+  netTemplateTableHtml,
+  sumGap,
+  parseStudentNetVal as parseStudentNetValAtlas,
+  wireSearchFilterForSelect,
+  sortNamedItemsAlphabeticalTr,
+} from "./hedef-atlas-helpers.js";
+import { initNetSihirbazi, initYksPuanHesaplama } from "./net-sihirbazi-ui.js";
 import {
   onAuthStateChanged,
   signOut,
-  createUserWithEmailAndPassword,
+  createEmailPasswordUserNoSession,
   signInWithEmailAndPassword,
   updatePassword,
   updateEmail,
-} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import {
+  updateAccountName,
   collection,
   onSnapshot,
   addDoc,
@@ -25,11 +36,12 @@ import {
   where,
   getDoc,
   getDocs,
-} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-
-import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN, netFromDy, clampDy } from "./yks-exam-structure.js";
-import { yksMufredatDatasi } from "./yks-mufredat-data.js";
-import { db, auth, studentCreatorAuthKoc as studentCreatorAuth } from "./firebase-config.js";
+  db,
+  auth,
+  studentCreatorAuthKoc as studentCreatorAuth,
+  verifyAppwriteAccount,
+  getAppSettings,
+} from "./appwrite-compat.js";
 import {
   saveSoruHavuzuEntry,
   dataUrlToBlob,
@@ -37,14 +49,19 @@ import {
   deleteSoruHavuzuDoc,
   setSoruHavuzuCozuldu,
   getPoolCoachKey,
+  listSoruHavuzuFiltered,
+  normalizeSoruPoolDocForAi,
 } from "./soru-havuzu-core.js";
+import { parseFlexibleDate, formatDateTimeTr } from "./date-format.js";
+
+import { client, storage } from "./appwrite-config.js";
 
 (function () {
   var el = document.getElementById("appointmentsRow");
   if (el) el.dataset.panelOk = "1";
 })();
 
-/** Koç oturumunu düşürmeden öğrenci hesabı oluşturmak için (login.js ile aynı @sistem.com) — auth: studentCreatorAuth (firebase-config) */
+/** Koç oturumunu düşürmeden öğrenci hesabı oluşturmak için (login.js ile aynı @sistem.com). */
 const STUDENT_EMAIL_DOMAIN = "@sistem.com";
 
 function sanitizeStudentPortalUsername(s) {
@@ -91,7 +108,7 @@ function getCoachId() {
   return (localStorage.getItem("currentUser") || "").trim();
 }
 
-/** localStorage boşsa Firebase oturumundan kullanıcı adı (giriş e-postası @ öncesi) */
+/** localStorage boşsa oturum e-postasından kullanıcı adı (giriş e-postası @ öncesi) */
 function getCoachIdResolved() {
   var c = getCoachId();
   if (c) return c;
@@ -107,6 +124,38 @@ function getCoachIdResolved() {
     }
   } catch (e) {}
   return getPoolCoachKey() || "";
+}
+
+function showSaAnalyticsToolBanner() {
+  if (document.getElementById("saAnalyticsToolBanner")) return;
+  var tool = "";
+  try {
+    tool = (new URLSearchParams(window.location.search).get("tool") || "").trim();
+  } catch (e) {}
+  if (tool !== "net-sihirbazi" && tool !== "yks-puan") return;
+  document.body.style.paddingTop = "52px";
+  var bar = document.createElement("div");
+  bar.id = "saAnalyticsToolBanner";
+  bar.setAttribute("role", "navigation");
+  bar.style.cssText =
+    "position:fixed;top:0;left:0;right:0;z-index:99998;padding:0.65rem 1.25rem;background:linear-gradient(90deg,rgba(15,23,42,0.98),rgba(30,27,75,0.96));color:#e8edf5;font-size:0.88rem;font-weight:600;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:0.75rem 1rem;box-shadow:0 4px 24px rgba(0,0,0,0.4);font-family:Outfit,system-ui,sans-serif;border-bottom:1px solid rgba(168,85,247,0.25);";
+  var label = tool === "yks-puan" ? "YKS Puan Hesaplama" : "TYT-AYT Net Sihirbazı";
+  bar.innerHTML =
+    '<span><i class="fa-solid fa-chart-line" style="margin-right:0.45rem;color:#34f5c5"></i>Kurucu — <strong>' +
+    escapeHtml(label) +
+    '</strong></span><a href="super-admin.html" style="color:#c4b5fd;text-decoration:underline;font-weight:800">Kurucu paneline dön</a>';
+  document.body.insertBefore(bar, document.body.firstChild);
+}
+
+function getInitialKocViewFromUrl() {
+  try {
+    var p = new URLSearchParams(window.location.search);
+    var t = (p.get("tool") || "").trim();
+    if (t === "net-sihirbazi" || t === "yks-puan") return t;
+    var tm = (p.get("tmOpen") || "").trim();
+    if (tm === "testmaker") return "testmaker";
+  } catch (e) {}
+  return "";
 }
 
 function showImpersonateBanner(coachUsername) {
@@ -135,10 +184,49 @@ function showImpersonateBanner(coachUsername) {
   }
 }
 
+/**
+ * Yalnızca şemada gerçekten `coach_id` bulunan koleksiyonlarda sunucu tarafı filtre.
+ * exams / payments / tests Appwrite şemasında bu alan olmayabiliyor — tüm liste + istemci süzgeci.
+ */
+var COLLECTIONS_WITH_COACH_ID_QUERY = {
+  students: true,
+  appointments: true,
+  coach_tasks: true,
+};
+
 function coachQuery(collectionName) {
   var cid = getCoachId();
   if (!cid) return null;
-  return query(collection(db, collectionName), where("coach_id", "==", cid));
+  var name = String(collectionName || "");
+  if (COLLECTIONS_WITH_COACH_ID_QUERY[name]) {
+    return query(collection(db, name), where("coach_id", "==", cid));
+  }
+  return query(collection(db, name));
+}
+
+/** exams / payments / tests: listDocuments coach_id filtresiz geldiğinde koç izolasyonu */
+function filterSnapshotDocsByCoach(snap) {
+  if (!snap || !snap.docs) {
+    return { docs: [], forEach: function () {}, size: 0, empty: true };
+  }
+  var cid = getCoachId();
+  if (!cid) {
+    return { docs: [], forEach: function () {}, size: 0, empty: true };
+  }
+  var filtered = snap.docs.filter(function (d) {
+    var x = typeof d.data === "function" ? d.data() : {};
+    var coachField = x.coach_id != null ? x.coach_id : x.coachId;
+    if (coachField === undefined || coachField === null || String(coachField).trim() === "") return true;
+    return String(coachField) === String(cid);
+  });
+  return {
+    docs: filtered,
+    forEach: function (fn) {
+      filtered.forEach(fn);
+    },
+    size: filtered.length,
+    empty: filtered.length === 0,
+  };
 }
 
 let firestoreUnsubs = [];
@@ -214,6 +302,40 @@ function tmTemplatePaperClasses() {
   return TM_TEMPLATE_IDS.map(function (id) {
     return "tm-template-" + id;
   });
+}
+
+/** Şablon → kapak/cevap anahtarı tema anahtarı (CSS data-tm-theme). PDF motoruna dokunulmaz. */
+function tmThemeSlugFromTemplate(mode) {
+  var m = tmNormalizeTemplateMode(mode);
+  var map = {
+    osym: "osym",
+    vip: "vip",
+    foy: "foy",
+    t01: "limit",
+    t02: "3d",
+    t03: "paraf",
+    t04: "345",
+    t05: "bilgisarmal",
+    t06: "acil",
+    t07: "fen",
+  };
+  return map[m] || "osym";
+}
+
+function tmSyncWorkspaceThemeAttr() {
+  var c = document.getElementById("a4-pages-container");
+  var shell = document.getElementById("tmA4PdfShell");
+  var paper0 = document.getElementById("tmA4Paper");
+  var sel = document.getElementById("tmTemplate");
+  var mode = tmNormalizeTemplateMode((sel && sel.value) || (paper0 && paper0.getAttribute("data-tm-layout")) || "osym");
+  var slug = tmThemeSlugFromTemplate(mode);
+  if (c) {
+    c.setAttribute("data-tm-theme", slug);
+    c.setAttribute("data-tm-template", mode);
+  }
+  if (shell) {
+    shell.setAttribute("data-tm-theme", slug);
+  }
 }
 const TM_IDB_NAME = "TestMakerProLibrary";
 const TM_IDB_VER = 1;
@@ -468,70 +590,117 @@ function tmSyncRibbonActive(view) {
   });
 }
 
-/** TYT/AYT müfredat mock verisi — `js/yks-mufredat-data.js` (yksMufredatDatasi) */
+/** TYT/AYT müfredat mock verisi — `js/mufredat-data.js` (yksMufredatDatasi) */
 var yksAiCurriculum = yksMufredatDatasi;
 try {
   window.yksMufredatDatasi = yksMufredatDatasi;
 } catch (e) {}
 
 var tmAiGenWizardBound = false;
+var tmAiAppendModalBound = false;
+
+/** Test tasarımı: havuz soruları — F5 sonrası geri yükleme (sessionStorage ile uyumlu) */
+var KOC_LS_CURRENT_TEST_QUESTIONS = "koc_currentTestQuestions";
+var KOC_LS_CURRENT_TEST_AI_PAYLOAD = "koc_currentTestAiPayload";
+
+function tmMergeAppendPoolToLocalStorage(newQuestions) {
+  if (!newQuestions || !newQuestions.length) return;
+  var prev = [];
+  try {
+    var r = localStorage.getItem(KOC_LS_CURRENT_TEST_QUESTIONS);
+    if (r) prev = JSON.parse(r);
+    if (!Array.isArray(prev)) prev = [];
+  } catch (e) {
+    prev = [];
+  }
+  var seen = {};
+  prev.forEach(function (q) {
+    var id = q && (q.id != null || q.firestoreId != null) ? String(q.id || q.firestoreId) : "";
+    if (id) seen[id] = true;
+  });
+  newQuestions.forEach(function (q) {
+    if (!q) return;
+    var id = q.id != null || q.firestoreId != null ? String(q.id || q.firestoreId) : "";
+    if (id) {
+      if (seen[id]) return;
+      seen[id] = true;
+    }
+    prev.push(q);
+  });
+  try {
+    localStorage.setItem(KOC_LS_CURRENT_TEST_QUESTIONS, JSON.stringify(prev));
+    sessionStorage.setItem("currentTestQuestions", JSON.stringify(prev));
+  } catch (e) {}
+}
+
+function tmPersistFullPoolToLocalStorage(questions, payload) {
+  try {
+    localStorage.setItem(KOC_LS_CURRENT_TEST_QUESTIONS, JSON.stringify(questions || []));
+    localStorage.setItem(KOC_LS_CURRENT_TEST_AI_PAYLOAD, JSON.stringify(payload || {}));
+    sessionStorage.setItem("currentTestQuestions", JSON.stringify(questions || []));
+    sessionStorage.setItem("currentTestAiPayload", JSON.stringify(payload || {}));
+  } catch (e) {}
+}
+
+/** Oturumda soru yok ama localStorage doluysa (sayfa yenileme) A4’e yeniden bas */
+function tmTryRehydrateQuestionsFromLocalStorage() {
+  if (tmTotalQuestionBlocks() > 0) return;
+  var raw = "";
+  try {
+    raw = localStorage.getItem(KOC_LS_CURRENT_TEST_QUESTIONS) || "";
+  } catch (e) {
+    return;
+  }
+  if (!raw || !raw.trim()) return;
+  var questions;
+  var payload = {};
+  try {
+    questions = JSON.parse(raw);
+    payload = JSON.parse(localStorage.getItem(KOC_LS_CURRENT_TEST_AI_PAYLOAD) || "{}");
+  } catch (e2) {
+    return;
+  }
+  if (!questions || !questions.length) return;
+  try {
+    tmApplyAiGenerationToTestmaker(payload, questions);
+  } catch (err) {
+    console.warn("[ai-test] rehydrate:", err);
+  }
+}
 
 /**
- * soru_havuzu: coach_id + ders + konu ile Firestore sorgusu; görsel URL’si olan kayıtlar, miktar kadar.
- * Bileşik indeks yoksa istemci tarafında süzülür.
+ * Appwrite soru_havuzu: listDocuments + Query (gerekirse istemci süzgeci — soru-havuzu-core).
+ * @param {{ exam: string, subject: string, topic: string, diff: string, count: number }|string} payloadOrSubject
+ * @returns {Promise<{ questions: Array, totalMatched: number, requested: number }>}
  */
-function fetchAIGeneratedQuestions(ders, konu, zorluk, miktar) {
-  return new Promise(function (resolve, reject) {
-    var cid = getCoachIdResolved() || getCoachId();
-    if (!cid) {
-      reject(new Error("Koç oturumu yok"));
-      return;
-    }
-    var n = Math.max(1, Math.min(80, parseInt(miktar, 10) || 1));
-    var dersStr = String(ders || "").trim();
-    var konuStr = String(konu || "").trim();
-
-    function mapWithImageLimit(rows) {
-      var matched = (rows || []).filter(function (it) {
-        var url = String((it && (it.imageUrl || it.imageBase64)) || "").trim();
-        return url.length > 0;
-      });
-      return matched.slice(0, n);
-    }
-
-    var qy = query(
-      collection(db, "soru_havuzu"),
-      where("coach_id", "==", cid),
-      where("ders", "==", dersStr),
-      where("konu", "==", konuStr)
-    );
-    getDocs(qy)
-      .then(function (snap) {
-        var out = [];
-        snap.forEach(function (d) {
-          var x = d.data();
-          out.push(
-            Object.assign({}, x, {
-              id: d.id,
-              firestoreId: d.id,
-            })
-          );
-        });
-        resolve(mapWithImageLimit(out));
-      })
-      .catch(function (e) {
-        console.warn("[soru_havuzu] bileşik sorgu veya indeks; istemci süzgeci:", e);
-        fetchSoruHavuzuForCoach(cid)
-          .then(function (all) {
-            var matched = (all || []).filter(function (it) {
-              if (dersStr && String(it.ders || "") !== dersStr) return false;
-              if (konuStr && String(it.konu || "") !== konuStr) return false;
-              return true;
-            });
-            resolve(mapWithImageLimit(matched));
-          })
-          .catch(reject);
-      });
+function fetchAIGeneratedQuestions(payloadOrSubject, konu, zorluk, miktar) {
+  var payload;
+  if (
+    payloadOrSubject &&
+    typeof payloadOrSubject === "object" &&
+    !Array.isArray(payloadOrSubject) &&
+    ("subject" in payloadOrSubject || "exam" in payloadOrSubject || "topic" in payloadOrSubject)
+  ) {
+    payload = payloadOrSubject;
+  } else {
+    var n = parseInt(miktar, 10);
+    if (isNaN(n)) n = 10;
+    payload = {
+      exam: "TYT",
+      subject: payloadOrSubject,
+      topic: konu,
+      diff: zorluk,
+      count: n,
+    };
+  }
+  var cid = getCoachIdResolved() || getCoachId();
+  if (!cid) return Promise.reject(new Error("Koç oturumu yok"));
+  return listSoruHavuzuFiltered(cid, {
+    exam: payload.exam,
+    ders: payload.subject,
+    konu: payload.topic,
+    zorluk: payload.diff,
+    limit: payload.count,
   });
 }
 
@@ -570,21 +739,192 @@ function tmRemoveAllQuestionItemsFromA4() {
   tmRenumberTmQuestions();
 }
 
-/** Havuzdan gelen soru: üst başlık / meta / X aynı; gövde yalnızca imageUrl görseli. */
-function tmAppendAiMockQuestionBlock(q) {
+/** Uzak URL Base64 olana kadar geçici img.src (1×1 şeffaf GIF). */
+var TM_IMG_PLACEHOLDER_DATA_URL =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+/**
+ * Appwrite Storage görünüm/preview URL’sinden bucket + file id (oturumlu indirme için).
+ */
+function tmParseAppwriteStorageFileRef(url) {
+  if (!url || typeof url !== "string") return null;
+  try {
+    var m = String(url).match(/\/storage\/buckets\/([^/]+)\/files\/([^/?#]+)/i);
+    if (!m) return null;
+    return { bucketId: decodeURIComponent(m[1]), fileId: decodeURIComponent(m[2]) };
+  } catch (e) {
+    return null;
+  }
+}
+
+function tmBlobToDataUrl(blob) {
+  return new Promise(function (resolve) {
+    if (!blob) return resolve(null);
+    var fr = new FileReader();
+    fr.onloadend = function () {
+      var du = fr.result;
+      resolve(typeof du === "string" ? du : null);
+    };
+    fr.onerror = function () {
+      resolve(null);
+    };
+    fr.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Appwrite / harici görsel URL → data URL. Önce oturumlu SDK (private bucket + session),
+ * sonra fetch (credentials: include), son çare omit. PDF/html2canvas beyaz kutu önlemi.
+ */
+function tmFetchUrlAsDataUrl(url) {
+  if (!url || typeof url !== "string") return Promise.resolve(null);
+  var u = url.trim();
+  if (/^data:/i.test(u)) return Promise.resolve(u);
+
+  function fetchViaNetwork() {
+    return fetch(u, { mode: "cors", credentials: "include", cache: "force-cache" })
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.blob();
+      })
+      .then(tmBlobToDataUrl)
+      .catch(function () {
+        return fetch(u, { mode: "cors", credentials: "omit", cache: "force-cache" })
+          .then(function (r2) {
+            if (!r2.ok) throw new Error("HTTP " + r2.status);
+            return r2.blob();
+          })
+          .then(tmBlobToDataUrl);
+      })
+      .catch(function () {
+        return null;
+      });
+  }
+
+  var ref = tmParseAppwriteStorageFileRef(u);
+  if (ref && client && storage && typeof client.call === "function" && typeof storage.getFileDownload === "function") {
+    try {
+      var dl = storage.getFileDownload(ref.bucketId, ref.fileId);
+      var uri = new URL(dl);
+      return client
+        .call("get", uri, {}, {}, "arrayBuffer")
+        .then(function (buf) {
+          if (!buf) return null;
+          return tmBlobToDataUrl(new Blob([buf]));
+        })
+        .catch(function (e) {
+          console.warn("[tmFetchUrlAsDataUrl] Appwrite download, ağ denemesi:", e && e.message);
+          return fetchViaNetwork();
+        });
+    } catch (e2) {
+      return fetchViaNetwork();
+    }
+  }
+
+  return fetchViaNetwork();
+}
+
+/** PDF hazırlığı: aynı URL tekrar indirilmesin (bellek önbelleği). */
+var tmPdfImageDataUrlCache = Object.create(null);
+var tmPdfImageDataUrlInflight = Object.create(null);
+
+function tmPdfClearImageDataUrlCache() {
+  Object.keys(tmPdfImageDataUrlCache).forEach(function (k) {
+    delete tmPdfImageDataUrlCache[k];
+  });
+  Object.keys(tmPdfImageDataUrlInflight).forEach(function (k) {
+    delete tmPdfImageDataUrlInflight[k];
+  });
+}
+
+/**
+ * tmFetchUrlAsDataUrl ile aynı mantık; PDF akışında tekrarlı URL’ler tek indirme + paralel Promise.all ile paylaşılır.
+ */
+function tmFetchUrlAsDataUrlCached(url) {
+  if (!url || typeof url !== "string") return Promise.resolve(null);
+  var u = url.trim();
+  if (/^data:/i.test(u)) return Promise.resolve(u);
+  if (Object.prototype.hasOwnProperty.call(tmPdfImageDataUrlCache, u)) {
+    return Promise.resolve(tmPdfImageDataUrlCache[u]);
+  }
+  if (tmPdfImageDataUrlInflight[u]) {
+    return tmPdfImageDataUrlInflight[u];
+  }
+  var p = tmFetchUrlAsDataUrl(u)
+    .then(function (du) {
+      if (du) tmPdfImageDataUrlCache[u] = du;
+      delete tmPdfImageDataUrlInflight[u];
+      return du;
+    })
+    .catch(function () {
+      delete tmPdfImageDataUrlInflight[u];
+      return null;
+    });
+  tmPdfImageDataUrlInflight[u] = p;
+  return p;
+}
+
+/** A4 kökünde benzersiz uzak img src listesi (data: hariç). */
+function tmCollectNonDataImageUrls(root) {
+  var list = [];
+  var seen = Object.create(null);
+  if (!root || !root.querySelectorAll) return list;
+  root.querySelectorAll("img[src]").forEach(function (im) {
+    var s = (im.getAttribute("src") || "").trim();
+    if (!s || /^data:/i.test(s)) return;
+    if (seen[s]) return;
+    seen[s] = true;
+    list.push(s);
+  });
+  return list;
+}
+
+/**
+ * Tüm uzak görselleri paralel indirip önbelleğe alır; onProgress(0–100) canlı yüzde.
+ */
+function tmPdfPrefetchImagesParallel(urls, onProgress) {
+  var total = urls.length;
+  if (total === 0) {
+    if (typeof onProgress === "function") onProgress(100);
+    return Promise.resolve();
+  }
+  var done = 0;
+  function bump() {
+    done++;
+    if (typeof onProgress === "function") {
+      onProgress(Math.min(100, Math.round((100 * done) / total)));
+    }
+  }
+  return Promise.all(
+    urls.map(function (u) {
+      return tmFetchUrlAsDataUrlCached(u).then(function () {
+        bump();
+      });
+    })
+  );
+}
+
+/** Havuzdan gelen soru: üst başlık / meta / X aynı; gövde yalnızca görsel URL. */
+function tmAppendAiMockQuestionBlock(q, badgeIndexZeroBased) {
   if (!q) return;
-  var src = String((q.imageUrl || q.imageBase64 || "")).trim();
+  var src = String((q.imageUrl || q.image_url || q.imageBase64 || "")).trim();
   if (!src) return;
 
   var wrap = document.createElement("div");
-  wrap.className = "tm-a4-block question-item tm-a4-block--ai-mock";
+  wrap.className = "tm-a4-block question-item tm-a4-block--ai-mock soru-karti";
   var fid = q.id || q.firestoreId || "";
   if (fid) wrap.setAttribute("data-tm-ai-qid", String(fid));
   wrap.draggable = true;
   wrap.setAttribute("data-tm-drag", "1");
+  var dcAi = String(q.dogru_cevap || q.dogruCevap || "").trim();
+  var letterAi = /^[A-Ea-e]$/.test(dcAi) ? dcAi.toUpperCase() : "—";
+  wrap.setAttribute("data-tm-answer", letterAi);
   var badge = document.createElement("div");
   badge.className = "tm-q-badge";
-  badge.textContent = "Soru …)";
+  badge.textContent =
+    typeof badgeIndexZeroBased === "number"
+      ? "Soru " + (badgeIndexZeroBased + 1) + ")"
+      : "Soru …)";
   var meta = document.createElement("div");
   meta.className = "tm-ai-soru-meta";
   meta.textContent =
@@ -592,11 +932,18 @@ function tmAppendAiMockQuestionBlock(q) {
   var imgW = document.createElement("div");
   imgW.className = "tm-a4-block__imgwrap";
   var img = document.createElement("img");
-  img.setAttribute("crossorigin", "anonymous");
-  img.src = src;
   img.alt = "Soru görseli";
   img.draggable = false;
-  img.setAttribute("style", "width:100%;max-height:250px;object-fit:contain;display:block;");
+  img.setAttribute("style", "width:100%;max-height:min(52vh,420px);object-fit:contain;display:block;");
+  if (/^data:/i.test(src)) {
+    img.src = src;
+  } else {
+    img.src = TM_IMG_PLACEHOLDER_DATA_URL;
+    tmFetchUrlAsDataUrl(src).then(function (du) {
+      if (du) img.src = du;
+      else img.src = src;
+    });
+  }
   imgW.appendChild(img);
   var xb = document.createElement("button");
   xb.type = "button";
@@ -611,13 +958,16 @@ function tmAppendAiMockQuestionBlock(q) {
   tmAppendBlockToPaginatedColumns(wrap);
 }
 
-function tmAddAiMockQuestionsFromList(questions) {
+function tmAddAiMockQuestionsFromList(questions, persistMode) {
   if (!questions || !questions.length) return;
-  questions.forEach(function (q) {
-    tmAppendAiMockQuestionBlock(q);
+  persistMode = persistMode || "append";
+  var base = tmTotalQuestionBlocks();
+  questions.forEach(function (q, i) {
+    tmAppendAiMockQuestionBlock(q, base + i);
   });
   tmUpdateA4EmptyVisibility();
   tmRenumberTmQuestions();
+  if (persistMode === "append" && questions.length) tmMergeAppendPoolToLocalStorage(questions);
 }
 
 function tmApplyAiGenerationToTestmaker(payload, questions) {
@@ -681,11 +1031,187 @@ function tmApplyAiGenerationToTestmaker(payload, questions) {
     tmSyncPaperHeaders();
   } catch (eHdr) {}
   if (questions && questions.length) {
-    tmAddAiMockQuestionsFromList(questions);
+    tmAddAiMockQuestionsFromList(questions, "none");
+    tmPersistFullPoolToLocalStorage(questions, payload);
     showToast("Havuzdan " + questions.length + " görsel soru teste yerleştirildi.");
   } else {
     showToast("Havuzda bu ders ve konuya uygun görsel soru bulunamadı.");
   }
+}
+
+function tmConsumeStoredAiTestDesign() {
+  var raw = "";
+  try {
+    raw = sessionStorage.getItem("currentTestQuestions") || "";
+    if (!raw || !String(raw).trim()) raw = localStorage.getItem(KOC_LS_CURRENT_TEST_QUESTIONS) || "";
+  } catch (e) {}
+  if (!raw || !raw.trim()) return;
+  var questions;
+  var payload = {};
+  try {
+    questions = JSON.parse(raw);
+    payload = JSON.parse(sessionStorage.getItem("currentTestAiPayload") || localStorage.getItem(KOC_LS_CURRENT_TEST_AI_PAYLOAD) || "{}");
+  } catch (e) {
+    console.error("[ai-test] currentTestQuestions parse:", e);
+    return;
+  }
+  if (!questions || !questions.length) {
+    try {
+      sessionStorage.removeItem("currentTestQuestions");
+      sessionStorage.removeItem("currentTestAiPayload");
+    } catch (e0) {}
+    return;
+  }
+  try {
+    tmApplyAiGenerationToTestmaker(payload, questions);
+    try {
+      sessionStorage.removeItem("currentTestQuestions");
+      sessionStorage.removeItem("currentTestAiPayload");
+    } catch (e2) {}
+  } catch (err) {
+    console.error("[ai-test] tmApplyAiGenerationToTestmaker:", err);
+    showToast("Taslak yerleştirilirken hata oluştu.");
+  }
+}
+
+var tmAiOverlayRotateTimer = null;
+var tmAiOverlaySteps = [
+  { title: "Havuz taranıyor…", sub: "Kriterlerinize uygun sorular aranıyor" },
+  { title: "Sorular analiz ediliyor…", sub: "Etiketler ve zorluk eşleştiriliyor" },
+  { title: "Teste hazırlanıyor…", sub: "Görseller sıraya konuyor" },
+];
+
+function tmStartAiOverlayRotation() {
+  tmStopAiOverlayRotation();
+  var ix = 0;
+  function tick() {
+    var tEl = document.getElementById("tmAiGenOverlayTitle");
+    var sEl = document.getElementById("tmAiGenOverlaySub");
+    var step = tmAiOverlaySteps[ix % tmAiOverlaySteps.length];
+    if (tEl && step) tEl.textContent = step.title;
+    if (sEl && step) sEl.textContent = step.sub;
+    ix++;
+  }
+  tick();
+  tmAiOverlayRotateTimer = window.setInterval(tick, 880);
+}
+
+function tmStopAiOverlayRotation() {
+  if (tmAiOverlayRotateTimer != null) {
+    clearInterval(tmAiOverlayRotateTimer);
+    tmAiOverlayRotateTimer = null;
+  }
+}
+
+function initTmAiAppendModal() {
+  if (tmAiAppendModalBound) return;
+  var openRibbon = document.getElementById("tmBtnAiAppendPool");
+  var modal = document.getElementById("tmAiAppendModal");
+  var backdrop = document.getElementById("tmAiAppendBackdrop");
+  var form = document.getElementById("formAiAppendPool");
+  var exam = document.getElementById("aiAppendExamType");
+  var subj = document.getElementById("aiAppendSubject");
+  var topic = document.getElementById("aiAppendTopic");
+  var btnClose = document.getElementById("tmAiAppendClose");
+  var btnCancel = document.getElementById("tmAiAppendCancel");
+  if (!modal || !form || !exam || !subj || !topic) return;
+  if (!openRibbon) return;
+  tmAiAppendModalBound = true;
+
+  function fillSubjects() {
+    var key = exam.value || "TYT";
+    var data = yksAiCurriculum[key] || {};
+    subj.innerHTML = "";
+    Object.keys(data).forEach(function (name) {
+      var o = document.createElement("option");
+      o.value = name;
+      o.textContent = name;
+      subj.appendChild(o);
+    });
+    fillTopics();
+  }
+
+  function fillTopics() {
+    var key = exam.value || "TYT";
+    var course = subj.value;
+    var list = (yksAiCurriculum[key] && yksAiCurriculum[key][course]) || [];
+    topic.innerHTML = "";
+    list.forEach(function (t) {
+      var o = document.createElement("option");
+      o.value = t;
+      o.textContent = t;
+      topic.appendChild(o);
+    });
+  }
+
+  exam.addEventListener("change", fillSubjects);
+  subj.addEventListener("change", fillTopics);
+  fillSubjects();
+
+  function openModal() {
+    modal.hidden = false;
+    if (backdrop) {
+      backdrop.hidden = false;
+      backdrop.setAttribute("aria-hidden", "false");
+    }
+    modal.setAttribute("aria-hidden", "false");
+    fillSubjects();
+  }
+
+  function closeModal() {
+    modal.hidden = true;
+    if (backdrop) {
+      backdrop.hidden = true;
+      backdrop.setAttribute("aria-hidden", "true");
+    }
+    modal.setAttribute("aria-hidden", "true");
+  }
+
+  openRibbon.addEventListener("click", openModal);
+  if (btnClose) btnClose.addEventListener("click", closeModal);
+  if (btnCancel) btnCancel.addEventListener("click", closeModal);
+  if (backdrop) backdrop.addEventListener("click", closeModal);
+
+  closeModal();
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var n = parseInt((document.getElementById("aiAppendQuestionCount") || {}).value, 10);
+    if (isNaN(n)) n = 10;
+    n = Math.max(1, Math.min(80, n));
+    var diffEl = document.getElementById("aiAppendDifficulty");
+    var payload = {
+      exam: exam.value,
+      subject: subj.value,
+      topic: topic.value,
+      count: n,
+      diff: diffEl ? diffEl.value : "Orta",
+    };
+    var btn = document.getElementById("btnAiAppendSubmit");
+    if (btn) btn.disabled = true;
+    fetchAIGeneratedQuestions(payload)
+      .then(function (result) {
+        var questions = result && result.questions ? result.questions : [];
+        var req = result && result.requested != null ? result.requested : n;
+        if (!questions.length) {
+          showToast("Belirtilen kriterlerde soru havuzunda soru bulunamadı.");
+          return;
+        }
+        if (questions.length < req) {
+          showToast("Havuzda yeterli soru yok; mevcut " + questions.length + " soru ekleniyor.");
+        }
+        tmAddAiMockQuestionsFromList(questions);
+        closeModal();
+        showToast("Sorular teste başarıyla eklendi.");
+      })
+      .catch(function (err) {
+        console.error("[ai-append]", err);
+        showToast(err && err.message ? err.message : "Havuz okunamadı.");
+      })
+      .finally(function () {
+        if (btn) btn.disabled = false;
+      });
+  });
 }
 
 function initAiTestGenWizard() {
@@ -749,35 +1275,38 @@ function initAiTestGenWizard() {
       tmAiGenNavigateTimer = null;
     }
     tmSetAiGenOverlayOpen(true);
-    fetchAIGeneratedQuestions(payload.subject, payload.topic, payload.diff, payload.count)
-      .then(function (questions) {
-        if (!questions || !questions.length) {
+    tmStartAiOverlayRotation();
+    fetchAIGeneratedQuestions(payload)
+      .then(function (result) {
+        tmStopAiOverlayRotation();
+        var questions = result && result.questions ? result.questions : [];
+        var req = result && result.requested != null ? result.requested : n;
+        if (!questions.length) {
           tmSetAiGenOverlayOpen(false);
-          showToast("Havuzda seçilen ders ve konuya uygun görsel soru yok.");
+          showToast("Belirtilen kriterlerde soru havuzunda soru bulunamadı.");
           if (btnAi) btnAi.disabled = false;
           return;
+        }
+        if (questions.length < req) {
+          showToast("Havuzda yeterli soru yok; mevcut " + questions.length + " soru ile test oluşturuluyor.");
         }
         try {
+          sessionStorage.setItem("currentTestQuestions", JSON.stringify(questions));
+          sessionStorage.setItem("currentTestAiPayload", JSON.stringify(payload));
+          localStorage.setItem(KOC_LS_CURRENT_TEST_QUESTIONS, JSON.stringify(questions));
+          localStorage.setItem(KOC_LS_CURRENT_TEST_AI_PAYLOAD, JSON.stringify(payload));
+        } catch (se) {
+          console.warn("[ai-test] sessionStorage:", se);
           tmSetAiGenOverlayOpen(false);
-          navigateTo("testmaker");
-        } catch (errNav) {
-          console.error("Havuz → testmaker geçişi:", errNav);
-          showToast("Test tasarımına geçilemedi. Tekrar deneyin.");
-          tmSetAiGenOverlayOpen(false);
+          showToast("Tarayıcı depolaması kapalı; test sayfasına geçilemiyor.");
           if (btnAi) btnAi.disabled = false;
           return;
         }
-        requestAnimationFrame(function () {
-          try {
-            tmApplyAiGenerationToTestmaker(payload, questions);
-          } catch (errApply) {
-            console.error("Havuz taslak:", errApply);
-            showToast("Taslak yerleştirilirken hata oluştu.");
-          }
-          if (btnAi) btnAi.disabled = false;
-        });
+        tmSetAiGenOverlayOpen(false);
+        window.location.href = "test-tasarimi.html";
       })
       .catch(function (errFetch) {
+        tmStopAiOverlayRotation();
         console.error("fetchAIGeneratedQuestions:", errFetch);
         showToast(
           errFetch && errFetch.message
@@ -1495,6 +2024,7 @@ function tmEnsureAnswerKeyPaper() {
   if (!tmpl) return null;
   var clone = tmpl.cloneNode(true);
   tmStripCloneIds(clone);
+  clone.classList.remove("pdf-question-page");
   clone.classList.add("tm-a4-page--sub", "tm-a4-page--answer-key");
   clone.setAttribute("data-tm-answer-key", "1");
   clone.querySelectorAll(".tm-paper-header").forEach(function (h) {
@@ -1521,10 +2051,13 @@ function tmEnsureAnswerKeyPaper() {
     single.hidden = false;
     single.removeAttribute("hidden");
     single.innerHTML =
+      '<div class="pdf-answer-key-page tm-answer-key-page">' +
       '<div class="tm-answer-key-sheet tm-answer-key-sheet--print">' +
+      '<header class="tm-answer-key-sheet__head">' +
       '<h3 class="tm-answer-key-sheet__title">Cevap Anahtarı</h3>' +
-      '<p class="tm-answer-key-sheet__sub">Soru numarası — doğru şıkkı</p>' +
-      '<div class="tm-answer-key-sheet__body"></div></div>';
+      '<p class="tm-answer-key-sheet__sub">Soru numarası ve doğru şıkkı</p>' +
+      "</header>" +
+      '<div class="tm-answer-key-sheet__body"></div></div></div>';
   }
   var dupOptik = clone.querySelector(".tm-optik-strip");
   if (dupOptik) dupOptik.remove();
@@ -1537,6 +2070,7 @@ function tmEnsureAnswerKeyPaper() {
     if (tmpl.classList.contains(tcl)) clone.classList.add(tcl);
   });
   c.appendChild(clone);
+  tmSyncWorkspaceThemeAttr();
   return clone;
 }
 
@@ -1565,22 +2099,16 @@ function tmSyncCorporateCoverContent() {
           month: "long",
           year: "numeric",
         });
+  var ctLine =
+    (course && topic ? course + " — " + topic : course || topic || "Ders — Konu").trim();
   var hTitle = paper.querySelector("[data-tm-corp-title]");
   if (hTitle) hTitle.textContent = title;
-  var hInst = paper.querySelector("[data-tm-corp-inst]");
-  if (hInst) hInst.textContent = inst || "—";
   var hCt = paper.querySelector("[data-tm-corp-ct]");
-  if (hCt) hCt.textContent = (course || "—") + " · " + (topic || "—");
-  var hDateFact = paper.querySelector("[data-tm-corp-date-fact]") || paper.querySelector("[data-tm-corp-date]");
-  if (hDateFact) hDateFact.textContent = dateStr;
+  if (hCt) hCt.textContent = ctLine;
   var hMastInst = paper.querySelector("[data-tm-corp-header-inst]");
-  if (hMastInst) hMastInst.textContent = inst || "KURUM ADI";
-  var hMastDate = paper.querySelector("[data-tm-corp-header-date]");
-  if (hMastDate) hMastDate.textContent = dateStr;
-  var hCourse = paper.querySelector("[data-tm-corp-course]");
-  if (hCourse) hCourse.textContent = course || "Ders";
-  var hTopic = paper.querySelector("[data-tm-corp-topic]");
-  if (hTopic) hTopic.textContent = topic || "Konu / ünite";
+  if (hMastInst) hMastInst.textContent = (inst || "KURUM ADI").toUpperCase();
+  var hFooterDate = paper.querySelector("[data-tm-corp-footer-date]");
+  if (hFooterDate) hFooterDate.textContent = dateStr;
 }
 
 function tmSyncBookCoverContent() {
@@ -1629,6 +2157,7 @@ function tmEnsureBookCoverPaper() {
   if (!tmpl) return null;
   var clone = tmpl.cloneNode(true);
   tmStripCloneIds(clone);
+  clone.classList.remove("pdf-question-page");
   clone.classList.add("tm-a4-page--sub", "tm-a4-page--book-cover");
   clone.setAttribute("data-tm-book-cover", "1");
   clone.querySelectorAll(".tm-paper-header").forEach(function (h) {
@@ -1684,6 +2213,7 @@ function tmEnsureCorporateCoverPaper() {
   if (!tmpl) return null;
   var clone = tmpl.cloneNode(true);
   tmStripCloneIds(clone);
+  clone.classList.remove("pdf-question-page");
   clone.classList.add("tm-a4-page--sub", "tm-a4-page--corporate-cover");
   clone.setAttribute("data-tm-corporate-cover", "1");
   var empty = clone.querySelector(".tm-a4-empty");
@@ -1701,33 +2231,31 @@ function tmEnsureCorporateCoverPaper() {
     single.hidden = false;
     single.removeAttribute("hidden");
     single.innerHTML =
-      '<div class="tm-corporate-cover-sheet tm-corporate-cover-sheet--spread">' +
-      '<header class="tm-corporate-cover-sheet__masthead">' +
-      '<span class="tm-corporate-cover-sheet__mast-inst" data-tm-corp-header-inst>KURUM ADI</span>' +
-      '<div class="tm-corporate-cover-sheet__mast-center">' +
-      '<div class="tm-corporate-cover-sheet__mast-course" data-tm-corp-course>Ders</div>' +
-      '<div class="tm-corporate-cover-sheet__mast-topic" data-tm-corp-topic>Konu / ünite</div>' +
+      '<div class="pdf-cover-page tm-cover-page tm-corporate-cover-sheet tm-corporate-cover-sheet--elite">' +
+      '<div class="tm-cover-page__center">' +
+      '<div class="tm-cover-page__inst" data-tm-corp-header-inst>KURUM ADI</div>' +
+      '<div class="tm-cover-page__rule" aria-hidden="true"></div>' +
+      '<p class="tm-cover-page__course-topic" data-tm-corp-ct>Ders — Konu</p>' +
+      '<p class="tm-cover-page__deneme-label">KURUMSAL DENEME SINAVI</p>' +
+      '<p class="tm-cover-page__doc-title" data-tm-corp-title>Test başlığı</p>' +
       "</div>" +
-      '<span class="tm-corporate-cover-sheet__mast-date" data-tm-corp-header-date>—</span>' +
-      "</header>" +
-      '<hr class="tm-corporate-cover-sheet__mast-rule" />' +
-      '<div class="tm-corporate-cover-sheet__twocol" aria-label="Kapak iki sütun alanı">' +
-      '<div class="tm-corporate-cover-sheet__twocol-cell"></div>' +
-      '<div class="tm-corporate-cover-sheet__twocol-cell"></div>' +
+      '<footer class="tm-cover-page__footer">' +
+      '<div class="tm-cover-page__field tm-cover-page__field--wide">' +
+      '<span class="tm-cover-page__field-label">Öğrenci adı soyadı</span>' +
+      '<span class="tm-cover-page__field-line" aria-hidden="true"></span>' +
       "</div>" +
-      '<div class="tm-corporate-cover-sheet__accent" aria-hidden="true"></div>' +
-      '<p class="tm-corporate-cover-sheet__kicker">Kurumsal test dökümanı</p>' +
-      '<h2 class="tm-corporate-cover-sheet__title" data-tm-corp-title>Test başlığı</h2>' +
-      '<ul class="tm-corporate-cover-sheet__facts">' +
-      '<li><span>Kurum</span><strong data-tm-corp-inst>—</strong></li>' +
-      '<li><span>Ders / konu</span><strong data-tm-corp-ct>—</strong></li>' +
-      '<li><span>Tarih</span><strong data-tm-corp-date-fact>—</strong></li>' +
-      "</ul>" +
-      '<div class="tm-corporate-cover-sheet__sign">' +
-      '<div class="tm-corporate-cover-sheet__sign-line"><span>Öğrenci adı soyadı</span></div>' +
-      '<div class="tm-corporate-cover-sheet__sign-line"><span>İmza</span></div>' +
+      '<div class="tm-cover-page__field-row">' +
+      '<div class="tm-cover-page__field tm-cover-page__field--half">' +
+      '<span class="tm-cover-page__field-label">Sınıf / No</span>' +
+      '<span class="tm-cover-page__field-line" aria-hidden="true"></span>' +
       "</div>" +
-      '<p class="tm-corporate-cover-sheet__note">Kapak sayfasıdır; sorular 2. sayfadan başlar. Cevap anahtarı son sayfadadır. Hazır optik için üst şeritte <strong>Optik</strong> ile PDF indirebilirsiniz.</p>' +
+      '<div class="tm-cover-page__field tm-cover-page__field--half tm-cover-page__field--date">' +
+      '<span class="tm-cover-page__field-label">Tarih</span>' +
+      '<span class="tm-cover-page__field-date" data-tm-corp-footer-date>—</span>' +
+      "</div>" +
+      "</div>" +
+      "</footer>" +
+      '<p class="tm-cover-page__hint">Sorular bu sayfayı takip eden sayfalarda başlar. Cevap anahtarı dökümanın sonundadır.</p>' +
       "</div>";
   }
   var dupOptik = clone.querySelector(".tm-optik-strip");
@@ -1741,6 +2269,7 @@ function tmEnsureCorporateCoverPaper() {
     if (tmpl.classList.contains(tcl)) clone.classList.add(tcl);
   });
   c.insertBefore(clone, c.firstChild);
+  tmSyncWorkspaceThemeAttr();
   return clone;
 }
 
@@ -1753,6 +2282,7 @@ function tmEnsureOptikHostPaper() {
   if (!tmpl) return null;
   var clone = tmpl.cloneNode(true);
   tmStripCloneIds(clone);
+  clone.classList.remove("pdf-question-page");
   clone.classList.add("tm-a4-page--sub", "tm-a4-page--optik-host");
   clone.setAttribute("data-tm-optik-host", "1");
   var empty = clone.querySelector(".tm-a4-empty");
@@ -1819,22 +2349,33 @@ function tmSyncAnswerKeyPage() {
   var body = paper.querySelector(".tm-answer-key-sheet__body");
   if (!body) return;
   body.innerHTML = "";
-  var grid = document.createElement("div");
-  grid.className = "tm-answer-key-grid tm-answer-key-grid--matrix";
+  var table = document.createElement("table");
+  table.className = "tm-answer-key-table";
+  table.setAttribute("role", "grid");
+  var thead = document.createElement("thead");
+  thead.innerHTML =
+    "<tr>" +
+    '<th scope="col" class="tm-ak-th tm-ak-th--num">No</th>' +
+    '<th scope="col" class="tm-ak-th tm-ak-th--ans">Doğru şık</th>' +
+    "</tr>";
+  var tbody = document.createElement("tbody");
   order.forEach(function (el, idx) {
     var raw = (el.getAttribute("data-tm-answer") || "—").trim();
     var ans = /^[A-Ea-e]$/.test(raw) ? raw.toUpperCase() : raw || "—";
-    var cell = document.createElement("div");
-    cell.className = "tm-answer-key-grid__cell";
-    cell.innerHTML =
-      '<span class="tm-ak-num">' +
+    var tr = document.createElement("tr");
+    tr.className = "tm-answer-key-table__row";
+    tr.innerHTML =
+      '<td class="tm-ak-td tm-ak-td--num"><strong>' +
       String(idx + 1) +
-      '</span><span class="tm-ak-val">' +
+      "</strong></td>" +
+      '<td class="tm-ak-td tm-ak-td--ans">' +
       escapeHtml(ans) +
-      "</span>";
-    grid.appendChild(cell);
+      "</td>";
+    tbody.appendChild(tr);
   });
-  body.appendChild(grid);
+  table.appendChild(thead);
+  table.appendChild(tbody);
+  body.appendChild(table);
   c.appendChild(paper);
   tmOrderTrailingPages();
   tmRehomeOptikStrip();
@@ -1872,9 +2413,17 @@ function tmAddQuestionToA4(imageSrc, answerLetter) {
   var imgW = document.createElement("div");
   imgW.className = "tm-a4-block__imgwrap";
   var img = document.createElement("img");
-  img.src = imageSrc;
   img.alt = "";
   img.draggable = false;
+  if (/^data:/i.test(imageSrc)) {
+    img.src = imageSrc;
+  } else {
+    img.src = TM_IMG_PLACEHOLDER_DATA_URL;
+    tmFetchUrlAsDataUrl(imageSrc).then(function (du) {
+      if (du) img.src = du;
+      else img.src = imageSrc;
+    });
+  }
   imgW.appendChild(img);
   var xb = document.createElement("button");
   xb.type = "button";
@@ -2476,40 +3025,11 @@ function firestoreDocExists(snap) {
 var dpHedefRadarChart = null;
 var dpInboxDelegationBound = false;
 
-function parseStudentNetVal(v) {
-  if (v == null || v === "") return null;
-  var n = parseFloat(String(v).replace(",", "."));
-  return isNaN(n) ? null : n;
-}
-
-function buildDpHedefRowsFromStudent(student) {
-  var base = [
-    { label: "TYT Türkçe", current: 32, target: 35 },
-    { label: "TYT Matematik", current: 35.5, target: 38 },
-    { label: "TYT Fen", current: 28, target: 32 },
-    { label: "AYT Matematik", current: 33, target: 40 },
-  ];
-  if (!student) return base;
-  var curT = parseStudentNetVal(student.currentTytNet);
-  var tgtT = parseStudentNetVal(student.targetTytNet);
-  if (curT == null || tgtT == null) return base;
-  var c = Math.min(120, Math.max(0, curT));
-  var t = Math.min(120, Math.max(0, tgtT));
-  base[0].current = Math.min(40, c * 0.28);
-  base[0].target = Math.min(40, t * 0.28);
-  base[1].current = Math.min(40, c * 0.32);
-  base[1].target = Math.min(40, t * 0.32);
-  base[2].current = Math.min(40, c * 0.22);
-  base[2].target = Math.min(40, t * 0.22);
-  base[3].current = Math.min(40, c * 0.28);
-  base[3].target = Math.min(40, t * 0.28);
-  return base;
-}
-
 function renderDpHedefSimulator() {
   var canvas = document.getElementById("dpHedefRadarCanvas");
   var barsEl = document.getElementById("dpHedefBarsCoach");
   var gapEl = document.getElementById("dpHedefGapCoach");
+  var tableWrap = document.getElementById("dpHedefNetTableWrap");
   if (!canvas || typeof Chart === "undefined") return;
 
   var sel = document.getElementById("dpHedefStudentSelect");
@@ -2531,22 +3051,75 @@ function renderDpHedefSimulator() {
     }
   }
 
+  var uniSel = document.getElementById("dpHedefUniSelect");
+  var deptSel = document.getElementById("dpHedefDeptSelect");
+  var uniFilter = document.getElementById("dpHedefUniFilter");
+  var deptFilter = document.getElementById("dpHedefDeptFilter");
+  if (uniSel && deptSel && !uniSel.dataset.dpHedefPopulated) {
+    uniSel.dataset.dpHedefPopulated = "1";
+    uniSel.innerHTML = '<option value="">— Üniversite seçin —</option>';
+    sortNamedItemsAlphabeticalTr(TR_UNIVERSITIES_UNIQUE).forEach(function (u) {
+      var o = document.createElement("option");
+      o.value = u.id;
+      o.textContent = u.name;
+      uniSel.appendChild(o);
+    });
+    deptSel.innerHTML = '<option value="">— Bölüm / program türü seçin —</option>';
+    sortNamedItemsAlphabeticalTr(PROGRAM_TEMPLATES_UI).forEach(function (t) {
+      var o = document.createElement("option");
+      o.value = t.id;
+      o.textContent = t.name;
+      deptSel.appendChild(o);
+    });
+    wireSearchFilterForSelect(uniFilter, uniSel);
+    wireSearchFilterForSelect(deptFilter, deptSel);
+  }
+  if (uniSel && deptSel && !uniSel.dataset.dpHedefBound) {
+    uniSel.dataset.dpHedefBound = "1";
+    deptSel.dataset.dpHedefBound = "1";
+    uniSel.addEventListener("change", function () {
+      renderDpHedefSimulator();
+    });
+    deptSel.addEventListener("change", function () {
+      renderDpHedefSimulator();
+    });
+  }
+
   var sid = sel && sel.value ? String(sel.value) : "";
   var student = sid ? cachedStudents.find(function (x) { return x.id === sid; }) : null;
 
+  var uniId = uniSel && uniSel.value ? String(uniSel.value) : "";
+  var tmplId = deptSel && deptSel.value ? String(deptSel.value) : "";
+  var atlasId = uniId && tmplId ? uniId + "__" + tmplId : "";
+  var atlasProgram = atlasId ? findAtlasProgramById(atlasId) : null;
+
   var uniEl = document.getElementById("dpHedefUniTitle");
   var bolEl = document.getElementById("dpHedefBolumSub");
-  if (student) {
+  if (atlasProgram) {
+    if (uniEl) uniEl.textContent = atlasProgram.university;
+    if (bolEl)
+      bolEl.textContent =
+        atlasProgram.department +
+        " — Taban (örnek): " +
+        atlasProgram.baseScore2025 +
+        " · YÖK Atlas şablonu";
+  } else if (student) {
     var u = (student.targetUniversity || "").trim();
     var b = (student.targetDepartment || "").trim();
     if (uniEl) uniEl.textContent = u || "Hedef üniversite kayıtlı değil";
     if (bolEl) bolEl.textContent = (b || "Hedef bölüm kayıtlı değil") + " — Güncel vs hedef net";
   } else {
-    if (uniEl) uniEl.textContent = "Öğrenci seçin";
-    if (bolEl) bolEl.textContent = "Öğrenci kartından hedef üniversite / bölüm atanabilir.";
+    if (uniEl) uniEl.textContent = "Öğrenci veya Atlas programı seçin";
+    if (bolEl) bolEl.textContent = "Öğrenci kartından hedef atanabilir; aşağıdan örnek program seçilebilir.";
   }
 
-  var rows = buildDpHedefRowsFromStudent(student);
+  var studentLike = student
+    ? {
+        currentTytNet: student.currentTytNet,
+        targetTytNet: student.targetTytNet,
+      }
+    : null;
+  var rows = buildSimulatorRows(atlasProgram, studentLike);
   var labels = rows.map(function (r) {
     return r.label;
   });
@@ -2556,9 +3129,7 @@ function renderDpHedefSimulator() {
   var target = rows.map(function (r) {
     return r.target;
   });
-  var totalGap = rows.reduce(function (s, r) {
-    return s + Math.max(0, r.target - r.current);
-  }, 0);
+  var totalGap = sumGap(rows);
 
   if (barsEl) {
     barsEl.innerHTML = rows
@@ -2586,10 +3157,13 @@ function renderDpHedefSimulator() {
     gapEl.textContent =
       "Kalan net farkı (branş toplamı): " +
       totalGap.toFixed(1) +
-      (student && parseStudentNetVal(student.currentTytNet) != null
-        ? " — TYT net alanından ölçeklendirildi."
-        : " — Varsayılan örnek veri (öğrencide güncel/hedef net girilince güncellenir).");
+      (atlasProgram
+        ? " — Seçilen YÖK Atlas örnek şablonu."
+        : student && parseStudentNetValAtlas(studentLike.currentTytNet) != null
+          ? " — TYT net alanından ölçeklendirildi."
+          : " — Varsayılan örnek veri (öğrencide güncel/hedef net girilince güncellenir).");
   }
+  if (tableWrap) tableWrap.innerHTML = netTemplateTableHtml(rows);
 
   var ctx = canvas.getContext("2d");
   if (dpHedefRadarChart) {
@@ -2609,7 +3183,7 @@ function renderDpHedefSimulator() {
           pointBackgroundColor: "#6c5ce7",
         },
         {
-          label: "Hedef net",
+          label: "Hedef net (şablon)",
           data: target,
           borderColor: "#10b981",
           backgroundColor: "rgba(16, 185, 129, 0.18)",
@@ -2716,19 +3290,7 @@ function bindDpInboxDelegationOnce() {
 }
 
 function toDate(value) {
-  if (!value) return null;
-  if (value instanceof Timestamp) return value.toDate();
-  if (typeof value.toDate === "function") return value.toDate();
-  if (value.seconds) return new Date(value.seconds * 1000);
-  if (typeof value === "string") {
-    const d = new Date(value);
-    if (!isNaN(d.getTime())) return d;
-    const parts = value.split(/[./]/);
-    if (parts.length === 3) {
-      return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
-    }
-  }
-  return null;
+  return parseFlexibleDate(value);
 }
 
 function appointmentSortTime(data) {
@@ -3214,7 +3776,7 @@ function sdSaveNote(studentId, text) {
 }
 
 /**
- * Firestore `students` belge ID'sini değiştirir; deneme/randevu/tahsilat/görev kayıtlarındaki studentId güncellenir.
+ * Appwrite `students` belge ID'sini değiştirir; deneme/randevu/tahsilat/görev kayıtlarındaki studentId güncellenir.
  */
 async function migrateStudentDocumentId(oldId, newIdRaw) {
   var cid = getCoachId();
@@ -3397,8 +3959,8 @@ async function studentDetailUpdatePortalPassword() {
   var p2 = document.getElementById("sdPortalNewPass2");
   var a = p1 ? String(p1.value || "") : "";
   var b = p2 ? String(p2.value || "") : "";
-  if (a.length < 6) {
-    showToast("Yeni şifre en az 6 karakter olmalıdır.");
+  if (a.length < 8) {
+    showToast("Yeni şifre en az 8 karakter olmalıdır.");
     return;
   }
   if (a !== b) {
@@ -3419,8 +3981,8 @@ async function studentDetailUpdatePortalPassword() {
       return;
     }
     var email = sdGetStudentPortalEmail(st.portalUsername);
-    var cred = await signInWithEmailAndPassword(studentCreatorAuth, email, oldPass);
-    await updatePassword(cred.user, a);
+    await signInWithEmailAndPassword(studentCreatorAuth, email, oldPass);
+    await updatePassword(a, oldPass);
     await updateDoc(uref, {
       plainPassword: a,
       lastPasswordChangeAt: serverTimestamp(),
@@ -3435,7 +3997,7 @@ async function studentDetailUpdatePortalPassword() {
   } catch (err) {
     console.error(err);
     var msg = err && err.message ? String(err.message) : "Hata";
-    if (err && err.code === "auth/wrong-password") msg = "Kayıtlı şifre Firebase ile uyuşmuyor. Öğrenci şifresini sıfırlanıp tekrar deneyin.";
+    if (err && err.code === "auth/wrong-password") msg = "Kayıtlı şifre uyuşmuyor. Öğrenci şifresini sıfırlanıp tekrar deneyin.";
     if (err && err.code === "auth/weak-password") msg = "Şifre çok zayıf.";
     showToast("Şifre güncellenemedi: " + msg);
     try {
@@ -3478,8 +4040,8 @@ async function studentDetailUpdatePortalUsername() {
     }
     var oldEmail = sdGetStudentPortalEmail(st.portalUsername);
     var newEmail = sdGetStudentPortalEmail(newU);
-    var cred = await signInWithEmailAndPassword(studentCreatorAuth, oldEmail, oldPass);
-    await updateEmail(cred.user, newEmail);
+    await signInWithEmailAndPassword(studentCreatorAuth, oldEmail, oldPass);
+    await updateEmail(newEmail, oldPass);
     await updateDoc(uref, { username: newU });
     await updateDoc(doc(db, "students", st.id), { portalUsername: newU });
     try {
@@ -4487,65 +5049,77 @@ function downloadKarnePdf() {
     showToast("PDF kütüphanesi yüklenemedi; sayfayı yenileyin.");
     return;
   }
+  var btnPdf = document.getElementById("btnKarnePdf");
+  if (btnPdf) btnPdf.disabled = true;
   var fname = "karne-yks-" + new Date().toISOString().slice(0, 10) + ".pdf";
   var wrap = document.createElement("div");
   wrap.className = "karne-pdf-export-root";
   wrap.setAttribute("aria-hidden", "true");
+  /* html2canvas düşük opacity'de beyaz sayfa üretir; ekran dışı + opak 1 kullan */
   wrap.style.cssText =
-    "position:fixed;left:0;top:0;width:1120px;max-width:none;max-height:none;height:auto;overflow:visible;background:#fff;z-index:2147483000;opacity:0.02;pointer-events:none;box-sizing:border-box;padding:12px;";
+    "position:absolute;left:-14000px;top:0;width:1120px;max-width:1120px;min-height:200px;opacity:1;visibility:visible;overflow:visible;background:#ffffff;color:#0f172a;box-sizing:border-box;padding:16px;pointer-events:none;z-index:0;";
   wrap.innerHTML = source.innerHTML;
   document.body.appendChild(wrap);
-  function runPdf() {
-  var opt = {
-    margin: [6, 6, 6, 6],
-    filename: fname,
-    image: { type: "jpeg", quality: 0.92 },
-    html2canvas: {
-      scale: Math.min(2, (window.devicePixelRatio || 1) * 1.5),
-      useCORS: true,
-      logging: false,
-      scrollY: 0,
-      scrollX: 0,
-      windowWidth: wrap.scrollWidth,
-      windowHeight: Math.max(wrap.scrollHeight, 800),
-    },
-    jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
-    pagebreak: { mode: ["css", "legacy"] },
-  };
-  showToast("PDF hazırlanıyor…");
-  function cleanup() {
+
+  function karnePdfCleanup() {
     try {
       if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
     } catch (e) {}
+    if (btnPdf) btnPdf.disabled = false;
   }
-  try {
-    var worker = h2p().set(opt).from(wrap).save();
-    if (worker && typeof worker.then === "function") {
-      worker
-        .then(function () {
-          cleanup();
-          showToast("PDF indirildi.");
-        })
-        .catch(function (err) {
-          console.error(err);
-          cleanup();
-          showToast("PDF oluşturulamadı.");
+
+  function karneTwoRaf() {
+    return new Promise(function (resolve) {
+      requestAnimationFrame(function () {
+        requestAnimationFrame(resolve);
+      });
+    });
+  }
+
+  (async function karnePdfRun() {
+    try {
+      if (document.fonts && document.fonts.ready) {
+        await document.fonts.ready.catch(function () {});
+      }
+      await tmWaitForImagesDeep(wrap, 8000);
+      await karneTwoRaf();
+      await new Promise(function (r) {
+        setTimeout(r, 150);
+      });
+      var opt = {
+        margin: [6, 6, 6, 6],
+        filename: fname,
+        image: { type: "jpeg", quality: 0.92 },
+        html2canvas: {
+          scale: Math.min(2, (window.devicePixelRatio || 1) * 1.5),
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          scrollY: 0,
+          scrollX: 0,
+          windowWidth: Math.max(wrap.scrollWidth, 800),
+          windowHeight: Math.max(wrap.scrollHeight, 400),
+        },
+        jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
+        pagebreak: { mode: ["css", "legacy"] },
+      };
+      showToast("PDF hazırlanıyor…");
+      var worker = h2p().set(opt).from(wrap).save();
+      if (worker && typeof worker.then === "function") {
+        await worker;
+      } else {
+        await new Promise(function (r) {
+          setTimeout(r, 900);
         });
-    } else {
-      setTimeout(function () {
-        cleanup();
-        showToast("PDF indirildi.");
-      }, 800);
+      }
+      showToast("PDF indirildi.");
+    } catch (err) {
+      console.error("[karne-pdf]", err);
+      showToast("PDF oluşturulamadı. Bağlantınızı kontrol edip tekrar deneyin.");
+    } finally {
+      karnePdfCleanup();
     }
-  } catch (err) {
-    console.error(err);
-    cleanup();
-    showToast("PDF oluşturulamadı.");
-  }
-  }
-  requestAnimationFrame(function () {
-    requestAnimationFrame(runPdf);
-  });
+  })();
 }
 
 function refreshKarneKpis() {
@@ -4856,7 +5430,7 @@ function bindOptikManualForm() {
         payload.createdAt = serverTimestamp();
         payload.coach_id = getCoachId();
         await addDoc(collection(db, "exams"), payload);
-        showToast("Deneme Firestore'a kaydedildi.");
+        showToast("Deneme Appwrite veritabanına kaydedildi.");
         var out = document.getElementById("optikManualResult");
         if (out) out.textContent = "Kayıt oluşturuldu: " + examName + " — toplam net " + tot.totalNet.toFixed(2);
         renderExamsFullPage();
@@ -5388,7 +5962,26 @@ function countAppointmentsThisWeek() {
   return n;
 }
 
-/** Firestore randevu dokümanları — haftalık günlük sütun grafiği (Chart.js) */
+/** Randevu belgesi — Firestore QuerySnapshot dokümanı veya düz nesne */
+function normalizeAppointmentDoc(d) {
+  if (!d) return null;
+  if (typeof d.data === "function") return d.data();
+  return d;
+}
+
+/** Koçun randevuları (Firestore `appointments`, coach_id) — grafik anında yenileme */
+async function fetchAndRenderAppointmentChart() {
+  try {
+    var qa = coachQuery("appointments");
+    if (!qa) return;
+    var snap = await getDocs(qa);
+    renderAppointmentsChart(snap.docs);
+  } catch (err) {
+    console.error("[Chart] Randevu grafiği yenilenemedi:", err);
+  }
+}
+
+/** Randevu dokümanları — önümüzdeki 7 gün günlük sütun grafiği (Chart.js) */
 function renderAppointmentsChart(docs) {
   var canvas = document.getElementById("randevuChart");
   if (!canvas || typeof Chart === "undefined") return;
@@ -5397,8 +5990,9 @@ function renderAppointmentsChart(docs) {
   var labels = roll.labels;
   var longNames = roll.longNames;
   var counts = [0, 0, 0, 0, 0, 0, 0];
-  docs.forEach(function (docSnap) {
-    var ap = docSnap.data();
+  (docs || []).forEach(function (docSnap) {
+    var ap = normalizeAppointmentDoc(docSnap);
+    if (!ap) return;
     var t = appointmentSortTime(ap);
     if (!t) return;
     var day = new Date(t);
@@ -5406,6 +6000,9 @@ function renderAppointmentsChart(docs) {
     var diff = Math.round((day.getTime() - roll.startMs) / 86400000);
     if (diff >= 0 && diff < 7) counts[diff]++;
   });
+  var maxCount = counts.reduce(function (a, b) {
+    return Math.max(a, b);
+  }, 0);
   if (randevuChartInstance) {
     randevuChartInstance.destroy();
     randevuChartInstance = null;
@@ -5457,7 +6054,15 @@ function renderAppointmentsChart(docs) {
           },
           y: {
             beginAtZero: true,
-            ticks: { stepSize: 1, precision: 0, color: "#64748b" },
+            suggestedMax: Math.max(4, maxCount + 1),
+            ticks: {
+              stepSize: 1,
+              precision: 0,
+              color: "#64748b",
+              callback: function (val) {
+                if (Number.isInteger(val)) return val;
+              },
+            },
             grid: { color: "rgba(124, 58, 237, 0.06)" },
           },
         },
@@ -5651,18 +6256,300 @@ function renderStudentsList(docs) {
 
 function updateCoachProfile() {
   const greet = document.querySelector(".profile-card__greet");
-  if (greet) {
-    const h = new Date().getHours();
-    const part = h < 12 ? "Günaydın" : h < 18 ? "İyi günler" : "İyi akşamlar";
-    greet.innerHTML = part + ", <strong>Koç</strong>";
-  }
+  if (!greet) return;
+  const h = new Date().getHours();
+  const part = h < 12 ? "Günaydın" : h < 18 ? "İyi günler" : "İyi akşamlar";
+  greet.textContent = part + ", …";
+  (async function () {
+    var displayName = "Koç";
+    try {
+      const r = await verifyAppwriteAccount(6000);
+      if (r.ok && r.user) {
+        var n = (r.user.name && String(r.user.name).trim()) || "";
+        if (n) displayName = n;
+        else if (r.user.email) {
+          var em = String(r.user.email).trim();
+          displayName = em.indexOf("@") !== -1 ? em.split("@")[0] : em;
+        }
+      }
+      if (displayName === "Koç" && auth.currentUser && auth.currentUser.uid) {
+        const snap = await getDoc(doc(db, "users", auth.currentUser.uid));
+        if (firestoreDocExists(snap) && typeof snap.data === "function") {
+          const d = snap.data();
+          var fn = (d.fullName || d.name || d.username || "").trim();
+          if (fn) displayName = fn;
+        }
+      }
+    } catch (e) {
+      console.warn("[profile greet]", e);
+    }
+    greet.innerHTML = part + ", <strong>" + escapeHtml(displayName) + "</strong>";
+  })();
 }
 
 function firestoreErrorHtml(err) {
   const code = err && err.code ? String(err.code) : "";
   if (code === "permission-denied")
-    return "<strong>Erişim reddedildi.</strong> Firestore Rules kontrol edin.";
+    return "<strong>Erişim reddedildi.</strong> Appwrite izinlerini kontrol edin.";
   return escapeHtml((err && err.message) || code || "Hata");
+}
+
+var profileSettingsInitial = { name: "", email: "" };
+
+function setProfileSettingsMsg(text, isErr) {
+  var el = document.getElementById("profileSettingsMsg");
+  if (!el) return;
+  if (!text) {
+    el.style.display = "none";
+    el.textContent = "";
+    return;
+  }
+  el.style.display = "block";
+  el.className = "form-msg " + (isErr ? "is-err" : "is-ok");
+  el.textContent = text;
+}
+
+async function fillProfileSettingsForm() {
+  var n = document.getElementById("profileDisplayName");
+  var e = document.getElementById("profileEmail");
+  var cp = document.getElementById("profileCurrentPassword");
+  var np = document.getElementById("profileNewPassword");
+  var np2 = document.getElementById("profileNewPassword2");
+  if (cp) cp.value = "";
+  if (np) np.value = "";
+  if (np2) np2.value = "";
+  setProfileSettingsMsg("", false);
+  profileSettingsInitial = { name: "", email: "" };
+  try {
+    var r = await verifyAppwriteAccount(6000);
+    if (r.ok && r.user) {
+      profileSettingsInitial.name = (r.user.name && String(r.user.name).trim()) || "";
+      profileSettingsInitial.email = (r.user.email && String(r.user.email).trim()) || "";
+      if (n) n.value = profileSettingsInitial.name;
+      if (e) e.value = profileSettingsInitial.email;
+      return;
+    }
+  } catch (err) {}
+  if (auth.currentUser && auth.currentUser.uid) {
+    var snap = await getDoc(doc(db, "users", auth.currentUser.uid));
+    if (firestoreDocExists(snap) && typeof snap.data === "function") {
+      var d = snap.data();
+      profileSettingsInitial.name = String(d.fullName || d.name || "").trim();
+      profileSettingsInitial.email = String(d.email || (auth.currentUser.email || "")).trim();
+      if (n && !n.value) n.value = profileSettingsInitial.name;
+      if (e && !e.value) e.value = profileSettingsInitial.email;
+    }
+  }
+}
+
+async function submitProfileSettings() {
+  setProfileSettingsMsg("", false);
+  var nEl = document.getElementById("profileDisplayName");
+  var eEl = document.getElementById("profileEmail");
+  var curPw = document.getElementById("profileCurrentPassword");
+  var np = document.getElementById("profileNewPassword");
+  var np2 = document.getElementById("profileNewPassword2");
+  var name = nEl ? String(nEl.value || "").trim() : "";
+  var email = eEl ? String(eEl.value || "").trim().toLowerCase() : "";
+  var cur = curPw ? String(curPw.value || "") : "";
+  var nw = np ? String(np.value || "") : "";
+  var nw2 = np2 ? String(np2.value || "") : "";
+
+  if (!name) {
+    setProfileSettingsMsg("Ad soyad boş olamaz.", true);
+    return;
+  }
+  var emailCh = email && email !== String(profileSettingsInitial.email || "").toLowerCase().trim();
+  var passCh = nw.length > 0 || nw2.length > 0;
+  if ((emailCh || passCh) && cur.length < 1) {
+    setProfileSettingsMsg("E-posta veya şifre değişikliği için mevcut şifrenizi girin.", true);
+    return;
+  }
+  if (passCh) {
+    if (nw.length < 8) {
+      setProfileSettingsMsg("Yeni şifre en az 8 karakter olmalıdır.", true);
+      return;
+    }
+    if (nw !== nw2) {
+      setProfileSettingsMsg("Yeni şifreler eşleşmiyor.", true);
+      return;
+    }
+  }
+
+  var btn = document.getElementById("btnProfileSettingsSave");
+  if (btn) btn.disabled = true;
+  try {
+    if (name !== profileSettingsInitial.name) {
+      await updateAccountName(name);
+      try {
+        if (auth.currentUser && auth.currentUser.uid) {
+          await updateDoc(doc(db, "users", auth.currentUser.uid), { fullName: name, name: name });
+        }
+      } catch (eU) {}
+    }
+    if (emailCh) {
+      await updateEmail(email, cur);
+    }
+    if (passCh) {
+      await updatePassword(nw, cur);
+    }
+    profileSettingsInitial.name = name;
+    profileSettingsInitial.email = email;
+    if (curPw) curPw.value = "";
+    if (np) np.value = "";
+    if (np2) np2.value = "";
+    updateCoachProfile();
+    showToast("Profil güncellendi.");
+    closeModal("profileSettingsModal");
+  } catch (err) {
+    console.error(err);
+    var msg = err && err.message ? String(err.message) : "Güncelleme başarısız.";
+    setProfileSettingsMsg(msg, true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function openProfileSettingsModal() {
+  fillProfileSettingsForm()
+    .then(function () {
+      openModal("profileSettingsModal");
+    })
+    .catch(function () {
+      openModal("profileSettingsModal");
+    });
+}
+
+function coachInboxRowIsUnread(raw) {
+  var rep = String((raw && raw.admin_cevabi) || "").trim();
+  if (!rep) return false;
+  return raw.okundu_mu !== true;
+}
+
+async function markCoachInboxRepliesRead(rows) {
+  var toMark = (rows || []).filter(function (x) {
+    return coachInboxRowIsUnread(x.data);
+  });
+  for (var i = 0; i < toMark.length; i++) {
+    try {
+      await updateDoc(doc(db, "hata_bildirimleri", toMark[i].id), { okundu_mu: true });
+    } catch (e) {
+      console.warn("[koc-panel] okundu_mu güncellenemedi", toMark[i].id, e);
+    }
+  }
+  refreshCoachInboxBadge();
+}
+
+async function refreshCoachInboxBadge() {
+  var badge = document.getElementById("coachInboxBadge");
+  if (!badge) return;
+  try {
+    var vr = await verifyAppwriteAccount(5000);
+    var uid =
+      vr.ok && vr.user && vr.user.$id
+        ? String(vr.user.$id)
+        : auth.currentUser && auth.currentUser.uid
+          ? String(auth.currentUser.uid)
+          : "";
+    if (!uid) {
+      badge.hidden = true;
+      badge.textContent = "";
+      return;
+    }
+    var snap = await getDocs(query(collection(db, "hata_bildirimleri"), where("gonderen_uid", "==", uid)));
+    var n = 0;
+    (snap.docs || []).forEach(function (d) {
+      var raw = typeof d.data === "function" ? d.data() : {};
+      if (coachInboxRowIsUnread(raw)) n++;
+    });
+    if (n <= 0) {
+      badge.hidden = true;
+      badge.textContent = "";
+    } else {
+      badge.hidden = false;
+      badge.textContent = n > 9 ? "9+" : String(n);
+    }
+  } catch (e) {
+    console.warn("[koc-panel] inbox badge", e);
+  }
+}
+
+async function loadCoachInboxList() {
+  var list = document.getElementById("coachInboxList");
+  if (!list) return;
+  list.innerHTML = '<li class="table-empty">Yükleniyor…</li>';
+  try {
+    var vr = await verifyAppwriteAccount(5000);
+    var uid =
+      vr.ok && vr.user && vr.user.$id
+        ? String(vr.user.$id)
+        : auth.currentUser && auth.currentUser.uid
+          ? String(auth.currentUser.uid)
+          : "";
+    if (!uid) {
+      list.innerHTML = '<li class="table-empty">Oturum bulunamadı.</li>';
+      return;
+    }
+    var snap = await getDocs(query(collection(db, "hata_bildirimleri"), where("gonderen_uid", "==", uid)));
+    var docs = (snap.docs || []).map(function (d) {
+      return { id: d.id, data: typeof d.data === "function" ? d.data() : {} };
+    });
+    var withReply = docs.filter(function (x) {
+      var a = x.data.admin_cevabi;
+      return a != null && String(a).trim() !== "";
+    });
+    withReply.sort(function (a, b) {
+      var ta = String(a.data.$updatedAt || a.data.$createdAt || "");
+      var tb = String(b.data.$updatedAt || b.data.$createdAt || "");
+      return tb.localeCompare(ta);
+    });
+    if (withReply.length === 0) {
+      list.innerHTML = '<li class="table-empty">Henüz yanıtlanmış destek talebiniz yok.</li>';
+      await refreshCoachInboxBadge();
+      return;
+    }
+    list.innerHTML = withReply
+      .map(function (x) {
+        var raw = x.data;
+        var when = formatDateTimeTr(raw.$updatedAt || raw.$createdAt, { withSeconds: true });
+        var det = String(raw.detay || "").trim();
+        var detShort = det.length > 120 ? det.slice(0, 120) + "…" : det;
+        var rep = String(raw.admin_cevabi || "").trim();
+        var kat = String(raw.kategori || "diger");
+        var unread = coachInboxRowIsUnread(raw);
+        return (
+          '<li class="coach-inbox-item' +
+          (unread ? " coach-inbox-item--unread" : "") +
+          '">' +
+          '<p class="coach-inbox-item__meta">' +
+          escapeHtml(when) +
+          " · " +
+          escapeHtml(kat) +
+          (unread ? ' · <span class="coach-inbox-item__new">Yeni</span>' : "") +
+          "</p>" +
+          '<p class="coach-inbox-item__subj">Talebiniz</p>' +
+          '<p class="coach-inbox-item__reply" style="opacity:0.85;font-size:0.8rem;margin-bottom:0.75rem">' +
+          escapeHtml(detShort) +
+          "</p>" +
+          '<p class="coach-inbox-item__subj">Yanıt</p>' +
+          '<p class="coach-inbox-item__reply">' +
+          escapeHtml(rep) +
+          "</p>" +
+          "</li>"
+        );
+      })
+      .join("");
+    await markCoachInboxRepliesRead(withReply);
+  } catch (err) {
+    console.error(err);
+    list.innerHTML =
+      '<li class="table-empty">Liste yüklenemedi. İzinleri veya bağlantıyı kontrol edin.</li>';
+  }
+}
+
+function openCoachInboxModal() {
+  openModal("coachInboxModal");
+  loadCoachInboxList();
 }
 
 function onAppointmentsSnap(snap) {
@@ -5676,6 +6563,7 @@ function onAppointmentsSnap(snap) {
 }
 
 function onExamsSnap(snap) {
+  snap = filterSnapshotDocsByCoach(snap);
   cachedExams = snap.docs.map(function (d) {
     return { ...d.data(), id: d.id };
   });
@@ -5716,6 +6604,7 @@ function onStudentsSnap(snap) {
 }
 
 function onPaymentsSnap(snap) {
+  snap = filterSnapshotDocsByCoach(snap);
   cachedPayments = snap.docs.map(function (d) {
     return { ...d.data(), id: d.id };
   });
@@ -5725,6 +6614,7 @@ function onPaymentsSnap(snap) {
 }
 
 function onTestsSnap(snap) {
+  snap = filterSnapshotDocsByCoach(snap);
   cachedTests = snap.docs.map(function (d) {
     return { ...d.data(), id: d.id };
   });
@@ -5850,14 +6740,7 @@ function refreshMuhasebeDashboard() {
 }
 
 function tmFormatFirestoreDate(val) {
-  if (!val) return "—";
-  if (typeof val.toDate === "function") {
-    try {
-      return val.toDate().toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" });
-    } catch (e) {}
-  }
-  if (typeof val === "string") return val;
-  return "—";
+  return formatDateTimeTr(val, { withTime: false });
 }
 
 function renderTestsTable() {
@@ -5904,25 +6787,33 @@ async function firestoreDeleteConfirmed(collectionName, docId) {
   try {
     await deleteDoc(doc(db, collectionName, docId));
     showToast("Kayıt silindi.");
+    if (collectionName === "appointments") void fetchAndRenderAppointmentChart();
   } catch (err) {
     console.error(err);
     alert("Silinemedi: " + (err.message || err));
   }
 }
 
-/** 40 pastel çizgi film avatar — gerçek fotoğraf yok (Dicebear avataaars) */
+/** 40 pastel çizgi film avatar — cinsiyet havuzlarına ayrılmış (Dicebear avataaars) */
 var YKS_CARTOON_BG = ["b6e3f4", "c0aede", "ffd5dc", "d1d4f9", "ffdfbf", "bae6fd", "bbf7d0", "fde68a"];
-var YKS_CARTOON_AVATAR_POOL = Array.from({ length: 40 }, function (_, i) {
-  var bg = YKS_CARTOON_BG[i % YKS_CARTOON_BG.length];
+function yksBuildAvatarUrl(index1Based) {
+  var bg = YKS_CARTOON_BG[(index1Based - 1) % YKS_CARTOON_BG.length];
   return (
     "https://api.dicebear.com/7.x/avataaars/png?seed=" +
-    encodeURIComponent("yks_pastel_" + (i + 1)) +
+    encodeURIComponent("yks_pastel_" + index1Based) +
     "&size=128&backgroundColor=" +
     bg
   );
-});
-var studentAddAvatarState = { mode: "preset", url: YKS_CARTOON_AVATAR_POOL[0], customDataUrl: "" };
-var studentEditAvatarState = { mode: "preset", url: YKS_CARTOON_AVATAR_POOL[0], customDataUrl: "" };
+}
+var erkekAvatarları = [];
+for (var _ei = 1; _ei <= 14; _ei++) erkekAvatarları.push(yksBuildAvatarUrl(_ei));
+var kadinAvatarları = [];
+for (var _ki = 15; _ki <= 27; _ki++) kadinAvatarları.push(yksBuildAvatarUrl(_ki));
+var tesetturAvatarları = [];
+for (var _ti = 28; _ti <= 40; _ti++) tesetturAvatarları.push(yksBuildAvatarUrl(_ti));
+var YKS_CARTOON_AVATAR_POOL = erkekAvatarları.concat(kadinAvatarları, tesetturAvatarları);
+var studentAddAvatarState = { mode: "preset", url: erkekAvatarları[0], customDataUrl: "" };
+var studentEditAvatarState = { mode: "preset", url: erkekAvatarları[0], customDataUrl: "" };
 
 function normalizeGender(gender) {
   if (gender === "Kadın" || gender === "Kadin") return "Kadın";
@@ -5931,7 +6822,10 @@ function normalizeGender(gender) {
 }
 
 function getAvatarPoolByGender(gender) {
-  return YKS_CARTOON_AVATAR_POOL;
+  var g = normalizeGender(gender);
+  if (g === "Kadın") return kadinAvatarları;
+  if (g === "Tesettür") return tesetturAvatarları;
+  return erkekAvatarları;
 }
 
 function hashSimple(str) {
@@ -5955,6 +6849,11 @@ function getSelectedAddGender() {
   return normalizeGender(el ? el.value : "Erkek");
 }
 
+function getSelectedEditGender() {
+  var el = document.querySelector('input[name="edit_gender"]:checked');
+  return normalizeGender(el ? el.value : "Erkek");
+}
+
 function updateStudentAvatarMetaText(gender, isCustom) {
   var meta = document.getElementById("stAvatarMeta");
   if (!meta) return;
@@ -5962,13 +6861,13 @@ function updateStudentAvatarMetaText(gender, isCustom) {
     meta.textContent = "Kişisel resim seçildi";
     return;
   }
-  meta.textContent = "YKS adayı avatar havuzu — 40 çizgi film (pastel)";
+  meta.textContent = "YKS adayı avatar — cinsiyete göre havuz (40 çizgi film, pastel)";
 }
 
 function updateEditStudentAvatarMeta(isCustom) {
   var meta = document.getElementById("stEditAvatarMeta");
   if (!meta) return;
-  meta.textContent = isCustom ? "Kişisel resim" : "YKS adayı avatar havuzu — 40 çizgi film (pastel)";
+  meta.textContent = isCustom ? "Kişisel resim" : "YKS adayı avatar — cinsiyete göre havuz (40 çizgi film, pastel)";
 }
 
 function setEditStudentAvatarPreview(url, options) {
@@ -5988,7 +6887,7 @@ function setEditStudentAvatarPreview(url, options) {
 }
 
 function pickRandomAvatarForEditForm() {
-  var pool = getAvatarPoolByGender("Erkek");
+  var pool = getAvatarPoolByGender(getSelectedEditGender());
   if (!pool || !pool.length) return;
   var next = pool[Math.floor(Math.random() * pool.length)];
   if (pool.length > 1 && next === studentEditAvatarState.url) {
@@ -6008,7 +6907,7 @@ function setStudentAvatarPreview(url, options) {
 }
 
 function pickRandomAvatarForAddForm() {
-  var pool = YKS_CARTOON_AVATAR_POOL;
+  var pool = getAvatarPoolByGender(getSelectedAddGender());
   if (!pool || !pool.length) return;
   var next = pool[Math.floor(Math.random() * pool.length)];
   if (pool.length > 1 && next === studentAddAvatarState.url) {
@@ -6098,8 +6997,14 @@ function openAvatarGallerySheet(target) {
   window.__avatarPickTarget = target === "edit" ? "edit" : "add";
   var sheet = document.getElementById("avatarGallerySheet");
   var grid = document.getElementById("avatarGalleryGrid");
-  if (grid && grid.getAttribute("data-built") !== "1") {
-    grid.innerHTML = YKS_CARTOON_AVATAR_POOL.map(function (url, idx) {
+  var pool =
+    target === "edit"
+      ? getAvatarPoolByGender(getSelectedEditGender())
+      : getAvatarPoolByGender(getSelectedAddGender());
+  if (!grid || !pool.length) return;
+  window.__avatarGalleryPool = pool;
+  grid.innerHTML = pool
+    .map(function (url, idx) {
       return (
         '<button type="button" class="avatar-gallery__cell" data-avatar-idx="' +
         idx +
@@ -6107,13 +7012,16 @@ function openAvatarGallerySheet(target) {
         escapeHtml(url) +
         '" alt="" loading="lazy" width="72" height="72" decoding="async"/></button>'
       );
-    }).join("");
-    grid.setAttribute("data-built", "1");
+    })
+    .join("");
+  if (!grid.dataset.avatarGalleryDelegated) {
+    grid.dataset.avatarGalleryDelegated = "1";
     grid.addEventListener("click", function (ev) {
       var b = ev.target.closest && ev.target.closest("[data-avatar-idx]");
       if (!b) return;
       var idx = parseInt(b.getAttribute("data-avatar-idx"), 10);
-      var u = YKS_CARTOON_AVATAR_POOL[idx];
+      var pl = window.__avatarGalleryPool;
+      var u = pl && pl[idx];
       if (!u) return;
       if (window.__avatarPickTarget === "edit") {
         setEditStudentAvatarPreview(u, { mode: "preset" });
@@ -6219,6 +7127,15 @@ function initStudentEditAvatarControls() {
       showToast("Resim islenemedi.");
     }
   });
+  document.querySelectorAll('input[name="edit_gender"]').forEach(function (r) {
+    r.addEventListener("change", function () {
+      if (studentEditAvatarState.mode === "custom") {
+        updateEditStudentAvatarMeta(true);
+        return;
+      }
+      pickRandomAvatarForEditForm();
+    });
+  });
 }
 
 function setStudentErpTab(index) {
@@ -6279,7 +7196,7 @@ function fillStudentSelects() {
   });
 }
 
-/* --- Deneme Analizleri: EDS tarzı branş + yerel trend + Firestore --- */
+/* --- Deneme Analizleri: EDS tarzı branş + yerel trend + Appwrite --- */
 var DA_CHART_STORAGE_KEY = "yks_deneme_analiz_chart_v1";
 var edsDenemeBound = false;
 
@@ -6870,7 +7787,7 @@ function bindDenemeAnalizForm() {
         payload.createdAt = serverTimestamp();
         payload.coach_id = getCoachId();
         await addDoc(collection(db, "exams"), payload);
-        showToast("Deneme Firestore'a kaydedildi.");
+        showToast("Deneme Appwrite veritabanına kaydedildi.");
         renderExamsFullPage();
         renderDashboardExams();
       } catch (err) {
@@ -6921,7 +7838,7 @@ function saveMockTasksToStorage() {
   } catch (e) {}
 }
 
-/** Koç → öğrenci paneli: Firestore `studentPortalPlans/{öğrenciFirestoreId}` */
+/** Koç → öğrenci paneli: Appwrite `studentPortalPlans/{öğrenciId}` */
 
 function getOgrenciVerisiTargetStudentId() {
   var sid = "";
@@ -7078,7 +7995,7 @@ async function saveOgrenciVerisiBridge(opts) {
       },
       { merge: true }
     );
-    if (!opts.silent) showToast("Öğrenci planı Firestore'a kaydedildi.");
+    if (!opts.silent) showToast("Öğrenci planı Appwrite veritabanına kaydedildi.");
   } catch (e) {
     console.error(e);
     if (!opts.silent) showToast("Kayıt başarısız: " + (e && e.message ? e.message : ""));
@@ -7132,9 +8049,15 @@ var gorevKanbanState = null;
 var gorevComposerBound = false;
 
 function gorevTimestampToMs(ts) {
-  if (!ts) return Date.now();
-  if (typeof ts.toMillis === "function") return ts.toMillis();
-  if (typeof ts === "number") return ts;
+  if (ts == null || ts === "") return Date.now();
+  if (typeof ts === "number" && !isNaN(ts)) return ts;
+  var d = parseFlexibleDate(ts);
+  if (d) return d.getTime();
+  if (typeof ts.toMillis === "function") {
+    try {
+      return ts.toMillis();
+    } catch (_e) {}
+  }
   return Date.now();
 }
 
@@ -7295,7 +8218,7 @@ async function migrateLocalGorevTasksToFirestoreOnce() {
         localStorage.removeItem(GOREV_KANBAN_STORAGE_KEY);
         localStorage.removeItem(GOREV_KANBAN_LEGACY_KEY);
       } catch (e) {}
-      showToast("Yerel görevler Firestore'a aktarıldı (" + n + ").");
+      showToast("Yerel görevler Appwrite veritabanına aktarıldı (" + n + ").");
     }
   } catch (e) {
     console.error("[migrate coach_tasks]", e);
@@ -7666,7 +8589,17 @@ function initGorevTakibiPage() {
 }
 
 /** Tek seferde yalnızca bir modal açık — HTML id'leri ile eşleşir */
-var MODAL_IDS = ["studentModal", "appointmentModal", "testModal", "financeModal", "examModal", "kkModalAta", "hpWeeklyTaskModal"];
+var MODAL_IDS = [
+  "studentModal",
+  "appointmentModal",
+  "testModal",
+  "financeModal",
+  "examModal",
+  "kkModalAta",
+  "hpWeeklyTaskModal",
+  "profileSettingsModal",
+  "coachInboxModal",
+];
 
 function closeAllModals() {
   var o = document.getElementById("modalOverlay");
@@ -7739,7 +8672,8 @@ function openStudentModal() {
   });
   studentAddAvatarState.mode = "preset";
   studentAddAvatarState.customDataUrl = "";
-  studentAddAvatarState.url = YKS_CARTOON_AVATAR_POOL[0];
+  var _defPool = getAvatarPoolByGender("Erkek");
+  studentAddAvatarState.url = _defPool[Math.floor(Math.random() * _defPool.length)];
   setStudentAvatarPreview(studentAddAvatarState.url, { mode: "preset" });
   openModal("studentModal");
   var stPw = document.getElementById("st_studentPassword");
@@ -7878,8 +8812,8 @@ async function submitStudentAddForm(e) {
       showToast("Portal kullanıcı adı yalnızca a-z, 0-9 ve _ içerebilir (giriş için gerekli).");
       return;
     }
-    if (pass.length < 6) {
-      showToast("Giriş şifresi en az 6 karakter olmalıdır.");
+    if (pass.length < 8) {
+      showToast("Giriş şifresi en az 8 karakter olmalıdır.");
       return;
     }
     if (pass !== pass2) {
@@ -7895,30 +8829,37 @@ async function submitStudentAddForm(e) {
     data.createdAt = serverTimestamp();
     data.coach_id = getCoachId();
 
+    var authProvisioned = false;
     if (wantAuth) {
       var email = data.portalUsername + STUDENT_EMAIL_DOMAIN;
-      var cred = await createUserWithEmailAndPassword(studentCreatorAuth, email, pass);
-      await setDoc(doc(db, "users", cred.user.uid), {
-        username: data.portalUsername,
-        role: "student",
-        coach_id: getCoachId(),
-        fullName: data.name || null,
-        frozen: false,
-        plainPassword: pass,
-        createdAt: serverTimestamp(),
-        lastPasswordChangeAt: serverTimestamp(),
-      });
-      data.studentAuthUid = cred.user.uid;
       try {
-        await signOut(studentCreatorAuth);
-      } catch (so) {}
+        var cred = await createEmailPasswordUserNoSession(email, pass);
+        await setDoc(doc(db, "users", cred.user.uid), {
+          username: data.portalUsername,
+          role: "student",
+          coach_id: getCoachId(),
+          fullName: data.name || null,
+          frozen: false,
+          plainPassword: pass,
+          createdAt: serverTimestamp(),
+          lastPasswordChangeAt: serverTimestamp(),
+        });
+        data.studentAuthUid = cred.user.uid;
+        authProvisioned = true;
+      } catch (authErr) {
+        console.warn("[student] Portal hesabı oluşturulamadı; yalnızca öğrenci belgesi kaydedilecek:", authErr);
+        data.portalAuthPending = true;
+      }
     }
 
     await addDoc(collection(db, "students"), data);
     showToast(
-      wantAuth
-        ? "Öğrenci kaydedildi; giriş: kullanıcı adı «" + data.portalUsername + "» (şifre: belirlediğiniz)."
-        : "Öğrenci başarıyla eklendi (giriş hesabı oluşturulmadı)."
+      authProvisioned
+        ? "Öğrenci başarıyla eklendi! Giriş kullanıcı adı: «" + data.portalUsername + "»"
+        : wantAuth
+          ? "Öğrenci başarıyla eklendi! Portal hesabı şu an oluşturulamadı; kayıt veritabanına işlendi."
+          : "Öğrenci başarıyla eklendi!",
+      { variant: "success" }
     );
     form.reset();
     if (passEl) passEl.value = "";
@@ -7929,10 +8870,8 @@ async function submitStudentAddForm(e) {
   } catch (err) {
     console.error(err);
     var msg = err.message || String(err);
-    if (err.code === "auth/email-already-in-use") msg = "Bu kullanıcı adı zaten kayıtlı.";
-    try {
-      await signOut(studentCreatorAuth);
-    } catch (so2) {}
+    if (err.code === "auth/email-already-in-use" || /already exists|409|duplicate|user_already/i.test(msg))
+      msg = "Bu kullanıcı adı zaten kayıtlı.";
     alert("Kayıt hatası: " + msg);
   }
 }
@@ -8112,6 +9051,7 @@ async function submitAppointmentForm(e) {
       await addDoc(collection(db, "appointments"), payload);
       showToast("Randevu kaydedildi.");
     }
+    void fetchAndRenderAppointmentChart();
     e.target.reset();
     var h = document.getElementById("appointmentEditDocId");
     if (h) h.value = "";
@@ -8471,6 +9411,13 @@ function initModals() {
   if (fp) fp.addEventListener("submit", submitPaymentForm);
   var fe = document.getElementById("formExam");
   if (fe) fe.addEventListener("submit", submitExamForm);
+  var fprof = document.getElementById("formProfileSettings");
+  if (fprof) {
+    fprof.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      submitProfileSettings();
+    });
+  }
 }
 
 function subscribeFirestore() {
@@ -8482,7 +9429,7 @@ function subscribeFirestore() {
   var qt = coachQuery("tests");
   var qgt = coachQuery("coach_tasks");
   if (!qa || !qe || !qs || !qp || !qt || !qgt) {
-    console.warn("[Firestore] coach_id eksik veya sorgu kurulamadı.");
+    console.warn("[Appwrite] coach_id eksik veya sorgu kurulamadı.");
     return;
   }
   firestoreUnsubs.push(
@@ -8554,20 +9501,45 @@ function subscribeFirestore() {
   );
 }
 
-function showToast(msg) {
+function showToast(msg, opts) {
   const t = document.getElementById("panelToast");
   if (!t) {
     alert(msg);
     return;
   }
   t.textContent = msg;
+  t.classList.remove("toast--success", "toast--danger");
+  if (opts && opts.variant === "success") t.classList.add("toast--success");
+  else if (opts && opts.variant === "danger") t.classList.add("toast--danger");
   t.hidden = false;
   t.classList.add("toast--show");
   clearTimeout(showToast._tm);
   showToast._tm = setTimeout(function () {
-    t.classList.remove("toast--show");
+    t.classList.remove("toast--show", "toast--success", "toast--danger");
     t.hidden = true;
   }, 2800);
+}
+
+/** PDF / uzun işlemler: otomatik kapanmayan toast (bitince hidePanelToast) */
+function showToastPersistent(msg) {
+  var t = document.getElementById("panelToast");
+  if (!t) {
+    alert(msg);
+    return;
+  }
+  clearTimeout(showToast._tm);
+  t.textContent = msg;
+  t.hidden = false;
+  t.classList.add("toast--show");
+}
+
+function hidePanelToast() {
+  var t = document.getElementById("panelToast");
+  clearTimeout(showToast._tm);
+  if (t) {
+    t.classList.remove("toast--show", "toast--success", "toast--danger");
+    t.hidden = true;
+  }
 }
 
 function destroyTmWsCropper() {
@@ -9777,7 +10749,7 @@ async function tmWsSaveFirestoreDraft() {
     if (!imgEl) continue;
     var j = await tmWsCompressJpeg(imgEl.src, 700, 0.68);
     if (total + j.length > maxBytes) {
-      showToast("Firestore ~1MB sınırı: " + arr.length + " soru kaydedildi.");
+      showToast("Appwrite ~1MB sınırı: " + arr.length + " soru kaydedildi.");
       break;
     }
     arr.push(j);
@@ -9807,7 +10779,7 @@ async function tmWsSaveFirestoreDraft() {
       createdAt: serverTimestamp(),
       coach_id: getCoachId(),
     });
-    showToast("Taslak Firestore'a kaydedildi (" + arr.length + " soru).");
+    showToast("Taslak Appwrite veritabanına kaydedildi (" + arr.length + " soru).");
   } catch (err) {
     console.error(err);
     alert(err.message || String(err));
@@ -9928,6 +10900,41 @@ function tmPreparePrintClone(clone, livePaper, widthPx, mm) {
 }
 
 /**
+ * fetch başarısız olunca: anonymous CORS ile yeniden yükleyip canvas→JPEG data URL (Appwrite CDN vb.)
+ */
+function tmPdfInlineImageViaCrossOriginCanvas(img, src) {
+  return new Promise(function (resolve) {
+    var probe = new Image();
+    probe.crossOrigin = "anonymous";
+    probe.onload = function () {
+      try {
+        var w = probe.naturalWidth || probe.width;
+        var h = probe.naturalHeight || probe.height;
+        if (!w || !h) {
+          resolve(false);
+          return;
+        }
+        var c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        c.getContext("2d").drawImage(probe, 0, 0);
+        var du = c.toDataURL("image/jpeg", 0.92);
+        img.setAttribute("data-tm-pdf-src-backup", src);
+        img.src = du;
+        img.removeAttribute("crossorigin");
+        resolve(true);
+      } catch (e) {
+        resolve(false);
+      }
+    };
+    probe.onerror = function () {
+      resolve(false);
+    };
+    probe.src = src;
+  });
+}
+
+/**
  * PDF (html2canvas → canvas.toDataURL) harici origin img yüzünden "tainted canvas" ile patlar.
  * Yakalamadan önce http(s) görselleri fetch+CORS ile data URL yaparız; sonra src geri yüklenir.
  */
@@ -9938,32 +10945,19 @@ function tmPdfInlineRemoteImages(paper) {
   return Promise.all(
     Array.prototype.map.call(imgs, function (img) {
       var src = (img.getAttribute("src") || "").trim();
-      if (!src || /^data:/i.test(src) || /^blob:/i.test(src)) return Promise.resolve();
-      return fetch(src, { mode: "cors", credentials: "omit", cache: "force-cache" })
-        .then(function (r) {
-          if (!r.ok) throw new Error("HTTP " + r.status);
-          return r.blob();
-        })
-        .then(function (blob) {
-          return new Promise(function (resolve) {
-            var fr = new FileReader();
-            fr.onloadend = function () {
-              var du = fr.result;
-              if (du && typeof du === "string") {
-                img.setAttribute("data-tm-pdf-src-backup", src);
-                img.src = du;
-                img.removeAttribute("crossorigin");
-              }
-              resolve();
-            };
-            fr.onerror = function () {
-              resolve();
-            };
-            fr.readAsDataURL(blob);
-          });
+      if (!src || /^data:/i.test(src)) return Promise.resolve();
+      return tmFetchUrlAsDataUrlCached(src)
+        .then(function (du) {
+          if (du && typeof du === "string") {
+            img.setAttribute("data-tm-pdf-src-backup", src);
+            img.src = du;
+            img.removeAttribute("crossorigin");
+          } else {
+            return tmPdfInlineImageViaCrossOriginCanvas(img, src).then(function () {});
+          }
         })
         .catch(function () {
-          /* CORS / ağ: orijinal src kalır; toDataURL yine hata verebilir */
+          return tmPdfInlineImageViaCrossOriginCanvas(img, src).then(function () {});
         });
     })
   );
@@ -9976,6 +10970,69 @@ function tmPdfRestorePaperImages(paper) {
     if (b) img.src = b;
     img.removeAttribute("data-tm-pdf-src-backup");
   });
+}
+
+/**
+ * PDF öncesi: A4 içindeki img’ler için load/error ile bekle; bozuk görsel kilidi kırılır.
+ * En fazla ~8000 ms (Promise.race sigortası); süre dolunca PDF akışına devam edilir.
+ */
+function tmWaitForImagesDeep(root, timeoutMs) {
+  if (!root || !root.querySelectorAll) return Promise.resolve();
+  var imgs = root.querySelectorAll("img");
+  if (!imgs.length) return Promise.resolve();
+  var capMs = Math.min(typeof timeoutMs === "number" && timeoutMs > 0 ? timeoutMs : 8000, 8000);
+  var deadline = Date.now() + capMs;
+  var inner = Promise.all(
+    Array.prototype.map.call(imgs, function (img) {
+      function afterLoaded() {
+        if (typeof img.decode === "function") {
+          return img.decode().catch(function () {});
+        }
+        return Promise.resolve();
+      }
+      if (img.complete && img.naturalWidth > 0) return afterLoaded();
+      return new Promise(function (resolve) {
+        var settled = false;
+        var poll = null;
+        function finish() {
+          if (settled) return;
+          settled = true;
+          if (poll != null) {
+            try {
+              clearInterval(poll);
+            } catch (eClr) {}
+            poll = null;
+          }
+          try {
+            img.onload = null;
+            img.onerror = null;
+          } catch (eOn) {}
+          afterLoaded()
+            .then(resolve)
+            .catch(function () {
+              resolve();
+            });
+        }
+        img.onload = finish;
+        img.onerror = finish;
+        poll = setInterval(function () {
+          if ((img.complete && img.naturalHeight > 0) || Date.now() > deadline) {
+            try {
+              clearInterval(poll);
+            } catch (eI) {}
+            poll = null;
+            finish();
+          }
+        }, 80);
+      });
+    })
+  );
+  return Promise.race([
+    inner,
+    new Promise(function (resolve) {
+      setTimeout(resolve, capMs);
+    }),
+  ]);
 }
 
 function tmWsDownloadPdf() {
@@ -9994,6 +11051,12 @@ function tmWsDownloadPdf() {
     return;
   }
 
+  var pdfCaptureRoot =
+    document.getElementById("a4-pages-container") ||
+    document.getElementById("tmViewCreator") ||
+    document.getElementById("tmWorkspaceRoot");
+  showToastPersistent("Resimler yükleniyor, PDF hazırlanıyor…");
+
   ["tempPrintArea", "tmPdfBlocker", "tmPdfSinglePageHost"].forEach(function (id) {
     var el = document.getElementById(id);
     if (el && el.parentNode) {
@@ -10008,30 +11071,6 @@ function tmWsDownloadPdf() {
     ((document.getElementById("tmWsTitle") && document.getElementById("tmWsTitle").value) || "Deneme_Sinavi")
     .trim()
       .replace(/[\\/:*?"<>|]/g, "-") || "Deneme_Sinavi";
-
-  function tmWaitImages(root, timeoutMs) {
-    var imgs = root.querySelectorAll("img");
-    if (!imgs.length) return Promise.resolve();
-    var deadline = Date.now() + (timeoutMs || 12000);
-    return Promise.all(
-      Array.prototype.map.call(imgs, function (img) {
-        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
-        return new Promise(function (resolve) {
-          function done() {
-            resolve();
-          }
-          img.addEventListener("load", done, { once: true });
-          img.addEventListener("error", done, { once: true });
-          var t = setInterval(function () {
-            if (img.complete || Date.now() > deadline) {
-              clearInterval(t);
-              done();
-            }
-          }, 80);
-        });
-      })
-    );
-  }
 
   function tmPdfCleanupAll() {
     ["tmPdfBlocker", "tmPdfSinglePageHost", "tempPrintArea"].forEach(function (id) {
@@ -10048,7 +11087,13 @@ function tmWsDownloadPdf() {
     var stCap = document.createElement("style");
     stCap.id = "tmPdfCaptureUi";
     stCap.textContent =
-      ".tm-pdf-live-capture .tm-a4-block__x{display:none!important;pointer-events:none!important;}";
+      ".tm-pdf-live-capture .tm-a4-block__x{display:none!important;pointer-events:none!important;}" +
+      ".tm-pdf-live-capture .a4-paper,.tm-pdf-live-capture.tm-a4-page--sub{box-sizing:border-box!important;width:210mm!important;max-width:210mm!important;margin-left:auto!important;margin-right:auto!important;}" +
+      ".tm-pdf-live-capture .test-content-area{display:flex!important;flex-direction:row!important;align-items:flex-start!important;min-height:0!important;height:auto!important;}" +
+      ".tm-pdf-live-capture.layout-4 .test-column .question-item,.tm-pdf-live-capture.layout-6 .test-column .question-item{flex:0 0 auto!important;height:auto!important;min-height:48mm!important;overflow:visible!important;}" +
+      ".tm-pdf-live-capture .question-item,.tm-pdf-live-capture .soru-karti,.tm-pdf-live-capture.tm-a4-block.question-item{page-break-inside:avoid!important;break-inside:avoid!important;-webkit-column-break-inside:avoid!important;}" +
+      ".tm-pdf-live-capture .tm-a4-block__imgwrap{display:flex!important;align-items:center!important;justify-content:center!important;overflow:visible!important;min-height:0!important;flex:1 1 auto!important;}" +
+      ".tm-pdf-live-capture .tm-a4-block__imgwrap img,.tm-pdf-live-capture .question-item img{width:100%!important;max-width:100%!important;height:auto!important;object-fit:contain!important;display:block!important;}";
     document.head.appendChild(stCap);
   }
 
@@ -10066,8 +11111,27 @@ function tmWsDownloadPdf() {
   blocker.style.cssText =
     "position:fixed;inset:0;background:rgba(15,23,42,0.58);z-index:2147483646;display:flex;align-items:center;justify-content:center;padding:1.5rem;";
   blocker.innerHTML =
-    '<p style="margin:0;color:#f8fafc;font:600 15px system-ui,Segoe UI,sans-serif;text-align:center;max-width:22rem;line-height:1.45">PDF oluşturuluyor…<br><span style="font-size:12px;font-weight:500;opacity:0.9">Her sayfa ayrı işlenir; birkaç saniye sürebilir.</span></p>';
+    '<div style="text-align:center;max-width:24rem;line-height:1.5">' +
+    '<p id="tmPdfBlockerLine1" style="margin:0 0 0.35rem;color:#f8fafc;font:600 15px system-ui,Segoe UI,sans-serif">Resimler hazırlanıyor… <span id="tmPdfBlockerPct">0</span>% bitti</p>' +
+    '<p id="tmPdfBlockerLine2" style="margin:0;color:#e2e8f0;font:500 12px system-ui,Segoe UI,sans-serif;opacity:0.92">Görseller indiriliyor…</p>' +
+    "</div>";
   document.body.appendChild(blocker);
+
+  function tmPdfBlockerSetPreparePct(n) {
+    var pct = document.getElementById("tmPdfBlockerPct");
+    var line2 = document.getElementById("tmPdfBlockerLine2");
+    if (pct) pct.textContent = String(Math.max(0, Math.min(100, Math.round(n))));
+    if (line2) line2.textContent = "Görseller indiriliyor…";
+  }
+
+  function tmPdfBlockerSetPagePhase(cur, totalPages) {
+    var line1 = document.getElementById("tmPdfBlockerLine1");
+    var line2 = document.getElementById("tmPdfBlockerLine2");
+    if (line1) {
+      line1.textContent = "PDF sayfaları işleniyor… (sayfa " + cur + " / " + totalPages + ")";
+    }
+    if (line2) line2.textContent = "Sayfa görüntüsü oluşturuluyor; lütfen bekleyin.";
+  }
 
   var pdf = null;
   var anyPageOk = false;
@@ -10094,7 +11158,7 @@ function tmWsDownloadPdf() {
         } catch (e1) {}
       }
       if (scrollHost) tmCenterPaperInScrollHost(paper, scrollHost);
-      tmWaitImages(paper, 15000)
+      tmWaitForImagesDeep(paper, 8000)
         .then(function () {
           return new Promise(function (rafDone) {
             requestAnimationFrame(function () {
@@ -10109,16 +11173,20 @@ function tmWsDownloadPdf() {
           return tmPdfInlineRemoteImages(paper);
         })
         .then(function () {
+          /* src data URL oldu: decode bitene kadar bekle (boş kutu önlemi) */
+          return tmWaitForImagesDeep(paper, 8000);
+        })
+        .then(function () {
           return new Promise(function (afterInline) {
             requestAnimationFrame(function () {
               requestAnimationFrame(function () {
-                setTimeout(afterInline, 80);
+                setTimeout(afterInline, 140);
               });
             });
           });
         })
         .then(function () {
-          /* Harici img → data URL sonrası taint yok; toDataURL güvenli */
+          /* Harici img → data URL sonrası taint yok; JPEG çıktı (kütüphane ile uyumlu) */
           var dpr = window.devicePixelRatio || 1;
           var scaleCap = Math.min(3, Math.max(2, dpr * 1.25));
           return html2canvas(paper, {
@@ -10126,6 +11194,7 @@ function tmWsDownloadPdf() {
             useCORS: true,
             allowTaint: true,
             logging: false,
+            imageTimeout: 30000,
             backgroundColor: "#ffffff",
             scrollX: 0,
             scrollY: 0,
@@ -10134,13 +11203,13 @@ function tmWsDownloadPdf() {
         })
         .then(function (canvas) {
           try {
-            var imgData = canvas.toDataURL("image/png");
+            var imgData = canvas.toDataURL("image/jpeg", 0.92);
             if (!pdf) {
               pdf = new J({ unit: "mm", format: "a4", orientation: "portrait" });
             } else {
               pdf.addPage();
             }
-            pdf.addImage(imgData, "PNG", 0, 0, 210, 297);
+            pdf.addImage(imgData, "JPEG", 0, 0, 210, 297);
             anyPageOk = true;
           } catch (err) {
             console.error("tmWsDownloadPdf toDataURL / addImage", idx + 1, err);
@@ -10161,44 +11230,78 @@ function tmWsDownloadPdf() {
 
   function runSequential(i) {
     if (i >= papers.length) return Promise.resolve();
+    tmPdfBlockerSetPagePhase(i + 1, papers.length);
     return capturePageAtIndex(i).then(function () {
       return runSequential(i + 1);
     });
   }
 
   var fontReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
-  fontReady
-    .then(function () {
-      return runSequential(0);
-    })
-    .then(function () {
-      tmPdfCleanupAll();
-      if (savedScroll && savedScroll.el) {
+  try {
+    fontReady
+      .then(function () {
+        return tmWaitForImagesDeep(pdfCaptureRoot, 8000);
+      })
+      .then(function () {
+        tmPdfBlockerSetPreparePct(0);
+        var urls = tmCollectNonDataImageUrls(pdfCaptureRoot);
+        return tmPdfPrefetchImagesParallel(urls, tmPdfBlockerSetPreparePct);
+      })
+      .then(function () {
+        return runSequential(0);
+      })
+      .then(function () {
+        if (savedScroll && savedScroll.el) {
+          try {
+            savedScroll.el.scrollLeft = savedScroll.x;
+            savedScroll.el.scrollTop = savedScroll.y;
+          } catch (eScroll) {}
+        }
+        hidePanelToast();
+        if (pdf && anyPageOk) {
+          pdf.save(fname + ".pdf");
+          showToast("PDF indirildi.");
+        } else {
+          showToast(
+            "PDF oluşturulamadı. İnternet bağlantınızı kontrol edin; harici görseller yüklenememiş olabilir. Ayrıntı için tarayıcı konsoluna (F12) bakın."
+          );
+        }
+      })
+      .catch(function (e) {
+        console.error(e);
+        if (savedScroll && savedScroll.el) {
+          try {
+            savedScroll.el.scrollLeft = savedScroll.x;
+            savedScroll.el.scrollTop = savedScroll.y;
+          } catch (eScroll2) {}
+        }
+        hidePanelToast();
+        showToast("PDF oluşturulamadı.");
+      })
+      .finally(function () {
         try {
-          savedScroll.el.scrollLeft = savedScroll.x;
-          savedScroll.el.scrollTop = savedScroll.y;
-        } catch (eScroll) {}
-      }
-      if (pdf && anyPageOk) {
-        pdf.save(fname + ".pdf");
-        showToast("PDF indirildi.");
-      } else {
-        showToast(
-          "PDF oluşturulamadı. İnternet bağlantınızı kontrol edin; harici görseller yüklenememiş olabilir. Ayrıntı için tarayıcı konsoluna (F12) bakın."
-        );
-      }
-    })
-    .catch(function (e) {
-      console.error(e);
-      tmPdfCleanupAll();
-      if (savedScroll && savedScroll.el) {
+          tmPdfClearImageDataUrlCache();
+        } catch (_eCache) {}
         try {
-          savedScroll.el.scrollLeft = savedScroll.x;
-          savedScroll.el.scrollTop = savedScroll.y;
-        } catch (eScroll2) {}
-      }
-      showToast("PDF oluşturulamadı.");
-    });
+          hidePanelToast();
+        } catch (_eT) {}
+        try {
+          tmPdfCleanupAll();
+        } catch (_eC) {}
+      });
+  } catch (eSync) {
+    console.error(eSync);
+    try {
+      tmPdfClearImageDataUrlCache();
+    } catch (_eCache2) {}
+    try {
+      hidePanelToast();
+    } catch (_eT2) {}
+    try {
+      tmPdfCleanupAll();
+    } catch (_eC2) {}
+    showToast("PDF oluşturulamadı.");
+  }
 }
 
 function tmSyncPaperHeaders() {
@@ -10335,6 +11438,7 @@ function tmApplyWorkspaceTemplate() {
     });
     paper.classList.add("tm-template-" + mode);
   });
+  tmSyncWorkspaceThemeAttr();
   tmSyncPaperHeaders();
   tmUpdateA4EmptyVisibility();
   tmRenumberTmQuestions();
@@ -10972,8 +12076,9 @@ function initPdfCropperModule() {
           showToast("Kırpma soru_havuzu koleksiyonuna kaydedildi.");
         })
         .catch(function (err) {
-          console.error(err);
-          showToast("Kayıt başarısız (Storage / Firestore kuralları?).");
+          console.error("[soru_havuzu] pdf_crop kayıt:", err);
+          if (err && err.appwriteError) console.error("[soru_havuzu] Appwrite kök hata:", err.appwriteError);
+          showToast(arsivFormatAppwriteErr(err) || "Kayıt başarısız (Appwrite Storage / DB izinleri?).");
         })
         .finally(function () {
           saveBtn.disabled = false;
@@ -11002,7 +12107,8 @@ function soruArsivDersMatchesSinav(sinavFilter, ders) {
 
 function soruArsivItemMatchesSinav(sinavFilter, item) {
   if (!sinavFilter) return true;
-  if (item.sinavTipi === "TYT" || item.sinavTipi === "AYT") return item.sinavTipi === sinavFilter;
+  var st = item.sinavTipi || item.sinav;
+  if (st === "TYT" || st === "AYT") return st === sinavFilter;
   return soruArsivDersMatchesSinav(sinavFilter, item.ders || "");
 }
 
@@ -11126,7 +12232,7 @@ function soruArsivBulkDeleteSelected() {
     })
     .catch(function (e) {
       console.warn(e);
-      showToast("Silme işlemi tamamlanamadı (Firestore kuralları veya ağ).");
+      showToast("Silme işlemi tamamlanamadı (Appwrite izinleri veya ağ).");
     });
 }
 
@@ -11250,13 +12356,28 @@ async function renderSoruHavuzuArsivi() {
   grid.innerHTML = items
     .map(function (it) {
       var id = escapeHtml(it.id);
-      var src = escapeHtml(it.imageUrl || it.imageBase64 || "");
-      var st = it.sinavTipi
-        ? '<span class="soru-arsivi-badge">' + escapeHtml(it.sinavTipi) + "</span>"
+      var resolved = normalizeSoruPoolDocForAi(it);
+      var src = escapeHtml(
+        (resolved && (resolved.imageUrl || resolved.image_url)) ||
+          it.image_url ||
+          it.imageUrl ||
+          it.imageBase64 ||
+          ""
+      );
+      var sinavEt = it.sinavTipi || it.sinav;
+      var st = sinavEt
+        ? '<span class="soru-arsivi-badge">' + escapeHtml(sinavEt) + "</span>"
         : "";
       var cozuldu = !!it.cozuldu;
       var statusClass = cozuldu ? "soru-arsivi-status--cozuldu" : "soru-arsivi-status--bekliyor";
       var statusText = cozuldu ? "Çözüldü" : "Bekliyor";
+      var dc = String(it.dogru_cevap || it.dogruCevap || "").trim().toUpperCase();
+      var dcRow =
+        dc && /^[ABCDE]$/.test(dc)
+          ? '<div class="soru-arsivi-meta-row"><span class="soru-arsivi-meta-lbl">Doğru şık</span><span class="soru-arsivi-meta-val soru-arsivi-meta-val--cevap">' +
+            escapeHtml(dc) +
+            "</span></div>"
+          : "";
       return (
         '<article class="soru-arsivi-card" data-havuz-q-id="' +
         id +
@@ -11278,6 +12399,7 @@ async function renderSoruHavuzuArsivi() {
         '<span class="soru-arsivi-meta-val">' +
         escapeHtml(it.konu || "—") +
         "</span></div>" +
+        dcRow +
         '<div class="soru-arsivi-status-row">' +
         '<span class="soru-arsivi-status ' +
         statusClass +
@@ -11302,6 +12424,20 @@ async function renderSoruHavuzuArsivi() {
 
 var soruArsiviUiBound = false;
 var arsivUploadPendingFiles = [];
+/** Dosya kuyruğu anahtarı (ad|boyut|mtime) → "A"…"E" */
+var arsivUploadFileAnswers = {};
+
+function pruneArsivUploadAnswersForQueue(filesArr) {
+  var have = {};
+  (filesArr || []).forEach(function (f) {
+    have[arsivFileQueueKey(f)] = true;
+  });
+  var next = {};
+  Object.keys(arsivUploadFileAnswers).forEach(function (k) {
+    if (have[k]) next[k] = arsivUploadFileAnswers[k];
+  });
+  arsivUploadFileAnswers = next;
+}
 
 function arsivFileIsImage(f) {
   var t = (f.type || "").toLowerCase();
@@ -11367,6 +12503,10 @@ function arsivRenderUploadPreview(files) {
   }
   wrap.hidden = false;
   files.forEach(function (f) {
+    var fk = arsivFileQueueKey(f);
+    var item = document.createElement("div");
+    item.className = "soru-arsivi-upload-item";
+    item.setAttribute("data-arsiv-file-key", fk);
     var tile = document.createElement("div");
     tile.className = "soru-arsivi-preview-tile";
     tile.title = f.name || "";
@@ -11382,7 +12522,31 @@ function arsivRenderUploadPreview(files) {
       tile.innerHTML = '<i class="fa-solid fa-file-pdf" aria-hidden="true"></i><span>PDF</span>';
       tile.title = (f.name || "") + " (yalnızca 1. sayfa)";
     }
-    wrap.appendChild(tile);
+    var cevap = document.createElement("div");
+    cevap.className = "soru-arsivi-upload-item__cevap";
+    var lbl = document.createElement("span");
+    lbl.className = "soru-arsivi-upload-item__cevap-lbl";
+    lbl.textContent = "Doğru şık";
+    var sel = document.createElement("select");
+    sel.className = "soru-arsivi-upload-item__cevap-select";
+    sel.setAttribute("aria-label", (f.name || "Dosya") + " için doğru şık");
+    sel.setAttribute("data-arsiv-cevap-key", fk);
+    ;["", "A", "B", "C", "D", "E"].forEach(function (v) {
+      var o = document.createElement("option");
+      o.value = v;
+      o.textContent = v ? v : "—";
+      sel.appendChild(o);
+    });
+    var saved = arsivUploadFileAnswers[fk] || "";
+    sel.value = /^[ABCDE]$/.test(saved) ? saved : "";
+    sel.addEventListener("change", function () {
+      arsivUploadFileAnswers[fk] = sel.value || "";
+    });
+    cevap.appendChild(lbl);
+    cevap.appendChild(sel);
+    item.appendChild(tile);
+    item.appendChild(cevap);
+    wrap.appendChild(item);
   });
 }
 
@@ -11444,7 +12608,7 @@ function arsivPromiseWithTimeout(promise, ms, errMsg) {
           errMsg ||
             "İşlem " +
               Math.round(ms / 1000) +
-              " sn içinde tamamlanmadı (ağ veya Firebase Storage/Firestore)."
+              " sn içinde tamamlanmadı (ağ veya Appwrite Storage / DB)."
         )
       );
     }, ms);
@@ -11465,15 +12629,20 @@ function arsivPromiseWithTimeout(promise, ms, errMsg) {
   });
 }
 
-function arsivFormatFirebaseErr(e) {
+function arsivFormatAppwriteErr(e) {
   if (!e) return "bilinmeyen hata";
-  var c = e.code;
-  var m = e.message || "";
-  if (c === "storage/unauthorized" || /storage\/unauthorized/i.test(m))
-    return "Storage erişim reddedildi (kurallar veya oturum).";
-  if (c === "storage/canceled") return "Yükleme iptal edildi.";
-  if (String(c || "").indexOf("permission") !== -1 || /insufficient permissions/i.test(m))
-    return "Firestore izni yok (kurallar).";
+  if (e.documentCreateFailed && e.storageUploaded) {
+    var m = e.message || String(e);
+    return m.indexOf("Görsel depoya") >= 0 ? m : "Görsel depoya yüklendi ancak soru kaydı oluşturulamadı. " + (e.message || "");
+  }
+  var c = e.code || e.type || "";
+  var m = e.message || String(e);
+  if (String(c || "").indexOf("401") !== -1 || /unauthorized/i.test(m))
+    return "Appwrite yetkisi yok (oturum veya koleksiyon izinleri).";
+  if (String(c || "").indexOf("403") !== -1 || /forbidden/i.test(m))
+    return "İşlem reddedildi (Storage veya veritabanı izinleri).";
+  if (String(c || "").indexOf("storage") !== -1 || /file/i.test(m))
+    return "Storage: " + m;
   return String(c ? c + ": " + m : m);
 }
 
@@ -11529,6 +12698,7 @@ function initArsivManualUploadUi() {
 
   function updatePending(filesArr) {
     arsivUploadPendingFiles = filesArr && filesArr.length ? filesArr.slice() : [];
+    pruneArsivUploadAnswersForQueue(arsivUploadPendingFiles);
     if (fnEl) {
       if (!arsivUploadPendingFiles.length) fnEl.textContent = "";
       else if (arsivUploadPendingFiles.length === 1) fnEl.textContent = arsivUploadPendingFiles[0].name;
@@ -11547,7 +12717,10 @@ function initArsivManualUploadUi() {
     arsivRenderUploadPreview(arsivUploadPendingFiles);
     save.disabled = arsivUploadPendingFiles.length === 0;
     if (clearBtn) clearBtn.disabled = arsivUploadPendingFiles.length === 0;
-    if (!arsivUploadPendingFiles.length) setArsivUploadStatus("", null);
+    if (!arsivUploadPendingFiles.length) {
+      arsivUploadFileAnswers = {};
+      setArsivUploadStatus("", null);
+    }
   }
 
   function onIncomingFileList(fileList, mergeWithPending) {
@@ -11581,6 +12754,7 @@ function initArsivManualUploadUi() {
   if (clearBtn) {
     clearBtn.addEventListener("click", function () {
       arsivRevokeUploadPreviews();
+      arsivUploadFileAnswers = {};
       try {
         finp.value = "";
       } catch (e) {}
@@ -11619,11 +12793,6 @@ function initArsivManualUploadUi() {
     }
 
     function startUploadPipeline() {
-      if (!auth.currentUser || !auth.currentUser.uid) {
-        showToast("Firebase oturumu yok — birkaç saniye sonra tekrar deneyin veya sayfayı yenileyin.");
-        setUploadBusy(false);
-        return;
-      }
       setUploadBusy(true);
       var UPLOAD_TIMEOUT_MS = 180000;
       var base = {
@@ -11664,10 +12833,19 @@ function initArsivManualUploadUi() {
         idx++;
         var total = files.length;
         setArsivUploadStatus("Kaydediliyor (" + idx + "/" + total + "): " + (f.name || "dosya") + "…", "info");
+        var fk = arsivFileQueueKey(f);
+        var cevapRaw = String(arsivUploadFileAnswers[fk] || "")
+          .trim()
+          .toUpperCase();
+        var dogruCevap = /^[ABCDE]$/.test(cevapRaw) ? cevapRaw : "";
         var job;
         if (arsivFileIsImage(f)) {
           job = saveSoruHavuzuEntry(
-            Object.assign({}, base, { imageBlob: f, fileName: f.name || "" })
+            Object.assign({}, base, {
+              imageBlob: f,
+              fileName: f.name || "",
+              dogruCevap: dogruCevap,
+            })
           );
         } else if (arsivFileIsPdf(f)) {
           job = new Promise(function (resolve, reject) {
@@ -11680,6 +12858,7 @@ function initArsivManualUploadUi() {
                       imageBlob: blob,
                       source: "manual_pdf_page1",
                       fileName: (f.name || "") + "_p1.png",
+                      dogruCevap: dogruCevap,
                     })
                   );
                 })
@@ -11705,9 +12884,14 @@ function initArsivManualUploadUi() {
             runNext();
           })
           .catch(function (e) {
-            console.error("[soru_havuzu]", f && f.name, e);
+            var ae = e && e.appwriteError ? e.appwriteError : e;
+            var am = ae && ae.message != null ? String(ae.message) : String(e || "");
+            var ac = ae && ae.code != null ? ae.code : ae && ae.type != null ? ae.type : "";
+            console.error("Kayıt Başarısız. Appwrite Hatası:", am, "Hata Kodu:", ac);
+            console.error("[soru_havuzu] dosya:", f && f.name, e);
+            if (e && e.appwriteError) console.error("[soru_havuzu] Appwrite kök hata:", e.appwriteError);
             setArsivUploadStatus(
-              "Hata · " + (f.name || "dosya") + ": " + arsivFormatFirebaseErr(e),
+              "Hata · " + (f.name || "dosya") + ": " + arsivFormatAppwriteErr(e),
               "err"
             );
             failed.push(f);
@@ -11715,31 +12899,10 @@ function initArsivManualUploadUi() {
           });
       }
 
-      var tok = auth.currentUser.getIdToken(true).catch(function (e) {
-        console.warn("[arsiv] token yenileme:", e);
-        return null;
-      });
-      Promise.resolve(tok).then(function () {
-        runNext();
-      });
+      runNext();
     }
 
-    if (auth.currentUser && auth.currentUser.uid) {
-      startUploadPipeline();
-      return;
-    }
-    showToast("Oturum hazırlanıyor…");
-    setUploadBusy(true);
-    var unsub = onAuthStateChanged(auth, function (u) {
-      try {
-        unsub();
-      } catch (e) {}
-      if (u && u.uid) startUploadPipeline();
-      else {
-        showToast("Giriş oturumu yok. Sayfayı yenileyin.");
-        setUploadBusy(false);
-      }
-    });
+    startUploadPipeline();
   });
 }
 
@@ -11786,7 +12949,7 @@ function initSoruArsiviModule() {
           })
           .catch(function (e) {
             console.warn(e);
-            showToast("Silinemedi (Firestore kuralları?).");
+            showToast("Silinemedi (Appwrite izinleri veya ağ).");
           });
         return;
       }
@@ -11804,7 +12967,7 @@ function initSoruArsiviModule() {
     });
   if (grid && !grid.querySelector(".soru-arsivi-card")) {
     grid.innerHTML =
-      '<p class="soru-arsivi-empty">Filtreleri seçip <strong>Soru Ara</strong> ile Firestore <code>soru_havuzu</code> kayıtlarını listeleyin.</p>';
+      '<p class="soru-arsivi-empty">Filtreleri seçip <strong>Soru Ara</strong> ile Appwrite <code>soru_havuzu</code> kayıtlarını listeleyin.</p>';
   }
 }
 
@@ -12494,6 +13657,16 @@ function navigateTo(view) {
     renderTestsTable();
     tmLibraryRenderList();
   }
+  if (view === "testmaker") {
+    requestAnimationFrame(function () {
+      try {
+        tmConsumeStoredAiTestDesign();
+        tmTryRehydrateQuestionsFromLocalStorage();
+      } catch (e) {
+        console.error("[ai-test] consume:", e);
+      }
+    });
+  }
   if (view === "pdf-cropper") initPdfCropperModule();
   if (view === "soru-arsivi") {
     initSoruArsiviModule();
@@ -12508,6 +13681,19 @@ function navigateTo(view) {
     refreshKutuphanemList();
   }
   if (view === "hedef-simulator") initDpHedefSimulator();
+  if (view === "net-sihirbazi") {
+    initNetSihirbazi({
+      uniSelectId: "dpNsUniSelect",
+      deptSelectId: "dpNsDeptSelect",
+      tableWrapId: "dpNsNetTableWrap",
+      uniTitleId: "dpNsUniTitle",
+      deptTitleId: "dpNsDeptSub",
+      subtitleId: "dpNsTabanSub",
+      uniFilterId: "dpNsUniFilter",
+      deptFilterId: "dpNsDeptFilter",
+    });
+  }
+  if (view === "yks-puan") initYksPuanHesaplama();
   if (view === "gelen-sorular") {
     bindDpInboxDelegationOnce();
     renderDpGelenSorular();
@@ -13141,13 +14327,13 @@ function initYksFeaturePages() {
   if (btn && !btn.dataset.bound) {
     btn.dataset.bound = "1";
     btn.addEventListener("click", function () {
-      showToast("Görüşme notu (taslak): form sonraki sürümde Firestore ile bağlanacak.");
+      showToast("Görüşme notu (taslak): form sonraki sürümde Appwrite ile bağlanacak.");
     });
   }
   initKaynakKitapModuleOnce();
 }
 
-/* --- Kaynak / Kitap — Firestore: kaynaklar + students/{id}/atananKaynaklar --- */
+/* --- Kaynak / Kitap — Appwrite: kaynaklar + students/{id}/atananKaynaklar --- */
 var kkKaynakBound = false;
 var kkSelectedStudentId = "";
 var kkPrevStudentId = "";
@@ -13186,10 +14372,11 @@ function kkStartLibraryFirestoreListeners() {
   }
   var cid = getCoachId();
   if (!cid) return;
-  var qy = query(collection(db, "kaynaklar"), where("coach_id", "==", cid));
+  var qy = query(collection(db, "kaynaklar"));
   kkLibUnsub = onSnapshot(
     qy,
     function (snap) {
+      snap = filterSnapshotDocsByCoach(snap);
       KK_LIBRARY_CACHE = [];
       snap.forEach(function (d) {
         var data = d.data();
@@ -13898,12 +15085,18 @@ function initAllButtons() {
     });
   document.getElementById("btnProfileSettings") &&
     document.getElementById("btnProfileSettings").addEventListener("click", function () {
-      showToast("Ayarlar yakında.");
+      openProfileSettingsModal();
     });
   document.getElementById("btnMessages") &&
     document.getElementById("btnMessages").addEventListener("click", function () {
-      showToast("Mesajlar yakında.");
+      openCoachInboxModal();
     });
+  var btnPs = document.getElementById("btnProfileSettingsSave");
+  if (btnPs) {
+    btnPs.addEventListener("click", function () {
+      submitProfileSettings();
+    });
+  }
 
   document.getElementById("btnLogout") &&
     document.getElementById("btnLogout").addEventListener("click", function (e) {
@@ -14059,24 +15252,29 @@ function bootstrapKocPanelAfterAuth() {
   if (kocPanelBootstrapped) return;
   kocPanelBootstrapped = true;
   applySpaInitialShellState();
-initSidebar();
-initNavigation();
-initModals();
+  initSidebar();
+  initNavigation();
+  initModals();
   initAiTestGenWizard();
-initAllButtons();
+  initTmAiAppendModal();
+  initAllButtons();
   initYksFeaturePages();
   initDashboardYksCountdownWidget();
-updateCoachProfile();
-subscribeFirestore();
-navigateTo("dashboard");
-setTimeout(showLoadTimeoutWarning, 12000);
+  updateCoachProfile();
+  subscribeFirestore();
+  var initView = getInitialKocViewFromUrl();
+  navigateTo(initView || "dashboard");
+  if (initView) showSaAnalyticsToolBanner();
+  setTimeout(showLoadTimeoutWarning, 12000);
+  setTimeout(function () {
+    refreshCoachInboxBadge();
+  }, 650);
 }
 
-onAuthStateChanged(auth, function (user) {
-  if (!user) {
-    window.location.replace("login.html");
-    return;
-  }
+var kocAuthResolved = false;
+
+function loadKocPanelForUser(user) {
+  if (!user || !user.uid) return;
   getDoc(doc(db, "users", user.uid))
     .then(async function (snap) {
       var profile = snap.data();
@@ -14095,6 +15293,11 @@ onAuthStateChanged(auth, function (user) {
           bootstrapKocPanelAfterAuth();
           return;
         }
+        var analyticsTool = getInitialKocViewFromUrl();
+        if (analyticsTool === "net-sihirbazi" || analyticsTool === "yks-puan") {
+          bootstrapKocPanelAfterAuth();
+          return;
+        }
         window.location.replace("super-admin.html");
         return;
       }
@@ -14103,8 +15306,8 @@ onAuthStateChanged(auth, function (user) {
           window.location.replace("login.html");
         });
       }
-      var setSnap = await getDoc(doc(db, "settings", "app"));
-      var maint = firestoreDocExists(setSnap) && setSnap.data().maintenance === true;
+      var appSettings = await getAppSettings();
+      var maint = !!appSettings.maintenance;
       var impersonate = false;
       try {
         impersonate = !!(sessionStorage.getItem("superAdminViewAsCoach") || "").trim();
@@ -14127,4 +15330,43 @@ onAuthStateChanged(auth, function (user) {
         window.location.replace("login.html");
       });
     });
+}
+
+onAuthStateChanged(auth, function (user) {
+  if (!user) {
+    if (kocAuthResolved) {
+      window.location.replace("login.html");
+    }
+    return;
+  }
+  kocAuthResolved = true;
+  loadKocPanelForUser(user);
 });
+
+setTimeout(function () {
+  if (kocAuthResolved) return;
+  verifyAppwriteAccount(5000)
+    .then(function (vr) {
+      if (kocAuthResolved) return;
+      if (vr.ok && vr.user) {
+        kocAuthResolved = true;
+        loadKocPanelForUser({
+          uid: vr.user.$id,
+          email: vr.user.email || "",
+          getIdToken: function () {
+            return Promise.resolve("appwrite-session");
+          },
+        });
+      } else {
+        window.location.replace("login.html");
+      }
+    })
+    .catch(function (err) {
+      console.error("[koc-panel] verifyAppwriteAccount (yedek oturum)", err);
+      try {
+        if (typeof showToast === "function") showToast("Bir sorun oluştu.");
+        else alert("Bir sorun oluştu.");
+      } catch (e2) {}
+      if (!kocAuthResolved) window.location.replace("login.html");
+    });
+}, 0);

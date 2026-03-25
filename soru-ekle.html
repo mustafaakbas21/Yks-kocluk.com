@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Soru ekle — Havuz (Appwrite)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="css/soru-tools.css" />
+  <link rel="stylesheet" href="css/sorun-bildir.css" />
+  <script src="https://cdn.jsdelivr.net/npm/appwrite@23.0.0/dist/iife/sdk.js"></script>
+</head>
+<body class="st-page">
+  <div class="st-wrap">
+    <header class="st-head">
+      <h1><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i> Soru havuzuna görsel ekle</h1>
+      <p>
+        Görsel <code style="font-size:0.88em;opacity:0.9">storage.createFile</code> ile yüklenir; dönen
+        <strong>fileId</strong>, veritabanında <strong>soru_resim_id</strong> alanına yazılarak Storage ile köprülenir.
+        Koleksiyon: <code style="font-size:0.88em">derece_panel / soru_havuzu</code> (yapılandırma: <code>APPWRITE_COLLECTION_SORULAR</code>).
+      </p>
+    </header>
+    <nav class="st-nav" aria-label="Sayfalar">
+      <a href="koc-panel.html"><i class="fa-solid fa-arrow-left"></i> Koç paneli</a>
+      <a href="soru-pdf-hazirla.html">Filtreli PDF oluştur</a>
+      <a href="login.html">Giriş</a>
+    </nav>
+
+    <div class="st-card">
+      <form id="formSoruEkle" autocomplete="off">
+        <div class="st-field">
+          <span>Sınav</span>
+          <select id="seSinav" required>
+            <option value="TYT">TYT</option>
+            <option value="AYT">AYT</option>
+          </select>
+        </div>
+        <div class="st-field">
+          <span>Ders</span>
+          <select id="seDers" required></select>
+        </div>
+        <div class="st-field">
+          <span>Konu</span>
+          <select id="seKonu" required></select>
+        </div>
+        <div class="st-field">
+          <span>Zorluk</span>
+          <select id="seZorluk" required>
+            <option value="Kolay">Kolay</option>
+            <option value="Orta" selected>Orta</option>
+            <option value="Zor">Zor</option>
+            <option value="Karma">Karma</option>
+            <option value="YKS tipi">YKS tipi</option>
+          </select>
+        </div>
+        <div class="st-field">
+          <span>Görsel (PNG / JPG / WebP)</span>
+          <input type="file" id="seFile" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" required />
+        </div>
+        <div class="st-field">
+          <span>Doğru şık (isteğe bağlı)</span>
+          <select id="seDogruCevap">
+            <option value="">—</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+            <option value="E">E</option>
+          </select>
+        </div>
+        <div class="st-actions">
+          <button type="submit" class="st-btn" id="seSubmit">Havuza kaydet</button>
+        </div>
+        <p id="seStatus" class="st-status" role="status"></p>
+        <p id="seDocId" class="st-code"></p>
+      </form>
+    </div>
+  </div>
+  <script type="module" src="js/sorun-bildir.js"></script>
+  <script type="module" src="js/soru-ekle.js"></script>
+</body>
+</html>

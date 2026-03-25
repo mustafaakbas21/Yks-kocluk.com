@@ -101,8 +101,8 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 1.15rem;
-  max-width: 540px;
+  gap: 1.35rem;
+  max-width: min(640px, 100%);
 }
 
 @media (max-width: 1024px) {
@@ -182,6 +182,135 @@ body {
 .auth-brand__lead strong {
   color: var(--login-ink);
   font-weight: 700;
+}
+
+/* —— Özellikler (sol sütun) —— */
+.auth-features {
+  margin: 0.35rem 0 0;
+}
+.auth-features__head {
+  margin-bottom: 1rem;
+}
+.auth-features__eyebrow {
+  margin: 0 0 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  font-style: normal;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--login-teal);
+}
+.auth-features__eyebrow i {
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+.auth-features__title {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.2rem, 2.4vw, 1.45rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--login-ink);
+  line-height: 1.2;
+}
+.auth-features__intro {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--login-muted);
+  max-width: 52ch;
+}
+
+.auth-features__grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (max-width: 560px) {
+  .auth-features__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.auth-feature-card {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.85rem 0.9rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.2s, box-shadow 0.25s var(--login-ease), transform 0.2s var(--login-ease);
+}
+
+.auth-feature-card:hover {
+  border-color: rgba(16, 124, 110, 0.2);
+  box-shadow: 0 10px 28px rgba(16, 124, 110, 0.1);
+  transform: translateY(-2px);
+}
+
+.auth-feature-card__icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  color: var(--login-teal);
+  background: linear-gradient(145deg, var(--login-teal-soft), rgba(45, 212, 191, 0.1));
+}
+
+.auth-feature-card__body {
+  min-width: 0;
+}
+
+.auth-feature-card__title {
+  margin: 0 0 0.28rem;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--login-ink);
+  line-height: 1.25;
+}
+
+.auth-feature-card__text {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.55;
+  color: var(--login-muted);
+}
+
+.auth-trust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1.1rem;
+  margin-top: 1.35rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.auth-trust__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--login-muted);
+  letter-spacing: 0.02em;
+}
+
+.auth-trust__item i {
+  color: var(--login-teal);
+  font-size: 0.85rem;
+  opacity: 0.9;
 }
 
 /* —— Yüzen kartlar —— */
@@ -474,6 +603,54 @@ body {
   border-color: var(--login-teal);
   background: #fff;
   box-shadow: 0 0 0 4px var(--login-teal-soft);
+}
+
+.login-input-wrap--password input {
+  padding-right: 2.5rem;
+}
+
+.login-password-toggle {
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: color 0.2s, background 0.2s;
+}
+
+.login-password-toggle:hover {
+  color: #64748b;
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.login-password-toggle:focus-visible {
+  outline: 2px solid var(--login-teal);
+  outline-offset: 2px;
+}
+
+.login-password-toggle__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  pointer-events: none;
+  line-height: 1;
+  font-size: 1.05rem;
+}
+
+.login-password-toggle__icon[hidden] {
+  display: none !important;
 }
 
 .login-submit {

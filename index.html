@@ -2,15 +2,24 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
+  <script type="importmap">
+    {
+      "imports": {
+        "appwrite": "https://esm.sh/appwrite@23.0.0?bundle"
+      }
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/appwrite@23.0.0/dist/iife/sdk.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="DerecePanel — YKS 2026 için akıllı koçluk, ders planı ve deneme analizi platformu." />
   <title>DerecePanel — YKS Koçluk Platformu</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="css/landing_stil.css" />
   <link rel="stylesheet" href="css/site-credit.css" />
+  <link rel="stylesheet" href="css/sorun-bildir.css" />
 </head>
 <body>
   <header class="landing-header" id="landingHeader">
@@ -21,8 +30,10 @@
       </a>
 
       <div class="landing-nav__links">
+        <a href="#neden">Neden biz?</a>
         <a href="#sistemimiz">Sistemimiz</a>
         <a href="#ozellikler">Özellikler</a>
+        <a href="#guven">Güven</a>
         <a href="#paketler">Paketler</a>
       </div>
 
@@ -35,8 +46,10 @@
     </nav>
 
     <div class="landing-nav__drawer" id="navDrawer" hidden>
+      <a href="#neden">Neden biz?</a>
       <a href="#sistemimiz">Sistemimiz</a>
       <a href="#ozellikler">Özellikler</a>
+      <a href="#guven">Güven</a>
       <a href="#paketler">Paketler</a>
       <a href="login.html" class="btn btn--primary btn--block" style="margin-top: 0.5rem">Giriş Yap / Kayıt Ol</a>
     </div>
@@ -45,23 +58,38 @@
   <main>
     <section class="hero" aria-labelledby="heroTitle">
       <div class="hero__bg" aria-hidden="true"></div>
+      <div class="hero__mesh" aria-hidden="true"></div>
       <div class="hero__inner">
         <div class="hero__content js-reveal">
-          <p class="hero__eyebrow"><i class="fa-solid fa-sparkles"></i> YKS &amp; LGS hazırlık</p>
+          <p class="hero__eyebrow"><i class="fa-solid fa-sparkles" aria-hidden="true"></i> Kurumsal YKS koçluk altyapısı</p>
           <h1 id="heroTitle" class="hero__title">
-            YKS 2026&apos;da Dereceye Giden<br /><span>En Akıllı Yol</span>
+            YKS 2026&apos;da <span class="hero__script">dereceye</span> giden<br />
+            <span class="hero__gradient">en net rota</span>
           </h1>
           <p class="hero__lead">
-            Koçluk, planlama ve analiz tek panelde. Hedefini netleştir, çalışmanı ölç, netlerini yükselt —
-            <strong>DerecePanel</strong> ile her adımda bir üst lige çık.
+            Koçluk, planlama ve analiz <strong>tek güvenli panelde</strong>. Hedef netliği, deneme takibi ve kurum operasyonu
+            aynı mimaride — <strong>DerecePanel</strong> ile öğrenciden kurucuya kesintisiz izlenebilirlik.
           </p>
+          <ul class="hero__stats" aria-label="Öne çıkan metrikler">
+            <li><strong>3</strong><span>rol · tek oturum</span></li>
+            <li><strong>7/24</strong><span>bulut erişim</span></li>
+            <li><strong>Yıllık</strong><span>öngörülebilir lisans</span></li>
+          </ul>
+          <div class="hero__trust" role="presentation">
+            <span class="hero__trust-pill"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Rol bazlı yetki</span>
+            <span class="hero__trust-pill"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Canlı analitik</span>
+            <span class="hero__trust-pill"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> PDF &amp; TestMaker</span>
+          </div>
           <div class="hero__actions">
-            <a href="login.html" class="btn btn--primary btn--lg">Hemen Başla</a>
-            <a href="#ozellikler" class="btn btn--outline btn--lg">Özellikleri keşfet</a>
+            <a href="login.html" class="btn btn--primary btn--lg"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i> Panele giriş</a>
+            <a href="#neden" class="btn btn--outline btn--lg">Neden DerecePanel?</a>
           </div>
         </div>
         <div class="hero__visual js-reveal js-reveal-delay-1">
           <div class="hero-mockup-wrap">
+            <div class="hero-mockup__chrome" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </div>
             <img
               class="hero-mockup"
               src="assets/hero-koc-panel.png"
@@ -72,6 +100,35 @@
             />
           </div>
           <p class="hero-mockup-caption">Koç paneli önizlemesi — veriler yalnızca bulanıklaştırılmıştır.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section value-strip" id="neden" aria-labelledby="nedenTitle">
+      <div class="section__inner">
+        <header class="section__head js-reveal">
+          <p class="section__kicker">Neden DerecePanel?</p>
+          <h2 id="nedenTitle" class="section__title">Kurumunuza göre ölçeklenen profesyonel katman</h2>
+          <p class="section__desc">
+            Sadece “takip yazılımı” değil; <strong>koç–öğrenci–kurucu</strong> üçgeninde veri, iletişim ve operasyonu birleştiren tam kapsamlı vitrin.
+          </p>
+        </header>
+        <div class="value-grid">
+          <article class="value-card value-card--accent js-reveal">
+            <div class="value-card__icon" aria-hidden="true"><i class="fa-solid fa-layer-group"></i></div>
+            <h3 class="value-card__title">Tek platform, çok rol</h3>
+            <p class="value-card__text">Koç, öğrenci ve kurucu aynı güvenli oturum altyapısında; ek kurulum veya ayrı lisans karmaşası yok.</p>
+          </article>
+          <article class="value-card js-reveal js-reveal-delay-1">
+            <div class="value-card__icon" aria-hidden="true"><i class="fa-solid fa-gauge-high"></i></div>
+            <h3 class="value-card__title">Karar için veri</h3>
+            <p class="value-card__text">Deneme netleri, branş kırılımları ve trendler zaman içinde birikir; zayıf halkaları erken görürsünüz.</p>
+          </article>
+          <article class="value-card js-reveal js-reveal-delay-2">
+            <div class="value-card__icon" aria-hidden="true"><i class="fa-solid fa-building-columns"></i></div>
+            <h3 class="value-card__title">Kurumsal ölçek</h3>
+            <p class="value-card__text">Öğrenci kotası ve modüller paketlerle büyür; tek şubeden çok koçlu yapılara kadar aynı çekirdek mimari.</p>
+          </article>
         </div>
       </div>
     </section>
@@ -146,33 +203,95 @@
       <div class="section__inner">
         <header class="section__head js-reveal">
           <p class="section__kicker">Özellikler</p>
-          <h2 class="section__title">Sistemin İçinde Neler Var?</h2>
+          <h2 class="section__title">Modüller — tek çatı altında</h2>
           <p class="section__desc">
-            Çalışma disiplininden analitiğe kadar ihtiyaç duyduğunuz modüller, modern arayüzle bir arada.
+            Günlük disiplinden yapay zekâ destekli içerik üretimine kadar; ihtiyaç duyduğunuz katmanlar modern, sade arayüzle bir arada.
           </p>
         </header>
-        <div class="card-grid">
+        <div class="card-grid card-grid--dense">
           <article class="feature-card js-reveal">
             <div class="feature-card__icon" aria-hidden="true"><i class="fa-solid fa-calendar-days"></i></div>
-            <h3>İnteraktif Ders Programı</h3>
-            <p>Haftalık planını sürükle-bırak mantığıyla düzenle; hedeflerine göre otomatik dengele.</p>
+            <h3>İnteraktif ders programı</h3>
+            <p>Haftalık planı düzenleyin; hedeflere göre çalışma yükünü dengeleyin.</p>
           </article>
           <article class="feature-card js-reveal js-reveal-delay-1">
             <div class="feature-card__icon" aria-hidden="true"><i class="fa-solid fa-hourglass-half"></i></div>
-            <h3>Pomodoro Odak Merkezi</h3>
-            <p>Zaman blokları ve mola hatırlatıcılarıyla verimli çalışma ritmi oluştur.</p>
+            <h3>Pomodoro odak merkezi</h3>
+            <p>Öğrenci panelinde zaman blokları ve mola hatırlatıcılarıyla ritim.</p>
           </article>
           <article class="feature-card js-reveal js-reveal-delay-2">
             <div class="feature-card__icon" aria-hidden="true"><i class="fa-solid fa-bullseye"></i></div>
-            <h3>Hedef Simülatörü</h3>
-            <p>Hedef üniversite ve net bandını gör; eksik konuları önceliklendir.</p>
+            <h3>Hedef &amp; sayaç</h3>
+            <p>TYT/AYT geri sayım ve hedef bandı; eksik konulara öncelik verin.</p>
           </article>
           <article class="feature-card js-reveal js-reveal-delay-3">
             <div class="feature-card__icon" aria-hidden="true"><i class="fa-solid fa-database"></i></div>
-            <h3>7/24 Soru Havuzu</h3>
-            <p>Branş bazlı içeriklerle pratik yap; koçun atanadığı setleri anında çöz.</p>
+            <h3>Soru havuzu &amp; filtre</h3>
+            <p>Branş bazlı içerik; koçun atadığı setlere hızlı erişim.</p>
+          </article>
+          <article class="feature-card js-reveal">
+            <div class="feature-card__icon" aria-hidden="true"><i class="fa-solid fa-file-pdf"></i></div>
+            <h3>TestMaker &amp; PDF</h3>
+            <p>Seçilen sorulardan test üretimi, şablon ve PDF çıktısı.</p>
+          </article>
+          <article class="feature-card js-reveal js-reveal-delay-1">
+            <div class="feature-card__icon" aria-hidden="true"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+            <h3>Yapay zekâ asistanı</h3>
+            <p>İçerik ve test üretiminde hızlandırıcı araçlar (koç paneli).</p>
+          </article>
+          <article class="feature-card js-reveal js-reveal-delay-2">
+            <div class="feature-card__icon" aria-hidden="true"><i class="fa-solid fa-chart-pie"></i></div>
+            <h3>Deneme &amp; net analizi</h3>
+            <p>Sınav kayıtları, trendler ve görsel özetler; zayıf alanları görün.</p>
+          </article>
+          <article class="feature-card js-reveal js-reveal-delay-3">
+            <div class="feature-card__icon" aria-hidden="true"><i class="fa-solid fa-wallet"></i></div>
+            <h3>Operasyon &amp; muhasebe özeti</h3>
+            <p>Randevu, görev ve tahsilat akışına dair özet görünümler.</p>
           </article>
         </div>
+      </div>
+    </section>
+
+    <section class="section trust-band" id="guven" aria-labelledby="guvenTitle">
+      <div class="section__inner">
+        <header class="section__head section__head--wide js-reveal">
+          <p class="section__kicker">Güven &amp; altyapı</p>
+          <h2 id="guvenTitle" class="section__title">Kurumsal standartlarda çalışan mimari</h2>
+          <p class="section__desc">
+            Oturum yönetimi ve veri katmanı modern bulut bileşenleriyle kurgulanır; kurumunuz ekstra sunucu işletmek zorunda kalmaz.
+          </p>
+        </header>
+        <ul class="trust-band__grid">
+          <li class="trust-band__item js-reveal">
+            <i class="fa-solid fa-lock" aria-hidden="true"></i>
+            <div>
+              <strong>Şifreli oturum</strong>
+              <span>Rol bazlı erişim; güvenli kimlik doğrulama.</span>
+            </div>
+          </li>
+          <li class="trust-band__item js-reveal js-reveal-delay-1">
+            <i class="fa-solid fa-cloud" aria-hidden="true"></i>
+            <div>
+              <strong>Bulut ölçek</strong>
+              <span>Yedekli altyapı; tarayıcıdan erişim, kurulum yok.</span>
+            </div>
+          </li>
+          <li class="trust-band__item js-reveal js-reveal-delay-2">
+            <i class="fa-solid fa-mobile-screen" aria-hidden="true"></i>
+            <div>
+              <strong>Mobil uyum</strong>
+              <span>Responsive arayüz; masaüstü ve tablet odaklı kullanım.</span>
+            </div>
+          </li>
+          <li class="trust-band__item js-reveal js-reveal-delay-3">
+            <i class="fa-solid fa-headset" aria-hidden="true"></i>
+            <div>
+              <strong>Destek hattı</strong>
+              <span>Pakete göre e-posta ve öncelikli yanıt süreleri.</span>
+            </div>
+          </li>
+        </ul>
       </div>
     </section>
 
@@ -278,12 +397,22 @@
   </div>
 
   <footer class="landing-footer">
+    <div class="landing-footer__cta">
+      <div class="landing-footer__cta-inner">
+        <p class="landing-footer__cta-text"><strong>Hazır mısınız?</strong> Ekibinizle birlikte panele giriş yapın veya paket için teklif isteyin.</p>
+        <div class="landing-footer__cta-btns">
+          <a href="login.html" class="btn btn--primary">Giriş yap</a>
+          <a href="#paketler" class="btn btn--outline btn--on-dark">Paketleri gör</a>
+        </div>
+      </div>
+    </div>
     <div class="landing-footer__inner">
       <div>
-        <div class="landing-footer__brand">DerecePanel</div>
+        <div class="landing-footer__brand"><span class="landing-footer__logo-mark" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></span> DerecePanel</div>
+        <p class="landing-footer__tagline">YKS koçluk ve kurum operasyonu için tek panel.</p>
         <p class="landing-footer__copy">© <span id="footerYear"></span> DerecePanel. Tüm hakları saklıdır.</p>
         <p class="landing-footer__contact">
-          <a href="mailto:info@derecepanel.com">info@derecepanel.com</a>
+          <a href="mailto:info@derecepanel.com"><i class="fa-regular fa-envelope" aria-hidden="true"></i> info@derecepanel.com</a>
         </p>
       </div>
       <nav class="landing-footer__links" aria-label="Yasal">
@@ -380,6 +509,7 @@
       }
     })();
   </script>
+  <script type="module" src="js/sorun-bildir.js"></script>
   <script type="module" src="js/index-quote.js"></script>
 </body>
 </html>

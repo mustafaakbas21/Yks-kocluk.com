@@ -1,9 +1,11 @@
 /**
- * Öğrenci paneli — Firebase oturum + Firestore haftalık plan (gerçek zamanlı)
+ * Öğrenci paneli — Appwrite oturum + veritabanı haftalık plan (gerçek zamanlı/polling)
  */
-import { db, auth } from "./firebase-config.js";
-import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import {
+  db,
+  auth,
+  onAuthStateChanged,
+  signOut,
   doc,
   getDoc,
   collection,
@@ -12,9 +14,12 @@ import {
   getDocs,
   onSnapshot,
   updateDoc,
-} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+  verifyAppwriteAccount,
+  getAppSettings,
+} from "./appwrite-compat.js";
 
 let planUnsub = null;
+var ospAuthResolved = false;
 
 window.OspPortal = window.OspPortal || {};
 window.OspPortal.studentDocId = null;
@@ -41,19 +46,7 @@ function docExists(snap) {
   return !!snap.exists;
 }
 
-onAuthStateChanged(auth, async function (user) {
-  if (planUnsub) {
-    try {
-      planUnsub();
-    } catch (e) {}
-    planUnsub = null;
-  }
-  window.OspPortal.studentDocId = null;
-
-  if (!user) {
-    window.location.replace("login.html");
-    return;
-  }
+async function loadOspForUser(user) {
   try {
     var snap = await getDoc(doc(db, "users", user.uid));
     var profile = snap.data();
@@ -63,8 +56,8 @@ onAuthStateChanged(auth, async function (user) {
       return;
     }
     try {
-      var setSnap = await getDoc(doc(db, "settings", "app"));
-      if (docExists(setSnap) && setSnap.data().maintenance === true) {
+      var appSettings = await getAppSettings();
+      if (appSettings.maintenance) {
         await signOut(auth);
         try {
           localStorage.setItem("loginFlashError", "Bakımdayız. Şu an yalnızca kurucu girişi açıktır.");
@@ -134,7 +127,59 @@ onAuthStateChanged(auth, async function (user) {
     console.error(e);
     setHeaderMeta("Profil yüklenemedi");
   }
+}
+
+onAuthStateChanged(auth, async function (user) {
+  if (planUnsub) {
+    try {
+      planUnsub();
+    } catch (e) {}
+    planUnsub = null;
+  }
+  window.OspPortal.studentDocId = null;
+
+  if (!user) {
+    if (ospAuthResolved) {
+      window.location.replace("login.html");
+    }
+    return;
+  }
+  ospAuthResolved = true;
+  try {
+    await loadOspForUser(user);
+  } catch (err) {
+    console.error("[öğrenci] loadOspForUser", err);
+    try {
+      alert("Bir sorun oluştu.");
+    } catch (e2) {}
+  }
 });
+
+setTimeout(function () {
+  if (ospAuthResolved) return;
+  verifyAppwriteAccount(5000)
+    .then(function (vr) {
+      if (ospAuthResolved) return;
+      if (vr.ok && vr.user) {
+        ospAuthResolved = true;
+        return loadOspForUser({
+          uid: vr.user.$id,
+          email: vr.user.email || "",
+          getIdToken: function () {
+            return Promise.resolve("appwrite-session");
+          },
+        });
+      }
+      window.location.replace("login.html");
+    })
+    .catch(function (err) {
+      console.error("[öğrenci] verifyAppwriteAccount / loadOspForUser", err);
+      try {
+        alert("Bir sorun oluştu.");
+      } catch (e2) {}
+      if (!ospAuthResolved) window.location.replace("login.html");
+    });
+}, 0);
 
 document.getElementById("ospBtnLogout") &&
   document.getElementById("ospBtnLogout").addEventListener("click", async function () {

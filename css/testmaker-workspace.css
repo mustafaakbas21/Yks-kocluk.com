@@ -464,16 +464,12 @@
   display: none;
 }
 
-.tm-template-osym .tm-paper-header--osym {
-  display: block;
-}
+/* Şablon başlığı görünürlüğü: tm-elite-saas.css (soru + cevap anahtarı; kapak hariç) */
 
-.tm-template-vip .tm-paper-header--vip {
-  display: block;
-}
-
-.tm-template-foy .tm-paper-header--foy {
-  display: block;
+/* Kurumsal / kitap kapağı: Kurum–Tarih–Ders–Konu üst bilgisi kesinlikle yok */
+.a4-paper[data-tm-corporate-cover="1"] .tm-paper-header,
+.a4-paper[data-tm-book-cover="1"] .tm-paper-header {
+  display: none !important;
 }
 
 /* ========== Şablon: ÖSYM ========== */
@@ -548,39 +544,64 @@
   font-family: "Inter", system-ui, sans-serif;
 }
 
-/* Kitap gibi iki sütun — sorular yalnızca kendi havuzunda */
-.test-content-area {
+/* Kitap gibi iki sütun — yalnızca soru sayfaları (.pdf-question-page); kapak/cevap anahtarı sızmaz */
+/* Dikey ayraç: A4 içeriğinin tam ortasında (gradient); sütunlar eşit genişlik (flex 50%) */
+.pdf-question-page .test-content-area {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
   width: 100%;
   box-sizing: border-box;
-  padding: 0 10mm 10mm;
+  padding: 0 15mm 12mm;
   gap: 0;
   min-height: 200mm;
+  background: linear-gradient(
+    to right,
+    transparent 0,
+    transparent calc(50% - 1px),
+    var(--tm-gutter) calc(50% - 1px),
+    var(--tm-gutter) calc(50% + 1px),
+    transparent calc(50% + 1px),
+    transparent 100%
+  );
 }
 
-.test-column {
-  flex: 1;
+.pdf-question-page .test-column {
+  flex: 1 1 50%;
   min-width: 0;
   max-width: 50%;
   width: 50%;
   box-sizing: border-box;
 }
 
-.test-column--with-rule {
-  border-left: 2px solid var(--tm-gutter);
-  padding-left: 4mm;
+.pdf-question-page .test-column--with-rule {
+  border-left: none;
+  padding-left: 24px;
   box-sizing: border-box;
 }
 
-.test-column .tm-a4-block,
-.test-column .question-item {
+.pdf-question-page .test-column[data-tm-col="1"] {
+  padding-right: 24px;
+}
+
+.pdf-question-page .test-column .tm-a4-block,
+.pdf-question-page .test-column .question-item {
   width: 100% !important;
   max-width: 100%;
   box-sizing: border-box;
   break-inside: avoid;
   page-break-inside: avoid;
+}
+
+.pdf-question-page .test-column .question-item {
+  padding-left: 12px;
+  padding-right: 12px;
+  margin-bottom: 32px;
+}
+
+.a4-pages-container.layout-4 .pdf-question-page .test-column .question-item,
+.a4-pages-container.layout-6 .pdf-question-page .test-column .question-item {
+  margin-bottom: 0;
 }
 
 .tm-a4-single {
@@ -2153,26 +2174,26 @@
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
 }
 
-.a4-pages-container.layout-4 .test-content-area,
-.a4-pages-container.layout-6 .test-content-area {
+.a4-pages-container.layout-4 .pdf-question-page .test-content-area,
+.a4-pages-container.layout-6 .pdf-question-page .test-content-area {
   align-items: stretch;
   min-height: 200mm;
   height: 200mm;
 }
 
-.a4-pages-container.layout-4 .test-column,
-.a4-pages-container.layout-6 .test-column {
+.a4-pages-container.layout-4 .pdf-question-page .test-column,
+.a4-pages-container.layout-6 .pdf-question-page .test-column {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 32px;
   min-height: 0;
   height: 100%;
   align-items: stretch;
 }
 
-.a4-pages-container.layout-4 .test-column .question-item {
+.a4-pages-container.layout-4 .pdf-question-page .test-column .question-item {
   flex: 0 0 auto;
-  height: calc(50% - 10px);
+  height: calc((100% - 32px) / 2);
   min-height: 0;
   margin-bottom: 0;
   display: flex;
@@ -2181,9 +2202,9 @@
   overflow: hidden;
 }
 
-.a4-pages-container.layout-6 .test-column .question-item {
+.a4-pages-container.layout-6 .pdf-question-page .test-column .question-item {
   flex: 0 0 auto;
-  height: calc(33.333% - 10px);
+  height: calc((100% - 64px) / 3);
   min-height: 0;
   margin-bottom: 0;
   display: flex;
@@ -2192,7 +2213,7 @@
   overflow: hidden;
 }
 
-.a4-pages-container .question-item .tm-a4-block__imgwrap {
+.a4-pages-container .pdf-question-page .question-item .tm-a4-block__imgwrap {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -2201,7 +2222,7 @@
   overflow: hidden;
 }
 
-.a4-pages-container .question-item .tm-a4-block__imgwrap img {
+.a4-pages-container .pdf-question-page .question-item .tm-a4-block__imgwrap img {
   object-fit: contain;
   width: 100%;
   max-height: 100%;
@@ -2209,7 +2230,7 @@
 }
 
 /* AI placeholder: img yerine div (html2canvas / PDF’te SVG data-URL boş kalmasın) */
-.a4-pages-container .question-item .tm-a4-block__imgwrap .tm-ai-placeholder-surface {
+.a4-pages-container .pdf-question-page .question-item .tm-a4-block__imgwrap .tm-ai-placeholder-surface {
   object-fit: contain;
   width: 100%;
   max-height: 100%;
@@ -2699,7 +2720,7 @@
   flex: 0 0 auto;
 }
 
-.test-column .tm-a4-freetext-wrap {
+.pdf-question-page .test-column .tm-a4-freetext-wrap {
   width: 100%;
   max-width: 100%;
 }
@@ -3541,7 +3562,7 @@
   font-family: system-ui, "Segoe UI", sans-serif;
 }
 
-.a4-pages-container .question-item.tm-a4-block--ai-mock .tm-a4-block__imgwrap {
+.a4-pages-container .pdf-question-page .question-item.tm-a4-block--ai-mock .tm-a4-block__imgwrap {
   align-items: flex-start;
   justify-content: flex-start;
   background: #ffffff;
@@ -3768,5 +3789,412 @@
 
   .tm-answer-key-grid--matrix {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* —— AI ile havuzdan soru ekle: yalnızca Dosya şeridi (tmBtnAiAppendPool) + modal —— */
+
+.tm-ai-append-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 12050;
+  background: rgba(3, 3, 8, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.tm-ai-append-backdrop[hidden],
+.tm-ai-append-modal[hidden] {
+  display: none !important;
+}
+
+.tm-ai-append-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 12060;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  pointer-events: none;
+}
+.tm-ai-append-modal:not([hidden]) {
+  pointer-events: auto;
+}
+
+.tm-ai-append-modal__panel {
+  width: min(100%, 420px);
+  max-height: min(90vh, 640px);
+  overflow: auto;
+  border-radius: 18px;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  background: linear-gradient(165deg, #14141c 0%, #0c0c10 100%);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+  padding: 1.25rem 1.35rem 1.35rem;
+}
+
+.tm-ai-append-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.tm-ai-append-modal__title {
+  margin: 0;
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: #f5f3ff;
+  letter-spacing: -0.02em;
+}
+
+.tm-ai-append-modal__x {
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: #e4e4e7;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 10px;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.tm-ai-append-modal__x:hover {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fff;
+}
+
+.tm-ai-append-modal__lead {
+  margin: 0 0 1rem;
+  font-size: 0.84rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.tm-ai-append-form .tm-ai-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+.tm-ai-append-form .tm-ai-field span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+}
+.tm-ai-append-form select,
+.tm-ai-append-form input[type="number"] {
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #0a0a10;
+  color: #e4e4e7;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.tm-ai-append-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+.tm-ai-append-modal__actions .btn-ghost {
+  padding: 0.55rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: transparent;
+  color: #cbd5e1;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+.tm-ai-append-modal__submit {
+  min-height: auto;
+  padding: 0.55rem 1.15rem;
+  font-size: 0.88rem;
+}
+
+/* —— Test Maker: yayınevi temaları (kapak + cevap anahtarı). PDF motoru değişmez. —— */
+.a4-pages-container[data-tm-theme="osym"],
+#tmA4PdfShell[data-tm-theme="osym"] {
+  --tm-theme-accent: #1a1a1a;
+  --tm-theme-accent-soft: rgba(26, 26, 26, 0.12);
+  --tm-theme-rule: linear-gradient(90deg, transparent, #1a1a1a, transparent);
+}
+.a4-pages-container[data-tm-theme="3d"],
+#tmA4PdfShell[data-tm-theme="3d"] {
+  --tm-theme-accent: #15803d;
+  --tm-theme-accent-soft: rgba(21, 128, 61, 0.18);
+  --tm-theme-rule: linear-gradient(90deg, transparent, #15803d, #22c55e, #15803d, transparent);
+}
+.a4-pages-container[data-tm-theme="bilgisarmal"],
+#tmA4PdfShell[data-tm-theme="bilgisarmal"] {
+  --tm-theme-accent: #ea580c;
+  --tm-theme-accent-soft: rgba(234, 88, 12, 0.2);
+  --tm-theme-rule: linear-gradient(90deg, transparent, #ea580c, #fb923c, transparent);
+}
+.a4-pages-container[data-tm-theme="345"],
+#tmA4PdfShell[data-tm-theme="345"] {
+  --tm-theme-accent: #1e3a5f;
+  --tm-theme-accent-soft: rgba(30, 58, 95, 0.15);
+  --tm-theme-rule: linear-gradient(90deg, transparent, #334155, #64748b, transparent);
+}
+.a4-pages-container[data-tm-theme="limit"],
+#tmA4PdfShell[data-tm-theme="limit"] {
+  --tm-theme-accent: #1e3a8a;
+  --tm-theme-accent-soft: rgba(30, 58, 138, 0.16);
+  --tm-theme-rule: linear-gradient(90deg, transparent, #1e40af, transparent);
+}
+.a4-pages-container[data-tm-theme="paraf"],
+#tmA4PdfShell[data-tm-theme="paraf"] {
+  --tm-theme-accent: #0f766e;
+  --tm-theme-accent-soft: rgba(15, 118, 110, 0.16);
+  --tm-theme-rule: linear-gradient(90deg, transparent, #0d9488, transparent);
+}
+.a4-pages-container[data-tm-theme="acil"],
+#tmA4PdfShell[data-tm-theme="acil"] {
+  --tm-theme-accent: #b91c1c;
+  --tm-theme-accent-soft: rgba(185, 28, 28, 0.18);
+  --tm-theme-rule: linear-gradient(90deg, transparent, #dc2626, transparent);
+}
+.a4-pages-container[data-tm-theme="fen"],
+#tmA4PdfShell[data-tm-theme="fen"] {
+  --tm-theme-accent: #0d9488;
+  --tm-theme-accent-soft: rgba(13, 148, 136, 0.18);
+  --tm-theme-rule: linear-gradient(90deg, transparent, #14b8a6, transparent);
+}
+.a4-pages-container[data-tm-theme="vip"],
+#tmA4PdfShell[data-tm-theme="vip"] {
+  --tm-theme-accent: #6d28d9;
+  --tm-theme-accent-soft: rgba(109, 40, 217, 0.16);
+  --tm-theme-rule: linear-gradient(90deg, transparent, #7c3aed, transparent);
+}
+.a4-pages-container[data-tm-theme="foy"],
+#tmA4PdfShell[data-tm-theme="foy"] {
+  --tm-theme-accent: #475569;
+  --tm-theme-accent-soft: rgba(71, 85, 105, 0.14);
+  --tm-theme-rule: linear-gradient(90deg, transparent, #64748b, transparent);
+}
+
+.pdf-cover-page.tm-cover-page {
+  page-break-after: always;
+  break-after: page;
+  width: 100%;
+  min-height: 240mm;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10mm 12mm 8mm;
+}
+
+.tm-corporate-cover-sheet--elite .tm-cover-page__center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8mm 4mm 12mm;
+}
+
+.tm-cover-page__inst {
+  font-size: 22pt;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #0f172a;
+  line-height: 1.15;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.a4-pages-container .tm-cover-page__inst {
+  color: var(--tm-theme-accent, #0f172a);
+}
+
+.tm-cover-page__rule {
+  width: min(72%, 140mm);
+  height: 4px;
+  margin: 6mm auto 8mm;
+  border-radius: 999px;
+  background: var(--tm-theme-rule, linear-gradient(90deg, transparent, #0f172a, transparent));
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset;
+}
+
+.tm-cover-page__course-topic {
+  margin: 0 0 5mm;
+  font-size: 17pt;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.tm-cover-page__deneme-label {
+  margin: 0 0 4mm;
+  font-size: 12pt;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #475569;
+}
+
+.tm-cover-page__doc-title {
+  margin: 0;
+  font-size: 11pt;
+  font-weight: 600;
+  color: #64748b;
+  max-width: 95%;
+}
+
+.tm-cover-page__footer {
+  width: 100%;
+  margin-top: auto;
+  padding-top: 6mm;
+  border-top: 1px solid rgba(148, 163, 184, 0.45);
+}
+
+.tm-cover-page__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2mm;
+  margin-bottom: 5mm;
+}
+
+.tm-cover-page__field--wide {
+  width: 100%;
+}
+
+.tm-cover-page__field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6mm 8mm;
+  align-items: end;
+}
+
+.tm-cover-page__field-label {
+  font-size: 8.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+}
+
+.tm-cover-page__field-line {
+  display: block;
+  min-height: 10mm;
+  border-bottom: 1.5px solid #94a3b8;
+  border-radius: 1px;
+}
+
+.tm-cover-page__field-date {
+  font-size: 10pt;
+  font-weight: 600;
+  color: #334155;
+  padding-bottom: 1mm;
+  border-bottom: 1.5px solid #94a3b8;
+  min-height: 10mm;
+  display: flex;
+  align-items: flex-end;
+}
+
+.tm-cover-page__hint {
+  margin: 5mm 0 0;
+  font-size: 8pt;
+  line-height: 1.4;
+  color: #64748b;
+  text-align: center;
+}
+
+.pdf-answer-key-page.tm-answer-key-page {
+  page-break-before: always;
+  break-before: page;
+}
+
+.tm-answer-key-sheet__head {
+  margin-bottom: 6mm;
+  padding-bottom: 4mm;
+  border-bottom: 2px solid var(--tm-theme-accent, #0f172a);
+}
+
+.a4-pages-container[data-tm-theme] .tm-answer-key-sheet__title {
+  color: var(--tm-theme-accent, #0f172a);
+}
+
+.tm-answer-key-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5pt;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06);
+}
+
+.tm-answer-key-table thead {
+  background: linear-gradient(180deg, var(--tm-theme-accent-soft, rgba(15, 23, 42, 0.08)), rgba(248, 250, 252, 0.95));
+}
+
+.tm-ak-th {
+  padding: 3.5mm 4mm;
+  text-align: left;
+  font-size: 9pt;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #0f172a;
+  border-bottom: 2px solid var(--tm-theme-accent, #cbd5e1);
+}
+
+.tm-ak-th--ans {
+  text-align: center;
+}
+
+.tm-answer-key-table__row:nth-child(even) {
+  background: #f8fafc;
+}
+
+.tm-answer-key-table__row:nth-child(odd) {
+  background: #fff;
+}
+
+.tm-ak-td {
+  padding: 2.8mm 4mm;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.tm-ak-td--num {
+  width: 28%;
+  font-weight: 700;
+  color: #334155;
+}
+
+.tm-ak-td--num strong {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.tm-ak-td--ans {
+  text-align: center;
+  font-weight: 700;
+  font-size: 11pt;
+  letter-spacing: 0.12em;
+  color: #0f172a;
+}
+
+.tm-answer-key-table tbody tr:last-child .tm-ak-td {
+  border-bottom: none;
+}
+
+@media print {
+  .pdf-cover-page.tm-cover-page {
+    page-break-after: always;
+  }
+  .pdf-answer-key-page.tm-answer-key-page {
+    page-break-before: always;
   }
 }

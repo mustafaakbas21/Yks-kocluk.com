@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Havuzdan PDF — Filtreli (Appwrite)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="css/soru-tools.css" />
+  <link rel="stylesheet" href="css/sorun-bildir.css" />
+  <script src="https://cdn.jsdelivr.net/npm/appwrite@23.0.0/dist/iife/sdk.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+</head>
+<body class="st-page">
+  <div class="st-wrap st-pdf-wrap">
+    <header class="st-head">
+      <h1><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> Havuzdan PDF oluştur</h1>
+      <p>
+        Bu ekran <strong>sahte örnek görseller kullanmaz</strong>. Seçtiğiniz sınav, ders, konu ve zorluğa göre
+        <code style="font-size:0.85em">databases.listDocuments</code> ile havuz okunur; her kayıt için
+        <strong>soru_resim_id</strong> üzerinden <code>storage.getFilePreview</code> ile üretilen URL PDF’e gömülür.
+      </p>
+    </header>
+    <nav class="st-nav" aria-label="Sayfalar">
+      <a href="koc-panel.html"><i class="fa-solid fa-arrow-left"></i> Koç paneli</a>
+      <a href="soru-ekle.html">Soru ekle</a>
+      <a href="login.html">Giriş</a>
+    </nav>
+
+    <div class="st-card">
+      <div class="st-field">
+        <span>Sınav</span>
+        <select id="pdfSinav" required>
+          <option value="TYT">TYT</option>
+          <option value="AYT">AYT</option>
+        </select>
+      </div>
+      <div class="st-field">
+        <span>Ders</span>
+        <select id="pdfDers" required></select>
+      </div>
+      <div class="st-field">
+        <span>Konu</span>
+        <select id="pdfKonu" required></select>
+      </div>
+      <div class="st-field">
+        <span>Zorluk</span>
+        <select id="pdfZorluk" required>
+          <option value="Tümü">Tümü</option>
+          <option value="Kolay">Kolay</option>
+          <option value="Orta" selected>Orta</option>
+          <option value="Zor">Zor</option>
+          <option value="Karma">Karma</option>
+          <option value="YKS tipi">YKS tipi</option>
+        </select>
+      </div>
+      <div class="st-actions">
+        <button type="button" class="st-btn" id="pdfBuildBtn">
+          <i class="fa-solid fa-download" aria-hidden="true"></i> PDF indir
+        </button>
+      </div>
+
+      <div id="pdfEmpty" class="st-empty" hidden role="status">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        Kriterlere uygun soru bulunamadı.
+      </div>
+      <p id="pdfError" class="st-status st-status--err" hidden role="alert"></p>
+    </div>
+  </div>
+  <script type="module" src="js/sorun-bildir.js"></script>
+  <script type="module" src="js/soru-pdf-hazirla.js"></script>
+</body>
+</html>

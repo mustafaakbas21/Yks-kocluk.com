@@ -1,0 +1,45 @@
+import { Client, Databases, Storage } from "./appwrite-browser.js";
+
+export const APPWRITE_ENDPOINT = "https://fra.cloud.appwrite.io/v1";
+export const APPWRITE_PROJECT_ID = "69c12f05001b051b2f14";
+export const APPWRITE_DATABASE_ID = "derece_panel";
+export const APPWRITE_COLLECTION_SORU_HAVUZU = "soru_havuzu";
+/** Havuz soruları tablosu (şu an `soru_havuzu` ile aynı; koleksiyon adı değişirse burayı güncelleyin) */
+export const APPWRITE_COLLECTION_SORULAR = APPWRITE_COLLECTION_SORU_HAVUZU;
+export const APPWRITE_BUCKET_SORU_HAVUZU = "soru_havuzu";
+/** Destek / sorun bildirimi ekran görüntüleri (Appwrite Console’da bucket oluşturun; izin: dosya oluşturma) */
+export const APPWRITE_BUCKET_DESTEK = "destek_ekranlari";
+/** `derece_panel` içinde koleksiyon: alanlar js/sorun-bildir.js içindeki createDocument ile uyumlu olmalı */
+export const APPWRITE_COLLECTION_HATA_BILDIRIMLERI = "hata_bildirimleri";
+/**
+ * Yetkili dizini kayıtları `users` koleksiyonunda tutulur (ayrı `admins` tablosu gerekmez).
+ * Şema (koç/öğrenci ile aynı koleksiyon): role = bu sabit; fullName; username; institutionName (iletişim e-postası);
+ * packageType = Admin_Tam | Admin_Orta | Admin_Salt; plainPassword, frozen, createdAt (super-admin.js).
+ */
+export const APPWRITE_ADMIN_ROSTER_ROLE = "admin_roster";
+/**
+ * Vitrin teklif talepleri — Appwrite Console’daki koleksiyon kimliği ile birebir aynı olmalı.
+ * Koleksiyon otomatik ID ile oluşturulduysa (ör. 64 karakterlik hex değil, kısa ID) burayı Console’daki ID ile güncelleyin.
+ */
+export const APPWRITE_COLLECTION_QUOTE_REQUESTS = "quoteRequests";
+
+const client = new Client()
+  .setEndpoint(APPWRITE_ENDPOINT)
+  .setProject(APPWRITE_PROJECT_ID);
+
+const databases = new Databases(client);
+const storage = new Storage(client);
+
+export { client, databases, storage };
+
+export function pingAppwriteBackend() {
+  return client.ping();
+}
+
+pingAppwriteBackend()
+  .then(function () {
+    console.info("[Appwrite] Ping OK — " + APPWRITE_PROJECT_ID + ".");
+  })
+  .catch(function (err) {
+    console.warn("[Appwrite] Ping başarısız:", err);
+  });

@@ -453,50 +453,64 @@ body.tm-annotate-open {
   display: none !important;
 }
 
-.tm-template-t01 .tm-paper-header--t01 {
+/* Yalnızca soru sayfası ve cevap anahtarı; kapak/optik vb. sızmaz */
+.pdf-question-page.tm-template-t01 .tm-paper-header--t01,
+.a4-paper[data-tm-answer-key="1"].tm-template-t01 .tm-paper-header--t01 {
   display: block !important;
 }
-.tm-template-t02 .tm-paper-header--t02 {
+.pdf-question-page.tm-template-t02 .tm-paper-header--t02,
+.a4-paper[data-tm-answer-key="1"].tm-template-t02 .tm-paper-header--t02 {
   display: block !important;
 }
-.tm-template-t03 .tm-paper-header--t03 {
+.pdf-question-page.tm-template-t03 .tm-paper-header--t03,
+.a4-paper[data-tm-answer-key="1"].tm-template-t03 .tm-paper-header--t03 {
   display: block !important;
 }
-.tm-template-t04 .tm-paper-header--t04 {
+.pdf-question-page.tm-template-t04 .tm-paper-header--t04,
+.a4-paper[data-tm-answer-key="1"].tm-template-t04 .tm-paper-header--t04 {
   display: block !important;
 }
-.tm-template-t05 .tm-paper-header--t05 {
+.pdf-question-page.tm-template-t05 .tm-paper-header--t05,
+.a4-paper[data-tm-answer-key="1"].tm-template-t05 .tm-paper-header--t05 {
   display: block !important;
 }
-.tm-template-t06 .tm-paper-header--t06 {
+.pdf-question-page.tm-template-t06 .tm-paper-header--t06,
+.a4-paper[data-tm-answer-key="1"].tm-template-t06 .tm-paper-header--t06 {
   display: block !important;
 }
-.tm-template-t07 .tm-paper-header--t07 {
+.pdf-question-page.tm-template-t07 .tm-paper-header--t07,
+.a4-paper[data-tm-answer-key="1"].tm-template-t07 .tm-paper-header--t07 {
   display: block !important;
 }
-.tm-template-t08 .tm-paper-header--t08 {
+.pdf-question-page.tm-template-t08 .tm-paper-header--t08,
+.a4-paper[data-tm-answer-key="1"].tm-template-t08 .tm-paper-header--t08 {
   display: block !important;
 }
-.tm-template-t09 .tm-paper-header--t09 {
+.pdf-question-page.tm-template-t09 .tm-paper-header--t09,
+.a4-paper[data-tm-answer-key="1"].tm-template-t09 .tm-paper-header--t09 {
   display: block !important;
 }
-.tm-template-t10 .tm-paper-header--t10 {
+.pdf-question-page.tm-template-t10 .tm-paper-header--t10,
+.a4-paper[data-tm-answer-key="1"].tm-template-t10 .tm-paper-header--t10 {
   display: block !important;
 }
 
-/* Klasik: ÖSYM / VIP / Föy — !important ile yayınevi kurallarından sonra tutarlı */
+/* Klasik: ÖSYM / VIP / Föy — yalnızca soru + cevap anahtarı */
 .tm-paper-header--osym,
 .tm-paper-header--vip,
 .tm-paper-header--foy {
   display: none !important;
 }
-.tm-template-osym .tm-paper-header--osym {
+.pdf-question-page.tm-template-osym .tm-paper-header--osym,
+.a4-paper[data-tm-answer-key="1"].tm-template-osym .tm-paper-header--osym {
   display: block !important;
 }
-.tm-template-vip .tm-paper-header--vip {
+.pdf-question-page.tm-template-vip .tm-paper-header--vip,
+.a4-paper[data-tm-answer-key="1"].tm-template-vip .tm-paper-header--vip {
   display: block !important;
 }
-.tm-template-foy .tm-paper-header--foy {
+.pdf-question-page.tm-template-foy .tm-paper-header--foy,
+.a4-paper[data-tm-answer-key="1"].tm-template-foy .tm-paper-header--foy {
   display: block !important;
 }
 
@@ -1264,6 +1278,31 @@ body.tm-annotate-open {
 }
 .app--testmaker-workspace .tm-btn-save-draft i,
 .app--testmaker-workspace .tm-btn-export-draft i {
+  color: inherit !important;
+  opacity: 1 !important;
+}
+
+.app--testmaker-workspace .tm-btn-ai-pool-append {
+  background: linear-gradient(180deg, #f5f3ff, #ede9fe) !important;
+  border: 1px solid #7c3aed !important;
+  color: #5b21b6 !important;
+  box-shadow: 0 2px 10px rgba(124, 58, 237, 0.2) !important;
+  padding: 0.52rem 0.95rem !important;
+  border-radius: 12px !important;
+  font-size: 0.84rem !important;
+  font-weight: 800 !important;
+  cursor: pointer !important;
+  font-family: inherit !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.45rem !important;
+}
+.app--testmaker-workspace .tm-btn-ai-pool-append:hover {
+  background: linear-gradient(180deg, #ede9fe, #ddd6fe) !important;
+  color: #4c1d95 !important;
+  border-color: #6d28d9 !important;
+}
+.app--testmaker-workspace .tm-btn-ai-pool-append i {
   color: inherit !important;
   opacity: 1 !important;
 }

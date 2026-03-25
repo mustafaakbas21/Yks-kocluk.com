@@ -1,0 +1,188 @@
+/* soru-ekle.html · soru-pdf-hazirla.html — ortak araç sayfaları */
+:root {
+  --st-bg: #0f0f12;
+  --st-card: #16161d;
+  --st-border: rgba(255, 255, 255, 0.1);
+  --st-text: #e4e4e7;
+  --st-muted: #94a3b8;
+  --st-accent: #a78bfa;
+  --st-ok: #34d399;
+  --st-warn: #fbbf24;
+}
+
+.st-page {
+  min-height: 100vh;
+  margin: 0;
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  background: radial-gradient(1200px 600px at 10% -10%, rgba(124, 58, 237, 0.18), transparent),
+    radial-gradient(800px 400px at 90% 0%, rgba(52, 211, 153, 0.12), transparent), var(--st-bg);
+  color: var(--st-text);
+}
+
+.st-wrap {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+.st-head {
+  margin-bottom: 1.5rem;
+}
+
+.st-head h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.st-head p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--st-muted);
+  line-height: 1.45;
+}
+
+.st-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.st-nav a {
+  font-size: 0.82rem;
+  color: var(--st-accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.st-nav a:hover {
+  text-decoration: underline;
+}
+
+.st-card {
+  background: var(--st-card);
+  border: 1px solid var(--st-border);
+  border-radius: 16px;
+  padding: 1.25rem 1.35rem;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+}
+
+.st-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+}
+
+.st-field span {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--st-muted);
+}
+
+.st-field input,
+.st-field select {
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid var(--st-border);
+  background: #0a0a10;
+  color: var(--st-text);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.st-field input:focus,
+.st-field select:focus {
+  outline: none;
+  border-color: rgba(167, 139, 250, 0.55);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.35);
+}
+
+.st-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.st-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 12px;
+  border: none;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 800;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #7c3aed, #059669);
+  box-shadow: 0 4px 18px rgba(124, 58, 237, 0.35);
+}
+
+.st-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.st-btn--ghost {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--st-text);
+  box-shadow: none;
+  border: 1px solid var(--st-border);
+}
+
+.st-status {
+  margin-top: 0.85rem;
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.st-status--ok {
+  color: var(--st-ok);
+}
+
+.st-status--err {
+  color: #f87171;
+}
+
+.st-code {
+  font-size: 0.72rem;
+  color: #cbd5e1;
+  word-break: break-all;
+  margin-top: 0.35rem;
+}
+
+.st-empty {
+  margin-top: 1rem;
+  padding: 1.25rem 1rem;
+  border-radius: 14px;
+  border: 1px dashed rgba(251, 191, 36, 0.45);
+  background: rgba(251, 191, 36, 0.06);
+  text-align: center;
+  color: #fde68a;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.st-empty[hidden] {
+  display: none !important;
+}
+
+.st-empty i {
+  display: block;
+  font-size: 1.5rem;
+  margin-bottom: 0.65rem;
+  opacity: 0.9;
+}
+
+.st-pdf-wrap {
+  max-width: 560px;
+}

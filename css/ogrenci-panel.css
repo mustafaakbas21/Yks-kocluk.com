@@ -894,3 +894,248 @@ body.osp-body {
 .sidebar-overlay--osp.is-open {
   display: block;
 }
+
+/* —— YKS 2026 sayaç (koç paneli ile aynı görsel dil) —— */
+.osp-yks-countdown.yks-countdown-widget {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 1.25rem;
+  box-sizing: border-box;
+  border-radius: 20px;
+  overflow: hidden;
+  background: linear-gradient(145deg, #0f172a 0%, #1e1b4b 45%, #312e81 100%);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  font-family: "Inter", "Plus Jakarta Sans", system-ui, sans-serif;
+}
+
+.osp-yks-countdown .yks-countdown-widget__glow {
+  position: absolute;
+  inset: -40% -20% auto;
+  height: 70%;
+  background: radial-gradient(ellipse at 50% 0%, rgba(167, 139, 250, 0.35), transparent 55%);
+  pointer-events: none;
+}
+
+.osp-yks-countdown .yks-countdown-widget__inner {
+  position: relative;
+  z-index: 1;
+  padding: 1.35rem 1.5rem 1.5rem;
+}
+
+.osp-yks-countdown .yks-countdown-widget__head {
+  margin-bottom: 1.15rem;
+}
+
+.osp-yks-countdown .yks-countdown-widget__badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #c4b5fd;
+  background: rgba(139, 92, 246, 0.25);
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(167, 139, 250, 0.35);
+}
+
+.osp-yks-countdown .yks-countdown-widget__title {
+  margin: 0.65rem 0 0.2rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #f8fafc;
+  letter-spacing: -0.02em;
+}
+
+.osp-yks-countdown .yks-countdown-widget__meta {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.osp-yks-countdown .yks-countdown-widget__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+@media (max-width: 640px) {
+  .osp-yks-countdown .yks-countdown-widget__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.osp-yks-countdown .yks-countdown-widget__cell {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 16px;
+  padding: 1rem 0.75rem;
+  text-align: center;
+  backdrop-filter: blur(8px);
+}
+
+.osp-yks-countdown .yks-countdown-widget__value {
+  display: block;
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: clamp(1.85rem, 4vw, 2.35rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), text-shadow 0.35s ease;
+}
+
+.osp-yks-countdown .yks-countdown-widget__value.is-tick {
+  animation: ospYksWidgetTick 0.55s ease;
+}
+
+@keyframes ospYksWidgetTick {
+  0% {
+    transform: scale(1);
+    text-shadow: 0 0 0 transparent;
+  }
+  35% {
+    transform: scale(1.08);
+    text-shadow: 0 0 24px rgba(167, 139, 250, 0.65);
+  }
+  100% {
+    transform: scale(1);
+    text-shadow: 0 0 0 transparent;
+  }
+}
+
+.osp-yks-countdown .yks-countdown-widget__label {
+  display: block;
+  margin-top: 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #a5b4fc;
+}
+
+/* —— Müfredat accordion —— */
+.osp-mufredat-card {
+  background: var(--osp-bg-card);
+  border: 1px solid var(--osp-border);
+  border-radius: 18px;
+  padding: 1.25rem 1.35rem;
+  margin-bottom: 1.25rem;
+  box-shadow: var(--osp-shadow);
+}
+
+.osp-mufredat-card__head {
+  margin-bottom: 1rem;
+}
+
+.osp-mufredat-card__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--osp-text);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.osp-mufredat-card__lead {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--osp-muted);
+  line-height: 1.5;
+}
+
+.osp-mufredat-mount {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.osp-muf-sinav {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 0.35rem 0.85rem;
+  background: #fafafa;
+}
+
+.osp-muf-sinav > summary {
+  font-weight: 800;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  color: #5b21b6;
+}
+
+.osp-muf-ders {
+  margin: 0.35rem 0 0.5rem 0.5rem;
+  border-left: 3px solid #c4b5fd;
+  padding-left: 0.65rem;
+}
+
+.osp-muf-ders > summary {
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #334155;
+}
+
+.osp-muf-konu {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.35rem 0 0.35rem 0.75rem;
+  font-size: 0.84rem;
+  color: #475569;
+  cursor: pointer;
+}
+
+.osp-muf-konu input {
+  margin-top: 0.2rem;
+  accent-color: var(--osp-accent);
+}
+
+/* —— Hedef simülatörü ekleri —— */
+.osp-hedef-atlas-bar {
+  margin-bottom: 1rem;
+  padding: 1rem 1.15rem;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #faf5ff 0%, #fff 100%);
+  border: 1px solid #ede9fe;
+}
+
+.osp-hedef-atlas-bar label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--osp-muted);
+  margin-bottom: 0.45rem;
+}
+
+.osp-hedef-atlas-bar select {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid #e9d5ff;
+  font-family: inherit;
+  font-size: 0.88rem;
+  background: #fff;
+}
+
+.osp-hedef-chart-wrap--radar {
+  background: #fff;
+  border: 1px solid var(--osp-border);
+  border-radius: 18px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  max-width: 520px;
+  box-shadow: var(--osp-shadow);
+}
+
+.osp-hedef-net-table-host {
+  margin-top: 1rem;
+}

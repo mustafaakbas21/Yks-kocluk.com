@@ -1,8 +1,8 @@
 /**
- * Vitrin — teklif talebi formu (Firestore quoteRequests)
+ * Vitrin — teklif talebi formu (Appwrite quoteRequests)
  */
-import { addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-import { db } from "./firebase-config.js";
+import { addDoc, collection, serverTimestamp, db } from "./appwrite-compat.js";
+import { APPWRITE_COLLECTION_QUOTE_REQUESTS } from "./appwrite-config.js";
 
 var modal = null;
 var form = null;
@@ -100,7 +100,7 @@ function bind() {
 
       submitBtn.disabled = true;
       try {
-        await addDoc(collection(db, "quoteRequests"), {
+        await addDoc(collection(db, APPWRITE_COLLECTION_QUOTE_REQUESTS), {
           packageName: pkg,
           institutionName: institution.trim().slice(0, 200),
           contactName: contact.trim().slice(0, 120),

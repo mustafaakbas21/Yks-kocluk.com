@@ -472,3 +472,431 @@
     grid-template-columns: 1fr;
   }
 }
+
+.dp-hedef-atlas-bar {
+  padding: 1rem 1.25rem;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #faf5ff 0%, #fff 100%);
+  border: 1px solid #ede9fe;
+  max-width: 960px;
+  box-sizing: border-box;
+}
+
+.dp-hedef-atlas-bar label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  margin-bottom: 0.45rem;
+}
+
+.dp-hedef-atlas-bar select {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid #e9d5ff;
+  font-family: inherit;
+  font-size: 0.88rem;
+  background: #fff;
+}
+
+.dp-hedef-net-table-host {
+  margin-top: 1.25rem;
+}
+
+.hedef-atlas-net-wrap {
+  overflow-x: auto;
+}
+
+.hedef-atlas-net-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  background: #fff;
+  border: 1px solid #eef0f2;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.hedef-atlas-net-table th,
+.hedef-atlas-net-table td {
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.hedef-atlas-net-table th {
+  background: #f8fafc;
+  font-weight: 800;
+  color: #475569;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.hedef-atlas-net__sec {
+  background: linear-gradient(90deg, #ede9fe, #f5f3ff) !important;
+  color: #5b21b6 !important;
+  font-size: 0.78rem !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.hedef-atlas-net-table .is-behind {
+  color: #b45309;
+  font-weight: 700;
+}
+
+.hedef-atlas-net-table .is-ahead {
+  color: #059669;
+  font-weight: 700;
+}
+
+.hedef-atlas-net-table .is-ok {
+  color: #64748b;
+}
+
+.hedef-atlas-net-footnote {
+  margin: 0.5rem 0 0;
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+/* ----- TYT-AYT Net Sihirbazı + YKS Puan (koç / öğrenci) ----- */
+.net-sihirbazi-select-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.25rem;
+  align-items: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+.net-sihirbazi-select {
+  flex: 1;
+  min-width: min(100%, 220px);
+}
+
+.net-sihirbazi-select label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 0.35rem;
+}
+
+.net-sihirbazi-select select {
+  width: 100%;
+  max-width: 100%;
+  padding: 0.55rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  font: inherit;
+  background: #fff;
+}
+
+.net-sihirbazi-search {
+  width: 100%;
+  max-width: 100%;
+  padding: 0.55rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  font: inherit;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.net-sihirbazi-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.88rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.net-sihirbazi-hero h1 {
+  font-size: clamp(1.25rem, 3vw, 1.6rem);
+  margin: 0 0 0.35rem;
+  color: #1e293b;
+}
+
+.net-sihirbazi-meta,
+.osp-net-sihirbazi-meta {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.net-sihirbazi-table-host {
+  margin-top: 1rem;
+}
+
+.net-sihirbazi-placeholder {
+  margin: 1rem 0;
+  padding: 1.25rem;
+  border-radius: 16px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.yks-puan-card {
+  padding: 1.25rem 1.5rem;
+  border-radius: 20px;
+  background: linear-gradient(165deg, #faf5ff 0%, #fff 40%);
+  border: 1px solid #ede9fe;
+  box-shadow: 0 8px 24px rgba(91, 33, 182, 0.08);
+}
+
+.yks-puan-card--wide {
+  max-width: 920px;
+}
+
+.yks-puan-block {
+  margin-bottom: 1.25rem;
+}
+
+.yks-puan-block__title {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #5b21b6;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.yks-puan-block__title .fa-solid {
+  opacity: 0.85;
+  font-size: 0.9em;
+}
+
+.yks-puan-block--ayt {
+  padding-top: 0.25rem;
+}
+
+.yks-puan-grid {
+  display: grid;
+  gap: 0.75rem 1rem;
+}
+
+.yks-puan-grid--4 {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+.yks-puan-grid--2 {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.yks-puan-grid--dyb {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem 1.1rem;
+}
+
+.yks-field__meta {
+  font-weight: 600;
+  color: #64748b;
+  font-size: 0.78em;
+}
+
+.yks-dyb-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.65rem;
+  margin-top: 0.2rem;
+}
+
+.yks-dyb-inputs {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 0.45rem;
+  align-items: flex-end;
+  padding: 0.35rem 0.4rem;
+  border-radius: 12px;
+  border: 1px solid #e9d5ff;
+  background: #fafafa;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.yks-dyb-inputs--invalid {
+  border-color: #f87171 !important;
+  box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.25);
+}
+
+.yks-dyb-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 0 0 auto;
+}
+
+.yks-dyb-lbl {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.yks-inp-dyb {
+  width: 3rem;
+  max-width: 100%;
+  padding: 0.45rem 0.35rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.yks-inp-dyb:focus {
+  outline: none;
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.25);
+}
+
+.yks-net-pill {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 4.5rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 12px;
+  background: linear-gradient(165deg, #f5f3ff 0%, #fff 100%);
+  border: 1px solid #ddd6fe;
+}
+
+.yks-net-pill__lbl {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #7c3aed;
+  text-transform: uppercase;
+}
+
+.yks-net-pill__val {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.yks-puan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.35rem;
+}
+
+.yks-puan-actions .btn--outline {
+  border: 1px solid #c4b5fd;
+  background: #fff;
+  color: #5b21b6;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.yks-puan-actions .btn--outline:hover {
+  background: #f5f3ff;
+}
+
+.yks-puan-alan-row select {
+  width: 100%;
+  max-width: 320px;
+  padding: 0.55rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid #e9d5ff;
+  font: inherit;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.yks-puan-form .form-group {
+  margin-bottom: 1rem;
+}
+
+.yks-puan-form .form-group label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #5b21b6;
+  margin-bottom: 0.35rem;
+}
+
+.yks-puan-form input {
+  width: 100%;
+  max-width: 100%;
+  padding: 0.55rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid #e9d5ff;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.yks-puan-form input.yks-inp-dyb {
+  width: 3rem;
+  padding: 0.45rem 0.35rem;
+  border: 1px solid #e2e8f0;
+}
+
+.yks-puan-result {
+  margin-top: 1.25rem;
+  padding: 1rem 1.1rem;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #e9d5ff;
+}
+
+.yks-puan-result__label {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #7c3aed;
+}
+
+.yks-puan-result__val {
+  margin: 0.35rem 0 0;
+  font-size: clamp(1.75rem, 5vw, 2.25rem);
+  font-weight: 800;
+  color: #1e293b;
+  font-variant-numeric: tabular-nums;
+}
+
+.yks-puan-result__hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.osp-yks-puan-form {
+  margin-bottom: 0.5rem;
+}
+
+.osp-yks-puan-form .form-group label {
+  color: var(--osp-text, #1f2937);
+}
+
+.osp-yks-puan-form input {
+  width: 100%;
+  max-width: none;
+  border: 1px solid var(--osp-border, #eef0f2);
+}
+
+.osp-yks-puan-form input.yks-inp-dyb {
+  width: 3rem;
+  max-width: 100%;
+  border: 1px solid #e2e8f0;
+}
