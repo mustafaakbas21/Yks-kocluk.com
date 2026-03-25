@@ -566,6 +566,54 @@
   );
 }
 
+/* PDF/html2canvas yakalama: gradient + tema renkleri bitmap’te siyah/bozuk çıkabiliyor — düz beyaz + net sütun çizgisi */
+.tm-pdf-live-capture.a4-paper {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: #111111 !important;
+  box-shadow: none !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.tm-pdf-live-capture .tm-a4-layout {
+  background: #ffffff !important;
+}
+
+.tm-pdf-live-capture .test-content-area {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  background-image: none !important;
+}
+
+.tm-pdf-live-capture .test-column[data-tm-col="2"] {
+  border-left: 1px solid #1a1a1a !important;
+  padding-left: 12px;
+  box-sizing: border-box;
+}
+
+.tm-pdf-live-capture .tm-paper-header {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+.tm-pdf-live-capture .question-item,
+.tm-pdf-live-capture .soru-karti {
+  background: #ffffff !important;
+  color: #111111 !important;
+}
+
+@media print {
+  .pdf-question-page .test-content-area {
+    background: #ffffff !important;
+    background-image: none !important;
+  }
+
+  .pdf-question-page .test-column[data-tm-col="2"] {
+    border-left: 1px solid #000000 !important;
+  }
+}
+
 .pdf-question-page .test-column {
   flex: 1 1 50%;
   min-width: 0;

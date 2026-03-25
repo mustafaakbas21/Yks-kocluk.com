@@ -159,6 +159,12 @@ export async function listSoruHavuzuFiltered(coachKey, opts) {
   var konu = String(opts.konu || "").trim();
   var zorluk = String(opts.zorluk || "").trim();
   var want = Math.max(1, Math.min(80, parseInt(opts.limit, 10) || 40));
+  var excludeIdsRaw = Array.isArray(opts.excludeIds) ? opts.excludeIds : [];
+  var excludeSet = Object.create(null);
+  excludeIdsRaw.forEach(function (x) {
+    var id = x == null ? "" : String(x);
+    if (id.trim()) excludeSet[id.trim()] = true;
+  });
   var useKarma = zorluk === "Karma";
 
   if (!coachKeyUsable(coachKey)) {
@@ -171,6 +177,10 @@ export async function listSoruHavuzuFiltered(coachKey, opts) {
     if (ders) q.push(Query.equal("ders", ders));
     if (konu) q.push(Query.equal("konu", konu));
     if (zorluk && !useKarma) q.push(Query.equal("zorluk", zorluk));
+    // Appwrite tarafında (mümkünse) dışla; olmazsa aşağıdaki client-side filtre devreye girer.
+    Object.keys(excludeSet).forEach(function (id) {
+      q.push(Query.notEqual("$id", id));
+    });
     return q;
   }
 
@@ -221,9 +231,15 @@ export async function listSoruHavuzuFiltered(coachKey, opts) {
   }
 
   var normalized = [];
+  var seen = Object.create(null);
   for (var i = 0; i < docs.length; i++) {
     var n = normalizeSoruPoolDocForAi(docs[i]);
-    if (n) normalized.push(n);
+    if (!n) continue;
+    var key = n && n.id != null ? String(n.id) : "";
+    if (key && excludeSet[key]) continue;
+    if (key && seen[key]) continue;
+    if (key) seen[key] = true;
+    normalized.push(n);
   }
 
   if (useKarma && normalized.length > want) {

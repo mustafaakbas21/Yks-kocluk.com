@@ -43,11 +43,18 @@ import {
   client,
   APPWRITE_COLLECTION_SORU_HAVUZU,
   APPWRITE_BUCKET_SORU_HAVUZU,
+  APPWRITE_ENDPOINT,
 } from "./appwrite-config.js";
-import { Query } from "./appwrite-browser.js";
+import { Query, Account } from "./appwrite-browser.js";
 import { parseFlexibleDate, formatDateTimeTr } from "./date-format.js";
 
 const EMAIL_DOMAIN = "@sistem.com";
+var saAccountApi = null;
+try {
+  saAccountApi = client ? new Account(client) : null;
+} catch (_eAcc) {
+  saAccountApi = null;
+}
 
 /** Girişte (login.js) yazılır; kurucu çıkışında silinir. Koç/öğrenci oluştururken prompt yerine kullanılır. */
 var SA_REAUTH_EMAIL_KEY = "dp_sa_reauth_email";
@@ -2991,46 +2998,59 @@ if (saStUsernameEl) saStUsernameEl.addEventListener("input", saBindStEmailPrevie
 var saSessionGateDone = false;
 var saGateRunning = false;
 
+function saIsMissingSessionError(err) {
+  var code = String((err && (err.code || err.status || err.responseCode)) || "").trim();
+  var type = String((err && err.type) || "").toLowerCase();
+  var msg = String((err && err.message) || "").toLowerCase();
+  if (code === "401") return true;
+  if (type === "user_unauthorized" || type === "general_unauthorized_scope") return true;
+  return /unauthorized|missing.*session|user.*session|not authenticated|jwt|session/.test(msg);
+}
+
+async function saAwaitAccountSession() {
+  if (!saAccountApi || typeof saAccountApi.get !== "function") {
+    throw new Error("Appwrite Account API kullanılamıyor.");
+  }
+  return saAccountApi.get();
+}
+
 async function runSuperAdminSessionGate() {
   if (saSessionGateDone || saGateRunning) return;
   saGateRunning = true;
   saSetLoading(true, "Yükleniyor... Oturum doğrulanıyor.");
   try {
-    var vr = await verifyAppwriteAccount(5000);
-    if (!vr.ok || !vr.user) {
-      try {
-        await signOut(auth);
-      } catch (_e) {}
+    // Sabırsız sync redirect yerine: Appwrite account.get() sonucunu bekle.
+    var u = await saAwaitAccountSession();
+    if (!u || !u.$id) {
       saShowLoginGate();
       return;
     }
-    var uid = vr.user.$id;
+    var uid = u.$id;
     saSetLoading(true, "Yükleniyor... Profil okunuyor.");
     var profile = await waitForProfile(uid, 8, 500);
     if (!profile) {
       console.error("VERI CEKME HATASI:", { reason: "Profil bulunamadı veya henüz yüklenmedi.", uid: uid });
-      try {
-        await signOut(auth);
-      } catch (_e) {}
       saShowLoginGate();
       return;
     }
     var normalizedRole = normalizeRoleName(profile.role);
     if (normalizedRole !== "admin") {
       console.error("[super-admin] Yetkisiz rol:", profile.role);
-      try {
-        await signOut(auth);
-      } catch (_e) {}
       saShowLoginGate();
       return;
     }
     saActivateDashboardSession(profile, null);
   } catch (err) {
-    console.error("VERI CEKME HATASI:", err);
-    try {
-      await signOut(auth);
-    } catch (_e) {}
-    saShowLoginGate();
+    if (saIsMissingSessionError(err)) {
+      // Sadece gerçekten oturum yoksa login akışına düş.
+      saShowLoginGate();
+    } else {
+      // Geçici ağ/Appwrite gecikmelerinde oturumu öldürme; kullanıcıyı sayfada tut.
+      console.error("[super-admin] Oturum doğrulama geçici hatası:", err);
+      saHideLoadingOverlay();
+      saShowLoginGate();
+      saShowGateError("Oturum doğrulanamadı. İnternetinizi kontrol edip tekrar deneyin.");
+    }
   } finally {
     saGateRunning = false;
     saHideLoadingOverlay();
@@ -3416,6 +3436,79 @@ async function loadSaSystemStatusOnce() {
     saSystemStatusInFlight = false;
   }
 }
+
+/** Canlı gecikme: statik sunucu (origin) ve Appwrite /v1/health. */
+async function measureSystemSpeeds() {
+  var elServer = document.getElementById("server-ping");
+  var elDb = document.getElementById("db-ping");
+  if (!elServer && !elDb) return;
+
+  function setMeasuring() {
+    if (elServer) {
+      elServer.textContent = "Ölçülüyor...";
+      elServer.style.color = "var(--muted)";
+    }
+    if (elDb) {
+      elDb.textContent = "Ölçülüyor...";
+      elDb.style.color = "var(--muted)";
+    }
+  }
+
+  function saPingColorForMs(ms) {
+    if (ms < 100) return "#22c55e";
+    if (ms <= 300) return "#f97316";
+    return "#ef4444";
+  }
+
+  function applyPing(el, ms, ok) {
+    if (!el) return;
+    if (!ok || ms == null || !isFinite(ms)) {
+      el.textContent = "Başarısız";
+      el.style.color = "#ef4444";
+      return;
+    }
+    var v = Math.round(ms);
+    el.textContent = v + " ms";
+    el.style.color = saPingColorForMs(v);
+  }
+
+  setMeasuring();
+
+  var origin = window.location.origin || "";
+  var healthUrl = String(APPWRITE_ENDPOINT).replace(/\/$/, "") + "/health";
+
+  var pServer = (async function () {
+    if (!origin) return { ok: false, ms: null };
+    var t0 = performance.now();
+    try {
+      await fetch(origin.replace(/\/$/, "") + "/", {
+        method: "GET",
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+      return { ok: true, ms: performance.now() - t0 };
+    } catch (_e) {
+      return { ok: false, ms: null };
+    }
+  })();
+
+  var pDb = (async function () {
+    var t0 = performance.now();
+    try {
+      await fetch(healthUrl, { method: "GET", cache: "no-store", mode: "cors" });
+      return { ok: true, ms: performance.now() - t0 };
+    } catch (_e) {
+      return { ok: false, ms: null };
+    }
+  })();
+
+  var results = await Promise.all([pServer, pDb]);
+  applyPing(elServer, results[0].ms, results[0].ok);
+  applyPing(elDb, results[1].ms, results[1].ok);
+}
+
+measureSystemSpeeds();
+setInterval(measureSystemSpeeds, 30000);
 
 window.addEventListener("hashchange", saApplyRoute);
 if (document.readyState === "loading") {

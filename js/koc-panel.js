@@ -701,6 +701,7 @@ function fetchAIGeneratedQuestions(payloadOrSubject, konu, zorluk, miktar) {
     konu: payload.topic,
     zorluk: payload.diff,
     limit: payload.count,
+    excludeIds: payload.excludeIds || payload.excludeQuestionIds || [],
   });
 }
 
@@ -958,16 +959,50 @@ function tmAppendAiMockQuestionBlock(q, badgeIndexZeroBased) {
   tmAppendBlockToPaginatedColumns(wrap);
 }
 
+function tmGetAiQuestionId(q) {
+  if (!q) return "";
+  var id = q.id != null ? q.id : q.firestoreId;
+  return id != null ? String(id).trim() : "";
+}
+
+function tmGetCurrentAiSelectedQuestionIds() {
+  var s = new Set();
+  try {
+    document.querySelectorAll('.tm-a4-block.question-item[data-tm-ai-qid]').forEach(function (el) {
+      var id = el && el.getAttribute ? el.getAttribute("data-tm-ai-qid") : "";
+      if (id) s.add(String(id));
+    });
+  } catch (_e) {}
+  return s;
+}
+
 function tmAddAiMockQuestionsFromList(questions, persistMode) {
   if (!questions || !questions.length) return;
   persistMode = persistMode || "append";
+  var selectedQuestionIds = tmGetCurrentAiSelectedQuestionIds();
+  var incomingSeen = new Set();
+  var filtered = [];
+
+  questions.forEach(function (q) {
+    var id = tmGetAiQuestionId(q);
+    if (id) {
+      if (selectedQuestionIds.has(id)) return;
+      if (incomingSeen.has(id)) return;
+      incomingSeen.add(id);
+      selectedQuestionIds.add(id);
+    }
+    filtered.push(q);
+  });
+
+  if (!filtered.length) return;
+
   var base = tmTotalQuestionBlocks();
-  questions.forEach(function (q, i) {
+  filtered.forEach(function (q, i) {
     tmAppendAiMockQuestionBlock(q, base + i);
   });
   tmUpdateA4EmptyVisibility();
   tmRenumberTmQuestions();
-  if (persistMode === "append" && questions.length) tmMergeAppendPoolToLocalStorage(questions);
+  if (persistMode === "append" && filtered.length) tmMergeAppendPoolToLocalStorage(filtered);
 }
 
 function tmApplyAiGenerationToTestmaker(payload, questions) {
@@ -1174,43 +1209,73 @@ function initTmAiAppendModal() {
 
   closeModal();
 
-  form.addEventListener("submit", function (e) {
+  form.addEventListener("submit", async function (e) {
     e.preventDefault();
     var n = parseInt((document.getElementById("aiAppendQuestionCount") || {}).value, 10);
     if (isNaN(n)) n = 10;
     n = Math.max(1, Math.min(80, n));
     var diffEl = document.getElementById("aiAppendDifficulty");
-    var payload = {
-      exam: exam.value,
-      subject: subj.value,
-      topic: topic.value,
-      count: n,
-      diff: diffEl ? diffEl.value : "Orta",
-    };
+    var diffVal = diffEl ? diffEl.value : "Orta";
     var btn = document.getElementById("btnAiAppendSubmit");
     if (btn) btn.disabled = true;
-    fetchAIGeneratedQuestions(payload)
-      .then(function (result) {
+
+    var selectedQuestionIds = tmGetCurrentAiSelectedQuestionIds();
+    var selectedNewQuestions = [];
+    var attempts = 0;
+    var maxAttempts = 6;
+
+    try {
+      while (selectedNewQuestions.length < n && attempts < maxAttempts) {
+        attempts++;
+        var remaining = n - selectedNewQuestions.length;
+        var fetchCount = Math.ceil(remaining * 1.8);
+        fetchCount = Math.max(1, Math.min(80, fetchCount));
+
+        var payloadAttempt = {
+          exam: exam.value,
+          subject: subj.value,
+          topic: topic.value,
+          count: fetchCount,
+          diff: diffVal,
+          excludeIds: Array.from(selectedQuestionIds),
+        };
+
+        var result = await fetchAIGeneratedQuestions(payloadAttempt);
         var questions = result && result.questions ? result.questions : [];
-        var req = result && result.requested != null ? result.requested : n;
-        if (!questions.length) {
-          showToast("Belirtilen kriterlerde soru havuzunda soru bulunamadı.");
-          return;
+        if (!questions.length) break;
+
+        var incomingSeen = new Set();
+        for (var i = 0; i < questions.length; i++) {
+          var q = questions[i];
+          var qid = tmGetAiQuestionId(q);
+          if (qid) {
+            if (selectedQuestionIds.has(qid)) continue;
+            if (incomingSeen.has(qid)) continue;
+            incomingSeen.add(qid);
+            selectedQuestionIds.add(qid);
+          }
+          selectedNewQuestions.push(q);
+          if (selectedNewQuestions.length >= n) break;
         }
-        if (questions.length < req) {
-          showToast("Havuzda yeterli soru yok; mevcut " + questions.length + " soru ekleniyor.");
-        }
-        tmAddAiMockQuestionsFromList(questions);
-        closeModal();
-        showToast("Sorular teste başarıyla eklendi.");
-      })
-      .catch(function (err) {
-        console.error("[ai-append]", err);
-        showToast(err && err.message ? err.message : "Havuz okunamadı.");
-      })
-      .finally(function () {
-        if (btn) btn.disabled = false;
-      });
+      }
+
+      if (!selectedNewQuestions.length) {
+        showToast("Belirtilen kriterlerde soru havuzunda soru bulunamadı.");
+        return;
+      }
+      if (selectedNewQuestions.length < n) {
+        showToast("Havuzda yeterli benzersiz soru yok; sadece " + selectedNewQuestions.length + " adet eklenebildi.");
+      }
+
+      tmAddAiMockQuestionsFromList(selectedNewQuestions);
+      closeModal();
+      showToast("Sorular teste başarıyla eklendi.");
+    } catch (err) {
+      console.error("[ai-append]", err);
+      showToast(err && err.message ? err.message : "Havuz okunamadı.");
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   });
 }
 
@@ -1255,7 +1320,7 @@ function initAiTestGenWizard() {
 
   var btnAi = document.getElementById("btnAiGenerateTest");
 
-  form.addEventListener("submit", function (e) {
+  form.addEventListener("submit", async function (e) {
     e.preventDefault();
     if (btnAi && btnAi.disabled) return;
     var n = parseInt(document.getElementById("aiQuestionCount") && document.getElementById("aiQuestionCount").value, 10);
@@ -1276,46 +1341,79 @@ function initAiTestGenWizard() {
     }
     tmSetAiGenOverlayOpen(true);
     tmStartAiOverlayRotation();
-    fetchAIGeneratedQuestions(payload)
-      .then(function (result) {
-        tmStopAiOverlayRotation();
+
+    var selectedQuestionIds = new Set();
+    var selectedNewQuestions = [];
+    var attempts = 0;
+    var maxAttempts = 6;
+    try {
+      while (selectedNewQuestions.length < n && attempts < maxAttempts) {
+        attempts++;
+        var remaining = n - selectedNewQuestions.length;
+        var fetchCount = Math.ceil(remaining * 1.8);
+        fetchCount = Math.max(1, Math.min(80, fetchCount));
+
+        var payloadAttempt = Object.assign({}, payload, {
+          count: fetchCount,
+          excludeIds: Array.from(selectedQuestionIds),
+        });
+
+        var result = await fetchAIGeneratedQuestions(payloadAttempt);
         var questions = result && result.questions ? result.questions : [];
-        var req = result && result.requested != null ? result.requested : n;
-        if (!questions.length) {
-          tmSetAiGenOverlayOpen(false);
-          showToast("Belirtilen kriterlerde soru havuzunda soru bulunamadı.");
-          if (btnAi) btnAi.disabled = false;
-          return;
+        if (!questions.length) break;
+
+        var incomingSeen = new Set();
+        for (var i = 0; i < questions.length; i++) {
+          var q = questions[i];
+          var qid = tmGetAiQuestionId(q);
+          if (qid) {
+            if (selectedQuestionIds.has(qid)) continue;
+            if (incomingSeen.has(qid)) continue;
+            incomingSeen.add(qid);
+            selectedQuestionIds.add(qid);
+          }
+          selectedNewQuestions.push(q);
+          if (selectedNewQuestions.length >= n) break;
         }
-        if (questions.length < req) {
-          showToast("Havuzda yeterli soru yok; mevcut " + questions.length + " soru ile test oluşturuluyor.");
-        }
-        try {
-          sessionStorage.setItem("currentTestQuestions", JSON.stringify(questions));
-          sessionStorage.setItem("currentTestAiPayload", JSON.stringify(payload));
-          localStorage.setItem(KOC_LS_CURRENT_TEST_QUESTIONS, JSON.stringify(questions));
-          localStorage.setItem(KOC_LS_CURRENT_TEST_AI_PAYLOAD, JSON.stringify(payload));
-        } catch (se) {
-          console.warn("[ai-test] sessionStorage:", se);
-          tmSetAiGenOverlayOpen(false);
-          showToast("Tarayıcı depolaması kapalı; test sayfasına geçilemiyor.");
-          if (btnAi) btnAi.disabled = false;
-          return;
-        }
-        tmSetAiGenOverlayOpen(false);
-        window.location.href = "test-tasarimi.html";
-      })
-      .catch(function (errFetch) {
-        tmStopAiOverlayRotation();
-        console.error("fetchAIGeneratedQuestions:", errFetch);
-        showToast(
-          errFetch && errFetch.message
-            ? errFetch.message
-            : "Havuz soruları yüklenemedi. Oturum veya ağ bağlantısını kontrol edin."
-        );
-        tmSetAiGenOverlayOpen(false);
+      }
+
+      tmStopAiOverlayRotation();
+      tmSetAiGenOverlayOpen(false);
+
+      if (!selectedNewQuestions.length) {
+        showToast("Belirtilen kriterlerde soru havuzunda soru bulunamadı.");
         if (btnAi) btnAi.disabled = false;
-      });
+        return;
+      }
+
+      if (selectedNewQuestions.length < n) {
+        showToast("Havuzda yeterli benzersiz soru yok; sadece " + selectedNewQuestions.length + " adet eklendi.");
+      }
+
+      try {
+        sessionStorage.setItem("currentTestQuestions", JSON.stringify(selectedNewQuestions));
+        sessionStorage.setItem("currentTestAiPayload", JSON.stringify(payload));
+        localStorage.setItem(KOC_LS_CURRENT_TEST_QUESTIONS, JSON.stringify(selectedNewQuestions));
+        localStorage.setItem(KOC_LS_CURRENT_TEST_AI_PAYLOAD, JSON.stringify(payload));
+      } catch (se) {
+        console.warn("[ai-test] sessionStorage:", se);
+        showToast("Tarayıcı depolaması kapalı; test sayfasına geçilemiyor.");
+        if (btnAi) btnAi.disabled = false;
+        return;
+      }
+
+      window.location.href = "test-tasarimi.html";
+    } catch (errFetch) {
+      tmStopAiOverlayRotation();
+      tmSetAiGenOverlayOpen(false);
+      console.error("fetchAIGeneratedQuestions:", errFetch);
+      showToast(
+        errFetch && errFetch.message
+          ? errFetch.message
+          : "Havuz soruları yüklenemedi. Oturum veya ağ bağlantısını kontrol edin."
+      );
+      if (btnAi) btnAi.disabled = false;
+    }
   });
 }
 
@@ -2389,13 +2487,33 @@ function tmAppendBlockToPaginatedColumns(block) {
   if (!papers.length) return;
   var last = papers[papers.length - 1];
   var count = tmCountQuestionsOnPaper(last);
-  if (count >= limit) {
+  var col = null;
+  var overflow = false;
+
+  // Varsayılan akış: önce mevcut sayfaya, sıradaki slot/kolona ekle.
+  if (count < limit) {
+    col = tmGetTargetColumnForSlot(last, count, limit);
+    if (col) {
+      col.appendChild(block);
+      // Yükseklik bazlı son kontrol: slot doluluk sınırı taşarsa yeni sayfaya kaydır.
+      if (col.clientHeight > 0 && col.scrollHeight > col.clientHeight + 2) {
+        overflow = true;
+        try {
+          col.removeChild(block);
+        } catch (_eRm) {}
+      }
+    }
+  } else {
+    overflow = true;
+  }
+
+  if (!col || overflow) {
     last = tmCreateNewA4Page();
     if (!last) return;
+    var freshCol = tmGetTargetColumnForSlot(last, 0, limit);
+    if (!freshCol) return;
+    freshCol.appendChild(block);
   }
-  var col = tmGetTargetColumnForSlot(last, tmCountQuestionsOnPaper(last), limit);
-  if (!col) return;
-  col.appendChild(block);
 }
 
 function tmAddQuestionToA4(imageSrc, answerLetter) {
@@ -5084,14 +5202,14 @@ function downloadKarnePdf() {
       await tmWaitForImagesDeep(wrap, 8000);
       await karneTwoRaf();
       await new Promise(function (r) {
-        setTimeout(r, 150);
+        setTimeout(r, 60);
       });
       var opt = {
         margin: [6, 6, 6, 6],
         filename: fname,
-        image: { type: "jpeg", quality: 0.92 },
+        image: { type: "jpeg", quality: 0.86 },
         html2canvas: {
-          scale: Math.min(2, (window.devicePixelRatio || 1) * 1.5),
+          scale: Math.min(1.5, Math.max(1.1, Math.min(window.devicePixelRatio || 1, 1.5) * 1.1)),
           useCORS: true,
           allowTaint: true,
           logging: false,
@@ -6816,15 +6934,24 @@ var studentAddAvatarState = { mode: "preset", url: erkekAvatarları[0], customDa
 var studentEditAvatarState = { mode: "preset", url: erkekAvatarları[0], customDataUrl: "" };
 
 function normalizeGender(gender) {
+  // Artık yalnızca Erkek / Kadın destekleniyor.
   if (gender === "Kadın" || gender === "Kadin") return "Kadın";
-  if (gender === "Tesettür") return "Tesettür";
+  if (gender === "Tesettür" || gender === "Tesettur") return "Kadın";
   return "Erkek";
+}
+
+/**
+ * Otomatik avatar: seçilen cinsiyete göre sabit (belirlenen) avatar URL’si döndürür.
+ * Not: Eski kayıtlarda "Tesettür" gelirse normalizeGender -> "Kadın" yapar.
+ */
+function getAvatarByGender(cinsiyet) {
+  var g = normalizeGender(cinsiyet);
+  return g === "Erkek" ? erkekAvatarları[0] : kadinAvatarları[0];
 }
 
 function getAvatarPoolByGender(gender) {
   var g = normalizeGender(gender);
   if (g === "Kadın") return kadinAvatarları;
-  if (g === "Tesettür") return tesetturAvatarları;
   return erkekAvatarları;
 }
 
@@ -6887,12 +7014,8 @@ function setEditStudentAvatarPreview(url, options) {
 }
 
 function pickRandomAvatarForEditForm() {
-  var pool = getAvatarPoolByGender(getSelectedEditGender());
-  if (!pool || !pool.length) return;
-  var next = pool[Math.floor(Math.random() * pool.length)];
-  if (pool.length > 1 && next === studentEditAvatarState.url) {
-    next = pool[(pool.indexOf(next) + 1) % pool.length];
-  }
+  var g = getSelectedEditGender();
+  var next = getAvatarByGender(g);
   setEditStudentAvatarPreview(next, { mode: "preset" });
 }
 
@@ -6907,12 +7030,8 @@ function setStudentAvatarPreview(url, options) {
 }
 
 function pickRandomAvatarForAddForm() {
-  var pool = getAvatarPoolByGender(getSelectedAddGender());
-  if (!pool || !pool.length) return;
-  var next = pool[Math.floor(Math.random() * pool.length)];
-  if (pool.length > 1 && next === studentAddAvatarState.url) {
-    next = pool[(pool.indexOf(next) + 1) % pool.length];
-  }
+  var g = getSelectedAddGender();
+  var next = getAvatarByGender(g);
   setStudentAvatarPreview(next, { mode: "preset" });
 }
 
@@ -6997,10 +7116,11 @@ function openAvatarGallerySheet(target) {
   window.__avatarPickTarget = target === "edit" ? "edit" : "add";
   var sheet = document.getElementById("avatarGallerySheet");
   var grid = document.getElementById("avatarGalleryGrid");
+  // Tesettür artık yok; avatar seçimi sadece Erkek/Kadın sabit eşleşmesi üzerinden yapılır.
   var pool =
     target === "edit"
-      ? getAvatarPoolByGender(getSelectedEditGender())
-      : getAvatarPoolByGender(getSelectedAddGender());
+      ? [getAvatarByGender(getSelectedEditGender())]
+      : [getAvatarByGender(getSelectedAddGender())];
   if (!grid || !pool.length) return;
   window.__avatarGalleryPool = pool;
   grid.innerHTML = pool
@@ -8672,8 +8792,7 @@ function openStudentModal() {
   });
   studentAddAvatarState.mode = "preset";
   studentAddAvatarState.customDataUrl = "";
-  var _defPool = getAvatarPoolByGender("Erkek");
-  studentAddAvatarState.url = _defPool[Math.floor(Math.random() * _defPool.length)];
+  studentAddAvatarState.url = getAvatarByGender("Erkek");
   setStudentAvatarPreview(studentAddAvatarState.url, { mode: "preset" });
   openModal("studentModal");
   var stPw = document.getElementById("st_studentPassword");
@@ -8734,13 +8853,13 @@ function editStudent(studentId) {
   ev("editAgreedTotalFee", s.agreedTotalFee);
   ev("editInstallmentCount", s.installmentCount);
   var g = s.gender || "Erkek";
-  if (g === "Kadin") g = "Kadın";
+  g = normalizeGender(g);
   document.querySelectorAll('input[name="edit_gender"]').forEach(function (r) {
     r.checked = r.value === g;
   });
   if (!document.querySelector('input[name="edit_gender"]:checked')) {
-    var er = document.querySelector('input[name="edit_gender"][value="Erkek"]');
-    if (er) er.checked = true;
+    var def = document.querySelector('input[name="edit_gender"][value="Erkek"]');
+    if (def) def.checked = true;
   }
   var addPane = document.getElementById("studentPaneAdd");
   var editPane = document.getElementById("studentPaneEdit");
@@ -8749,8 +8868,10 @@ function editStudent(studentId) {
   if (sub) sub.textContent = "Kayıt güncelleniyor. ID: " + studentId.slice(0, 8) + "…";
   if (title) title.innerHTML = '<i class="fa-solid fa-user-pen"></i> Öğrenci düzenle';
   var fullNm = ((fn || "") + " " + (ln || "")).trim();
-  var av = s.avatarUrl || buildStudentAvatarUrl(fullNm || (s.name || ""), g);
+  var av = s.avatarUrl;
   var isData = av && String(av).indexOf("data:") === 0;
+  // Preset avatar artık cinsiyete göre sabit atanıyor.
+  if (!isData) av = getAvatarByGender(g);
   setEditStudentAvatarPreview(av, { mode: isData ? "custom" : "preset" });
   openModal("studentModal");
   if (addPane) addPane.hidden = true;
@@ -8795,7 +8916,7 @@ async function submitStudentAddForm(e) {
   data.avatarUrl =
     studentAddAvatarState.mode === "custom" && studentAddAvatarState.customDataUrl
       ? studentAddAvatarState.customDataUrl
-      : studentAddAvatarState.url || buildStudentAvatarUrl(data.name, data.gender);
+      : getAvatarByGender(data.gender);
   data.track = data.examGroup && data.examGroup !== "" ? data.examGroup : "TYT + AYT";
   data.status = data.status || "Aktif";
 
@@ -8945,7 +9066,7 @@ async function submitStudentEditForm(e) {
   data.avatarUrl =
     studentEditAvatarState.mode === "custom" && studentEditAvatarState.customDataUrl
       ? studentEditAvatarState.customDataUrl
-      : studentEditAvatarState.url || buildStudentAvatarUrl(data.name, gender);
+      : getAvatarByGender(data.gender || gender);
   data.updatedAt = serverTimestamp();
   try {
     await updateDoc(doc(db, "students", editId), data);
@@ -10899,6 +11020,51 @@ function tmPreparePrintClone(clone, livePaper, widthPx, mm) {
   });
 }
 
+/** PDF/html2canvas: çok büyük bitmap’lerde piksel sayısını düşürür (render süresi ↓). */
+var TM_PDF_MAX_IMAGE_EDGE = 1800;
+var TM_PDF_JPEG_INLINE_QUALITY = 0.86;
+
+function tmDownscaleDataUrlJpeg(dataUrl, maxEdge, quality) {
+  return new Promise(function (resolve) {
+    if (!dataUrl || typeof dataUrl !== "string" || !/^data:image/i.test(dataUrl)) {
+      resolve(dataUrl);
+      return;
+    }
+    var img = new Image();
+    img.onload = function () {
+      try {
+        var w = img.naturalWidth || img.width;
+        var h = img.naturalHeight || img.height;
+        if (!w || !h || (w <= maxEdge && h <= maxEdge)) {
+          resolve(dataUrl);
+          return;
+        }
+        var r = Math.min(maxEdge / w, maxEdge / h);
+        var nw = Math.max(1, Math.round(w * r));
+        var nh = Math.max(1, Math.round(h * r));
+        var c = document.createElement("canvas");
+        c.width = nw;
+        c.height = nh;
+        var ctx = c.getContext("2d");
+        if (!ctx) {
+          resolve(dataUrl);
+          return;
+        }
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "medium";
+        ctx.drawImage(img, 0, 0, nw, nh);
+        resolve(c.toDataURL("image/jpeg", quality));
+      } catch (_e) {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = function () {
+      resolve(dataUrl);
+    };
+    img.src = dataUrl;
+  });
+}
+
 /**
  * fetch başarısız olunca: anonymous CORS ile yeniden yükleyip canvas→JPEG data URL (Appwrite CDN vb.)
  */
@@ -10914,11 +11080,24 @@ function tmPdfInlineImageViaCrossOriginCanvas(img, src) {
           resolve(false);
           return;
         }
+        var maxE = TM_PDF_MAX_IMAGE_EDGE;
+        if (w > maxE || h > maxE) {
+          var r = Math.min(maxE / w, maxE / h);
+          w = Math.max(1, Math.round(w * r));
+          h = Math.max(1, Math.round(h * r));
+        }
         var c = document.createElement("canvas");
         c.width = w;
         c.height = h;
-        c.getContext("2d").drawImage(probe, 0, 0);
-        var du = c.toDataURL("image/jpeg", 0.92);
+        var ctx = c.getContext("2d");
+        if (!ctx) {
+          resolve(false);
+          return;
+        }
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "medium";
+        ctx.drawImage(probe, 0, 0, w, h);
+        var du = c.toDataURL("image/jpeg", TM_PDF_JPEG_INLINE_QUALITY);
         img.setAttribute("data-tm-pdf-src-backup", src);
         img.src = du;
         img.removeAttribute("crossorigin");
@@ -10949,12 +11128,13 @@ function tmPdfInlineRemoteImages(paper) {
       return tmFetchUrlAsDataUrlCached(src)
         .then(function (du) {
           if (du && typeof du === "string") {
-            img.setAttribute("data-tm-pdf-src-backup", src);
-            img.src = du;
-            img.removeAttribute("crossorigin");
-          } else {
-            return tmPdfInlineImageViaCrossOriginCanvas(img, src).then(function () {});
+            return tmDownscaleDataUrlJpeg(du, TM_PDF_MAX_IMAGE_EDGE, TM_PDF_JPEG_INLINE_QUALITY).then(function (du2) {
+              img.setAttribute("data-tm-pdf-src-backup", src);
+              img.src = du2;
+              img.removeAttribute("crossorigin");
+            });
           }
+          return tmPdfInlineImageViaCrossOriginCanvas(img, src).then(function () {});
         })
         .catch(function () {
           return tmPdfInlineImageViaCrossOriginCanvas(img, src).then(function () {});
@@ -11088,11 +11268,15 @@ function tmWsDownloadPdf() {
     stCap.id = "tmPdfCaptureUi";
     stCap.textContent =
       ".tm-pdf-live-capture .tm-a4-block__x{display:none!important;pointer-events:none!important;}" +
-      ".tm-pdf-live-capture .a4-paper,.tm-pdf-live-capture.tm-a4-page--sub{box-sizing:border-box!important;width:210mm!important;max-width:210mm!important;margin-left:auto!important;margin-right:auto!important;}" +
-      ".tm-pdf-live-capture .test-content-area{display:flex!important;flex-direction:row!important;align-items:flex-start!important;min-height:0!important;height:auto!important;}" +
+      ".tm-pdf-live-capture.a4-paper,.tm-pdf-live-capture.tm-a4-page--sub{box-sizing:border-box!important;width:210mm!important;max-width:210mm!important;margin-left:auto!important;margin-right:auto!important;background:#fff!important;background-color:#fff!important;color:#111!important;box-shadow:none!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}" +
+      ".tm-pdf-live-capture .tm-a4-layout{background:#fff!important;background-color:#fff!important;}" +
+      ".tm-pdf-live-capture .test-content-area{display:flex!important;flex-direction:row!important;align-items:flex-start!important;min-height:0!important;height:auto!important;background:#fff!important;background-color:#fff!important;background-image:none!important;}" +
+      ".tm-pdf-live-capture .test-column[data-tm-col=\"2\"]{border-left:1px solid #1a1a1a!important;padding-left:12px!important;box-sizing:border-box!important;}" +
+      ".tm-pdf-live-capture .test-column[data-tm-col=\"1\"]{border-right:none!important;}" +
+      ".tm-pdf-live-capture .tm-paper-header{background:#fff!important;color:#000!important;}" +
       ".tm-pdf-live-capture.layout-4 .test-column .question-item,.tm-pdf-live-capture.layout-6 .test-column .question-item{flex:0 0 auto!important;height:auto!important;min-height:48mm!important;overflow:visible!important;}" +
-      ".tm-pdf-live-capture .question-item,.tm-pdf-live-capture .soru-karti,.tm-pdf-live-capture.tm-a4-block.question-item{page-break-inside:avoid!important;break-inside:avoid!important;-webkit-column-break-inside:avoid!important;}" +
-      ".tm-pdf-live-capture .tm-a4-block__imgwrap{display:flex!important;align-items:center!important;justify-content:center!important;overflow:visible!important;min-height:0!important;flex:1 1 auto!important;}" +
+      ".tm-pdf-live-capture .question-item,.tm-pdf-live-capture .soru-karti,.tm-pdf-live-capture.tm-a4-block.question-item{page-break-inside:avoid!important;break-inside:avoid!important;-webkit-column-break-inside:avoid!important;background:#fff!important;color:#111!important;}" +
+      ".tm-pdf-live-capture .tm-a4-block__imgwrap{display:flex!important;align-items:center!important;justify-content:center!important;overflow:visible!important;min-height:0!important;flex:1 1 auto!important;background:#fff!important;}" +
       ".tm-pdf-live-capture .tm-a4-block__imgwrap img,.tm-pdf-live-capture .question-item img{width:100%!important;max-width:100%!important;height:auto!important;object-fit:contain!important;display:block!important;}";
     document.head.appendChild(stCap);
   }
@@ -11164,7 +11348,7 @@ function tmWsDownloadPdf() {
             requestAnimationFrame(function () {
               requestAnimationFrame(function () {
                 if (scrollHost) tmCenterPaperInScrollHost(paper, scrollHost);
-                setTimeout(rafDone, 220);
+                setTimeout(rafDone, 90);
               });
             });
           });
@@ -11180,30 +11364,70 @@ function tmWsDownloadPdf() {
           return new Promise(function (afterInline) {
             requestAnimationFrame(function () {
               requestAnimationFrame(function () {
-                setTimeout(afterInline, 140);
+                setTimeout(afterInline, 55);
               });
             });
           });
         })
         .then(function () {
-          /* Harici img → data URL sonrası taint yok; JPEG çıktı (kütüphane ile uyumlu) */
+          /* A4 çıktısı için 1.2–1.75 scale yeterli; 2+ gereksiz piksel (html2canvas yavaşlar). */
           var dpr = window.devicePixelRatio || 1;
-          var scaleCap = Math.min(3, Math.max(2, dpr * 1.25));
+          var scaleCap = Math.min(1.75, Math.max(1.2, Math.min(dpr, 1.75) * 1.05));
           return html2canvas(paper, {
             scale: scaleCap,
             useCORS: true,
             allowTaint: true,
             logging: false,
-            imageTimeout: 30000,
+            imageTimeout: 20000,
             backgroundColor: "#ffffff",
             scrollX: 0,
             scrollY: 0,
             foreignObjectRendering: false,
+            onclone: function (_doc, el) {
+              try {
+                if (!el || !el.querySelectorAll) return;
+                try {
+                  el.style.backgroundColor = "#ffffff";
+                  el.style.color = "#111111";
+                  el.style.boxShadow = "none";
+                } catch (_bg) {}
+                var tca = el.querySelector(".test-content-area");
+                if (tca && tca.style) {
+                  tca.style.setProperty("background", "#ffffff", "important");
+                  tca.style.setProperty("background-color", "#ffffff", "important");
+                  tca.style.setProperty("background-image", "none", "important");
+                }
+                el.querySelectorAll(".tm-a4-layout").forEach(function (lay) {
+                  try {
+                    lay.style.backgroundColor = "#ffffff";
+                  } catch (_l) {}
+                });
+                el.querySelectorAll(".test-column[data-tm-col=\"2\"]").forEach(function (c2) {
+                  try {
+                    c2.style.borderLeft = "1px solid #1a1a1a";
+                    c2.style.boxSizing = "border-box";
+                  } catch (_c2) {}
+                });
+                el.querySelectorAll(".tm-a4-block__x, [data-tm-pdf-hide]").forEach(function (n) {
+                  try {
+                    n.remove();
+                  } catch (_r) {}
+                });
+                el.querySelectorAll("svg, canvas").forEach(function (node) {
+                  try {
+                    if (node.style) {
+                      node.style.animation = "none";
+                      node.style.transition = "none";
+                    }
+                  } catch (_s) {}
+                });
+              } catch (_e) {}
+            },
           });
         })
         .then(function (canvas) {
           try {
-            var imgData = canvas.toDataURL("image/jpeg", 0.92);
+            var imgData = canvas.toDataURL("image/jpeg", 0.86);
             if (!pdf) {
               pdf = new J({ unit: "mm", format: "a4", orientation: "portrait" });
             } else {
