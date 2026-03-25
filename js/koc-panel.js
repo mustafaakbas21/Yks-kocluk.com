@@ -2522,39 +2522,39 @@ function tmAppendBlockToPaginatedColumns(block) {
   var papers = tmGetQuestionPapers();
   if (!papers.length) return;
 
-  function columnOverflows(col) {
-    if (!col) return true;
-    var maxSlots = tmGetSlotsPerColumn();
-    var n = col.querySelectorAll(".tm-a4-block.question-item").length;
-    return n > maxSlots;
-  }
+  var maxPerPage = tmGetQuestionsPerPage();
+  var slotsPerCol = tmGetSlotsPerColumn();
 
-  function tryAppendToColumn(paper, col) {
-    if (!col) return false;
-    col.appendChild(block);
-    if (!columnOverflows(col)) return true;
-    try {
-      col.removeChild(block);
-    } catch (_eRm) {}
+  /**
+   * Okuma sırası (tmGetOrderedQuestionBlocks ile aynı): sol sütun üstten alta, sonra sağ.
+   * Eski "son soru hangi sütundaysa oraya ekle" mantığı, sağ dolu / sol boş durumunda
+   * solu hiç denemeden her seferinde yeni A4 açılmasına yol açıyordu.
+   */
+  function tryPlaceOnPaper(paper) {
+    var col1 = paper.querySelector('[data-tm-col="1"]');
+    var col2 = paper.querySelector('[data-tm-col="2"]');
+    if (!col1 || !col2) return false;
+    var n1 = col1.querySelectorAll(".tm-a4-block.question-item").length;
+    var n2 = col2.querySelectorAll(".tm-a4-block.question-item").length;
+    if (n1 + n2 >= maxPerPage) return false;
+    if (n1 < slotsPerCol) {
+      col1.appendChild(block);
+      return true;
+    }
+    if (n2 < slotsPerCol) {
+      col2.appendChild(block);
+      return true;
+    }
     return false;
   }
 
   var lastPaper = papers[papers.length - 1];
-  var col1 = lastPaper.querySelector('[data-tm-col="1"]');
-  var col2 = lastPaper.querySelector('[data-tm-col="2"]');
-  var has2 = col2 && col2.querySelector(".tm-a4-block.question-item");
-  // Okuma sırası: sol sütun dolunca sağ; son soru hangi sütundaysa yeni blok hemen altına (aynı sütun).
-  var lastCol = has2 ? col2 : col1;
-
-  if (tryAppendToColumn(lastPaper, lastCol || col1)) return;
-  if (lastCol === col1 && col2 && tryAppendToColumn(lastPaper, col2)) return;
+  if (tryPlaceOnPaper(lastPaper)) return;
 
   var fresh = tmCreateNewA4Page();
   if (!fresh) return;
+  if (tryPlaceOnPaper(fresh)) return;
   var f1 = fresh.querySelector('[data-tm-col="1"]');
-  var f2 = fresh.querySelector('[data-tm-col="2"]');
-  if (tryAppendToColumn(fresh, f1)) return;
-  if (tryAppendToColumn(fresh, f2)) return;
   if (f1) f1.appendChild(block);
 }
 
@@ -11581,8 +11581,14 @@ function tmPreparePrintClone(clone, livePaper, widthPx, mm) {
 }
 
 /** PDF/html2canvas: çok büyük bitmap’lerde piksel sayısını düşürür (render süresi ↓). */
-var TM_PDF_MAX_IMAGE_EDGE = 1800;
-var TM_PDF_JPEG_INLINE_QUALITY = 0.86;
+var TM_PDF_MAX_IMAGE_EDGE = 1280;
+var TM_PDF_JPEG_INLINE_QUALITY = 0.76;
+/** html2canvas scale: 1.4 ≈ 2× piksel / 1.0’a göre; hız için 1.0–1.15 aralığı önerilir. */
+var TM_PDF_HTML2_SCALE = 1.0;
+/** Sayfa yakalamadan önce img bekleme üst sınırı (ms) — düşük = daha hızlı PDF, risk: eksik görsel. */
+var TM_PDF_PAGE_WAIT_MS = 3200;
+/** A4 sayfa görüntüsü JPEG (html2canvas sonrası) — düşük = daha hızlı encode / küçük dosya. */
+var TM_PDF_JPEG_PAGE_QUALITY = 0.78;
 
 function tmDownscaleDataUrlJpeg(dataUrl, maxEdge, quality) {
   return new Promise(function (resolve) {
@@ -11884,7 +11890,6 @@ function tmWsDownloadPdf() {
 
   var pdf = null;
   var anyPageOk = false;
-  var TM_HTML2CANVAS_SCALE = 1.4;
 
   function tmCenterPaperInScrollHost(paper, host) {
     if (!paper || !host || !host.contains(paper)) return;
@@ -11908,14 +11913,12 @@ function tmWsDownloadPdf() {
         } catch (e1) {}
       }
       if (scrollHost) tmCenterPaperInScrollHost(paper, scrollHost);
-      tmWaitForImagesDeep(paper, 8000)
+      tmWaitForImagesDeep(paper, TM_PDF_PAGE_WAIT_MS)
         .then(function () {
           return new Promise(function (rafDone) {
             requestAnimationFrame(function () {
-              requestAnimationFrame(function () {
-                if (scrollHost) tmCenterPaperInScrollHost(paper, scrollHost);
-                rafDone();
-              });
+              if (scrollHost) tmCenterPaperInScrollHost(paper, scrollHost);
+              rafDone();
             });
           });
         })
@@ -11924,24 +11927,20 @@ function tmWsDownloadPdf() {
         })
         .then(function () {
           /* src data URL oldu: decode bitene kadar bekle (boş kutu önlemi) */
-          return tmWaitForImagesDeep(paper, 8000);
+          return tmWaitForImagesDeep(paper, TM_PDF_PAGE_WAIT_MS);
         })
         .then(function () {
           return new Promise(function (afterInline) {
-            requestAnimationFrame(function () {
-              requestAnimationFrame(function () {
-                afterInline();
-              });
-            });
+            requestAnimationFrame(afterInline);
           });
         })
         .then(function () {
           return html2canvas(paper, {
-            scale: TM_HTML2CANVAS_SCALE,
+            scale: TM_PDF_HTML2_SCALE,
             useCORS: true,
             allowTaint: true,
             logging: false,
-            imageTimeout: 20000,
+            imageTimeout: 12000,
             backgroundColor: "#ffffff",
             scrollX: 0,
             scrollY: 0,
@@ -11990,7 +11989,7 @@ function tmWsDownloadPdf() {
         })
         .then(function (canvas) {
           try {
-            var imgData = canvas.toDataURL("image/jpeg", 0.86);
+            var imgData = canvas.toDataURL("image/jpeg", TM_PDF_JPEG_PAGE_QUALITY);
             if (!pdf) {
               pdf = new J({ unit: "mm", format: "a4", orientation: "portrait" });
             } else {
@@ -12037,7 +12036,7 @@ function tmWsDownloadPdf() {
   try {
     fontReady
       .then(function () {
-        return tmWaitForImagesDeep(pdfCaptureRoot, 8000);
+        return tmWaitForImagesDeep(pdfCaptureRoot, TM_PDF_PAGE_WAIT_MS);
       })
       .then(function () {
         tmPdfBlockerSetPreparePct(0);
