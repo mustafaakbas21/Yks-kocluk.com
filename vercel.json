@@ -11,10 +11,6 @@
         }
       ],
       "destination": "/super-admin.html"
-    },
-    {
-      "source": "/",
-      "destination": "/login.html"
     }
   ]
 }
