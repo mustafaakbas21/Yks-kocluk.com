@@ -14808,17 +14808,45 @@ function tmAutoCropRenderGrid() {
     var idx = entry.idx;
     var card = document.createElement("div");
     card.className = "tm-auto-crop-item";
-    var checked = item.selected !== false ? " checked" : "";
-    var cardParts = [
-      '<img alt="Kırpılmış soru ' + (idx + 1) + '" src="' + escapeHtml(item.imageBase64 || "") + '">',
-      '<label><input type="checkbox" data-tm-auto-crop-check="' + idx + '"' + checked + "> Kaydet</label>',
-      '<div class="tm-auto-crop-item__meta">',
-      '<input type="text" data-tm-auto-crop-ders="' + idx + '" value="' + escapeHtml(item.editedDers || "") + '" placeholder="Ders">',
-      '<input type="text" data-tm-auto-crop-konu="' + idx + '" value="' + escapeHtml(item.editedKonu || "") + '" placeholder="Konu">',
-      "</div>",
-      '<div class="tm-auto-crop-item__actions"><button type="button" class="tm-auto-crop-item__reset" data-tm-auto-crop-reset="' + idx + '">Öneriyi geri al</button></div>',
-    ];
-    card.innerHTML = cardParts.join("");
+    var img = document.createElement("img");
+    img.alt = "Kırpılmış soru " + (idx + 1);
+    img.src = String(item.imageBase64 || "");
+    card.appendChild(img);
+
+    var label = document.createElement("label");
+    var check = document.createElement("input");
+    check.type = "checkbox";
+    check.setAttribute("data-tm-auto-crop-check", String(idx));
+    check.checked = item.selected !== false;
+    label.appendChild(check);
+    label.appendChild(document.createTextNode(" Kaydet"));
+    card.appendChild(label);
+
+    var meta = document.createElement("div");
+    meta.className = "tm-auto-crop-item__meta";
+    var dersInput = document.createElement("input");
+    dersInput.type = "text";
+    dersInput.setAttribute("data-tm-auto-crop-ders", String(idx));
+    dersInput.value = String(item.editedDers || "");
+    dersInput.placeholder = "Ders";
+    var konuInput = document.createElement("input");
+    konuInput.type = "text";
+    konuInput.setAttribute("data-tm-auto-crop-konu", String(idx));
+    konuInput.value = String(item.editedKonu || "");
+    konuInput.placeholder = "Konu";
+    meta.appendChild(dersInput);
+    meta.appendChild(konuInput);
+    card.appendChild(meta);
+
+    var actions = document.createElement("div");
+    actions.className = "tm-auto-crop-item__actions";
+    var resetBtn = document.createElement("button");
+    resetBtn.type = "button";
+    resetBtn.className = "tm-auto-crop-item__reset";
+    resetBtn.setAttribute("data-tm-auto-crop-reset", String(idx));
+    resetBtn.textContent = "Öneriyi geri al";
+    actions.appendChild(resetBtn);
+    card.appendChild(actions);
     grid.appendChild(card);
   });
   if (saveBtn) {
