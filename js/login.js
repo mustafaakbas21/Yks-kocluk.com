@@ -235,7 +235,7 @@ async function resolveAndRedirectByProfile(user) {
       window.location.replace("/super-admin");
       return;
     }
-    window.location.replace("/koc");
+    window.location.replace("/koc-panel");
   } catch (e) {
     var msg = e && e.message != null ? String(e.message) : "";
     console.error("[login] resolveAndRedirectByProfile hata mesajı:", msg, e);
@@ -436,7 +436,7 @@ loginFormEl.addEventListener("submit", async function (e) {
       } catch (e) {
         console.warn("[login] coachLoginLog:", e);
       }
-      window.location.replace("/koc");
+      window.location.replace("/koc-panel");
     }
   } catch (err) {
     var rawMsg = err && err.message != null ? String(err.message) : "";
