@@ -3,13 +3,13 @@
   "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/",
       "has": [
         {
           "type": "host",
           "value": "admin.derecepanel.com"
         }
       ],
+      "source": "/",
       "destination": "/super-admin.html"
     }
   ]
