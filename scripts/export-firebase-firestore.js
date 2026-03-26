@@ -1,4 +1,4 @@
-const fs = require("fs");
+import fs from "node:fs";
 
 const FIREBASE_PROJECT_ID = "yks-kocluk-8f7c6";
 const FIREBASE_API_KEY = "AIzaSyD3RUiCIlcysC6S7TFMbChD8h0cfHeroP8";

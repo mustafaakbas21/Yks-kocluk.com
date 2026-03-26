@@ -4,8 +4,8 @@
  * Önemli: Appwrite’da aynı koleksiyonda attribute’lar sırayla oluşturulmalı;
  * her oluşturma sonrası status === "available" olana kadar beklenir.
  */
-const fs = require("fs");
-const { Client, Storage, ID, InputFile } = require("appwrite");
+import fs from "node:fs";
+import { Client, Storage, ID, InputFile } from "appwrite";
 
 const APPWRITE_ENDPOINT = "https://fra.cloud.appwrite.io/v1";
 const APPWRITE_PROJECT_ID = "69c12f05001b051b2f14";

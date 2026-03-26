@@ -8,9 +8,7 @@
  * Çalıştır: node repair-db-schema.js
  */
 
-"use strict";
-
-const { Client, Databases, Permission, Role } = require("node-appwrite");
+import { Client, Databases, Permission, Role } from "node-appwrite";
 
 const DEFAULT_ENDPOINT = "https://fra.cloud.appwrite.io/v1";
 const DEFAULT_PROJECT_ID = "69c12f05001b051b2f14";
