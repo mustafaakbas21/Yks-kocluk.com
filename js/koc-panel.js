@@ -2011,6 +2011,9 @@ function tmIsBookCoverPaper(el) {
 
 function tmGetQuestionPapers() {
   return tmGetAllPapers().filter(function (p) {
+    if (!p) return false;
+    var hasQuestionBlock = !!(p.querySelector && p.querySelector(".tm-a4-block.question-item"));
+    if (hasQuestionBlock) return true;
     return (
       !tmIsAnswerKeyPaper(p) &&
       !tmIsOptikHostPaper(p) &&
@@ -2110,6 +2113,10 @@ function tmCreateNewA4Page() {
   if (!container || !tmpl) return null;
   var clone = tmpl.cloneNode(true);
   tmStripCloneIds(clone);
+  clone.removeAttribute("data-tm-answer-key");
+  clone.removeAttribute("data-tm-optik-host");
+  clone.removeAttribute("data-tm-corporate-cover");
+  clone.removeAttribute("data-tm-book-cover");
   clone.classList.add("tm-a4-page--sub");
   var empty = clone.querySelector(".tm-a4-empty");
   if (empty) empty.style.display = "none";
@@ -10430,6 +10437,7 @@ function tmWsManualCropUpdateZoomUi() {
   var zLab = document.getElementById("tmWsPdfZoomLabel");
   var zReset = document.getElementById("tmWsPdfZoomReset");
   var panT = document.getElementById("tmWsPdfPanToggle");
+  var cropT = document.getElementById("tmWsPdfCropToggle");
   var pdfOk = !!(tmWsPdfDoc && !tmWsMcSingleImageMode);
   var pct = Math.round(tmWsMcZoom * 100);
   var busy = !!tmWsPdfRendering;
@@ -10438,6 +10446,7 @@ function tmWsManualCropUpdateZoomUi() {
   if (zOut) zOut.disabled = !pdfOk || busy || tmWsMcZoom <= TM_WS_MC_ZOOM_MIN + 0.02;
   if (zReset) zReset.disabled = !pdfOk || busy || Math.abs(tmWsMcZoom - 1) < 0.02;
   if (panT) panT.disabled = !pdfOk || busy;
+  if (cropT) cropT.disabled = !pdfOk || busy;
 }
 
 function tmWsManualCropRemoveSelection() {
@@ -10706,6 +10715,7 @@ function tmWsManualCropBindOnce() {
   var zOut = document.getElementById("tmWsPdfZoomOut");
   var zReset = document.getElementById("tmWsPdfZoomReset");
   var panToggle = document.getElementById("tmWsPdfPanToggle");
+  var cropToggle = document.getElementById("tmWsPdfCropToggle");
   if (zIn) zIn.addEventListener("click", function () { applyWsZoomStep(1); });
   if (zOut) zOut.addEventListener("click", function () { applyWsZoomStep(-1); });
   if (zReset)
@@ -10725,6 +10735,14 @@ function tmWsManualCropBindOnce() {
         tmWsMcPdfPanning = false;
         wrap.classList.remove("tm-ws-pdf-crop--pan-dragging");
       }
+    });
+  if (cropToggle)
+    cropToggle.addEventListener("click", function () {
+      if (!tmWsPdfDoc || tmWsMcSingleImageMode) return;
+      tmWsMcPanMode = false;
+      if (panToggle) panToggle.setAttribute("aria-pressed", "false");
+      tmWsMcPdfPanning = false;
+      wrap.classList.remove("tm-ws-pdf-crop--pan-mode", "tm-ws-pdf-crop--pan-dragging");
     });
 
   wrap.addEventListener(
@@ -12266,6 +12284,7 @@ function tmPdfCropUpdateZoomUi() {
   var zLab = document.getElementById("tmPdfCropZoomLabel");
   var zReset = document.getElementById("tmPdfCropZoomReset");
   var panT = document.getElementById("tmPdfCropPanToggle");
+  var cropT = document.getElementById("tmPdfCropModeToggle");
   var has = !!tmPdfCropDoc;
   var pct = Math.round(tmPdfCropZoom * 100);
   if (zLab) zLab.textContent = "%" + pct;
@@ -12273,6 +12292,7 @@ function tmPdfCropUpdateZoomUi() {
   if (zOut) zOut.disabled = !has || tmPdfCropZoom <= TM_PDF_CROP_ZOOM_MIN + 0.02;
   if (zReset) zReset.disabled = !has || Math.abs(tmPdfCropZoom - 1) < 0.02;
   if (panT) panT.disabled = !has;
+  if (cropT) cropT.disabled = !has;
 }
 
 function tmPdfCropFillKonuForDers(ders) {
@@ -12662,6 +12682,7 @@ function initPdfCropperModule() {
   var zOut = document.getElementById("tmPdfCropZoomOut");
   var zReset = document.getElementById("tmPdfCropZoomReset");
   var panToggle = document.getElementById("tmPdfCropPanToggle");
+  var cropToggle = document.getElementById("tmPdfCropModeToggle");
   if (zIn) zIn.addEventListener("click", function () { tmPdfCropApplyZoomStep(1); });
   if (zOut) zOut.addEventListener("click", function () { tmPdfCropApplyZoomStep(-1); });
   if (zReset)
@@ -12681,6 +12702,14 @@ function initPdfCropperModule() {
         pdfCropPanning = false;
         wrap.classList.remove("tm-pdf-cropper--pan-dragging");
       }
+    });
+  if (cropToggle)
+    cropToggle.addEventListener("click", function () {
+      if (!tmPdfCropDoc) return;
+      tmPdfCropPanMode = false;
+      if (panToggle) panToggle.setAttribute("aria-pressed", "false");
+      pdfCropPanning = false;
+      wrap.classList.remove("tm-pdf-cropper--pan-mode", "tm-pdf-cropper--pan-dragging");
     });
 
   wrap.addEventListener(
