@@ -1,0 +1,11 @@
+{
+  "name": "yks-otonom-kirpici",
+  "private": true,
+  "description": "Proje kökünden Electron uygulamasını başlatmak için npm scriptleri",
+  "scripts": {
+    "start": "npm --prefix windows-app/electron start",
+    "electron": "npm --prefix windows-app/electron start",
+    "build:clean": "npm --prefix windows-app/electron run build:clean",
+    "install:electron": "npm install --prefix windows-app/electron"
+  }
+}

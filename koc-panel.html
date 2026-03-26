@@ -317,6 +317,7 @@
     .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--da-open > .sidebar__submenu,
     .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--ogr-open > .sidebar__submenu,
     .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--rv-open > .sidebar__submenu,
+    .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--sim-open > .sidebar__submenu,
     .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--gelen-open > .sidebar__submenu {
       max-height: min(1200px, 90vh);
       opacity: 1;
@@ -382,6 +383,7 @@
     .sidebar__item--deneme.sidebar__item--da-open .sidebar__tm-chevron,
     .sidebar__item--ogrenci.sidebar__item--ogr-open .sidebar__tm-chevron,
     .sidebar__item--randevu.sidebar__item--rv-open .sidebar__tm-chevron,
+    .sidebar__item--simulasyon.sidebar__item--sim-open .sidebar__tm-chevron,
     .sidebar__item--gelen.sidebar__item--gelen-open .sidebar__tm-chevron {
       transform: rotate(180deg);
     }
@@ -389,12 +391,14 @@
     .sidebar__item--ogrenci.sidebar__item--ogr-open .sidebar__submenu--ogr-nested,
     .sidebar__item--randevu.sidebar__item--rv-open .sidebar__submenu--rv-nested,
     .sidebar__item--deneme.sidebar__item--da-open .sidebar__submenu--da-nested,
+    .sidebar__item--simulasyon.sidebar__item--sim-open .sidebar__submenu--sim-nested,
     .sidebar__item--gelen.sidebar__item--gelen-open .sidebar__submenu--gelen-nested {
       display: flex !important;
       flex-direction: column;
     }
     .sidebar__submenu--ogr-nested,
     .sidebar__submenu--rv-nested,
+    .sidebar__submenu--sim-nested,
     .sidebar__submenu--gelen-nested {
       padding-left: 1.35rem !important;
       margin-left: 0.35rem;
@@ -402,6 +406,7 @@
     }
     .app--sidebar-readable .sidebar--elite .sidebar__item--ogrenci .sidebar__sublink span,
     .app--sidebar-readable .sidebar--elite .sidebar__item--randevu .sidebar__sublink span,
+    .app--sidebar-readable .sidebar--elite .sidebar__item--simulasyon .sidebar__sublink span,
     .app--sidebar-readable .sidebar--elite .sidebar__item--gelen .sidebar__sublink span {
       font-weight: 700;
       font-size: 0.74rem !important;
@@ -1797,20 +1802,29 @@
               <i class="fa-solid fa-calendar-week"></i><span>Haftalık Program</span>
             </button>
           </li>
-          <li>
-            <button type="button" class="sidebar__link" data-nav="hedef-simulator" title="Hedef üniversite ve net simülasyonu">
-              <i class="fa-solid fa-bullseye"></i><span>Hedef Simülatörü</span>
+          <li class="sidebar__item--simulasyon has-submenu">
+            <button
+              type="button"
+              class="sidebar__link sidebar__link--tm-accordion"
+              id="sidebarSimToggle"
+              aria-expanded="false"
+              aria-controls="sidebarSimSubmenu"
+              title="YKS simülasyon menüsünü aç/kapat"
+            >
+              <i class="fa-solid fa-bullseye"></i><span>YKS Simülasyon</span>
+              <span class="sidebar__tm-chevron" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
             </button>
-          </li>
-          <li>
-            <button type="button" class="sidebar__link" data-nav="net-sihirbazi" title="TYT-AYT Net Sihirbazı — YÖK şablon tablosu">
-              <i class="fa-solid fa-crosshairs"></i><span>TYT-AYT Net Sihirbazı</span>
-            </button>
-          </li>
-          <li>
-            <button type="button" class="sidebar__link" data-nav="yks-puan" title="YKS yerleştirme göstergesi (demo)">
-              <i class="fa-solid fa-calculator"></i><span>YKS Puan Hesaplama</span>
-            </button>
+            <div class="sidebar__submenu sidebar__submenu--sim-nested" id="sidebarSimSubmenu" role="group" aria-label="YKS simülasyon alt menü">
+              <button type="button" class="sidebar__sublink" data-nav="hedef-simulator" title="Hedef üniversite ve net simülasyonu">
+                <i class="fa-solid fa-bullseye"></i><span>Hedef Simülatörü</span>
+              </button>
+              <button type="button" class="sidebar__sublink" data-nav="net-sihirbazi" title="TYT-AYT Net Sihirbazı — YÖK şablon tablosu">
+                <i class="fa-solid fa-crosshairs"></i><span>TYT-AYT Net Sihirbazı</span>
+              </button>
+              <button type="button" class="sidebar__sublink" data-nav="yks-puan" title="YKS yerleştirme göstergesi (demo)">
+                <i class="fa-solid fa-calculator"></i><span>YKS Puan Hesaplama</span>
+              </button>
+            </div>
           </li>
           <li class="sidebar__item--gelen has-submenu">
             <button
@@ -1889,6 +1903,7 @@
             <div class="sidebar__submenu sidebar__submenu--tm-nested" id="sidebarTmSubmenu" role="group" aria-label="TestMaker alt menü">
               <button type="button" class="sidebar__sublink" data-tm-nav-action="creator" data-testmaker-view="view-testmaker" title="Test Oluşturucu"><i class="fa-solid fa-pen-ruler"></i><span>Test Oluşturucu</span></button>
               <button type="button" class="sidebar__sublink" data-tm-nav-action="auto-test" data-testmaker-view="view-auto-test" title="Yapay Zeka Destekli Otomatik Soru Hazırlayıcı"><i class="fa-solid fa-wand-magic-sparkles"></i><span>AI Test Üretici</span></button>
+              <button type="button" class="sidebar__sublink" data-tm-nav-action="auto-cropper" data-testmaker-view="view-auto-cropper" title="PDF üzerinden otomatik soru kırpma"><i class="fa-solid fa-scissors"></i><span>Otomatik Soru Kırpıcı</span></button>
               <button type="button" class="sidebar__sublink" data-tm-nav-action="library" data-testmaker-view="view-library" title="Hazır Testler"><i class="fa-solid fa-layer-group"></i><span>Hazır Testler</span></button>
               <button type="button" class="sidebar__sublink" data-tm-nav-action="pdf-editor" data-testmaker-view="view-pdf-editor" title="PDF Düzenleyici"><i class="fa-solid fa-file-pen"></i><span>PDF Düzenleyici</span></button>
               <button type="button" class="sidebar__sublink" data-tm-nav-action="pdf-cropper" data-testmaker-view="view-pdf-cropper" data-target="view-pdf-cropper" title="PDF’den manuel soru kırp ve havuza ekle"><i class="fas fa-cut"></i><span>Soru Kırpma</span></button>
@@ -3452,6 +3467,69 @@
                     </button>
                   </div>
                 </form>
+              </section>
+            </div>
+          </div>
+        </div>
+
+        <div class="main-view tm-workspace-view" data-view="auto-cropper" id="view-auto-cropper" hidden>
+          <div class="tm-workspace tm-workspace--ai-wizard">
+            <header class="tm-workspace__header tm-workspace__header--ribbon">
+              <div class="tm-workspace__header-row">
+                <button type="button" class="tm-back-dashboard" data-nav="dashboard" title="Ana panele dön">
+                  <i class="fa-solid fa-arrow-left"></i> Panele dön
+                </button>
+                <span class="tm-workspace__brand"><i class="fa-solid fa-scissors"></i> Otomatik Soru Kırpıcı</span>
+              </div>
+              <nav class="tm-word-ribbon" aria-label="Üst menü">
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
+                <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="auto-cropper"><i class="fa-solid fa-scissors"></i> Otomatik Kırpıcı</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fas fa-cut"></i> Soru Kırpma</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="soru-arsivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
+              </nav>
+            </header>
+            <div class="tm-auto-cropper-shell">
+              <section class="tm-auto-cropper-panel">
+                <h2 class="tm-auto-cropper-title"><i class="fa-solid fa-file-arrow-up"></i> PDF yükle ve otomatik kırp</h2>
+                <div class="tm-auto-cropper-drop" id="tmAutoCropDropzone" tabindex="0" role="button" aria-label="PDF sürükle bırak alanı">
+                  <input type="file" id="tmAutoCropFileInput" accept=".pdf,application/pdf" />
+                  <i class="fa-solid fa-cloud-arrow-up"></i>
+                  <p><strong>PDF dosyasını</strong> buraya bırakın veya tıklayın</p>
+                  <p class="tm-auto-cropper-drop__file" id="tmAutoCropFileName">Dosya seçilmedi</p>
+                </div>
+                <label class="tm-auto-cropper-sens">
+                  <span>Hassasiyet (Sensitivity): <strong id="tmAutoCropSensVal">1.00</strong></span>
+                  <input type="range" id="tmAutoCropSensitivity" min="0.65" max="1.45" step="0.05" value="1.00" />
+                </label>
+                <div class="tm-auto-cropper-meta">
+                  <label><span>Sınav</span><select id="tmAutoCropExam"><option value="TYT">TYT</option><option value="AYT">AYT</option></select></label>
+                  <label><span>Ders</span><input type="text" id="tmAutoCropDers" placeholder="Örn: Matematik" /></label>
+                  <label><span>Konu</span><input type="text" id="tmAutoCropKonu" placeholder="Örn: Problemler" /></label>
+                  <label><span>Zorluk</span><select id="tmAutoCropZorluk"><option value="Kolay">Kolay</option><option value="Orta" selected>Orta</option><option value="Zor">Zor</option></select></label>
+                </div>
+                <div class="tm-auto-cropper-actions">
+                  <button type="button" class="tm-ai-gen-btn" id="tmAutoCropRunBtn"><i class="fa-solid fa-wand-magic-sparkles"></i> Otomatik Kırp</button>
+                  <button type="button" class="btn btn--ghost" id="tmAutoCropClearBtn">Temizle</button>
+                </div>
+              </section>
+              <section class="tm-auto-cropper-result">
+                <div class="tm-auto-cropper-result__head">
+                  <h3>Önizleme</h3>
+                  <button type="button" class="tm-ai-gen-btn" id="tmAutoCropSaveBtn" disabled><i class="fa-solid fa-database"></i> Soru Havuzuna Kaydet</button>
+                </div>
+                <div class="tm-auto-cropper-tools">
+                  <label><span>Sayfa filtresi</span><select id="tmAutoCropPageFilter"><option value="all">Tümü</option></select></label>
+                  <label><span>Toplu ders override</span><input type="text" id="tmAutoCropBulkDers" placeholder="Örn: Matematik" /></label>
+                  <button type="button" class="btn btn--ghost" id="tmAutoCropApplyBulkDers">Uygula</button>
+                  <button type="button" class="btn btn--ghost" id="tmAutoCropSelectAll">Tümünü Seç</button>
+                  <button type="button" class="btn btn--ghost" id="tmAutoCropSelectNone">Seçimi Kaldır</button>
+                </div>
+                <p class="tm-auto-cropper-result__hint" id="tmAutoCropHint">Henüz kırpılmış soru yok.</p>
+                <div class="tm-auto-cropper-grid" id="tmAutoCropGrid"></div>
               </section>
             </div>
           </div>
@@ -5256,6 +5334,25 @@
       </div>
       <div class="modal__foot">
         <button type="button" class="btn-modal-secondary" data-close-modal>Kapat</button>
+      </div>
+    </div>
+
+    <div class="modal" id="tmPageDeleteConfirmModal" role="dialog" aria-labelledby="tmPageDeleteConfirmTitle" hidden>
+      <div class="modal__head">
+        <div>
+          <h2 class="modal__title" id="tmPageDeleteConfirmTitle"><i class="fa-solid fa-triangle-exclamation"></i> Sayfayı sil</h2>
+          <p class="modal__subtitle">Bu işlem geri alınamaz. Sayfadaki sorular da silinir.</p>
+        </div>
+        <button type="button" class="modal__close" data-close-modal aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal__body">
+        <p style="margin:0;color:#334155;font-size:0.95rem;line-height:1.55;">
+          Seçilen sayfayı silmek istediğinizden emin misiniz?
+        </p>
+      </div>
+      <div class="modal__foot">
+        <button type="button" class="btn-modal-secondary" data-close-modal>Vazgeç</button>
+        <button type="button" class="btn-modal-primary" id="tmPageDeleteConfirmBtn"><i class="fa-solid fa-trash"></i> Evet, sil</button>
       </div>
     </div>
   </div>

@@ -1,0 +1,47 @@
+═══════════════════════════════════════════════════════════════
+  🎓 YKS KOÇLUK — Otonom Soru Kırpıcı · Sürüm 2.0.0
+  Güncelleme Duyurusu (WhatsApp / E-posta için hazır)
+═══════════════════════════════════════════════════════════════
+
+Merhaba Değerli Hocam,
+
+YKS Koçluk Otonom Soru Kırpıcı uygulamamızın **2.0** ana sürümünü yayınladık. Aşağıda bu sürümle gelen **yeni özellikleri** özetledik.
+
+───────────────────────────────────────────────────────────────
+  ⭐ SÜRÜM 2.0 — YENİ ÖZELLİKLER (Özet)
+───────────────────────────────────────────────────────────────
+
+  ✅ YKS müfredat entegrasyonu: Ders seçince konular otomatik geliyor.
+  ✅ Soru Havuzu ve Kütüphane: Akıllı filtreleme — aradığınız soruya daha hızlı ulaşın.
+  ✅ Arayüz: Daha sade ve akıcı kullanım için genel iyileştirmeler.
+  ✅ Güvenli güncelleme: Eski sorularınız silinmez; üstüne güvenle kurun.
+
+───────────────────────────────────────────────────────────────
+  📋 YENİ ÖZELLİKLER — Detay
+───────────────────────────────────────────────────────────────
+
+📚 **1) YKS müfredat entegrasyonu (YENİ)**
+   • Ders seçtiğinizde ilgili **konu listesi otomatik** yüklenir; manuel eşleştirme ile uğraşmazsınız.
+   • Sınıflandırma müfredata uygun ve tutarlı hale getirildi.
+
+🔍 **2) Soru Havuzu ve Kütüphane — akıllı filtreleme (YENİ)**
+   • Soru Havuzu ve Kütüphane filtreleri **daha akıllı** çalışıyor; arama ve süzme daha hızlı.
+   • Aradığınız soruya daha az tıklamayla ulaşabilirsiniz.
+
+🖥️ **3) Arayüz iyileştirmeleri (YENİ)**
+   • Genel görünüm ve akışta **iyileştirmeler** yapıldı; kullanım daha rahat.
+
+🔒 **4) Kurulum — verileriniz korunur**
+   • Bu güncelleme **daha önce kaydettiğiniz soruları ve verilerinizi silmez.**
+   • Eski sürümün **üzerine güvenle** kurabilirsiniz.
+
+   (Yine de kritik arşivlerinizi yedeklemenizi her zaman öneririz.)
+
+Paketi paylaştığımızda kurulum dosyasını indirip mevcut sürümün üzerine kurmanız yeterlidir.
+
+Sevgi ve saygılarımızla,
+**YKS Koçluk Ekibi**
+
+───────────────────────────────────────────────────────────────
+  Sürüm: 2.0.0 · Platform: Windows (Electron)
+───────────────────────────────────────────────────────────────

@@ -2012,14 +2012,17 @@ function tmIsBookCoverPaper(el) {
 function tmGetQuestionPapers() {
   return tmGetAllPapers().filter(function (p) {
     if (!p) return false;
-    var hasQuestionBlock = !!(p.querySelector && p.querySelector(".tm-a4-block.question-item"));
-    if (hasQuestionBlock) return true;
-    return (
-      !tmIsAnswerKeyPaper(p) &&
-      !tmIsOptikHostPaper(p) &&
-      !tmIsCorporateCoverPaper(p) &&
-      !tmIsBookCoverPaper(p)
-    );
+    if (
+      tmIsAnswerKeyPaper(p) ||
+      tmIsOptikHostPaper(p) ||
+      tmIsCorporateCoverPaper(p) ||
+      tmIsBookCoverPaper(p)
+    ) {
+      return false;
+    }
+    /* Yalnızca gerçek soru sayfaları; özel sayfaların yanlışlıkla listeye sızmasını engeller. */
+    if (p.classList && p.classList.contains("pdf-question-page")) return true;
+    return !!(p.querySelector && p.querySelector(".tm-a4-block.question-item"));
   });
 }
 
@@ -2117,6 +2120,7 @@ function tmCreateNewA4Page() {
   clone.removeAttribute("data-tm-optik-host");
   clone.removeAttribute("data-tm-corporate-cover");
   clone.removeAttribute("data-tm-book-cover");
+  clone.classList.add("pdf-question-page");
   clone.classList.add("tm-a4-page--sub");
   var empty = clone.querySelector(".tm-a4-empty");
   if (empty) empty.style.display = "none";
@@ -2526,7 +2530,14 @@ function tmSyncAnswerKeyPage() {
 }
 
 function tmAppendBlockToPaginatedColumns(block) {
-  var papers = tmGetQuestionPapers();
+  var papers = tmGetQuestionPapers().filter(function (paper) {
+    return !!(
+      paper &&
+      paper.querySelector &&
+      paper.querySelector('[data-tm-col="1"]') &&
+      paper.querySelector('[data-tm-col="2"]')
+    );
+  });
   if (!papers.length) return;
 
   var maxPerPage = tmGetQuestionsPerPage();
@@ -2735,6 +2746,76 @@ function tmUpdateA4EmptyVisibility() {
     var si = p.querySelector(".tm-a4-single");
     if (si) si.hidden = true;
   });
+  tmSyncPageDeleteButtons();
+}
+
+function tmSyncPageDeleteButtons() {
+  var all = tmGetAllPapers();
+  var qCount = tmGetQuestionPapers().length;
+  all.forEach(function (paper) {
+    if (!paper || !paper.querySelector) return;
+    var btn = paper.querySelector(".tm-page-delete-btn");
+    if (!btn) {
+      btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "tm-page-delete-btn";
+      btn.setAttribute("data-tm-page-delete", "1");
+      btn.setAttribute("data-tm-pdf-hide", "1");
+      btn.setAttribute("aria-label", "Sayfayı sil");
+      btn.title = "Sayfayı sil";
+      btn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+      paper.appendChild(btn);
+    }
+    var lockedRoot = paper.id === "tmA4Paper" && qCount <= 1;
+    btn.disabled = !!lockedRoot;
+  });
+}
+
+function tmDeletePaperFromWorkspace(paper) {
+  if (!paper) return;
+  var isSpecial =
+    tmIsAnswerKeyPaper(paper) ||
+    tmIsOptikHostPaper(paper) ||
+    tmIsCorporateCoverPaper(paper) ||
+    tmIsBookCoverPaper(paper);
+  if (isSpecial) {
+    paper.remove();
+    tmOrderTrailingPages();
+    tmUpdateA4EmptyVisibility();
+    tmRenumberTmQuestions();
+    showToast("Sayfa silindi.");
+    return;
+  }
+  var isRoot = paper.id === "tmA4Paper";
+  var qPapers = tmGetQuestionPapers();
+  if (isRoot && qPapers.length <= 1) {
+    showToast("İlk sayfa silinemez.");
+    return;
+  }
+  paper.querySelectorAll(".tm-a4-block.question-item").forEach(function (el) {
+    el.remove();
+  });
+  if (!isRoot) paper.remove();
+  tmRedistributeAllQuestions();
+  tmSyncPageDeleteButtons();
+  showToast("Sayfa silindi.");
+}
+
+function tmOpenPageDeleteConfirm(paper) {
+  if (!paper) return;
+  tmPendingDeletePaper = paper;
+  openModal("tmPageDeleteConfirmModal");
+}
+
+function tmConfirmDeletePendingPage() {
+  if (!tmPendingDeletePaper) {
+    closeModal("tmPageDeleteConfirmModal");
+    return;
+  }
+  var paper = tmPendingDeletePaper;
+  tmPendingDeletePaper = null;
+  closeModal("tmPageDeleteConfirmModal");
+  tmDeletePaperFromWorkspace(paper);
 }
 
 function tmCollectBlocksFromCurrent(mode) {
@@ -9284,7 +9365,9 @@ var MODAL_IDS = [
   "hpWeeklyTaskModal",
   "profileSettingsModal",
   "coachInboxModal",
+  "tmPageDeleteConfirmModal",
 ];
+var tmPendingDeletePaper = null;
 
 function closeAllModals() {
   var o = document.getElementById("modalOverlay");
@@ -9317,6 +9400,7 @@ function closeModal(modalId) {
   if (!m || !o) return;
   if (modalId === "studentModal") resetStudentModalPanes();
   if (modalId === "hpWeeklyTaskModal") hpResetWeeklyTaskModalChrome();
+  if (modalId === "tmPageDeleteConfirmModal") tmPendingDeletePaper = null;
   m.hidden = true;
   var anyStillOpen = MODAL_IDS.some(function (id) {
     var el = document.getElementById(id);
@@ -11463,7 +11547,7 @@ async function tmWsSaveFirestoreDraft() {
     (document.getElementById("tmWsTestDate") && document.getElementById("tmWsTestDate").value) ||
     new Date().toISOString().slice(0, 10);
   try {
-    await addDoc(collection(db, "tests"), {
+    var draftPayload = {
       title: title,
       subject: (document.getElementById("tmWsSubject") && document.getElementById("tmWsSubject").value) || "",
       difficulty: (document.getElementById("tmWsDiff") && document.getElementById("tmWsDiff").value) || "Orta",
@@ -11477,12 +11561,42 @@ async function tmWsSaveFirestoreDraft() {
       pdfDraft: true,
       createdAt: serverTimestamp(),
       coach_id: getCoachId(),
-    });
-    showToast("Taslak Appwrite veritabanına kaydedildi (" + arr.length + " soru).");
+    };
+    var saveRes = await tmAddDocWithSchemaFallback("tests", draftPayload);
+    if (saveRes && saveRes.removed && saveRes.removed.length) {
+      showToast("Taslak kaydedildi (" + arr.length + " soru). Şemaya uymayan alanlar atlandı.");
+    } else {
+      showToast("Taslak Appwrite veritabanına kaydedildi (" + arr.length + " soru).");
+    }
   } catch (err) {
     console.error(err);
     alert(err.message || String(err));
   }
+}
+
+/**
+ * Appwrite şemasında olmayan alanlar nedeniyle kayıt hatası alınırsa
+ * Unknown attribute mesajındaki alanı kaldırıp tekrar dener.
+ */
+async function tmAddDocWithSchemaFallback(collectionId, payload) {
+  var data = Object.assign({}, payload || {});
+  var removed = [];
+  for (var attempt = 0; attempt < 14; attempt++) {
+    try {
+      var res = await addDoc(collection(db, collectionId), data);
+      return { res: res, removed: removed };
+    } catch (err) {
+      var msg = err && err.message ? String(err.message) : String(err || "");
+      var match = msg.match(/Unknown attribute:\s*"([^"]+)"/i);
+      if (!match || !match[1]) throw err;
+      var badKey = String(match[1]).trim();
+      if (!badKey || !Object.prototype.hasOwnProperty.call(data, badKey)) throw err;
+      delete data[badKey];
+      removed.push(badKey);
+      console.warn("[tests] şema dışı alan atlandı:", badKey);
+    }
+  }
+  throw new Error("Taslak kaydı şema uyarlama sonrası tamamlanamadı.");
 }
 
 /**
@@ -11576,15 +11690,22 @@ function tmPreparePrintClone(clone, livePaper, widthPx, mm) {
     }
   }
 
-  var liveHeaders = livePaper.querySelectorAll(".tm-paper-header");
-  clone.querySelectorAll(".tm-paper-header").forEach(function (h, i) {
-    var liveH = liveHeaders[i];
-    var st = liveH ? window.getComputedStyle(liveH) : window.getComputedStyle(h);
-    if (st.display === "none") {
+  var mode = tmNormalizeTemplateMode(livePaper.getAttribute("data-tm-layout"));
+  var isSpecialPaper =
+    tmIsAnswerKeyPaper(livePaper) ||
+    tmIsOptikHostPaper(livePaper) ||
+    tmIsCorporateCoverPaper(livePaper) ||
+    tmIsBookCoverPaper(livePaper);
+  var activeHeaderClass = "tm-paper-header--" + mode;
+  clone.querySelectorAll(".tm-paper-header").forEach(function (h) {
+    var isActive = !isSpecialPaper && h.classList.contains(activeHeaderClass);
+    if (!isActive) {
       h.style.display = "none";
+      h.style.visibility = "hidden";
+      h.style.opacity = "0";
       return;
     }
-    h.style.display = st.display;
+    h.style.display = "block";
     h.style.visibility = "visible";
     h.style.opacity = "1";
     h.style.width = "100%";
@@ -14075,8 +14196,21 @@ function bindTestMakerWorkspace() {
     });
 
   var pagesHost = document.getElementById("a4-pages-container");
+  tmSyncPageDeleteButtons();
+  var pageDeleteConfirmBtn = document.getElementById("tmPageDeleteConfirmBtn");
+  if (pageDeleteConfirmBtn && !pageDeleteConfirmBtn.dataset.tmBound) {
+    pageDeleteConfirmBtn.dataset.tmBound = "1";
+    pageDeleteConfirmBtn.addEventListener("click", tmConfirmDeletePendingPage);
+  }
   if (pagesHost)
     pagesHost.addEventListener("click", function (ev) {
+      var pageDelBtn = ev.target.closest && ev.target.closest("[data-tm-page-delete='1']");
+      if (pageDelBtn) {
+        ev.preventDefault();
+        var paper = pageDelBtn.closest(".a4-paper");
+        tmOpenPageDeleteConfirm(paper);
+        return;
+      }
       var x = ev.target.closest && ev.target.closest(".tm-a4-block__x");
       if (!x) return;
       ev.preventDefault();
@@ -14333,6 +14467,7 @@ function bindTestMakerWorkspace() {
   initTmColorStudio();
   tmWsManualCropBindOnce();
   initPdfCropperModule();
+  initTmAutoCropperModule();
 }
 
 function navigateTo(view) {
@@ -14358,6 +14493,7 @@ function navigateTo(view) {
     previous === "library" ||
     previous === "pdf-editor" ||
     previous === "auto-test" ||
+    previous === "auto-cropper" ||
     previous === "pdf-cropper" ||
     previous === "soru-arsivi";
   var nowTm =
@@ -14365,6 +14501,7 @@ function navigateTo(view) {
     view === "library" ||
     view === "pdf-editor" ||
     view === "auto-test" ||
+    view === "auto-cropper" ||
     view === "pdf-cropper" ||
     view === "soru-arsivi";
   if (wasTm && !nowTm) testmakerWorkspaceLeave();
@@ -14386,6 +14523,7 @@ function navigateTo(view) {
           view === "library" ||
           view === "pdf-editor" ||
           view === "auto-test" ||
+          view === "auto-cropper" ||
           view === "pdf-cropper" ||
           view === "soru-arsivi"));
     btn.classList.toggle("sidebar__link--active", on);
@@ -14428,6 +14566,14 @@ function navigateTo(view) {
     gelenAcc.classList.toggle("sidebar__link--active", inGelen);
     gelenAcc.setAttribute("aria-expanded", inGelen ? "true" : "false");
   }
+  var simLi = document.querySelector(".sidebar__item--simulasyon");
+  var simAcc = document.getElementById("sidebarSimToggle");
+  if (simLi && simAcc) {
+    var inSim = view === "hedef-simulator" || view === "net-sihirbazi" || view === "yks-puan";
+    simLi.classList.toggle("sidebar__item--sim-open", inSim);
+    simAcc.classList.toggle("sidebar__link--active", inSim);
+    simAcc.setAttribute("aria-expanded", inSim ? "true" : "false");
+  }
   var tmLiNav = document.querySelector(".sidebar__item--testmaker");
   var tmAccNav = document.getElementById("sidebarTmToggle");
   if (tmLiNav && tmAccNav) {
@@ -14436,6 +14582,7 @@ function navigateTo(view) {
       view === "library" ||
       view === "pdf-editor" ||
       view === "auto-test" ||
+      view === "auto-cropper" ||
       view === "pdf-cropper" ||
       view === "soru-arsivi";
     tmLiNav.classList.toggle("sidebar__item--tm-open", inTmNav);
@@ -14450,6 +14597,7 @@ function navigateTo(view) {
         (a === "creator" && view === "testmaker") ||
         (a === "pdf-editor" && view === "pdf-editor") ||
         (a === "auto-test" && view === "auto-test") ||
+        (a === "auto-cropper" && view === "auto-cropper") ||
         (a === "pdf-cropper" && view === "pdf-cropper") ||
         (a === "soru-arsivi" && view === "soru-arsivi")
     );
@@ -14579,6 +14727,7 @@ function displayTestmakerView(viewDomId) {
   var map = {
     "view-testmaker": "testmaker",
     "view-auto-test": "auto-test",
+    "view-auto-cropper": "auto-cropper",
     "view-library": "library",
     "view-pdf-editor": "pdf-editor",
     "view-pdf-cropper": "pdf-cropper",
@@ -14590,6 +14739,329 @@ function displayTestmakerView(viewDomId) {
     return;
   }
   console.warn("[YKSPanel] displayTestmakerView: eşleşmeyen DOM id:", viewDomId);
+}
+
+var tmAutoCropperInited = false;
+var tmAutoCropFile = null;
+var tmAutoCropResults = [];
+
+function tmParseAiTag(tag) {
+  var t = String(tag || "").trim();
+  if (!t) return { ders: "", konu: "" };
+  var parts = t.split(">");
+  if (parts.length >= 2) {
+    return {
+      ders: String(parts[0] || "").trim(),
+      konu: String(parts.slice(1).join(">") || "").trim(),
+    };
+  }
+  return { ders: "", konu: t };
+}
+
+function tmAutoCropSetHint(msg) {
+  var hint = document.getElementById("tmAutoCropHint");
+  if (hint) hint.textContent = msg || "";
+}
+
+function tmAutoCropRenderGrid() {
+  var grid = document.getElementById("tmAutoCropGrid");
+  var saveBtn = document.getElementById("tmAutoCropSaveBtn");
+  var pageFilter = document.getElementById("tmAutoCropPageFilter");
+  if (!grid) return;
+  grid.innerHTML = "";
+  if (!tmAutoCropResults.length) {
+    tmAutoCropSetHint("Henüz kırpılmış soru yok.");
+    if (saveBtn) saveBtn.disabled = true;
+    if (pageFilter) pageFilter.innerHTML = '<option value="all">Tümü</option>';
+    return;
+  }
+  if (pageFilter) {
+    var selectedFilter = pageFilter.value || "all";
+    var pages = {};
+    tmAutoCropResults.forEach(function (x) {
+      pages[String(x.page || 1)] = true;
+    });
+    var opts = '<option value="all">Tümü</option>';
+    Object.keys(pages)
+      .sort(function (a, b) { return Number(a) - Number(b); })
+      .forEach(function (p) {
+        opts += '<option value="' + p + '"' + (selectedFilter === p ? " selected" : "") + ">Sayfa " + p + "</option>";
+      });
+    pageFilter.innerHTML = opts;
+  }
+  var activePage = (pageFilter && pageFilter.value) || "all";
+  var visible = tmAutoCropResults
+    .map(function (x, idx) {
+      return { row: x, idx: idx };
+    })
+    .filter(function (x) {
+      return activePage === "all" || String(x.row.page || 1) === String(activePage);
+    });
+  tmAutoCropSetHint(
+    tmAutoCropResults.length +
+      " soru bulundu. Görünen: " +
+      visible.length +
+      ". Kaydedilecekleri işaretleyin."
+  );
+  visible.forEach(function (entry) {
+    var item = entry.row;
+    var idx = entry.idx;
+    var card = document.createElement("div");
+    card.className = "tm-auto-crop-item";
+    var checked = item.selected !== false ? " checked" : "";
+    card.innerHTML =
+      '<img alt="Kırpılmış soru ' + (idx + 1) + '" src="' + escapeHtml(item.imageBase64 || "") + '">' +
+      '<label><input type="checkbox" data-tm-auto-crop-check="' + idx + '"' + checked + "> Kaydet</label>' +
+      '<div class="tm-auto-crop-item__meta">' +
+      '<input type="text" data-tm-auto-crop-ders="' + idx + '" value="' + escapeHtml(item.editedDers || "") + '" placeholder="Ders">' +
+      '<input type="text" data-tm-auto-crop-konu="' + idx + '" value="' + escapeHtml(item.editedKonu || "") + '" placeholder="Konu">' +
+      "</div>" +
+      '<div class="tm-auto-crop-item__actions"><button type="button" class="tm-auto-crop-item__reset" data-tm-auto-crop-reset="' + idx + '">Öneriyi geri al</button></div>';
+    grid.appendChild(card);
+  });
+  if (saveBtn) {
+    var selectedCount = tmAutoCropResults.filter(function (x) { return x.selected !== false; }).length;
+    saveBtn.disabled = selectedCount <= 0;
+  }
+}
+
+async function tmAutoCropRun() {
+  if (!tmAutoCropFile) {
+    showToast("Önce PDF dosyası seçin.");
+    return;
+  }
+  var runBtn = document.getElementById("tmAutoCropRunBtn");
+  var sensEl = document.getElementById("tmAutoCropSensitivity");
+  var fd = new FormData();
+  fd.append("pdf", tmAutoCropFile);
+  fd.append("sensitivity", String(parseFloat((sensEl && sensEl.value) || "1") || 1));
+  if (runBtn) runBtn.disabled = true;
+  tmAutoCropSetHint("PDF analiz ediliyor, lütfen bekleyin...");
+  try {
+    var res = await fetch("/api/crop_pdf", { method: "POST", body: fd });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    var data = await res.json();
+    if (!data || !data.ok) throw new Error((data && data.error) || "Kırpma başarısız.");
+    var rows = Array.isArray(data.questions) ? data.questions : [];
+    tmAutoCropResults = rows
+      .map(function (q, i) {
+        var img = String((q && (q.base64_image || q.image_base64)) || "").trim();
+        if (!img) return null;
+        var tag = String((q && q.ai_suggested_tag) || "").trim();
+        var parsed = tmParseAiTag(tag);
+        return {
+          id: "q_" + i,
+          page: parseInt((q && q.page) || 1, 10) || 1,
+          imageBase64: img,
+          selected: true,
+          suggestedDers: parsed.ders,
+          suggestedKonu: parsed.konu,
+          editedDers: parsed.ders,
+          editedKonu: parsed.konu,
+        };
+      })
+      .filter(Boolean);
+    tmAutoCropRenderGrid();
+    showToast(tmAutoCropResults.length + " soru otomatik kırpıldı.");
+  } catch (err) {
+    console.error("[auto-cropper]", err);
+    tmAutoCropResults = [];
+    tmAutoCropRenderGrid();
+    showToast("Kırpma başarısız: " + (err && err.message ? err.message : String(err)));
+  } finally {
+    if (runBtn) runBtn.disabled = false;
+  }
+}
+
+async function tmAutoCropSaveSelected() {
+  if (!tmAutoCropResults.length) {
+    showToast("Kaydedilecek soru yok.");
+    return;
+  }
+  var cid = getCoachId();
+  if (!cid) {
+    showToast("Koç oturumu gerekli.");
+    return;
+  }
+  var ders = ((document.getElementById("tmAutoCropDers") || {}).value || "").trim();
+  var konu = ((document.getElementById("tmAutoCropKonu") || {}).value || "").trim();
+  var zorluk = ((document.getElementById("tmAutoCropZorluk") || {}).value || "Orta").trim();
+  var saveBtn = document.getElementById("tmAutoCropSaveBtn");
+  var selected = tmAutoCropResults.filter(function (x) {
+    return x.selected !== false;
+  });
+  if (!selected.length) {
+    showToast("En az bir soru seçin.");
+    return;
+  }
+  if (saveBtn) saveBtn.disabled = true;
+  var okCount = 0;
+  try {
+    for (var i = 0; i < selected.length; i++) {
+      var dataUrl = selected[i].imageBase64;
+      var blob = dataUrlToBlob(dataUrl);
+      var dersUse = String(selected[i].editedDers || "").trim() || ders;
+      var konuUse = String(selected[i].editedKonu || "").trim() || konu;
+      await saveSoruHavuzuEntry({
+        coachKey: cid,
+        imageBlob: blob,
+        ders: dersUse,
+        konu: konuUse,
+        zorluk: zorluk,
+        source: "auto_pdf_crop",
+      });
+      okCount++;
+    }
+    tmAutoCropResults = tmAutoCropResults.filter(function (x) {
+      return x.selected === false;
+    });
+    tmAutoCropRenderGrid();
+    showToast(okCount + " soru Appwrite Soru Havuzuna kaydedildi.");
+  } catch (err) {
+    console.error("[auto-cropper save]", err);
+    showToast("Kayıt sırasında hata: " + (err && err.message ? err.message : String(err)));
+  } finally {
+    if (saveBtn) saveBtn.disabled = false;
+  }
+}
+
+function initTmAutoCropperModule() {
+  if (tmAutoCropperInited) return;
+  tmAutoCropperInited = true;
+  var dz = document.getElementById("tmAutoCropDropzone");
+  var inp = document.getElementById("tmAutoCropFileInput");
+  var fileName = document.getElementById("tmAutoCropFileName");
+  var sens = document.getElementById("tmAutoCropSensitivity");
+  var sensVal = document.getElementById("tmAutoCropSensVal");
+  var runBtn = document.getElementById("tmAutoCropRunBtn");
+  var clearBtn = document.getElementById("tmAutoCropClearBtn");
+  var saveBtn = document.getElementById("tmAutoCropSaveBtn");
+  var grid = document.getElementById("tmAutoCropGrid");
+  var pageFilter = document.getElementById("tmAutoCropPageFilter");
+  var bulkDers = document.getElementById("tmAutoCropBulkDers");
+  var applyBulkDers = document.getElementById("tmAutoCropApplyBulkDers");
+  var selectAllBtn = document.getElementById("tmAutoCropSelectAll");
+  var selectNoneBtn = document.getElementById("tmAutoCropSelectNone");
+  if (!dz || !inp || !runBtn || !clearBtn || !saveBtn || !grid) return;
+
+  function setFile(f) {
+    tmAutoCropFile = f || null;
+    if (fileName) fileName.textContent = tmAutoCropFile ? tmAutoCropFile.name : "Dosya seçilmedi";
+  }
+  function clearAll() {
+    setFile(null);
+    inp.value = "";
+    tmAutoCropResults = [];
+    tmAutoCropRenderGrid();
+  }
+
+  dz.addEventListener("click", function () {
+    inp.click();
+  });
+  dz.addEventListener("dragover", function (e) {
+    e.preventDefault();
+    dz.classList.add("is-drag-over");
+  });
+  dz.addEventListener("dragleave", function () {
+    dz.classList.remove("is-drag-over");
+  });
+  dz.addEventListener("drop", function (e) {
+    e.preventDefault();
+    dz.classList.remove("is-drag-over");
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!f) return;
+    if (!/\.pdf$/i.test(f.name || "")) {
+      showToast("Yalnızca PDF yükleyin.");
+      return;
+    }
+    setFile(f);
+  });
+  inp.addEventListener("change", function () {
+    var f = inp.files && inp.files[0];
+    if (!f) return;
+    if (!/\.pdf$/i.test(f.name || "")) {
+      showToast("Yalnızca PDF yükleyin.");
+      inp.value = "";
+      return;
+    }
+    setFile(f);
+  });
+  if (sens && sensVal) {
+    var syncSens = function () {
+      sensVal.textContent = Number(sens.value || 1).toFixed(2);
+    };
+    sens.addEventListener("input", syncSens);
+    syncSens();
+  }
+  runBtn.addEventListener("click", tmAutoCropRun);
+  clearBtn.addEventListener("click", clearAll);
+  saveBtn.addEventListener("click", tmAutoCropSaveSelected);
+  if (pageFilter) {
+    pageFilter.addEventListener("change", tmAutoCropRenderGrid);
+  }
+  if (selectAllBtn) {
+    selectAllBtn.addEventListener("click", function () {
+      var p = (pageFilter && pageFilter.value) || "all";
+      tmAutoCropResults.forEach(function (x) {
+        if (p === "all" || String(x.page || 1) === String(p)) x.selected = true;
+      });
+      tmAutoCropRenderGrid();
+    });
+  }
+  if (selectNoneBtn) {
+    selectNoneBtn.addEventListener("click", function () {
+      var p = (pageFilter && pageFilter.value) || "all";
+      tmAutoCropResults.forEach(function (x) {
+        if (p === "all" || String(x.page || 1) === String(p)) x.selected = false;
+      });
+      tmAutoCropRenderGrid();
+    });
+  }
+  if (applyBulkDers && bulkDers) {
+    applyBulkDers.addEventListener("click", function () {
+      var v = String(bulkDers.value || "").trim();
+      if (!v) {
+        showToast("Toplu ders için değer girin.");
+        return;
+      }
+      var p = (pageFilter && pageFilter.value) || "all";
+      tmAutoCropResults.forEach(function (x) {
+        if (p === "all" || String(x.page || 1) === String(p)) x.editedDers = v;
+      });
+      tmAutoCropRenderGrid();
+      showToast("Toplu ders uygulandı.");
+    });
+  }
+  grid.addEventListener("change", function (ev) {
+    var cb = ev.target && ev.target.closest && ev.target.closest("[data-tm-auto-crop-check]");
+    if (!cb) return;
+    var idx = parseInt(cb.getAttribute("data-tm-auto-crop-check"), 10);
+    if (isNaN(idx) || !tmAutoCropResults[idx]) return;
+    tmAutoCropResults[idx].selected = !!cb.checked;
+  });
+  grid.addEventListener("input", function (ev) {
+    var inpD = ev.target && ev.target.closest && ev.target.closest("[data-tm-auto-crop-ders]");
+    if (inpD) {
+      var idxD = parseInt(inpD.getAttribute("data-tm-auto-crop-ders"), 10);
+      if (!isNaN(idxD) && tmAutoCropResults[idxD]) tmAutoCropResults[idxD].editedDers = String(inpD.value || "").trim();
+      return;
+    }
+    var inpK = ev.target && ev.target.closest && ev.target.closest("[data-tm-auto-crop-konu]");
+    if (inpK) {
+      var idxK = parseInt(inpK.getAttribute("data-tm-auto-crop-konu"), 10);
+      if (!isNaN(idxK) && tmAutoCropResults[idxK]) tmAutoCropResults[idxK].editedKonu = String(inpK.value || "").trim();
+    }
+  });
+  grid.addEventListener("click", function (ev) {
+    var resetBtn = ev.target && ev.target.closest && ev.target.closest("[data-tm-auto-crop-reset]");
+    if (!resetBtn) return;
+    var idx = parseInt(resetBtn.getAttribute("data-tm-auto-crop-reset"), 10);
+    if (isNaN(idx) || !tmAutoCropResults[idx]) return;
+    tmAutoCropResults[idx].editedDers = tmAutoCropResults[idx].suggestedDers || "";
+    tmAutoCropResults[idx].editedKonu = tmAutoCropResults[idx].suggestedKonu || "";
+    tmAutoCropRenderGrid();
+  });
+  tmAutoCropRenderGrid();
 }
 
 function initSidebar() {
@@ -14623,6 +15095,7 @@ function closeSidebarAccordionsExcept(exceptLi) {
     [".sidebar__item--deneme", "sidebar__item--da-open", "sidebarDaToggle"],
     [".sidebar__item--ogrenci", "sidebar__item--ogr-open", "sidebarOgrToggle"],
     [".sidebar__item--randevu", "sidebar__item--rv-open", "sidebarRvToggle"],
+    [".sidebar__item--simulasyon", "sidebar__item--sim-open", "sidebarSimToggle"],
     [".sidebar__item--gelen", "sidebar__item--gelen-open", "sidebarGelenToggle"]
   ];
   pairs.forEach(function (row) {
@@ -14665,6 +15138,7 @@ function initNavigation() {
       if (action === "library") navigateTo("library");
       else if (action === "pdf-editor") navigateTo("pdf-editor");
       else if (action === "auto-test") navigateTo("auto-test");
+      else if (action === "auto-cropper") navigateTo("auto-cropper");
       else if (action === "pdf-cropper" || action === "ai-parser") navigateTo("pdf-cropper");
       else if (action === "soru-arsivi") navigateTo("soru-arsivi");
       else navigateTo("testmaker");
@@ -14678,6 +15152,7 @@ function initNavigation() {
       { liSel: ".sidebar__item--deneme", openClass: "sidebar__item--da-open", btnId: "sidebarDaToggle" },
       { liSel: ".sidebar__item--ogrenci", openClass: "sidebar__item--ogr-open", btnId: "sidebarOgrToggle" },
       { liSel: ".sidebar__item--randevu", openClass: "sidebar__item--rv-open", btnId: "sidebarRvToggle" },
+      { liSel: ".sidebar__item--simulasyon", openClass: "sidebar__item--sim-open", btnId: "sidebarSimToggle" },
       { liSel: ".sidebar__item--gelen", openClass: "sidebar__item--gelen-open", btnId: "sidebarGelenToggle" }
     ];
     items.forEach(function (cfg) {

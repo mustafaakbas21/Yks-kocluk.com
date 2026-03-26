@@ -447,6 +447,35 @@
   --tm-gutter: #c8c8c8;
 }
 
+.tm-page-delete-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 9;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(220, 38, 38, 0.32);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #b91c1c;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.14);
+  transition: background-color 0.16s ease, transform 0.16s ease;
+}
+
+.tm-page-delete-btn:hover:not(:disabled) {
+  background: #fee2e2;
+  transform: translateY(-1px);
+}
+
+.tm-page-delete-btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
 .tm-h-accent-line {
   background: var(--tm-accent) !important;
   height: 2px !important;
@@ -542,6 +571,62 @@
 .tm-template-vip .tm-a4-empty--full,
 .tm-template-foy .tm-a4-empty--full {
   font-family: "Inter", system-ui, sans-serif;
+}
+
+.tm-auto-cropper-shell {
+  display: grid;
+  grid-template-columns: minmax(300px, 420px) 1fr;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.tm-auto-cropper-panel,
+.tm-auto-cropper-result {
+  background: linear-gradient(180deg, #ffffff, #faf5ff);
+  border: 1px solid rgba(124, 58, 237, 0.16);
+  border-radius: 14px;
+  padding: 0.95rem;
+}
+
+.tm-auto-cropper-title { margin: 0 0 0.75rem; font-size: 1rem; color: #4c1d95; }
+.tm-auto-cropper-drop {
+  border: 2px dashed rgba(124, 58, 237, 0.35);
+  border-radius: 12px;
+  padding: 1rem;
+  text-align: center;
+  background: #f8f4ff;
+  cursor: pointer;
+}
+.tm-auto-cropper-drop.is-drag-over { background: #efe7ff; border-color: #7c3aed; }
+.tm-auto-cropper-drop input[type="file"] { display: none; }
+.tm-auto-cropper-drop__file { margin: 0.4rem 0 0; font-size: 0.8rem; color: #475569; }
+.tm-auto-cropper-sens { display: block; margin: 0.8rem 0; }
+.tm-auto-cropper-sens input { width: 100%; }
+.tm-auto-cropper-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; }
+.tm-auto-cropper-meta label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.8rem; color: #475569; }
+.tm-auto-cropper-meta input, .tm-auto-cropper-meta select {
+  border: 1px solid #d8b4fe; border-radius: 9px; padding: 0.45rem 0.55rem; background: #fff;
+}
+.tm-auto-cropper-actions { display: flex; gap: 0.55rem; margin-top: 0.85rem; }
+.tm-auto-cropper-result__head { display: flex; justify-content: space-between; align-items: center; gap: 0.65rem; }
+.tm-auto-cropper-tools { display: grid; grid-template-columns: 1fr 1fr auto auto auto; gap: 0.5rem; margin: 0.55rem 0 0.35rem; }
+.tm-auto-cropper-tools label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.75rem; color: #475569; }
+.tm-auto-cropper-tools input, .tm-auto-cropper-tools select { border: 1px solid #d8b4fe; border-radius: 8px; padding: 0.4rem 0.5rem; background: #fff; }
+.tm-auto-cropper-result__hint { font-size: 0.84rem; color: #64748b; margin: 0.4rem 0 0.7rem; }
+.tm-auto-cropper-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0.7rem; }
+.tm-auto-crop-item {
+  border: 1px solid #e9d5ff; border-radius: 10px; background: #fff; padding: 0.45rem;
+}
+.tm-auto-crop-item img { width: 100%; height: 170px; object-fit: contain; display: block; background: #f8fafc; border-radius: 8px; }
+.tm-auto-crop-item label { display: inline-flex; gap: 0.35rem; align-items: center; margin-top: 0.45rem; font-size: 0.78rem; color: #334155; }
+.tm-auto-crop-item__meta { margin-top: 0.3rem; display: grid; gap: 0.3rem; }
+.tm-auto-crop-item__meta input { width: 100%; border: 1px solid #d8b4fe; border-radius: 8px; padding: 0.35rem 0.45rem; font-size: 0.78rem; }
+.tm-auto-crop-item__actions { margin-top: 0.35rem; display: flex; justify-content: flex-end; }
+.tm-auto-crop-item__reset { border: 1px solid #e9d5ff; background: #faf5ff; color: #6d28d9; border-radius: 8px; padding: 0.28rem 0.45rem; font-size: 0.72rem; cursor: pointer; }
+
+@media (max-width: 980px) {
+  .tm-auto-cropper-shell { grid-template-columns: 1fr; }
+  .tm-auto-cropper-tools { grid-template-columns: 1fr 1fr; }
 }
 
 /* Kitap gibi iki sütun — yalnızca soru sayfaları (.pdf-question-page); kapak/cevap anahtarı sızmaz */
