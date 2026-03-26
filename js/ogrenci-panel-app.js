@@ -147,6 +147,17 @@ onAuthStateChanged(auth, async function (user) {
   ospAuthResolved = true;
   try {
     await loadOspForUser(user);
+    requestAnimationFrame(function () {
+      var dash = document.getElementById("ospViewDashboard");
+      if (
+        dash &&
+        !dash.hidden &&
+        window.OSP &&
+        typeof window.OSP.initDashboard2Charts === "function"
+      ) {
+        window.OSP.initDashboard2Charts();
+      }
+    });
   } catch (err) {
     console.error("[öğrenci] loadOspForUser", err);
     try {

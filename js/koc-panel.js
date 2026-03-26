@@ -13,6 +13,8 @@ import {
 import { initExamDefinitionProfessionalUI } from "./exam-definition-module.js";
 import { initOptikAdvancedBindings } from "./optik-advanced-module.js";
 import { yksMufredatDatasi } from "./mufredat-data.js";
+import { YKS2026_Mufredat, yks2026KonuOptionsForDers } from "./yks-mufredat.js";
+import { YKS_CARTOON_AVATAR_MALE, YKS_CARTOON_AVATAR_FEMALE } from "./yks-cartoon-avatars.js";
 import {
   findAtlasProgramById,
   TR_UNIVERSITIES_UNIQUE,
@@ -77,7 +79,11 @@ import {
   wireZohoInbox,
 } from "./zoho-mail-inbox.js";
 
-import { client, storage } from "./appwrite-config.js";
+import {
+  client,
+  storage,
+  APPWRITE_COLLECTION_ATANAN_KAYNAKLAR,
+} from "./appwrite-config.js";
 
 /** Aktif görünüme göre deneme/optik net kuralı (ÖSYM / Y3). */
 function coachNetFromBranchDy(d, y) {
@@ -97,6 +103,72 @@ function coachNetFromBranchDy(d, y) {
 
 /** Koç oturumunu düşürmeden öğrenci hesabı oluşturmak için (login.js ile aynı @sistem.com). */
 const STUDENT_EMAIL_DOMAIN = "@sistem.com";
+
+/** Toplu Excel: portal doldurulup şifre boş / kısa ise (manuel form min 8) bu şifre kullanılır. */
+const STUDENT_BULK_DEFAULT_PORTAL_PASSWORD = "YksDerece2026!";
+
+/** Manuel öğrenci formu (examGroup / fieldType / parentRelation) ile birebir. */
+var STUDENT_FORM_EXAM_GROUPS = [
+  "Mezun TYT-AYT",
+  "12. Sınıf Say",
+  "12. Sınıf EA",
+  "12. Sınıf Sözel",
+  "12. Sınıf Dil",
+  "11. Sınıf",
+  "TYT Hazırlık",
+  "Diğer",
+];
+var STUDENT_FORM_FIELD_TYPES = ["Sayısal", "Eşit Ağırlık (EA)", "Sözel", "Dil"];
+var STUDENT_FORM_PARENT_RELATIONS = ["Anne", "Baba", "Vasi", "Diğer"];
+
+/** Excel 1. satır — form etiketleriyle aynı (koc-panel formStudentAdd). */
+var STUDENT_BULK_EXCEL_HEADERS = [
+  "Ad",
+  "Soyad",
+  "TCKN",
+  "Cinsiyet",
+  "Okul",
+  "Sınıf",
+  "Sınav grubu",
+  "Alan",
+  "Güncel net",
+  "Hedef net",
+  "Portal kullanıcı adı",
+  "Giriş şifresi",
+  "Hedef üniversite",
+  "Hedef bölüm / program",
+  "Veli adı soyadı",
+  "Yakınlık derecesi",
+  "Veli telefonu",
+  "Acil durum kişisi",
+  "Kayıt tarihi",
+  "Toplam ücret (₺)",
+  "Taksit sayısı",
+];
+
+var STUDENT_BULK_TEMPLATE_DUMMY_ROW = [
+  "Ayşe",
+  "Demir",
+  "",
+  "Kadın",
+  "Atatürk Anadolu Lisesi",
+  "12",
+  "12. Sınıf Say",
+  "Sayısal",
+  "72,5",
+  "100",
+  "ayse_demir_ornek",
+  "",
+  "Boğaziçi Üniversitesi",
+  "Bilgisayar Mühendisliği",
+  "Fatma Demir",
+  "Anne",
+  "05321234567",
+  "Mehmet Demir",
+  "2026-06-15",
+  "24000",
+  "9",
+];
 
 function sanitizeStudentPortalUsername(s) {
   return String(s || "")
@@ -226,6 +298,7 @@ var COLLECTIONS_WITH_COACH_ID_QUERY = {
   students: true,
   appointments: true,
   coach_tasks: true,
+  atanan_kaynaklar: true,
 };
 
 function coachQuery(collectionName) {
@@ -624,7 +697,7 @@ function tmSyncRibbonActive(view) {
   });
 }
 
-/** TYT/AYT müfredat mock verisi — `js/mufredat-data.js` (yksMufredatDatasi) */
+/** TYT/AYT müfredat — `js/yks-mufredat.js` → `mufredat-data.js` (yksMufredatDatasi) */
 var yksAiCurriculum = yksMufredatDatasi;
 try {
   window.yksMufredatDatasi = yksMufredatDatasi;
@@ -632,6 +705,11 @@ try {
 
 var tmAiGenWizardBound = false;
 var tmAiAppendModalBound = false;
+/** Karne → AI Üretici köprüsü: tamamlandığında panoda kal (test-tasarimi yönlendirmesini atla) */
+var kocAiGenStayInPanel = false;
+var danaKarneLastTopics = null;
+var danaTelafiModalBound = false;
+var optikHataTelafiModalBound = false;
 
 /** Test tasarımı: havuz soruları — F5 sonrası geri yükleme (sessionStorage ile uyumlu) */
 var KOC_LS_CURRENT_TEST_QUESTIONS = "koc_currentTestQuestions";
@@ -1432,6 +1510,14 @@ function initAiTestGenWizard() {
       } catch (se) {
         console.warn("[ai-test] sessionStorage:", se);
         showToast("Tarayıcı depolaması kapalı; test sayfasına geçilemiyor.");
+        if (btnAi) btnAi.disabled = false;
+        return;
+      }
+
+      if (kocAiGenStayInPanel) {
+        kocAiGenStayInPanel = false;
+        navigateTo("testmaker");
+        showToast("Telafi testi tasarım ekranına aktarıldı.", { variant: "success" });
         if (btnAi) btnAi.disabled = false;
         return;
       }
@@ -3254,6 +3340,10 @@ const navigateCallbacks = [];
 let currentView = "dashboard";
 /** AI Test Üretici: 1.5s sonra testmaker’a geçiş zamanlayıcısı (iptal / takılma önleme) */
 let tmAiGenNavigateTimer = null;
+/** Ultra-Detaylı Karne (Deneme Analizi) — Chart.js örnekleri */
+let danaKarneTrendInst = null;
+let danaKarneRadarInst = null;
+let danaKarneTopicInst = null;
 
 function clearFirestoreListeners() {
   firestoreUnsubs.forEach(function (unsub) {
@@ -4154,10 +4244,7 @@ function renderStudentsPage() {
       var track = s.examGroup || s.track || s.paket || "TYT + AYT";
       var sid = escapeHtml(s.id);
       var rawAv = s.avatarUrl;
-      var src =
-        rawAv && /^https?:\/\//i.test(String(rawAv).trim())
-          ? String(rawAv).trim()
-          : buildStudentAvatarUrl(name, s.gender);
+      var src = yksStudentAvatarDisplaySrc(rawAv, name, s.gender);
       return (
         '<article class="student-card">' +
         '<img src="' +
@@ -4282,11 +4369,17 @@ async function migrateStudentDocumentId(oldId, newIdRaw) {
   delete pdata.id;
   try {
     await setDoc(newRef, pdata);
-    var subSnap = await getDocs(collection(db, "students", oldId, "atananKaynaklar"));
+    var subSnap = await getDocs(
+      query(
+        collection(db, APPWRITE_COLLECTION_ATANAN_KAYNAKLAR),
+        where("student_id", "==", oldId),
+        where("coach_id", "==", cid)
+      )
+    );
     var si;
     for (si = 0; si < subSnap.docs.length; si++) {
       var subd = subSnap.docs[si];
-      await setDoc(doc(db, "students", newId, "atananKaynaklar", subd.id), subd.data());
+      await updateDoc(doc(db, APPWRITE_COLLECTION_ATANAN_KAYNAKLAR, subd.id), { student_id: newId });
     }
     async function patchCol(rows, colName) {
       for (var ri = 0; ri < rows.length; ri++) {
@@ -4322,9 +4415,6 @@ async function migrateStudentDocumentId(oldId, newIdRaw) {
       }),
       "coach_tasks"
     );
-    for (si = 0; si < subSnap.docs.length; si++) {
-      await deleteDoc(doc(db, "students", oldId, "atananKaynaklar", subSnap.docs[si].id));
-    }
     await deleteDoc(oldRef);
     try {
       var m = sdLoadNotesMap();
@@ -4686,10 +4776,7 @@ function renderStudentDetailPage() {
   var name = st.name || st.studentName || "Öğrenci";
   nameEl.textContent = name;
   var rawAv = st.avatarUrl;
-  var src =
-    rawAv && /^https?:\/\//i.test(String(rawAv).trim())
-      ? String(rawAv).trim()
-      : buildStudentAvatarUrl(name, st.gender);
+  var src = yksStudentAvatarDisplaySrc(rawAv, name, st.gender);
   if (imgEl) {
     imgEl.src = src;
     imgEl.alt = name;
@@ -5928,6 +6015,11 @@ function optikManualUpdateKpi() {
     });
     el.textContent = sum.toFixed(2) + " net";
   });
+  try {
+    yksRenderOptikHataKarnesi();
+  } catch (eHk) {
+    console.warn("[hata-karne] optik:", eHk);
+  }
 }
 
 function renderOptikManualBranchRoot() {
@@ -6972,10 +7064,7 @@ function renderStudentsList(docs) {
       const s = docSnap.data ? docSnap.data() : docSnap;
       const name = s.name || s.studentName || "Öğrenci";
       var rawAv2 = s.avatarUrl;
-      var img =
-        rawAv2 && /^https?:\/\//i.test(String(rawAv2).trim())
-          ? String(rawAv2).trim().replace(/"/g, "")
-          : buildStudentAvatarUrl(name, s.gender);
+      var img = String(yksStudentAvatarDisplaySrc(rawAv2, name, s.gender)).replace(/"/g, "");
       const track = s.examGroup || s.track || s.paket || "TYT + AYT";
       return (
         "<li><img src=\"" +
@@ -7530,24 +7619,9 @@ async function firestoreDeleteConfirmed(collectionName, docId) {
   }
 }
 
-/** 40 pastel çizgi film avatar — cinsiyet havuzlarına ayrılmış (Dicebear avataaars) */
-var YKS_CARTOON_BG = ["b6e3f4", "c0aede", "ffd5dc", "d1d4f9", "ffdfbf", "bae6fd", "bbf7d0", "fde68a"];
-function yksBuildAvatarUrl(index1Based) {
-  var bg = YKS_CARTOON_BG[(index1Based - 1) % YKS_CARTOON_BG.length];
-  return (
-    "https://api.dicebear.com/7.x/avataaars/png?seed=" +
-    encodeURIComponent("yks_pastel_" + index1Based) +
-    "&size=128&backgroundColor=" +
-    bg
-  );
-}
-var erkekAvatarları = [];
-for (var _ei = 1; _ei <= 14; _ei++) erkekAvatarları.push(yksBuildAvatarUrl(_ei));
-var kadinAvatarları = [];
-for (var _ki = 15; _ki <= 27; _ki++) kadinAvatarları.push(yksBuildAvatarUrl(_ki));
-var tesetturAvatarları = [];
-for (var _ti = 28; _ti <= 40; _ti++) tesetturAvatarları.push(yksBuildAvatarUrl(_ti));
-var YKS_CARTOON_AVATAR_POOL = erkekAvatarları.concat(kadinAvatarları, tesetturAvatarları);
+/** 40 adet yerel minimalist çizgi film avatar (20 Erkek / 20 Kadın) — `yks-cartoon-avatars.js` */
+var erkekAvatarları = YKS_CARTOON_AVATAR_MALE.slice();
+var kadinAvatarları = YKS_CARTOON_AVATAR_FEMALE.slice();
 var studentAddAvatarState = { mode: "preset", url: erkekAvatarları[0], customDataUrl: "" };
 var studentEditAvatarState = { mode: "preset", url: erkekAvatarları[0], customDataUrl: "" };
 
@@ -7558,17 +7632,26 @@ function normalizeGender(gender) {
   return "Erkek";
 }
 
-/**
- * Otomatik avatar: cinsiyete göre 1–20 arası rastgele numaralı yerel PNG yolu döndürür.
- * Örn. Erkek + 5 → img/avatars/male/male_5.png, Kadın + 12 → img/avatars/female/female_12.png
- * Not: Eski kayıtlarda "Tesettür" gelirse normalizeGender -> "Kadın" yapar.
- */
+/** Rastgele çizgi film avatar (cinsiyet havuzundan SVG data URL). */
 function getAvatarByGender(cinsiyet) {
   var g = normalizeGender(cinsiyet);
-  var n = Math.floor(Math.random() * 20) + 1;
-  return g === "Erkek"
-    ? "img/avatars/male/male_" + n + ".png"
-    : "img/avatars/female/female_" + n + ".png";
+  var pool = g === "Erkek" ? erkekAvatarları : kadinAvatarları;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+/** Kayıtlı / önizleme URL'si: http(s), data:image, img/... veya kök-relative yol kullan; aksi halde isim+cinsiyetten seç. */
+function yksStudentAvatarDisplaySrc(rawAv, fullName, gender) {
+  var r = rawAv != null ? String(rawAv).trim() : "";
+  if (
+    r &&
+    (/^https?:\/\//i.test(r) ||
+      /^data:image\//i.test(r) ||
+      /^img\//i.test(r) ||
+      (r.charAt(0) === "/" && r.length > 1))
+  ) {
+    return r;
+  }
+  return buildStudentAvatarUrl(fullName, gender);
 }
 
 function getAvatarPoolByGender(gender) {
@@ -7709,6 +7792,8 @@ function applySpaInitialShellState() {
   var app = document.querySelector(".app");
   if (app) app.classList.remove("app--testmaker-workspace");
   currentView = "dashboard";
+  clearDenemeAnalizTakvimCountdowns();
+  destroyDanaKarneCharts();
   document.querySelectorAll(".main-view").forEach(function (el) {
     var v = el.getAttribute("data-view");
     var on = v === "dashboard";
@@ -7741,8 +7826,8 @@ function openAvatarGallerySheet(target) {
   // Tesettür artık yok; avatar seçimi sadece Erkek/Kadın sabit eşleşmesi üzerinden yapılır.
   var pool =
     target === "edit"
-      ? [getAvatarByGender(getSelectedEditGender())]
-      : [getAvatarByGender(getSelectedAddGender())];
+      ? getAvatarPoolByGender(getSelectedEditGender()).slice()
+      : getAvatarPoolByGender(getSelectedAddGender()).slice();
   if (!grid || !pool.length) return;
   window.__avatarGalleryPool = pool;
   grid.innerHTML = pool
@@ -7948,6 +8033,192 @@ var edsDaState = {
   rows: {},
   weakTopics: {},
 };
+
+/** Son çizilen Hata Karnesi satırları (AI telafi): { soruNo, dersKonu, durum, sure }[] */
+var yksHataKarnesiLastList = [];
+
+function yksNormTr(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ı/g, "i")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c")
+    .replace(/̇/g, "")
+    .replace(/İ/g, "i");
+}
+
+function yksTyTSegmentMeta() {
+  var start = 1;
+  var segs = [];
+  YKS_TYT_BRANCHES.forEach(function (br) {
+    var konular = br.konular && br.konular.length ? br.konular : [br.label];
+    if (br.alt && br.alt.length) {
+      br.alt.forEach(function (a) {
+        segs.push({
+          key: br.id + "_" + a.id,
+          soru: a.soru,
+          ders: br.label,
+          sub: a.label,
+          konular: konular,
+          globalStart: start,
+        });
+        start += a.soru;
+      });
+    } else {
+      segs.push({
+        key: br.id,
+        soru: br.soru,
+        ders: br.label,
+        sub: "",
+        konular: konular,
+        globalStart: start,
+      });
+      start += br.soru;
+    }
+  });
+  return segs;
+}
+
+function yksAytSegmentMeta(aytAlan) {
+  var alan = YKS_AYT_BY_ALAN[aytAlan || "sayisal"];
+  var start = 1;
+  var segs = [];
+  if (!alan) return segs;
+  alan.branches.forEach(function (br) {
+    var konular = br.konular && br.konular.length ? br.konular : [br.label];
+    segs.push({
+      key: "ayt_" + br.id,
+      soru: br.soru,
+      ders: br.label,
+      sub: "",
+      konular: konular,
+      globalStart: start,
+    });
+    start += br.soru;
+  });
+  return segs;
+}
+
+/**
+ * D/Y/B branş toplamlarından soru numaralı hata listesi (MVP: yanlış/boşlar ünite içinde sırayla konuya dağıtılır).
+ */
+function yksBuildHataKarnesiList(rowsDict, examMode, aytAlan) {
+  var segs = examMode === "TYT" ? yksTyTSegmentMeta() : yksAytSegmentMeta(aytAlan);
+  var out = [];
+  segs.forEach(function (seg) {
+    var r = rowsDict[seg.key];
+    if (!r) r = { d: 0, y: 0, soru: seg.soru };
+    var cl = clampDy(seg.soru, r.d, r.y);
+    var yN = cl.y;
+    var bN = Math.max(0, seg.soru - cl.d - cl.y);
+    var topicIx = 0;
+    var i;
+    for (i = 0; i < yN; i++) {
+      var topic = seg.konular[topicIx % seg.konular.length];
+      topicIx++;
+      var dk = seg.sub ? seg.ders + " (" + seg.sub + ") > " + topic : seg.ders + " > " + topic;
+      out.push({ soruNo: seg.globalStart + i, dersKonu: dk, durum: "Yanlış", sure: "—" });
+    }
+    for (var j = 0; j < bN; j++) {
+      var topic2 = seg.konular[topicIx % seg.konular.length];
+      topicIx++;
+      var dk2 = seg.sub ? seg.ders + " (" + seg.sub + ") > " + topic2 : seg.ders + " > " + topic2;
+      out.push({ soruNo: seg.globalStart + yN + j, dersKonu: dk2, durum: "Boş", sure: "—" });
+    }
+  });
+  out.sort(function (a, b) {
+    return a.soruNo - b.soruNo;
+  });
+  return out;
+}
+
+/**
+ * "Ders > konu" görünen etiketi yksAiCurriculum satırına (exam, subject, topic) yaklaştırır.
+ */
+function yksResolveDisplayKonuToAi(dersKonu) {
+  var parts = String(dersKonu)
+    .split(">")
+    .map(function (x) {
+      return x.trim();
+    })
+    .filter(Boolean);
+  var tail = parts.length ? parts[parts.length - 1] : "";
+  var head = parts.length > 1 ? parts[0] : "";
+  var pack = yksNormTr(tail + " " + head);
+  var words = pack.split(/[^a-z0-9]+/i).filter(function (w) {
+    return w.length > 2;
+  });
+  if (!words.length) words = [yksNormTr(tail)];
+  var best = null;
+  var bestScore = 0;
+  ["TYT", "AYT"].forEach(function (ex) {
+    var bag = yksAiCurriculum[ex];
+    if (!bag || typeof bag !== "object") return;
+    Object.keys(bag).forEach(function (subj) {
+      var list = bag[subj];
+      if (!Array.isArray(list)) return;
+      for (var i = 0; i < list.length; i++) {
+        var line = list[i];
+        var ln = yksNormTr(line);
+        var sc = 0;
+        var w;
+        for (w = 0; w < words.length; w++) {
+          if (ln.indexOf(words[w]) !== -1) sc += 14;
+        }
+        if (head && yksNormTr(subj).indexOf(yksNormTr(head).slice(0, 3)) !== -1) sc += 6;
+        if (sc > bestScore) {
+          bestScore = sc;
+          best = { exam: ex, subject: subj, topic: line };
+        }
+      }
+    });
+  });
+  if (best && bestScore >= 20) return best;
+  return null;
+}
+
+function yksRenderHataKarnesiTbody(tbodyId, list) {
+  var tb = document.getElementById(tbodyId);
+  if (!tb) return;
+  if (!list.length) {
+    tb.innerHTML =
+      '<tr><td colspan="4" class="optik-hata-karne__empty">Bu girişte yanlış veya boş soru yok.</td></tr>';
+    return;
+  }
+  tb.innerHTML = list
+    .map(function (row) {
+      var cls = row.durum === "Yanlış" ? "is-wrong" : "is-empty";
+      return (
+        "<tr class=\"" +
+        cls +
+        "\"><td data-label=\"No\">" +
+        row.soruNo +
+        '</td><td data-label="Konu">' +
+        escapeHtml(row.dersKonu) +
+        '</td><td data-label="Durum"><span class="optik-hata-karne__badge">' +
+        escapeHtml(row.durum) +
+        '</span></td><td data-label="Süre">' +
+        escapeHtml(row.sure) +
+        "</td></tr>"
+      );
+    })
+    .join("");
+}
+
+function yksRenderOptikHataKarnesi() {
+  var list = yksBuildHataKarnesiList(optikManualState.rows, optikManualState.examMode, optikManualState.aytAlan);
+  yksHataKarnesiLastList = list;
+  yksRenderHataKarnesiTbody("optikHataKarneTbody", list);
+}
+
+function yksRenderEdsHataKarnesi() {
+  var list = yksBuildHataKarnesiList(edsDaState.rows, edsDaState.examMode, edsDaState.aytAlan);
+  yksHataKarnesiLastList = list;
+  yksRenderHataKarnesiTbody("edsHataKarneTbody", list);
+}
 
 function daLoadChartStore() {
   try {
@@ -8214,6 +8485,7 @@ function edsUpdateKpi() {
     });
     el.textContent = sum.toFixed(2) + " net";
   });
+  yksRenderEdsHataKarnesi();
 }
 
 function edsHtmlDyRow(label, rowKey, soru) {
@@ -9361,6 +9633,7 @@ var MODAL_IDS = [
   "testModal",
   "financeModal",
   "examModal",
+  "bulkStudentImportModal",
   "kkModalAta",
   "hpWeeklyTaskModal",
   "profileSettingsModal",
@@ -9374,6 +9647,8 @@ function closeAllModals() {
   if (!o) return;
   var sm = document.getElementById("studentModal");
   if (sm && !sm.hidden) resetStudentModalPanes();
+  var bim = document.getElementById("bulkStudentImportModal");
+  if (bim && !bim.hidden) resetBulkStudentImportModalUi();
   MODAL_IDS.forEach(function (id) {
     var m = document.getElementById(id);
     if (m) m.hidden = true;
@@ -9399,6 +9674,7 @@ function closeModal(modalId) {
   var o = document.getElementById("modalOverlay");
   if (!m || !o) return;
   if (modalId === "studentModal") resetStudentModalPanes();
+  if (modalId === "bulkStudentImportModal") resetBulkStudentImportModalUi();
   if (modalId === "hpWeeklyTaskModal") hpResetWeeklyTaskModalChrome();
   if (modalId === "tmPageDeleteConfirmModal") tmPendingDeletePaper = null;
   m.hidden = true;
@@ -9516,12 +9792,16 @@ function editStudent(studentId) {
   var title = document.getElementById("modalStudentTitle");
   if (sub) sub.textContent = "Kayıt güncelleniyor. ID: " + studentId.slice(0, 8) + "…";
   if (title) title.innerHTML = '<i class="fa-solid fa-user-pen"></i> Öğrenci düzenle';
-  var fullNm = ((fn || "") + " " + (ln || "")).trim();
   var av = s.avatarUrl;
-  var isData = av && String(av).indexOf("data:") === 0;
-  // Preset avatar artık cinsiyete göre sabit atanıyor.
-  if (!isData) av = getAvatarByGender(g);
-  setEditStudentAvatarPreview(av, { mode: isData ? "custom" : "preset" });
+  var strAv = av != null ? String(av).trim() : "";
+  var isRasterCustom = /^data:image\/(jpeg|png|webp|gif)/i.test(strAv);
+  if (!strAv) {
+    setEditStudentAvatarPreview(getAvatarByGender(g), { mode: "preset" });
+  } else if (isRasterCustom) {
+    setEditStudentAvatarPreview(strAv, { mode: "custom" });
+  } else {
+    setEditStudentAvatarPreview(strAv, { mode: "preset" });
+  }
   openModal("studentModal");
   if (addPane) addPane.hidden = true;
   if (editPane) editPane.hidden = false;
@@ -9565,7 +9845,7 @@ async function submitStudentAddForm(e) {
   data.avatarUrl =
     studentAddAvatarState.mode === "custom" && studentAddAvatarState.customDataUrl
       ? studentAddAvatarState.customDataUrl
-      : getAvatarByGender(data.gender);
+      : studentAddAvatarState.url || getAvatarByGender(data.gender);
   data.track = data.examGroup && data.examGroup !== "" ? data.examGroup : "TYT + AYT";
   data.status = data.status || "Aktif";
 
@@ -9646,6 +9926,452 @@ async function submitStudentAddForm(e) {
   }
 }
 
+function normalizeBulkImportHeaderKey(key) {
+  return String(key == null ? "" : key)
+    .trim()
+    .toLowerCase()
+    .replace(/ı/g, "i")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c")
+    .replace(/\s+/g, " ");
+}
+
+function bulkImportRowNormalizedMap(row) {
+  var out = {};
+  for (var k in row) {
+    if (!Object.prototype.hasOwnProperty.call(row, k)) continue;
+    out[normalizeBulkImportHeaderKey(k)] = row[k];
+  }
+  return out;
+}
+
+function bulkImportGetCell(normRow, aliases) {
+  for (var i = 0; i < aliases.length; i++) {
+    var a = normalizeBulkImportHeaderKey(aliases[i]);
+    if (normRow[a] !== undefined && normRow[a] !== null && String(normRow[a]).trim() !== "") {
+      return normRow[a];
+    }
+  }
+  return "";
+}
+
+/** Form select değerleriyle eşle (birebir veya normalize edilmiş). */
+function bulkImportMatchEnumOption(raw, options) {
+  var t = String(raw == null ? "" : raw).trim();
+  if (!t) return "";
+  var i;
+  for (i = 0; i < options.length; i++) {
+    if (options[i] === t) return options[i];
+  }
+  var na = normalizeBulkImportHeaderKey(t);
+  for (i = 0; i < options.length; i++) {
+    if (normalizeBulkImportHeaderKey(options[i]) === na) return options[i];
+  }
+  var compact = na.replace(/\s+/g, "");
+  for (i = 0; i < options.length; i++) {
+    if (normalizeBulkImportHeaderKey(options[i]).replace(/\s+/g, "") === compact) return options[i];
+  }
+  if (options === STUDENT_FORM_FIELD_TYPES) {
+    var tl = t.toLowerCase().replace(/ı/g, "i");
+    if (tl === "ea" || /^e[sş]it/.test(tl)) return "Eşit Ağırlık (EA)";
+    if (/say|sayisal/.test(tl)) return "Sayısal";
+    if (/s[oö]zel/.test(tl)) return "Sözel";
+    if (tl === "dil") return "Dil";
+  }
+  return "";
+}
+
+/** Excel satırından Erkek / Kadın — avatar havuzu için (manuel form radio ile aynı). */
+function bulkImportNormalizeGenderForStudent(raw) {
+  var s = String(raw == null ? "" : raw).trim();
+  if (!s) return "Erkek";
+  var t = s.toLowerCase().replace(/ı/g, "i");
+  if (/kadın|kadin|kız|kiz|bayan|female/.test(t)) return "Kadın";
+  if (/erkek|bay\b|male\b/.test(t)) return "Erkek";
+  return normalizeGender(s);
+}
+
+function isBulkStudentTemplateDummyRow(norm) {
+  var first = String(bulkImportGetCell(norm, ["Ad"]) || "").trim();
+  var last = String(bulkImportGetCell(norm, ["Soyad"]) || "").trim();
+  if (last !== "Demir") return false;
+  if (first !== "Ayşe" && first !== "Ayse") return false;
+  var ph = String(bulkImportGetCell(norm, ["Veli telefonu"]) || "").replace(/\D/g, "");
+  return ph === "05321234567" || ph === "5321234567";
+}
+
+function putBulkIfNonEmpty(data, key, val) {
+  var v = val != null ? String(val).trim() : "";
+  if (v !== "") data[key] = v;
+}
+
+/**
+ * Manuel `submitStudentAddForm` ile aynı Firestore alanları + portal şifresi meta.
+ * @returns {{ entry: object|null, skipReason: string|null }}
+ */
+function buildBulkStudentImportEntry(normRow) {
+  var first = String(bulkImportGetCell(normRow, ["Ad"]) || "").trim();
+  var last = String(bulkImportGetCell(normRow, ["Soyad"]) || "").trim();
+  var parentPhone = String(
+    bulkImportGetCell(normRow, ["Veli telefonu", "Veli Telefonu", "Veli tel", "Telefon"]) || ""
+  ).trim();
+  if (!first || !last || !parentPhone) return { entry: null, skipReason: "Eksik zorunlu alan" };
+
+  var tcRaw = String(bulkImportGetCell(normRow, ["TCKN", "Tckn"]) || "").trim();
+  if (tcRaw && String(tcRaw).replace(/\D/g, "").length !== 11)
+    return { entry: null, skipReason: "Geçersiz TCKN" };
+
+  var gender = bulkImportNormalizeGenderForStudent(bulkImportGetCell(normRow, ["Cinsiyet"]));
+
+  var examRaw = String(bulkImportGetCell(normRow, ["Sınav grubu", "Sinav grubu"]) || "").trim();
+  var examGroup = "";
+  if (examRaw) {
+    examGroup = bulkImportMatchEnumOption(examRaw, STUDENT_FORM_EXAM_GROUPS);
+    if (!examGroup) return { entry: null, skipReason: "Sınav grubu form listesiyle eşleşmiyor" };
+  }
+
+  var fieldRaw = String(bulkImportGetCell(normRow, ["Alan"]) || "").trim();
+  var fieldType = "";
+  if (fieldRaw) {
+    fieldType = bulkImportMatchEnumOption(fieldRaw, STUDENT_FORM_FIELD_TYPES);
+    if (!fieldType) return { entry: null, skipReason: "Alan form listesiyle eşleşmiyor" };
+  }
+
+  var relRaw = String(bulkImportGetCell(normRow, ["Yakınlık derecesi", "Yakinlik derecesi"]) || "").trim();
+  var parentRelation = "";
+  if (relRaw) {
+    parentRelation = bulkImportMatchEnumOption(relRaw, STUDENT_FORM_PARENT_RELATIONS);
+    if (!parentRelation) return { entry: null, skipReason: "Yakınlık derecesi form listesiyle eşleşmiyor" };
+  }
+
+  var portalRawOrig = String(bulkImportGetCell(normRow, ["Portal kullanıcı adı"]) || "").trim();
+  var passRaw = String(bulkImportGetCell(normRow, ["Giriş şifresi", "Giris sifresi"]) || "").trim();
+  var uSan = sanitizeStudentPortalUsername(portalRawOrig);
+  var wantAuth = !!portalRawOrig;
+  if (wantAuth && !uSan) return { entry: null, skipReason: "Portal kullanıcı adı geçersiz (a-z, 0-9, _)" };
+
+  var portalPassword = passRaw;
+  if (wantAuth && (!portalPassword || String(portalPassword).length < 8))
+    portalPassword = STUDENT_BULK_DEFAULT_PORTAL_PASSWORD;
+
+  var data = {
+    firstName: first,
+    lastName: last,
+    name: (first + " " + last).trim(),
+    gender: gender,
+    parentPhone: parentPhone,
+    phone: parentPhone,
+    status: "Aktif",
+    avatarUrl: getAvatarByGender(gender),
+  };
+
+  if (tcRaw) data.tcKimlikNo = tcRaw;
+  putBulkIfNonEmpty(data, "schoolName", bulkImportGetCell(normRow, ["Okul"]));
+  putBulkIfNonEmpty(data, "classGrade", bulkImportGetCell(normRow, ["Sınıf", "Sinif"]));
+  if (examGroup) data.examGroup = examGroup;
+  if (fieldType) data.fieldType = fieldType;
+  putBulkIfNonEmpty(data, "currentTytNet", bulkImportGetCell(normRow, ["Güncel net", "Guncel net"]));
+  putBulkIfNonEmpty(data, "targetTytNet", bulkImportGetCell(normRow, ["Hedef net"]));
+  putBulkIfNonEmpty(
+    data,
+    "targetUniversity",
+    bulkImportGetCell(normRow, ["Hedef üniversite", "Hedef universite"])
+  );
+  putBulkIfNonEmpty(
+    data,
+    "targetDepartment",
+    bulkImportGetCell(normRow, ["Hedef bölüm / program", "Hedef bolum / program"])
+  );
+  putBulkIfNonEmpty(data, "parentFullName", bulkImportGetCell(normRow, ["Veli adı soyadı", "Veli adi soyadi"]));
+  if (parentRelation) data.parentRelation = parentRelation;
+  putBulkIfNonEmpty(
+    data,
+    "emergencyContactName",
+    bulkImportGetCell(normRow, ["Acil durum kişisi", "Acil durum kisisi"])
+  );
+  putBulkIfNonEmpty(data, "registrationDate", bulkImportGetCell(normRow, ["Kayıt tarihi", "Kayit tarihi"]));
+
+  var qRaw = bulkImportGetCell(normRow, ["Toplam ücret (₺)", "Toplam ücret", "Toplam ucret"]);
+  if (qRaw !== "" && qRaw != null) {
+    var fee = parseFloat(String(qRaw).replace(",", "."), 10);
+    if (!isNaN(fee)) data.agreedTotalFee = fee;
+  }
+  var taksitRaw = bulkImportGetCell(normRow, ["Taksit sayısı", "Taksit sayisi"]);
+  if (taksitRaw !== "" && taksitRaw != null) {
+    var ins = parseInt(taksitRaw, 10);
+    if (!isNaN(ins)) data.installmentCount = Math.min(36, Math.max(1, ins));
+  }
+
+  data.track = data.examGroup && data.examGroup !== "" ? data.examGroup : "TYT + AYT";
+
+  return {
+    entry: {
+      data: data,
+      wantAuth: wantAuth,
+      portalUsername: uSan,
+      portalPassword: portalPassword,
+    },
+    skipReason: null,
+  };
+}
+
+function parseBulkStudentWorkbookRows(arrayBuffer) {
+  if (typeof XLSX === "undefined") throw new Error("SheetJS (xlsx) yüklenemedi.");
+  var wb = XLSX.read(arrayBuffer, { type: "array" });
+  var sn = wb.SheetNames && wb.SheetNames[0];
+  if (!sn) throw new Error("Çalışma sayfası bulunamadı.");
+  var ws = wb.Sheets[sn];
+  var rows = XLSX.utils.sheet_to_json(ws, { defval: "", raw: false });
+  var payloads = [];
+  var skipped = 0;
+  for (var i = 0; i < rows.length; i++) {
+    var norm = bulkImportRowNormalizedMap(rows[i]);
+    if (isBulkStudentTemplateDummyRow(norm)) continue;
+    var built = buildBulkStudentImportEntry(norm);
+    if (built.entry) payloads.push(built.entry);
+    else {
+      var keys = Object.keys(norm);
+      if (keys.length && keys.some(function (k) { return String(norm[k]).trim() !== ""; })) skipped++;
+    }
+  }
+  return { payloads: payloads, skipped: skipped };
+}
+
+function resetBulkStudentImportModalUi() {
+  var dz = document.getElementById("bulkImportDropzone");
+  var fi = document.getElementById("bulkImportFileInput");
+  var pr = document.getElementById("bulkImportProgress");
+  var fl = document.getElementById("bulkImportProgressFill");
+  var lb = document.getElementById("bulkImportProgressLabel");
+  if (fi) fi.value = "";
+  if (dz) {
+    dz.classList.remove("is-dragover");
+    dz.style.pointerEvents = "";
+    dz.setAttribute("aria-busy", "false");
+  }
+  if (pr) {
+    pr.hidden = true;
+    pr.classList.remove("is-busy");
+  }
+  if (fl) fl.style.width = "0%";
+  if (lb) lb.textContent = "Hazır";
+}
+
+function setBulkImportProgress(done, total) {
+  var fl = document.getElementById("bulkImportProgressFill");
+  var lb = document.getElementById("bulkImportProgressLabel");
+  var pr = document.getElementById("bulkImportProgress");
+  if (pr) pr.hidden = false;
+  var pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  if (fl) fl.style.width = pct + "%";
+  if (lb) lb.textContent = done + " / " + total + " kayıt işlendi";
+}
+
+function downloadExcelTemplate() {
+  if (typeof XLSX === "undefined") {
+    showToast("Excel kütüphanesi yüklenemedi; sayfayı yenileyin.");
+    return;
+  }
+  var wb = XLSX.utils.book_new();
+  var headers = STUDENT_BULK_EXCEL_HEADERS.slice();
+  var exampleRow = STUDENT_BULK_TEMPLATE_DUMMY_ROW.slice();
+  var ws = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
+  XLSX.utils.book_append_sheet(wb, ws, "Öğrenciler");
+  XLSX.writeFile(wb, "DerecePanel_Ogrenci_Sablonu.xlsx");
+}
+
+if (typeof window !== "undefined") window.downloadExcelTemplate = downloadExcelTemplate;
+
+function cloneBulkStudentData(entry) {
+  return Object.assign({}, entry.data);
+}
+
+async function persistBulkStudentNoAuth(entry) {
+  var data = cloneBulkStudentData(entry);
+  delete data.portalUsername;
+  data.createdAt = serverTimestamp();
+  data.coach_id = getCoachId();
+  await addDoc(collection(db, "students"), data);
+}
+
+async function persistBulkStudentWithAuth(entry) {
+  var data = cloneBulkStudentData(entry);
+  var u = entry.portalUsername;
+  var pass = entry.portalPassword;
+  data.portalUsername = u;
+  data.createdAt = serverTimestamp();
+  data.coach_id = getCoachId();
+  try {
+    var email = u + STUDENT_EMAIL_DOMAIN;
+    var cred = await createEmailPasswordUserNoSession(email, pass);
+    await setDoc(doc(db, "users", cred.user.uid), {
+      username: u,
+      role: "student",
+      coach_id: getCoachId(),
+      fullName: data.name || null,
+      frozen: false,
+      plainPassword: pass,
+      createdAt: serverTimestamp(),
+      lastPasswordChangeAt: serverTimestamp(),
+    });
+    data.studentAuthUid = cred.user.uid;
+  } catch (authErr) {
+    console.warn("[bulk student] Portal hesabı oluşturulamadı; öğrenci kaydı yine de ekleniyor:", authErr);
+    data.portalAuthPending = true;
+  }
+  await addDoc(collection(db, "students"), data);
+}
+
+/** Promise.all ile toplu yazım; portal satırlarında önce Firebase Auth (sıralı), sonra döküman. */
+async function runBulkStudentFirestoreImport(entries) {
+  if (!getCoachId()) throw new Error("Oturum bilgisi eksik; yeniden giriş yapın.");
+  var total = entries.length;
+  var done = 0;
+  var batch = [];
+  var chunkSize = 32;
+  async function flushBatch() {
+    if (!batch.length) return;
+    await Promise.all(batch);
+    batch = [];
+  }
+  for (var i = 0; i < entries.length; i++) {
+    var entry = entries[i];
+    if (entry.wantAuth) {
+      await flushBatch();
+      await persistBulkStudentWithAuth(entry);
+    } else {
+      batch.push(persistBulkStudentNoAuth(entry));
+      if (batch.length >= chunkSize) {
+        await flushBatch();
+      }
+    }
+    done++;
+    setBulkImportProgress(done, total);
+  }
+  await flushBatch();
+}
+
+async function handleBulkStudentImportFile(file) {
+  if (!file) return;
+  var dz = document.getElementById("bulkImportDropzone");
+  if (dz) {
+    dz.style.pointerEvents = "none";
+    dz.setAttribute("aria-busy", "true");
+  }
+  var pr = document.getElementById("bulkImportProgress");
+  if (pr) {
+    pr.hidden = false;
+    pr.classList.add("is-busy");
+  }
+  var pl0 = document.getElementById("bulkImportProgressLabel");
+  var fl0 = document.getElementById("bulkImportProgressFill");
+  if (pl0) pl0.textContent = "Dosya okunuyor…";
+  if (fl0) fl0.style.width = "5%";
+  try {
+    var buf = await file.arrayBuffer();
+    var parsed = parseBulkStudentWorkbookRows(buf);
+    var list = parsed.payloads;
+    if (!list.length) {
+      showToast(
+        "Geçerli satır yok. Zorunlu: Ad, Soyad, Veli telefonu. Sınav grubu, Alan ve Yakınlık doldurulduysa formdaki seçeneklerle aynı olmalıdır. Başlık satırı şablondaki gibi olmalıdır.",
+        { variant: "danger" }
+      );
+      resetBulkStudentImportModalUi();
+      return;
+    }
+    setBulkImportProgress(0, list.length);
+    await runBulkStudentFirestoreImport(list);
+    if (pr) pr.classList.remove("is-busy");
+    closeModal("bulkStudentImportModal");
+    resetBulkStudentImportModalUi();
+    var swal = typeof window !== "undefined" ? window.Swal : null;
+    if (swal && typeof swal.fire === "function") {
+      var extra = parsed.skipped
+        ? "<p style='margin:0.75rem 0 0;font-size:0.9rem;color:#64748b'>" +
+          parsed.skipped +
+          " satır eksik alan nedeniyle atlandı.</p>"
+        : "";
+      var okLine =
+        "<p style='margin:0;font-size:0.95rem;color:#64748b'>Kayıtlar öğrenci listenize işlendi.</p>";
+      swal.fire({
+        icon: "success",
+        title: list.length + " Öğrenci Başarıyla Eklendi",
+        html: okLine + (extra || ""),
+        confirmButtonColor: "#7c3aed",
+      });
+    } else {
+      showToast(list.length + " öğrenci başarıyla eklendi.", { variant: "success" });
+    }
+  } catch (err) {
+    console.error(err);
+    showToast(err.message || String(err), { variant: "danger" });
+    resetBulkStudentImportModalUi();
+  }
+}
+
+function initBulkStudentImportModal() {
+  var btn = document.getElementById("btnPageBulkStudentImport");
+  var dz = document.getElementById("bulkImportDropzone");
+  var fi = document.getElementById("bulkImportFileInput");
+  var tpl = document.getElementById("bulkImportDownloadTemplate");
+  if (btn && !btn.dataset.bulkBound) {
+    btn.dataset.bulkBound = "1";
+    btn.addEventListener("click", function () {
+      resetBulkStudentImportModalUi();
+      openModal("bulkStudentImportModal");
+    });
+  }
+  if (tpl && !tpl.dataset.bulkBound) {
+    tpl.dataset.bulkBound = "1";
+    tpl.addEventListener("click", function () {
+      downloadExcelTemplate();
+    });
+  }
+  if (dz && fi && !dz.dataset.bulkBound) {
+    dz.dataset.bulkBound = "1";
+    dz.addEventListener("click", function () {
+      if (dz.getAttribute("aria-busy") === "true") return;
+      fi.click();
+    });
+    dz.addEventListener("keydown", function (e) {
+      if ((e.key === "Enter" || e.key === " ") && dz.getAttribute("aria-busy") !== "true") {
+        e.preventDefault();
+        fi.click();
+      }
+    });
+    ["dragenter", "dragover"].forEach(function (ev) {
+      dz.addEventListener(ev, function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dz.classList.add("is-dragover");
+      });
+    });
+    dz.addEventListener("dragleave", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var related = e.relatedTarget;
+      if (!related || !dz.contains(related)) dz.classList.remove("is-dragover");
+    });
+    dz.addEventListener("drop", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      dz.classList.remove("is-dragover");
+      var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) handleBulkStudentImportFile(f);
+    });
+  }
+  if (fi && !fi.dataset.bulkBound) {
+    fi.dataset.bulkBound = "1";
+    fi.addEventListener("change", function () {
+      var f = fi.files && fi.files[0];
+      if (f) handleBulkStudentImportFile(f);
+    });
+  }
+}
+
 async function submitStudentEditForm(e) {
   e.preventDefault();
   var editId = (document.getElementById("editStudentDocId") || {}).value;
@@ -9715,7 +10441,7 @@ async function submitStudentEditForm(e) {
   data.avatarUrl =
     studentEditAvatarState.mode === "custom" && studentEditAvatarState.customDataUrl
       ? studentEditAvatarState.customDataUrl
-      : getAvatarByGender(data.gender || gender);
+      : studentEditAvatarState.url || getAvatarByGender(data.gender || gender);
   data.updatedAt = serverTimestamp();
   try {
     await updateDoc(doc(db, "students", editId), data);
@@ -10188,6 +10914,7 @@ function initModals() {
       submitProfileSettings();
     });
   }
+  initBulkStudentImportModal();
 }
 
 function subscribeFirestore() {
@@ -14470,6 +15197,868 @@ function bindTestMakerWorkspace() {
   initTmAutoCropperModule();
 }
 
+function clearDenemeAnalizTakvimCountdowns() {
+  var root = document.getElementById("denemeAnalizTakvimRoot");
+  if (root && root._danaTmr) {
+    clearInterval(root._danaTmr);
+    root._danaTmr = null;
+  }
+}
+
+function initDenemeAnalizTakvimCountdowns() {
+  var root = document.getElementById("denemeAnalizTakvimRoot");
+  if (!root) return;
+  clearDenemeAnalizTakvimCountdowns();
+  var cards = root.querySelectorAll("[data-dana-countdown]");
+  function tick() {
+    var now = Date.now();
+    cards.forEach(function (card) {
+      var iso = card.getAttribute("data-dana-countdown");
+      if (!iso) return;
+      var target = new Date(iso).getTime();
+      var diff = Math.max(0, target - now);
+      var d = Math.floor(diff / 864e5);
+      var h = Math.floor((diff % 864e5) / 36e5);
+      var m = Math.floor((diff % 36e5) / 6e4);
+      var s = Math.floor((diff % 6e4) / 1e3);
+      var units = card.querySelectorAll(".dana-countdown__unit");
+      if (units[0]) units[0].textContent = String(d);
+      if (units[1]) units[1].textContent = String(h).padStart(2, "0");
+      if (units[2]) units[2].textContent = String(m).padStart(2, "0");
+      if (units[3]) units[3].textContent = String(s).padStart(2, "0");
+    });
+  }
+  tick();
+  root._danaTmr = setInterval(tick, 1000);
+}
+
+function destroyDanaKarneCharts() {
+  [danaKarneTrendInst, danaKarneRadarInst, danaKarneTopicInst].forEach(function (ch) {
+    if (ch && typeof ch.destroy === "function") {
+      try {
+        ch.destroy();
+      } catch (e) {
+        console.warn("[dana-karne] chart destroy", e);
+      }
+    }
+  });
+  danaKarneTrendInst = null;
+  danaKarneRadarInst = null;
+  danaKarneTopicInst = null;
+}
+
+function danaKarnePctToColor(pct) {
+  var p = Number(pct) || 0;
+  if (p >= 80) return "#10b981";
+  if (p >= 50) return "#f59e0b";
+  return "#ef4444";
+}
+
+function danaKarneBranchAvg(rows, branch) {
+  var arr = rows.filter(function (r) {
+    return r.branch === branch;
+  });
+  if (!arr.length) return 0;
+  return Math.round(arr.reduce(function (s, r) {
+    return s + r.pct;
+  }, 0) / arr.length);
+}
+
+/** Müfredattaki gerçek yolları doğrulayarak demo kazanım satırları üretir */
+function danaKarneBuildMockTopics() {
+  var M = YKS2026_Mufredat;
+  var out = [];
+  function add(dersKey, unit, topic, pct, branch) {
+    var block = M[dersKey];
+    if (!block || !block[unit] || block[unit].indexOf(topic) === -1) return;
+    out.push({
+      fullLabel: unit + " > " + topic,
+      shortLabel: topic.length > 20 ? topic.slice(0, 18) + "…" : topic,
+      pct: pct,
+      branch: branch,
+      dersKey: dersKey,
+      unit: unit,
+      topicName: topic,
+    });
+  }
+  add("Matematik (TYT/AYT)", "TYT Başlangıç", "Temel Kavramlar", 82, "matematik");
+  add("Matematik (TYT/AYT)", "TYT Denklem/Eşitsizlik", "Üslü Sayılar", 42, "matematik");
+  add("Türkçe (Edebiyat/Dil)", "Dil Bilgisi (TYT)", "Paragrafta Anlam", 63, "turkce");
+  add("Türkçe (Edebiyat/Dil)", "Dil Bilgisi (TYT)", "Sözcükte Anlam", 91, "turkce");
+  add("Fen Bilimleri", "Fizik", "Hareket", 86, "fen");
+  add("Fen Bilimleri", "Kimya", "Mol Kavramı", 54, "fen");
+  add("Fen Bilimleri", "Biyoloji", "Ekoloji", 77, "fen");
+  add("Sosyal Bilimler", "Tarih", "Osmanlı Tarihi", 71, "sosyal");
+  add("Sosyal Bilimler", "Coğrafya", "İklim Bilgisi", 38, "sosyal");
+  add("Matematik (TYT/AYT)", "Geometri", "Üçgenler", 67, "matematik");
+  return out;
+}
+
+/**
+ * Karne satırını `YKS2026_Mufredat` ile `yksAiCurriculum` (TYT/AYT, "ünite — konu") seçeneklerine bağlar.
+ * @returns {{ exam: string, subject: string, topic: string, row: object }|null}
+ */
+function danaKarneRowToAiCurriculum(row) {
+  if (!row || row.unit == null || row.topicName == null || !yksAiCurriculum) return null;
+  var legacyLine = row.unit + " — " + row.topicName;
+  var exams = ["TYT", "AYT"];
+  for (var ei = 0; ei < exams.length; ei++) {
+    var ex = exams[ei];
+    var bag = yksAiCurriculum[ex];
+    if (!bag || typeof bag !== "object") continue;
+    var subjects = Object.keys(bag);
+    for (var si = 0; si < subjects.length; si++) {
+      var subject = subjects[si];
+      var list = bag[subject];
+      if (!Array.isArray(list)) continue;
+      if (list.indexOf(legacyLine) !== -1) {
+        return { exam: ex, subject: subject, topic: legacyLine, row: row };
+      }
+    }
+  }
+  return null;
+}
+
+function danaTelafiModalSetOpen(open) {
+  var root = document.getElementById("danaTelafiConfirmModal");
+  if (!root) return;
+  if (open) {
+    root.removeAttribute("hidden");
+    root.setAttribute("aria-hidden", "false");
+  } else {
+    root.setAttribute("hidden", "");
+    root.setAttribute("aria-hidden", "true");
+  }
+}
+
+/**
+ * AI Üretici formunu doldurup gönderir (karne / hata karnesi telafisi ortak).
+ * @param {{ primary: { exam: string, subject: string, topic: string }, questionCount?: number, difficulty?: string }} plan
+ */
+function kocExecuteAiTelafiPlan(plan) {
+  if (!plan || !plan.primary) return;
+  kocAiGenStayInPanel = true;
+  navigateTo("auto-test");
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () {
+      var form = document.getElementById("formAiTestGen");
+      var exam = document.getElementById("aiExamType");
+      var subj = document.getElementById("aiSubject");
+      var topic = document.getElementById("aiTopic");
+      var cnt = document.getElementById("aiQuestionCount");
+      var diffEl = document.getElementById("aiDifficulty");
+      if (!form || !exam || !subj || !topic) return;
+      exam.value = plan.primary.exam;
+      exam.dispatchEvent(new Event("change", { bubbles: true }));
+      subj.value = plan.primary.subject;
+      subj.dispatchEvent(new Event("change", { bubbles: true }));
+      topic.value = plan.primary.topic;
+      if (cnt && plan.questionCount != null) cnt.value = String(plan.questionCount);
+      if (diffEl && plan.difficulty) diffEl.value = plan.difficulty;
+      var vAt = document.querySelector('.main-view[data-view="auto-test"]');
+      if (vAt) {
+        try {
+          vAt.scrollIntoView({ behavior: "smooth", block: "start" });
+        } catch (eSc) {}
+      }
+      try {
+        form.requestSubmit();
+      } catch (eSub) {
+        form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      }
+    });
+  });
+}
+
+function initDanaTelafiConfirmModal() {
+  if (danaTelafiModalBound) return;
+  var root = document.getElementById("danaTelafiConfirmModal");
+  if (!root) return;
+  danaTelafiModalBound = true;
+  var cancel = document.getElementById("danaTelafiModalCancel");
+  var confirm = document.getElementById("danaTelafiModalConfirm");
+  root.addEventListener("click", function (ev) {
+    var t = ev.target;
+    if (t && t.getAttribute && t.getAttribute("data-dana-telafi-close") != null) danaTelafiModalSetOpen(false);
+  });
+  if (cancel)
+    cancel.addEventListener("click", function () {
+      danaTelafiModalSetOpen(false);
+    });
+  if (confirm)
+    confirm.addEventListener("click", function () {
+      var plan = window.__danaTelafiPendingPlan;
+      window.__danaTelafiPendingPlan = null;
+      danaTelafiModalSetOpen(false);
+      kocExecuteAiTelafiPlan(plan);
+    });
+}
+
+/**
+ * Ultra-Detaylı Karne: %50 altı (kırmızı) konuları toplar, onay sonrası AI Üreticiyi doldurup üretimi başlatır.
+ */
+function yksHataTelafiModalSetOpen(open) {
+  var root = document.getElementById("optikHataTelafiModal");
+  if (!root) return;
+  if (open) {
+    root.removeAttribute("hidden");
+    root.setAttribute("aria-hidden", "false");
+  } else {
+    root.setAttribute("hidden", "");
+    root.setAttribute("aria-hidden", "true");
+  }
+}
+
+function initOptikHataTelafiModal() {
+  if (optikHataTelafiModalBound) return;
+  var root = document.getElementById("optikHataTelafiModal");
+  if (!root) return;
+  optikHataTelafiModalBound = true;
+  var cancel = document.getElementById("optikHataTelafiModalCancel");
+  var confirm = document.getElementById("optikHataTelafiModalConfirm");
+  root.addEventListener("click", function (ev) {
+    var t = ev.target;
+    if (t && t.getAttribute && t.getAttribute("data-optik-hata-telafi-close") != null) yksHataTelafiModalSetOpen(false);
+  });
+  if (cancel)
+    cancel.addEventListener("click", function () {
+      yksHataTelafiModalSetOpen(false);
+    });
+  if (confirm)
+    confirm.addEventListener("click", function () {
+      var plan = window.__optikHataTelafiPendingPlan;
+      window.__optikHataTelafiPendingPlan = null;
+      yksHataTelafiModalSetOpen(false);
+      kocExecuteAiTelafiPlan(plan);
+    });
+}
+
+/**
+ * Hata karnesindeki yanlış/boş satırlardan konuları toplayıp AI Üretici telafisini başlatır (20 soru).
+ */
+function generateHataKarnesiTelafiTest() {
+  initOptikHataTelafiModal();
+  var raw =
+    yksHataKarnesiLastList && yksHataKarnesiLastList.length
+      ? yksHataKarnesiLastList
+      : [];
+  var weak = raw.filter(function (r) {
+    return r.durum === "Yanlış" || r.durum === "Boş";
+  });
+  if (!weak.length) {
+    showToast("Telafi için yanlış veya boş satır yok.");
+    return;
+  }
+  var seen = {};
+  var mapped = [];
+  var mappedLabels = [];
+  for (var i = 0; i < weak.length; i++) {
+    var dk = weak[i].dersKonu;
+    if (!dk || seen[dk]) continue;
+    seen[dk] = 1;
+    var m = yksResolveDisplayKonuToAi(dk);
+    if (m) {
+      mapped.push(m);
+      mappedLabels.push(dk);
+    }
+  }
+  if (!mapped.length) {
+    showToast("Konular havuz müfredatı ile eşleştirilemedi; ders/konu adlarını kontrol edin.");
+    return;
+  }
+  var primary = mapped[0];
+  var uniqLabelStr = mappedLabels.join(", ");
+  var bodyEl = document.getElementById("optikHataTelafiModalBody");
+  if (bodyEl) {
+    bodyEl.innerHTML =
+      "<strong>Tespit edilen konular:</strong> " +
+      escapeHtml(uniqLabelStr) +
+      ".<br><br>Şu konulardan <strong>20 soruluk</strong> telafi PDF'i (havuzdan test tasarımına) hazırlanacak; ilk tarama <strong>" +
+      escapeHtml(primary.topic) +
+      "</strong> için yapılacak. Onaylıyor musunuz?";
+  }
+  window.__optikHataTelafiPendingPlan = {
+    primary: { exam: primary.exam, subject: primary.subject, topic: primary.topic },
+    questionCount: 20,
+    difficulty: "Orta",
+  };
+  yksHataTelafiModalSetOpen(true);
+}
+
+function generateAITelafiTest() {
+  initDanaTelafiConfirmModal();
+  var rows =
+    danaKarneLastTopics && danaKarneLastTopics.length
+      ? danaKarneLastTopics
+      : danaKarneBuildMockTopics();
+  var weak = rows.filter(function (r) {
+    return Number(r.pct) < 50;
+  });
+  if (!weak.length) {
+    showToast("Telafi gerektiren konu yok: tüm kazanımlar %50 ve üzeri görünüyor.", { variant: "success" });
+    return;
+  }
+  var mapped = [];
+  for (var i = 0; i < weak.length; i++) {
+    var m = danaKarneRowToAiCurriculum(weak[i]);
+    if (m) mapped.push(m);
+  }
+  if (!mapped.length) {
+    showToast("Eksik konular havuz müfredatı ile eşleştirilemedi; yks-mufredat eşlemesini kontrol edin.");
+    return;
+  }
+  var labels = weak.map(function (w) {
+    return w.topicName || w.shortLabel || "";
+  }).filter(Boolean);
+  var labelStr = labels.join(", ");
+  var primary = mapped.reduce(function (best, cur) {
+    if (!best) return cur;
+    var bp = Number(best.row && best.row.pct);
+    var cp = Number(cur.row && cur.row.pct);
+    if (cp < bp) return cur;
+    return best;
+  }, null);
+  var bodyEl = document.getElementById("danaTelafiModalBody");
+  if (bodyEl) {
+    bodyEl.innerHTML =
+      "<strong>Tespit edilen eksikler:</strong> " +
+      labelStr +
+      ".<br><br>Yapay zeka havuz taraması şu an <strong>" +
+      (primary.row && primary.row.topicName ? primary.row.topicName : primary.topic) +
+      "</strong> (başarı %" +
+      (primary.row ? primary.row.pct : "—") +
+      ") için otomatik başlayacak. Onaylıyor musunuz?";
+  }
+  var cntEl = document.getElementById("aiQuestionCount");
+  var baseN = parseInt(cntEl && cntEl.value, 10);
+  if (isNaN(baseN)) baseN = 40;
+  baseN = Math.max(10, Math.min(80, baseN));
+  var diffEl0 = document.getElementById("aiDifficulty");
+  window.__danaTelafiPendingPlan = {
+    primary: primary,
+    weakLabels: labels,
+    mappedAll: mapped,
+    questionCount: baseN,
+    difficulty: diffEl0 ? diffEl0.value : "Orta",
+  };
+  danaTelafiModalSetOpen(true);
+}
+
+function danaKarneTrendSeries(studentId) {
+  var base = [32.5, 33.8, 35.2, 36.5, 38.4];
+  var sid = String(studentId || "");
+  if (!sid) return base.slice();
+  var h = 0;
+  for (var i = 0; i < sid.length; i++) {
+    h = (h * 31 + sid.charCodeAt(i)) | 0;
+  }
+  var j = (Math.abs(h) % 11) * 0.12;
+  return base.map(function (v, ix) {
+    return Math.round((v + j * (ix - 2)) * 10) / 10;
+  });
+}
+
+/**
+ * Ultra-Detaylı Karne grafikleri (şimdilik müfredat uyumlu mock veri; studentId ileride Appwrite ile bağlanır).
+ * @param {string} [studentId]
+ */
+async function renderKarneCharts(studentId) {
+  if (typeof Chart === "undefined") {
+    console.warn("[dana-karne] Chart.js yüklü değil.");
+    return;
+  }
+  var sid = String(studentId || "").trim();
+  if (!sid && cachedStudents && cachedStudents.length) {
+    sid = String(cachedStudents[0].id || "").trim();
+  }
+  var st = sid
+    ? cachedStudents.find(function (x) {
+        return String(x.id) === sid;
+      })
+    : null;
+
+  var labelEl = document.getElementById("danaKarneStudentLabel");
+  if (labelEl) {
+    labelEl.textContent = st
+      ? st.name || st.studentName || "Öğrenci"
+      : sid
+        ? "Öğrenci bulunamadı (demo)"
+        : "Demo profili (müfredat uyumlu mock)";
+  }
+
+  var topics = danaKarneBuildMockTopics();
+  danaKarneLastTopics = topics.slice();
+  var trendVals = danaKarneTrendSeries(st && st.id ? st.id : sid);
+  var tMin = Math.min.apply(null, trendVals);
+  var tMax = Math.max.apply(null, trendVals);
+
+  destroyDanaKarneCharts();
+
+  var elTrend = document.getElementById("trendChart");
+  var elRadar = document.getElementById("radarChart");
+  var elTopic = document.getElementById("topicChart");
+  if (!elTrend || !elRadar || !elTopic) return;
+
+  var anim = { duration: 1000, easing: "easeOutQuart" };
+  var commonFont = { family: "'Plus Jakarta Sans', 'Inter', system-ui, sans-serif", size: 11 };
+
+  var wrapT = elTrend.closest(".dana-karne-chart-card__canvas");
+  var gh = wrapT && wrapT.clientHeight ? wrapT.clientHeight : 260;
+  var ctxT = elTrend.getContext("2d");
+  var gradT = ctxT.createLinearGradient(0, 0, 0, gh);
+  gradT.addColorStop(0, "rgba(99, 102, 241, 0.45)");
+  gradT.addColorStop(0.42, "rgba(124, 58, 237, 0.2)");
+  gradT.addColorStop(1, "rgba(124, 58, 237, 0)");
+
+  danaKarneTrendInst = new Chart(ctxT, {
+    type: "line",
+    data: {
+      labels: ["D-4", "D-3", "D-2", "D-1", "Son"],
+      datasets: [
+        {
+          label: "TYT net",
+          data: trendVals,
+          borderColor: "#6366f1",
+          backgroundColor: gradT,
+          borderWidth: 2.5,
+          tension: 0.4,
+          fill: true,
+          pointBackgroundColor: "#4f46e5",
+          pointBorderColor: "#fff",
+          pointBorderWidth: 2,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: anim,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "rgba(15, 23, 42, 0.92)",
+          titleFont: commonFont,
+          bodyFont: commonFont,
+          padding: 12,
+          cornerRadius: 12,
+        },
+      },
+      scales: {
+        y: {
+          beginAtZero: false,
+          suggestedMin: Math.max(0, tMin - 2),
+          suggestedMax: tMax + 2,
+          grid: { color: "rgba(148, 163, 184, 0.22)" },
+          ticks: { font: commonFont, color: "#64748b" },
+        },
+        x: {
+          grid: { display: false },
+          ticks: { font: commonFont, color: "#64748b" },
+        },
+      },
+    },
+  });
+
+  var rMat = danaKarneBranchAvg(topics, "matematik");
+  var rTur = danaKarneBranchAvg(topics, "turkce");
+  var rFen = danaKarneBranchAvg(topics, "fen");
+  var rSos = danaKarneBranchAvg(topics, "sosyal");
+
+  danaKarneRadarInst = new Chart(elRadar.getContext("2d"), {
+    type: "radar",
+    data: {
+      labels: ["Matematik", "Türkçe", "Fen", "Sosyal"],
+      datasets: [
+        {
+          label: "Yetkinlik %",
+          data: [rMat, rTur, rFen, rSos],
+          borderColor: "#7c3aed",
+          backgroundColor: "rgba(124, 58, 237, 0.24)",
+          borderWidth: 2,
+          pointBackgroundColor: "#6d28d9",
+          pointBorderColor: "#fff",
+          pointHoverBackgroundColor: "#5b21b6",
+          pointRadius: 4,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: anim,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "rgba(15, 23, 42, 0.92)",
+          bodyFont: commonFont,
+          titleFont: commonFont,
+          callbacks: {
+            label: function (ctx) {
+              return "Yetkinlik: %" + ctx.raw;
+            },
+          },
+        },
+      },
+      scales: {
+        r: {
+          min: 0,
+          max: 100,
+          ticks: { stepSize: 20, color: "#94a3b8", backdropColor: "transparent" },
+          grid: { color: "rgba(124, 58, 237, 0.12)" },
+          angleLines: { color: "rgba(124, 58, 237, 0.16)" },
+          pointLabels: { font: commonFont, color: "#475569" },
+        },
+      },
+    },
+  });
+
+  var doughLabels = topics.map(function (t) {
+    return t.shortLabel;
+  });
+  var doughData = topics.map(function (t) {
+    return t.pct;
+  });
+  var doughColors = topics.map(function (t) {
+    return danaKarnePctToColor(t.pct);
+  });
+  var fullLabels = topics.map(function (t) {
+    return t.fullLabel;
+  });
+
+  danaKarneTopicInst = new Chart(elTopic.getContext("2d"), {
+    type: "doughnut",
+    data: {
+      labels: doughLabels,
+      datasets: [
+        {
+          data: doughData,
+          backgroundColor: doughColors,
+          borderColor: "#fff",
+          borderWidth: 2,
+          hoverOffset: 10,
+          fullLabels: fullLabels,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "62%",
+      animation: anim,
+      layout: { padding: 10 },
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: {
+            boxWidth: 11,
+            font: commonFont,
+            color: "#475569",
+            padding: 12,
+            usePointStyle: true,
+          },
+        },
+        tooltip: {
+          backgroundColor: "rgba(15, 23, 42, 0.94)",
+          titleFont: { family: commonFont.family, size: 13, weight: "700" },
+          bodyFont: commonFont,
+          padding: 14,
+          cornerRadius: 12,
+          callbacks: {
+            title: function (items) {
+              if (!items.length) return "";
+              var ds = items[0].dataset;
+              var i = items[0].dataIndex;
+              var fl = ds.fullLabels && ds.fullLabels[i];
+              return fl || items[0].label || "";
+            },
+            label: function (ctx) {
+              return "Başarı: %" + ctx.parsed;
+            },
+          },
+        },
+      },
+      onClick: function (_evt, elements, chart) {
+        if (!elements.length) return;
+        var i = elements[0].index;
+        var ds = chart.data.datasets[0];
+        var full = ds.fullLabels && ds.fullLabels[i];
+        if (full) showToast(full, { variant: "success" });
+      },
+    },
+  });
+
+  danaKarneUpdatePdfHero(trendVals, topics, rMat, rTur, rFen, rSos);
+
+  await Promise.resolve();
+}
+
+function danaKarneUpdatePdfHero(trendVals, topics, rMat, rTur, rFen, rSos) {
+  var dateEl = document.getElementById("danaKarnePdfHeroDate");
+  var studEl = document.getElementById("danaKarnePdfHeroStudent");
+  var labelEl = document.getElementById("danaKarneStudentLabel");
+  if (dateEl) {
+    dateEl.textContent =
+      "Rapor tarihi: " +
+      new Date().toLocaleString("tr-TR", { dateStyle: "long", timeStyle: "short" });
+  }
+  if (studEl && labelEl) studEl.textContent = "Öğrenci: " + labelEl.textContent;
+  var strip = document.getElementById("danaKarneNetSummary");
+  if (strip && trendVals && trendVals.length) {
+    var last = trendVals[trendVals.length - 1];
+    var first = trendVals[0];
+    var delta = Math.round((last - first) * 10) / 10;
+    var avgTopic =
+      topics && topics.length
+        ? Math.round(topics.reduce(function (s, t) { return s + t.pct; }, 0) / topics.length)
+        : "—";
+    strip.innerHTML =
+      '<ul class="dana-net-strip__list">' +
+      '<li><span>Son TYT net (örnek seri)</span><strong>' +
+      last +
+      "</strong></li>" +
+      '<li><span>5 denemelik değişim</span><strong>' +
+      (delta >= 0 ? "+" : "") +
+      delta +
+      "</strong></li>" +
+      '<li><span>Konu başarı ort. (demo)</span><strong>' +
+      avgTopic +
+      "%</strong></li>" +
+      '<li><span>Radar ort. (4 alan)</span><strong>' +
+      Math.round((Number(rMat) + Number(rTur) + Number(rFen) + Number(rSos)) / 4) +
+      "%</strong></li></ul>";
+  }
+}
+
+function danaGetHtml2Pdf() {
+  if (typeof html2pdf !== "undefined") return html2pdf;
+  if (typeof window !== "undefined" && typeof window.html2pdf !== "undefined") return window.html2pdf;
+  return null;
+}
+
+function danaPdfSetBtnLoading(btn, on) {
+  if (!btn) return;
+  btn.disabled = !!on;
+  btn.classList.toggle("is-loading", !!on);
+}
+
+function danaPdfStudentKarneFilename(displayLabel) {
+  var raw = String(displayLabel || "Ogrenci").trim();
+  if (!raw || /^demo\s/i.test(raw)) raw = "Ogrenci";
+  var part = raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_")
+    .replace(/[^a-zA-Z0-9_\-]/g, "")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "")
+    .slice(0, 48) || "Ogrenci";
+  return part + "_Karne.pdf";
+}
+
+function danaPdfBuildBulkRows() {
+  var templates = [
+    [37.5, 36, 17.5, 15.5],
+    [36, 34.5, 18, 14.25],
+    [35, 35, 16.75, 15],
+    [38, 33, 17, 15.5],
+    [34.25, 32.5, 17.5, 14],
+    [33.5, 31, 16, 13.5],
+    [32, 30.5, 15.25, 12.75],
+    [31.5, 29, 14.5, 12],
+  ];
+  var names = [];
+  if (cachedStudents && cachedStudents.length) {
+    names = cachedStudents.slice(0, 10).map(function (s) {
+      return s.name || s.studentName || "Öğrenci";
+    });
+  }
+  if (!names.length) {
+    names = [
+      "Ayşe Yılmaz",
+      "Mehmet Kaya",
+      "Zeynep Arslan",
+      "Can Demir",
+      "Elif Şahin",
+      "Burak Öztürk",
+      "Selin Aydın",
+      "Emre Çelik",
+    ];
+  }
+  var rows = names.map(function (name, i) {
+    var m = templates[i % templates.length];
+    var tr = m[0];
+    var mat = m[1];
+    var fen = m[2];
+    var sos = m[3];
+    var total = Math.round((tr + mat + fen + sos) * 10) / 10;
+    return { name: name, tr: tr, mat: mat, fen: fen, sos: sos, total: total };
+  });
+  rows.sort(function (a, b) {
+    return b.total - a.total;
+  });
+  rows.forEach(function (r, ix) {
+    r.rank = ix + 1;
+  });
+  return rows;
+}
+
+function danaPdfBulkTableHtml(rows) {
+  var head =
+    '<div class="dana-bulk-pdf-header"><h1>DerecePanel — Toplu Sonuç Sıralaması (TYT)</h1><p>Oluşturulma: ' +
+    escapeHtml(new Date().toLocaleString("tr-TR")) +
+    "</p></div>";
+  var thead =
+    "<thead><tr>" +
+    ["Sıra", "Öğrenci Adı", "TYT Türkçe", "TYT Mat", "Fen", "Sosyal", "Toplam Net"]
+      .map(function (h) { return "<th>" + escapeHtml(h) + "</th>"; })
+      .join("") +
+    "</tr></thead>";
+  var tbody =
+    "<tbody>" +
+    rows
+      .map(function (r) {
+        return (
+          "<tr><td>" +
+          r.rank +
+          "</td><td>" +
+          escapeHtml(r.name) +
+          "</td><td>" +
+          r.tr.toFixed(1) +
+          "</td><td>" +
+          r.mat.toFixed(1) +
+          "</td><td>" +
+          r.fen.toFixed(1) +
+          "</td><td>" +
+          r.sos.toFixed(1) +
+          "</td><td><strong>" +
+          r.total.toFixed(1) +
+          "</strong></td></tr>"
+        );
+      })
+      .join("") +
+    "</tbody>";
+  return head + '<table class="dana-bulk-pdf-table">' + thead + tbody + "</table>";
+}
+
+async function danaPdfDownloadBulkRanking() {
+  var h2p = danaGetHtml2Pdf();
+  var btn = document.getElementById("btnDanaPdfBulkRank");
+  if (!h2p) {
+    showToast("PDF kütüphanesi (html2pdf) yüklenemedi. Sayfayı yenileyin.", { variant: "danger" });
+    return;
+  }
+  danaPdfSetBtnLoading(btn, true);
+  var host = null;
+  try {
+    var rows = danaPdfBuildBulkRows();
+    host = document.createElement("div");
+    host.className = "dana-pdf-bulk-host";
+    host.setAttribute(
+      "style",
+      "position:fixed;left:-14000px;top:0;width:794px;max-width:794px;padding:24px;background:#fff;z-index:0;"
+    );
+    host.innerHTML = danaPdfBulkTableHtml(rows);
+    document.body.appendChild(host);
+    await h2p()
+      .set({
+        margin: [10, 8, 10, 8],
+        filename: "DerecePanel_Toplu_Sonuc_Siralama.pdf",
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: "#ffffff",
+        },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: { mode: ["css", "legacy"] },
+      })
+      .from(host)
+      .save();
+    showToast("Toplu sonuç PDF indirildi.", { variant: "success" });
+  } catch (e) {
+    console.error("[dana-pdf] toplu", e);
+    showToast("PDF oluşturulamadı.", { variant: "danger" });
+  } finally {
+    if (host && host.parentNode) host.parentNode.removeChild(host);
+    danaPdfSetBtnLoading(btn, false);
+  }
+}
+
+async function danaPdfDownloadStudentKarne() {
+  var h2p = danaGetHtml2Pdf();
+  var el = document.getElementById("danaKarnePdfCapture");
+  var btn = document.getElementById("btnDanaPdfKarneA4");
+  if (!h2p || !el) {
+    showToast("Karne alanı veya PDF kütüphanesi bulunamadı.", { variant: "danger" });
+    return;
+  }
+  danaPdfSetBtnLoading(btn, true);
+  try {
+    var dateEl = document.getElementById("danaKarnePdfHeroDate");
+    if (dateEl) {
+      dateEl.textContent =
+        "Rapor tarihi: " +
+        new Date().toLocaleString("tr-TR", { dateStyle: "long", timeStyle: "short" });
+    }
+    var label = document.getElementById("danaKarneStudentLabel");
+    var fn = danaPdfStudentKarneFilename(label ? label.textContent : "Ogrenci");
+    await new Promise(function (resolve) {
+      requestAnimationFrame(function () {
+        requestAnimationFrame(resolve);
+      });
+    });
+    await h2p()
+      .set({
+        margin: [8, 8, 8, 8],
+        filename: fn,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: {
+          scale: 2.75,
+          useCORS: true,
+          logging: false,
+          backgroundColor: "#ffffff",
+          onclone: function (doc) {
+            var cap = doc.getElementById("danaKarnePdfCapture");
+            if (!cap) return;
+            cap.querySelectorAll(".dana-karne-chart-card").forEach(function (c) {
+              c.style.opacity = "1";
+              c.style.animation = "none";
+              c.style.transform = "none";
+            });
+          },
+        },
+        jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
+        pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+      })
+      .from(el)
+      .save();
+    showToast("Öğrenci karne PDF indirildi.", { variant: "success" });
+  } catch (e) {
+    console.error("[dana-pdf] karne", e);
+    showToast("Karne PDF oluşturulamadı.", { variant: "danger" });
+  } finally {
+    danaPdfSetBtnLoading(btn, false);
+  }
+}
+
+function bindDanaPdfExportOnce() {
+  var b1 = document.getElementById("btnDanaPdfBulkRank");
+  var b2 = document.getElementById("btnDanaPdfKarneA4");
+  if (!b1 || !b2 || b1.dataset.danaPdfBound) return;
+  b1.dataset.danaPdfBound = "1";
+  b2.dataset.danaPdfBound = "1";
+  b1.addEventListener("click", function () {
+    danaPdfDownloadBulkRanking();
+  });
+  b2.addEventListener("click", function () {
+    danaPdfDownloadStudentKarne();
+  });
+}
+
 function navigateTo(view) {
   if (!view) return;
   var hasMainView = false;
@@ -14481,6 +16070,8 @@ function navigateTo(view) {
     return;
   }
   var previous = currentView;
+  if (previous === "deneme-analiz-takvim") clearDenemeAnalizTakvimCountdowns();
+  if (previous === "deneme-analiz-karne") destroyDanaKarneCharts();
   if (tmAiGenNavigateTimer != null && previous === "auto-test" && view !== "auto-test") {
     clearTimeout(tmAiGenNavigateTimer);
     tmAiGenNavigateTimer = null;
@@ -14573,6 +16164,18 @@ function navigateTo(view) {
     simLi.classList.toggle("sidebar__item--sim-open", inSim);
     simAcc.classList.toggle("sidebar__link--active", inSim);
     simAcc.setAttribute("aria-expanded", inSim ? "true" : "false");
+  }
+  var danaLi = document.querySelector(".sidebar__item--deneme-analizi");
+  var danaAcc = document.getElementById("sidebarDanaToggle");
+  if (danaLi && danaAcc) {
+    var inDana =
+      view === "deneme-analiz-takvim" ||
+      view === "deneme-analiz-optik" ||
+      view === "deneme-analiz-karne" ||
+      view === "deneme-analiz-telafi";
+    danaLi.classList.toggle("sidebar__item--dana-open", inDana);
+    danaAcc.classList.toggle("sidebar__link--active", inDana);
+    danaAcc.setAttribute("aria-expanded", inDana ? "true" : "false");
   }
   var tmLiNav = document.querySelector(".sidebar__item--testmaker");
   var tmAccNav = document.getElementById("sidebarTmToggle");
@@ -14700,6 +16303,20 @@ function navigateTo(view) {
     wireZohoInbox();
     loadEmails();
   }
+  if (view === "deneme-analiz-takvim") initDenemeAnalizTakvimCountdowns();
+  if (view === "deneme-analiz-karne") {
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        var sid = "";
+        try {
+          if (cachedStudents && cachedStudents.length) sid = String(cachedStudents[0].id || "").trim();
+        } catch (e) {}
+        renderKarneCharts(sid).catch(function (err) {
+          console.error("[dana-karne]", err);
+        });
+      });
+    });
+  }
   window.dispatchEvent(new CustomEvent("yks:navigate", { detail: { view: view } }));
   } catch (err) {
     console.error("[YKSPanel] navigateTo:", err);
@@ -14745,17 +16362,175 @@ var tmAutoCropperInited = false;
 var tmAutoCropFile = null;
 var tmAutoCropResults = [];
 
-function tmParseAiTag(tag) {
-  var t = String(tag || "").trim();
-  if (!t) return { ders: "", konu: "" };
-  var parts = t.split(">");
-  if (parts.length >= 2) {
-    return {
-      ders: String(parts[0] || "").trim(),
-      konu: String(parts.slice(1).join(">") || "").trim(),
-    };
+function tmAutoCropPopulateDersSelect(sel, current) {
+  if (!sel) return;
+  var cur = current || "";
+  sel.textContent = "";
+  var o0 = document.createElement("option");
+  o0.value = "";
+  o0.textContent = "— Ders seçiniz —";
+  sel.appendChild(o0);
+  Object.keys(YKS2026_Mufredat).forEach(function (k) {
+    var o = document.createElement("option");
+    o.value = k;
+    o.textContent = k;
+    if (k === cur) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+function tmAutoCropPopulateKonuSelect(sel, dersKey, currentKonu) {
+  if (!sel) return;
+  sel.textContent = "";
+  var o0 = document.createElement("option");
+  o0.value = "";
+  o0.textContent = dersKey ? "— Konu seçiniz —" : "— Önce ders —";
+  sel.appendChild(o0);
+  if (!dersKey) return;
+  yks2026KonuOptionsForDers(dersKey).forEach(function (opt) {
+    var o = document.createElement("option");
+    o.value = opt.value;
+    o.textContent = opt.text;
+    if (opt.value === currentKonu) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+function tmAutoCropShowSaving(on) {
+  var ov = document.getElementById("tmAutoCropSavingOverlay");
+  if (ov) ov.hidden = !on;
+}
+
+function tmAutoCropComputeDensity(canvas) {
+  var ctx = canvas.getContext("2d");
+  var w = canvas.width;
+  var h = canvas.height;
+  var img = ctx.getImageData(0, 0, w, h);
+  var d = img.data;
+  var density = new Float32Array(h);
+  for (var y = 0; y < h; y++) {
+    var ink = 0;
+    var row = y * w * 4;
+    for (var x = 0; x < w; x++) {
+      var i = row + x * 4;
+      var lum = (d[i] + d[i + 1] + d[i + 2]) / 3;
+      if (lum < 248) ink++;
+    }
+    density[y] = ink / w;
   }
-  return { ders: "", konu: t };
+  return density;
+}
+
+function tmAutoCropBlankBandCenters(density, sens, h) {
+  var base = 0.0028;
+  var thresh = base / Math.max(0.55, sens);
+  var minRun = Math.max(5, Math.round(10 / sens));
+  var centers = [];
+  var runStart = -1;
+  for (var y = 0; y < h; y++) {
+    var blank = density[y] < thresh;
+    if (blank && runStart < 0) runStart = y;
+    if (!blank && runStart >= 0) {
+      var len = y - runStart;
+      if (len >= minRun) centers.push(Math.floor((runStart + y - 1) / 2));
+      runStart = -1;
+    }
+  }
+  if (runStart >= 0 && h - runStart >= minRun) centers.push(Math.floor((runStart + h - 1) / 2));
+  return centers;
+}
+
+function tmDedupeSortedYs(arr, gap) {
+  gap = gap || 10;
+  var sorted = arr.slice().sort(function (a, b) {
+    return a - b;
+  });
+  var out = [];
+  for (var i = 0; i < sorted.length; i++) {
+    if (!out.length || sorted[i] - out[out.length - 1] > gap) out.push(sorted[i]);
+  }
+  return out;
+}
+
+async function tmAutoCropQuestionAnchorYs(page, viewport, canvasH) {
+  var tc = await page.getTextContent({ normalizeWhitespace: true });
+  var ys = [];
+  var items = tc.items || [];
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    var str = String(it.str || "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!str) continue;
+    if (!/^\d{1,3}\s*[\.\)]/.test(str)) continue;
+    var tx = it.transform[4];
+    var ty = it.transform[5];
+    var vp = viewport.convertToViewportPoint(tx, ty);
+    var y = vp[1];
+    if (y >= -2 && y <= canvasH + 2) ys.push(y);
+  }
+  return tmDedupeSortedYs(ys, 8);
+}
+
+function tmAutoCropBuildSegments(h, anchorYs, density, sens) {
+  var anchors = tmDedupeSortedYs(anchorYs, 8);
+  if (anchors.length >= 2) {
+    var segs = [];
+    for (var i = 0; i < anchors.length; i++) {
+      var top = i === 0 ? 0 : (anchors[i - 1] + anchors[i]) / 2;
+      var bot = i === anchors.length - 1 ? h : (anchors[i] + anchors[i + 1]) / 2;
+      if (bot - top > 28) segs.push({ y0: top, y1: bot });
+    }
+    return segs;
+  }
+  if (anchors.length === 1) {
+    var y = anchors[0];
+    var top1 = Math.max(0, y - 28);
+    var segs1 = [];
+    if (top1 > 20) segs1.push({ y0: 0, y1: top1 });
+    segs1.push({ y0: top1, y1: h });
+    return segs1.filter(function (s) {
+      return s.y1 - s.y0 > 28;
+    });
+  }
+  var bands = tmAutoCropBlankBandCenters(density, sens, h);
+  if (!bands.length) return [{ y0: 0, y1: h }];
+  var edges = tmDedupeSortedYs([0].concat(bands).concat([h]), 6);
+  var out = [];
+  for (var k = 0; k < edges.length - 1; k++) {
+    if (edges[k + 1] - edges[k] > 32) out.push({ y0: edges[k], y1: edges[k + 1] });
+  }
+  return out.length ? out : [{ y0: 0, y1: h }];
+}
+
+function tmAutoCropTrimSegmentY(density, y0, y1, sens) {
+  var inkTh = 0.0015 / Math.max(0.55, sens);
+  var yT = y0;
+  var yB = y1;
+  for (var y = Math.floor(y0); y < y1; y++) {
+    if (density[y] >= inkTh) {
+      yT = y;
+      break;
+    }
+  }
+  for (var y2 = Math.ceil(y1) - 1; y2 >= y0; y2--) {
+    if (density[y2] >= inkTh) {
+      yB = y2 + 1;
+      break;
+    }
+  }
+  if (yB - yT < 16) return { y0: y0, y1: y1 };
+  return { y0: Math.max(y0, yT - 6), y1: Math.min(y1, yB + 6) };
+}
+
+function tmCropCanvasToJpeg(source, sx, sy, sw, sh) {
+  var w = Math.max(1, Math.round(sw));
+  var h = Math.max(1, Math.round(sh));
+  var c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  c.getContext("2d").drawImage(source, sx, sy, sw, sh, 0, 0, w, h);
+  return c.toDataURL("image/jpeg", 0.92);
 }
 
 function tmAutoCropSetHint(msg) {
@@ -14824,18 +16599,14 @@ function tmAutoCropRenderGrid() {
 
     var meta = document.createElement("div");
     meta.className = "tm-auto-crop-item__meta";
-    var dersInput = document.createElement("input");
-    dersInput.type = "text";
-    dersInput.setAttribute("data-tm-auto-crop-ders", String(idx));
-    dersInput.value = String(item.editedDers || "");
-    dersInput.placeholder = "Ders";
-    var konuInput = document.createElement("input");
-    konuInput.type = "text";
-    konuInput.setAttribute("data-tm-auto-crop-konu", String(idx));
-    konuInput.value = String(item.editedKonu || "");
-    konuInput.placeholder = "Konu";
-    meta.appendChild(dersInput);
-    meta.appendChild(konuInput);
+    var dersSelRow = document.createElement("select");
+    dersSelRow.setAttribute("data-tm-auto-crop-ders", String(idx));
+    tmAutoCropPopulateDersSelect(dersSelRow, item.editedDers || "");
+    var konuSelRow = document.createElement("select");
+    konuSelRow.setAttribute("data-tm-auto-crop-konu", String(idx));
+    tmAutoCropPopulateKonuSelect(konuSelRow, item.editedDers || "", item.editedKonu || "");
+    meta.appendChild(dersSelRow);
+    meta.appendChild(konuSelRow);
     card.appendChild(meta);
 
     var actions = document.createElement("div");
@@ -14860,49 +16631,63 @@ async function tmAutoCropRun() {
     showToast("Önce PDF dosyası seçin.");
     return;
   }
+  if (typeof pdfjsLib === "undefined") {
+    showToast("pdf.js yüklenemedi; sayfayı yenileyin.");
+    return;
+  }
   var runBtn = document.getElementById("tmAutoCropRunBtn");
   var sensEl = document.getElementById("tmAutoCropSensitivity");
-  var fd = new FormData();
-  fd.append("pdf", tmAutoCropFile);
-  fd.append("sensitivity", String(parseFloat((sensEl && sensEl.value) || "1") || 1));
+  var sens = parseFloat((sensEl && sensEl.value) || "1") || 1;
+  var dersToolbar = document.getElementById("tmAutoCropDersSelect");
+  var konuToolbar = document.getElementById("tmAutoCropKonuSelect");
+  var defDers = (dersToolbar && dersToolbar.value) || "";
+  var defKonu = (konuToolbar && konuToolbar.value) || "";
   if (runBtn) runBtn.disabled = true;
-  tmAutoCropSetHint("PDF analiz ediliyor, lütfen bekleyin...");
+  tmAutoCropSetHint("PDF tarayıcıda çözülüyor, sayfalar kırpılıyor…");
+  tmAutoCropResults = [];
   try {
-    var res = await fetch("/api/crop_pdf", { method: "POST", body: fd });
-    if (!res.ok) {
-      if (res.status === 404) {
-        throw new Error("API bulunamadı (/api/crop_pdf). Backend servisini çalıştırın.");
-      }
-      throw new Error("HTTP " + res.status);
-    }
-    var data = await res.json();
-    if (!data || !data.ok) throw new Error((data && data.error) || "Kırpma başarısız.");
-    var rows = Array.isArray(data.questions) ? data.questions : [];
-    tmAutoCropResults = rows
-      .map(function (q, i) {
-        var img = String((q && (q.base64_image || q.image_base64)) || "").trim();
-        if (!img) return null;
-        var tag = String((q && q.ai_suggested_tag) || "").trim();
-        var parsed = tmParseAiTag(tag);
-        return {
-          id: "q_" + i,
-          page: parseInt((q && q.page) || 1, 10) || 1,
-          imageBase64: img,
+    var buf = await tmAutoCropFile.arrayBuffer();
+    var pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    var scale = 2;
+    var all = [];
+    for (var p = 1; p <= pdf.numPages; p++) {
+      var page = await pdf.getPage(p);
+      var viewport = page.getViewport({ scale: scale });
+      var canvas = document.createElement("canvas");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      var ctx = canvas.getContext("2d");
+      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+      var density = tmAutoCropComputeDensity(canvas);
+      var anchors = await tmAutoCropQuestionAnchorYs(page, viewport, canvas.height);
+      var segs = tmAutoCropBuildSegments(canvas.height, anchors, density, sens);
+      for (var si = 0; si < segs.length; si++) {
+        var seg = segs[si];
+        var tr = tmAutoCropTrimSegmentY(density, seg.y0, seg.y1, sens);
+        var y0 = Math.max(0, Math.floor(tr.y0));
+        var y1 = Math.min(canvas.height, Math.ceil(tr.y1));
+        if (y1 - y0 < 24) continue;
+        var dataUrl = tmCropCanvasToJpeg(canvas, 0, y0, canvas.width, y1 - y0);
+        all.push({
+          id: "q_p" + p + "_" + si,
+          page: p,
+          imageBase64: dataUrl,
           selected: true,
-          suggestedDers: parsed.ders,
-          suggestedKonu: parsed.konu,
-          editedDers: parsed.ders,
-          editedKonu: parsed.konu,
-        };
-      })
-      .filter(Boolean);
+          suggestedDers: defDers,
+          suggestedKonu: defKonu,
+          editedDers: defDers,
+          editedKonu: defKonu,
+        });
+      }
+    }
+    tmAutoCropResults = all;
     tmAutoCropRenderGrid();
-    showToast(tmAutoCropResults.length + " soru otomatik kırpıldı.");
+    showToast(tmAutoCropResults.length + " soru otomatik kırpıldı (istemci, pdf.js).", { variant: "success" });
   } catch (err) {
     console.error("[auto-cropper]", err);
     tmAutoCropResults = [];
     tmAutoCropRenderGrid();
-    showToast("Kırpma başarısız: " + (err && err.message ? err.message : String(err)));
+    showToast("Kırpma başarısız: " + (err && err.message ? err.message : String(err)), { variant: "danger" });
   } finally {
     if (runBtn) runBtn.disabled = false;
   }
@@ -14918,8 +16703,8 @@ async function tmAutoCropSaveSelected() {
     showToast("Koç oturumu gerekli.");
     return;
   }
-  var ders = ((document.getElementById("tmAutoCropDers") || {}).value || "").trim();
-  var konu = ((document.getElementById("tmAutoCropKonu") || {}).value || "").trim();
+  var ders = ((document.getElementById("tmAutoCropDersSelect") || {}).value || "").trim();
+  var konu = ((document.getElementById("tmAutoCropKonuSelect") || {}).value || "").trim();
   var zorluk = ((document.getElementById("tmAutoCropZorluk") || {}).value || "Orta").trim();
   var saveBtn = document.getElementById("tmAutoCropSaveBtn");
   var selected = tmAutoCropResults.filter(function (x) {
@@ -14930,14 +16715,14 @@ async function tmAutoCropSaveSelected() {
     return;
   }
   if (saveBtn) saveBtn.disabled = true;
-  var okCount = 0;
+  tmAutoCropShowSaving(true);
   try {
-    for (var i = 0; i < selected.length; i++) {
-      var dataUrl = selected[i].imageBase64;
+    var tasks = selected.map(function (row) {
+      var dataUrl = row.imageBase64;
       var blob = dataUrlToBlob(dataUrl);
-      var dersUse = String(selected[i].editedDers || "").trim() || ders;
-      var konuUse = String(selected[i].editedKonu || "").trim() || konu;
-      await saveSoruHavuzuEntry({
+      var dersUse = String(row.editedDers || "").trim() || ders;
+      var konuUse = String(row.editedKonu || "").trim() || konu;
+      return saveSoruHavuzuEntry({
         coachKey: cid,
         imageBlob: blob,
         ders: dersUse,
@@ -14945,17 +16730,18 @@ async function tmAutoCropSaveSelected() {
         zorluk: zorluk,
         source: "auto_pdf_crop",
       });
-      okCount++;
-    }
+    });
+    await Promise.all(tasks);
     tmAutoCropResults = tmAutoCropResults.filter(function (x) {
       return x.selected === false;
     });
     tmAutoCropRenderGrid();
-    showToast(okCount + " soru Appwrite Soru Havuzuna kaydedildi.");
+    showToast(selected.length + " soru Appwrite Soru Havuzuna kaydedildi.", { variant: "success" });
   } catch (err) {
     console.error("[auto-cropper save]", err);
-    showToast("Kayıt sırasında hata: " + (err && err.message ? err.message : String(err)));
+    showToast("Kayıt sırasında hata: " + (err && err.message ? err.message : String(err)), { variant: "danger" });
   } finally {
+    tmAutoCropShowSaving(false);
     if (saveBtn) saveBtn.disabled = false;
   }
 }
@@ -14973,11 +16759,21 @@ function initTmAutoCropperModule() {
   var saveBtn = document.getElementById("tmAutoCropSaveBtn");
   var grid = document.getElementById("tmAutoCropGrid");
   var pageFilter = document.getElementById("tmAutoCropPageFilter");
-  var bulkDers = document.getElementById("tmAutoCropBulkDers");
-  var applyBulkDers = document.getElementById("tmAutoCropApplyBulkDers");
+  var toolbarDers = document.getElementById("tmAutoCropDersSelect");
+  var toolbarKonu = document.getElementById("tmAutoCropKonuSelect");
+  var applyToolbarMeta = document.getElementById("tmAutoCropApplyToolbarMeta");
   var selectAllBtn = document.getElementById("tmAutoCropSelectAll");
   var selectNoneBtn = document.getElementById("tmAutoCropSelectNone");
   if (!dz || !inp || !runBtn || !clearBtn || !saveBtn || !grid) return;
+
+  if (toolbarDers && !toolbarDers.dataset.tmMufWired) {
+    toolbarDers.dataset.tmMufWired = "1";
+    tmAutoCropPopulateDersSelect(toolbarDers, "");
+    toolbarDers.addEventListener("change", function () {
+      tmAutoCropPopulateKonuSelect(toolbarKonu, toolbarDers.value || "", "");
+    });
+    tmAutoCropPopulateKonuSelect(toolbarKonu, "", "");
+  }
 
   function setFile(f) {
     tmAutoCropFile = f || null;
@@ -15052,39 +16848,48 @@ function initTmAutoCropperModule() {
       tmAutoCropRenderGrid();
     });
   }
-  if (applyBulkDers && bulkDers) {
-    applyBulkDers.addEventListener("click", function () {
-      var v = String(bulkDers.value || "").trim();
-      if (!v) {
-        showToast("Toplu ders için değer girin.");
+  if (applyToolbarMeta && toolbarDers && toolbarKonu) {
+    applyToolbarMeta.addEventListener("click", function () {
+      var d = String(toolbarDers.value || "").trim();
+      var k = String(toolbarKonu.value || "").trim();
+      if (!d || !k) {
+        showToast("Üst bardan ders ve konu seçin.");
         return;
       }
       var p = (pageFilter && pageFilter.value) || "all";
       tmAutoCropResults.forEach(function (x) {
-        if (p === "all" || String(x.page || 1) === String(p)) x.editedDers = v;
+        if (p === "all" || String(x.page || 1) === String(p)) {
+          x.editedDers = d;
+          x.editedKonu = k;
+        }
       });
       tmAutoCropRenderGrid();
-      showToast("Toplu ders uygulandı.");
+      showToast("Ders ve konu uygulandı.", { variant: "success" });
     });
   }
   grid.addEventListener("change", function (ev) {
     var cb = ev.target && ev.target.closest && ev.target.closest("[data-tm-auto-crop-check]");
-    if (!cb) return;
-    var idx = parseInt(cb.getAttribute("data-tm-auto-crop-check"), 10);
-    if (isNaN(idx) || !tmAutoCropResults[idx]) return;
-    tmAutoCropResults[idx].selected = !!cb.checked;
-  });
-  grid.addEventListener("input", function (ev) {
-    var inpD = ev.target && ev.target.closest && ev.target.closest("[data-tm-auto-crop-ders]");
-    if (inpD) {
-      var idxD = parseInt(inpD.getAttribute("data-tm-auto-crop-ders"), 10);
-      if (!isNaN(idxD) && tmAutoCropResults[idxD]) tmAutoCropResults[idxD].editedDers = String(inpD.value || "").trim();
+    if (cb) {
+      var idx = parseInt(cb.getAttribute("data-tm-auto-crop-check"), 10);
+      if (isNaN(idx) || !tmAutoCropResults[idx]) return;
+      tmAutoCropResults[idx].selected = !!cb.checked;
       return;
     }
-    var inpK = ev.target && ev.target.closest && ev.target.closest("[data-tm-auto-crop-konu]");
-    if (inpK) {
-      var idxK = parseInt(inpK.getAttribute("data-tm-auto-crop-konu"), 10);
-      if (!isNaN(idxK) && tmAutoCropResults[idxK]) tmAutoCropResults[idxK].editedKonu = String(inpK.value || "").trim();
+    var selD = ev.target && ev.target.closest && ev.target.closest("select[data-tm-auto-crop-ders]");
+    if (selD) {
+      var idxD = parseInt(selD.getAttribute("data-tm-auto-crop-ders"), 10);
+      if (!isNaN(idxD) && tmAutoCropResults[idxD]) {
+        tmAutoCropResults[idxD].editedDers = selD.value || "";
+        tmAutoCropResults[idxD].editedKonu = "";
+        var kEl = grid.querySelector('select[data-tm-auto-crop-konu="' + idxD + '"]');
+        tmAutoCropPopulateKonuSelect(kEl, selD.value || "", "");
+      }
+      return;
+    }
+    var selK = ev.target && ev.target.closest && ev.target.closest("select[data-tm-auto-crop-konu]");
+    if (selK) {
+      var idxK = parseInt(selK.getAttribute("data-tm-auto-crop-konu"), 10);
+      if (!isNaN(idxK) && tmAutoCropResults[idxK]) tmAutoCropResults[idxK].editedKonu = selK.value || "";
     }
   });
   grid.addEventListener("click", function (ev) {
@@ -15128,6 +16933,7 @@ function closeSidebarAccordionsExcept(exceptLi) {
   var pairs = [
     [".sidebar__item--testmaker", "sidebar__item--tm-open", "sidebarTmToggle"],
     [".sidebar__item--deneme", "sidebar__item--da-open", "sidebarDaToggle"],
+    [".sidebar__item--deneme-analizi", "sidebar__item--dana-open", "sidebarDanaToggle"],
     [".sidebar__item--ogrenci", "sidebar__item--ogr-open", "sidebarOgrToggle"],
     [".sidebar__item--randevu", "sidebar__item--rv-open", "sidebarRvToggle"],
     [".sidebar__item--simulasyon", "sidebar__item--sim-open", "sidebarSimToggle"],
@@ -15185,6 +16991,7 @@ function initNavigation() {
     var items = [
       { liSel: ".sidebar__item--testmaker", openClass: "sidebar__item--tm-open", btnId: "sidebarTmToggle" },
       { liSel: ".sidebar__item--deneme", openClass: "sidebar__item--da-open", btnId: "sidebarDaToggle" },
+      { liSel: ".sidebar__item--deneme-analizi", openClass: "sidebar__item--dana-open", btnId: "sidebarDanaToggle" },
       { liSel: ".sidebar__item--ogrenci", openClass: "sidebar__item--ogr-open", btnId: "sidebarOgrToggle" },
       { liSel: ".sidebar__item--randevu", openClass: "sidebar__item--rv-open", btnId: "sidebarRvToggle" },
       { liSel: ".sidebar__item--simulasyon", openClass: "sidebar__item--sim-open", btnId: "sidebarSimToggle" },
@@ -15207,6 +17014,15 @@ function initNavigation() {
       );
     });
   })();
+
+  var btnDanaPlan = document.getElementById("btnDanaNewExamPlan");
+  if (btnDanaPlan && !btnDanaPlan.dataset.bound) {
+    btnDanaPlan.dataset.bound = "1";
+    btnDanaPlan.addEventListener("click", function () {
+      showToast("Deneme planlama ekranı yakında eklenecek.", { variant: "success" });
+    });
+  }
+  bindDanaPdfExportOnce();
 }
 
 var hpSelectedStudentId = "";
@@ -15699,7 +17515,7 @@ function initYksFeaturePages() {
   initKaynakKitapModuleOnce();
 }
 
-/* --- Kaynak / Kitap — Appwrite: kaynaklar + students/{id}/atananKaynaklar --- */
+/* --- Kaynak / Kitap — Appwrite: kaynaklar + atanan_kaynaklar (student_id, coach_id) --- */
 var kkKaynakBound = false;
 var kkSelectedStudentId = "";
 var kkPrevStudentId = "";
@@ -15727,6 +17543,27 @@ function kkNormalizeFirestoreTopics(raw) {
     });
   }
   return [{ id: kkNewTopicId(), name: "Genel çalışma", status: 0 }];
+}
+
+/** Appwrite: konu listesi düz belgede string olarak saklanır (nested array güvenli değil). */
+function kkTopicsToPayload(topics) {
+  try {
+    return JSON.stringify(kkNormalizeFirestoreTopics(topics));
+  } catch (e) {
+    return JSON.stringify([{ id: kkNewTopicId(), name: "Genel çalışma", status: 0 }]);
+  }
+}
+
+function kkTopicsFromDocData(x) {
+  var raw = x && (x.topics_json != null ? x.topics_json : x.topics);
+  if (typeof raw === "string") {
+    try {
+      return kkNormalizeFirestoreTopics(JSON.parse(raw));
+    } catch (e) {
+      return kkNormalizeFirestoreTopics([]);
+    }
+  }
+  return kkNormalizeFirestoreTopics(raw);
 }
 
 function kkStartLibraryFirestoreListeners() {
@@ -15782,8 +17619,14 @@ function kkSubscribeStudentAssignments(studentId) {
   kkPrevStudentForAssignSub = studentId || "";
   kkUnsubscribeStudentAssignments();
   if (!studentId) return;
+  var cid = getCoachId();
+  if (!cid) return;
   kkAssignUnsub = onSnapshot(
-    collection(db, "students", studentId, "atananKaynaklar"),
+    query(
+      collection(db, APPWRITE_COLLECTION_ATANAN_KAYNAKLAR),
+      where("student_id", "==", studentId),
+      where("coach_id", "==", cid)
+    ),
     function (snap) {
       kkAssignedBooksCache = [];
       snap.forEach(function (d) {
@@ -15797,7 +17640,7 @@ function kkSubscribeStudentAssignments(studentId) {
           difficulty: x.difficulty || "—",
           correctTotal: x.correctTotal || 0,
           wrongTotal: x.wrongTotal || 0,
-          topics: kkNormalizeFirestoreTopics(x.topics),
+          topics: kkTopicsFromDocData(x),
           totalPages: typeof x.totalPages === "number" ? x.totalPages : 0,
         });
       });
@@ -16120,7 +17963,9 @@ function kkSetTopicStatus(studentId, bookId, topicIndex, status) {
   });
   if (!book || !book.topics[topicIndex]) return;
   book.topics[topicIndex].status = status;
-  updateDoc(doc(db, "students", studentId, "atananKaynaklar", bookId), { topics: book.topics }).catch(function (e) {
+  updateDoc(doc(db, APPWRITE_COLLECTION_ATANAN_KAYNAKLAR, bookId), {
+    topics_json: kkTopicsToPayload(book.topics),
+  }).catch(function (e) {
     console.error(e);
     showToast("Konu durumu kaydedilemedi.");
   });
@@ -16133,7 +17978,7 @@ function kkAddPerformance(studentId, bookId, d, y) {
   if (!book) return;
   book.correctTotal = (book.correctTotal || 0) + d;
   book.wrongTotal = (book.wrongTotal || 0) + y;
-  updateDoc(doc(db, "students", studentId, "atananKaynaklar", bookId), {
+  updateDoc(doc(db, APPWRITE_COLLECTION_ATANAN_KAYNAKLAR, bookId), {
     correctTotal: book.correctTotal,
     wrongTotal: book.wrongTotal,
   }).catch(function (e) {
@@ -16162,14 +18007,15 @@ async function kkAssignBookFromLibrary() {
     return;
   }
   try {
-    await addDoc(collection(db, "students", kkSelectedStudentId, "atananKaynaklar"), {
+    await addDoc(collection(db, APPWRITE_COLLECTION_ATANAN_KAYNAKLAR), {
+      student_id: kkSelectedStudentId,
       coach_id: getCoachId(),
       libraryId: lib.id,
       title: lib.title,
       subject: lib.subject,
       totalPages: lib.totalPages,
       publisher: lib.publisher || "",
-      topics: [{ id: kkNewTopicId(), name: "Genel çalışma", status: 0 }],
+      topics_json: kkTopicsToPayload([{ id: kkNewTopicId(), name: "Genel çalışma", status: 0 }]),
       correctTotal: 0,
       wrongTotal: 0,
       assignedAt: serverTimestamp(),
@@ -16401,6 +18247,24 @@ function initAllButtons() {
     });
   }
 
+  initDanaTelafiConfirmModal();
+  initOptikHataTelafiModal();
+  var btnOptikHataAi = document.getElementById("btnOptikHataTelafiAi");
+  if (btnOptikHataAi && !btnOptikHataAi.dataset.hataTelafiBound) {
+    btnOptikHataAi.dataset.hataTelafiBound = "1";
+    btnOptikHataAi.addEventListener("click", generateHataKarnesiTelafiTest);
+  }
+  var btnEdsHataAi = document.getElementById("btnEdsHataTelafiAi");
+  if (btnEdsHataAi && !btnEdsHataAi.dataset.hataTelafiBound) {
+    btnEdsHataAi.dataset.hataTelafiBound = "1";
+    btnEdsHataAi.addEventListener("click", generateHataKarnesiTelafiTest);
+  }
+  var btnDanaTelafi = document.getElementById("btnDanaAiTelafiTest");
+  if (btnDanaTelafi && !btnDanaTelafi.dataset.danaTelafiBound) {
+    btnDanaTelafi.dataset.danaTelafiBound = "1";
+    btnDanaTelafi.addEventListener("click", generateAITelafiTest);
+  }
+
   (function initStudentDetailErpTabs() {
     document.querySelectorAll(".sd-erp-tab").forEach(function (btn) {
       btn.addEventListener("click", function () {
@@ -16594,12 +18458,22 @@ window.YKSPanel = {
   onNavigate: function (fn) {
     if (typeof fn === "function") navigateCallbacks.push(fn);
   },
+  renderKarneCharts: renderKarneCharts,
+  downloadBulkResultPdf: danaPdfDownloadBulkRanking,
+  downloadStudentKarnePdf: danaPdfDownloadStudentKarne,
+  generateAITelafiTest: generateAITelafiTest,
+  generateHataKarnesiTelafiTest: generateHataKarnesiTelafiTest,
   toast: showToast,
   openStudentForm: openStudentModal,
   openAppointmentForm: openAppointmentModalNew,
   closeModals: closeAllModals,
   closeModal: closeModal,
 };
+
+try {
+  window.generateAITelafiTest = generateAITelafiTest;
+  window.generateHataKarnesiTelafiTest = generateHataKarnesiTelafiTest;
+} catch (eGenTel) {}
 
 function showLoadTimeoutWarning() {
   const row = document.getElementById("appointmentsRow");

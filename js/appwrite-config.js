@@ -12,6 +12,13 @@ export const APPWRITE_BUCKET_DESTEK = "destek_ekranlari";
 /** `derece_panel` içinde koleksiyon: alanlar js/sorun-bildir.js içindeki createDocument ile uyumlu olmalı */
 export const APPWRITE_COLLECTION_HATA_BILDIRIMLERI = "hata_bildirimleri";
 /**
+ * Öğrenciye atanan kütüphane kaynakları (Appwrite — düz koleksiyon).
+ * Firestore tarzı `students/{id}/atananKaynaklar` yolu `collectionId` limitini aşar; bu yüzden tek tablo + student_id kullanılır.
+ * Console’da koleksiyon oluşturun: student_id, coach_id, libraryId, title, subject, totalPages, publisher,
+ * topics_json (string, büyük), correctTotal, wrongTotal, assignedAt (datetime) vb.
+ */
+export const APPWRITE_COLLECTION_ATANAN_KAYNAKLAR = "atanan_kaynaklar";
+/**
  * Yetkili dizini kayıtları `users` koleksiyonunda tutulur (ayrı `admins` tablosu gerekmez).
  * Şema (koç/öğrenci ile aynı koleksiyon): role = bu sabit; fullName; username; institutionName (iletişim e-postası);
  * packageType = Admin_Tam | Admin_Orta | Admin_Salt; plainPassword, frozen, createdAt (super-admin.js).

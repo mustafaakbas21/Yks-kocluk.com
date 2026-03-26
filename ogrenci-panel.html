@@ -25,6 +25,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous"></script>
 </head>
 <body class="osp-body has-site-credit">
+  <!-- Toplu öğrenci Excel (Hızlı Kurulum) koç panelinde: koc-panel.html + js/koc-panel.js -->
   <div class="sidebar-overlay--osp" id="ospSidebarOverlay" aria-hidden="true"></div>
 
   <div class="app app--ogrenci">
@@ -46,7 +47,7 @@
           </li>
           <li>
             <button type="button" class="sidebar__link" data-osp-nav="hedef">
-              <i class="fa-solid fa-bullseye"></i><span>🎯 Hedef Simülatörü</span>
+              <i class="fa-solid fa-bullseye"></i><span>Hedef Simülatörü</span>
             </button>
           </li>
           <li>
@@ -61,13 +62,13 @@
           </li>
           <li>
             <button type="button" class="sidebar__link" data-osp-nav="koca-sor">
-              <i class="fa-solid fa-life-ring"></i><span>🆘 Koça Sor</span>
+              <i class="fa-solid fa-life-ring"></i><span>Koça Sor</span>
             </button>
           </li>
 
           <li class="osp-sidebar__group has-submenu is-open">
             <button type="button" class="osp-sidebar__accordion" aria-expanded="true" aria-controls="ospSubProgram">
-              <i class="fa-solid fa-book-open" style="width:1.25rem;text-align:center;opacity:.9"></i>
+              <i class="fa-solid fa-book-open osp-sidebar__acc-icon" aria-hidden="true"></i>
               <span>Program &amp; Kaynak</span>
               <span class="osp-sidebar__chev" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
             </button>
@@ -87,7 +88,7 @@
 
           <li class="osp-sidebar__group has-submenu is-open">
             <button type="button" class="osp-sidebar__accordion" aria-expanded="true" aria-controls="ospSubAnaliz">
-              <i class="fa-solid fa-chart-line" style="width:1.25rem;text-align:center;opacity:.9"></i>
+              <i class="fa-solid fa-chart-line osp-sidebar__acc-icon" aria-hidden="true"></i>
               <span>Analiz &amp; Ödeme</span>
               <span class="osp-sidebar__chev" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
             </button>
@@ -128,72 +129,47 @@
       <div class="osp-views">
         <!-- Dashboard -->
         <section class="osp-view" data-osp-view="dashboard" id="ospViewDashboard">
-          <section id="osp-yks-countdown-widget" class="yks-countdown-widget osp-yks-countdown" aria-label="YKS 2026 sınavına kalan süre">
-            <div class="yks-countdown-widget__glow" aria-hidden="true"></div>
-            <div class="yks-countdown-widget__inner">
-              <div class="yks-countdown-widget__head">
-                <span class="yks-countdown-widget__badge">YKS 2026</span>
-                <h2 class="yks-countdown-widget__title">Sınava kalan süre</h2>
-                <p class="yks-countdown-widget__meta">Hedef: 20 Haziran 2026 · 10:15</p>
+          <!-- Öğrenci Dashboard 2.0 — aksiyon vitrin -->
+          <section class="osp-dash2-hero" aria-labelledby="ospDash2HeroTitle">
+            <div class="osp-dash2-hero__glow" aria-hidden="true"></div>
+            <div class="osp-dash2-hero__inner">
+              <div class="osp-dash2-hero__icon-wrap" aria-hidden="true">
+                <div class="osp-dash2-hero__icon-ring"></div>
+                <i class="fa-solid fa-wand-magic-sparkles osp-dash2-hero__icon"></i>
               </div>
-              <div class="yks-countdown-widget__grid" role="timer" aria-live="polite" aria-relevant="text">
-                <div class="yks-countdown-widget__cell">
-                  <span class="yks-countdown-widget__value" id="osp-yks-widget-days">0</span>
-                  <span class="yks-countdown-widget__label">Gün</span>
-                </div>
-                <div class="yks-countdown-widget__cell">
-                  <span class="yks-countdown-widget__value" id="osp-yks-widget-hours">00</span>
-                  <span class="yks-countdown-widget__label">Saat</span>
-                </div>
-                <div class="yks-countdown-widget__cell">
-                  <span class="yks-countdown-widget__value" id="osp-yks-widget-minutes">00</span>
-                  <span class="yks-countdown-widget__label">Dakika</span>
-                </div>
-                <div class="yks-countdown-widget__cell">
-                  <span class="yks-countdown-widget__value" id="osp-yks-widget-seconds">00</span>
-                  <span class="yks-countdown-widget__label">Saniye</span>
-                </div>
+              <div class="osp-dash2-hero__body">
+                <p class="osp-dash2-hero__eyebrow">Bugün ne yapmalıyım?</p>
+                <h2 id="ospDash2HeroTitle" class="osp-dash2-hero__title">AI koç önerisi</h2>
+                <p class="osp-dash2-hero__message" id="ospDash2AiMessage">
+                  Mustafa, son denemede Fonksiyonlar konunda düşüş var. Bugün planında 2 Pomodoro Matematik tekrarı ve 1 Telafi Testi bulunuyor. Hemen başla!
+                </p>
+              </div>
+              <div class="osp-dash2-hero__cta">
+                <button type="button" class="osp-dash2-hero__btn" id="ospDash2BtnStart">
+                  <i class="fa-solid fa-play"></i> Göreve Başla
+                </button>
               </div>
             </div>
           </section>
 
-          <section class="osp-mufredat-card" aria-label="2026 müfredat konu takibi">
-            <div class="osp-mufredat-card__head">
-              <h2 class="osp-mufredat-card__title"><i class="fa-solid fa-list-check"></i> Müfredat — konu takibi</h2>
-              <p class="osp-mufredat-card__lead">TYT / AYT derslerini açıp konuları işaretleyerek çalıştıklarını takip edin (tarayıcıda saklanır).</p>
+          <div class="osp-next-task" id="ospNextTaskCard">
+            <div>
+              <span class="osp-next-task__badge">Sıradaki görevim</span>
+              <h2 class="osp-next-task__title" id="ospNextTaskTitle">Matematik — Problemler</h2>
+              <p class="osp-next-task__meta" id="ospNextTaskMeta">50 soru · Bugünün programından</p>
             </div>
-            <div id="ospMufredatMount" class="osp-mufredat-mount"></div>
-          </section>
-
-          <div class="osp-hero">
-            <p class="osp-hero__greet" id="ospHeroGreet">Hoş geldin Mustafa, hedef netine sadece 15 net kaldı!</p>
-            <p class="osp-hero__sub">Her küçük adım seni sınav gününe yaklaştırıyor.</p>
+            <button type="button" class="osp-btn-complete" id="ospBtnCompleteNext">
+              <i class="fa-solid fa-check"></i> Tamamla
+            </button>
           </div>
-
-          <section class="osp-pomodoro-card" aria-label="Odaklanma merkezi">
-            <div class="osp-pomodoro-card__head">
-              <h2 class="osp-pomodoro-card__title"><i class="fa-solid fa-stopwatch"></i> Odaklanma Merkezi</h2>
-              <div class="osp-pomodoro-presets" role="group" aria-label="Süre seçimi">
-                <button type="button" id="ospPomo25" class="is-active" data-min="25">25 dk</button>
-                <button type="button" id="ospPomo40" data-min="40">40 dk</button>
-              </div>
-            </div>
-            <div class="osp-pomodoro-timer" id="ospPomoDisplay">25:00</div>
-            <div class="osp-pomodoro-actions">
-              <button type="button" class="osp-btn-pomo osp-btn-pomo--primary" id="ospPomoStart">Başlat</button>
-              <button type="button" class="osp-btn-pomo osp-btn-pomo--ghost" id="ospPomoPause" disabled>Duraklat</button>
-              <button type="button" class="osp-btn-pomo osp-btn-pomo--mola" id="ospPomoBreak">Mola Ver</button>
-            </div>
-            <p class="osp-pomodoro-hint" id="ospPomoHint">Pomodoro: odak süresi bitince kısa mola verin.</p>
-          </section>
 
           <p class="osp-sync-banner" id="ospCoachBanner">Profil yükleniyor…</p>
 
-          <div class="osp-widget-row">
+          <div class="osp-widget-row" aria-label="Özet kutuları">
             <div class="osp-widget">
               <div class="osp-widget__label">Bu haftaki görev tamamlama</div>
               <div class="osp-widget__value" id="ospWgWeek">%80</div>
-              <p class="osp-widget__hint">Koçunun haftalık planına göre</p>
+              <p class="osp-widget__hint">Haftalık plan</p>
             </div>
             <div class="osp-widget">
               <div class="osp-widget__label">Son deneme neti</div>
@@ -207,32 +183,95 @@
             </div>
           </div>
 
-          <div class="osp-next-task" id="ospNextTaskCard">
-            <div>
-              <span class="osp-next-task__badge">Sıradaki görevim</span>
-              <h2 class="osp-next-task__title" id="ospNextTaskTitle">Matematik — Problemler</h2>
-              <p class="osp-next-task__meta" id="ospNextTaskMeta">50 soru · Bugünün programından</p>
-            </div>
-            <button type="button" class="osp-btn-complete" id="ospBtnCompleteNext">
-              <i class="fa-solid fa-check"></i> Tamamla
-            </button>
+          <div class="osp-dash2-tools-row" aria-label="Geri sayım ve odaklanma">
+            <section id="osp-yks-countdown-widget" class="yks-countdown-widget osp-yks-countdown osp-yks-countdown--tools" aria-label="YKS 2026 sınavına kalan süre">
+              <div class="yks-countdown-widget__glow" aria-hidden="true"></div>
+              <div class="yks-countdown-widget__inner">
+                <div class="yks-countdown-widget__head">
+                  <span class="yks-countdown-widget__badge">YKS 2026</span>
+                  <h2 class="yks-countdown-widget__title">Sınava kalan süre</h2>
+                  <p class="yks-countdown-widget__meta">Hedef: 20 Haziran 2026 · 10:15</p>
+                </div>
+                <div class="yks-countdown-widget__grid" role="timer" aria-live="polite" aria-relevant="text">
+                  <div class="yks-countdown-widget__cell">
+                    <span class="yks-countdown-widget__value" id="osp-yks-widget-days">0</span>
+                    <span class="yks-countdown-widget__label">Gün</span>
+                  </div>
+                  <div class="yks-countdown-widget__cell">
+                    <span class="yks-countdown-widget__value" id="osp-yks-widget-hours">00</span>
+                    <span class="yks-countdown-widget__label">Saat</span>
+                  </div>
+                  <div class="yks-countdown-widget__cell">
+                    <span class="yks-countdown-widget__value" id="osp-yks-widget-minutes">00</span>
+                    <span class="yks-countdown-widget__label">Dakika</span>
+                  </div>
+                  <div class="yks-countdown-widget__cell">
+                    <span class="yks-countdown-widget__value" id="osp-yks-widget-seconds">00</span>
+                    <span class="yks-countdown-widget__label">Saniye</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="osp-pomodoro-card osp-pomodoro-card--dashboard osp-pomodoro-card--tools" id="ospPomodoroAnchor" aria-label="Odaklanma merkezi">
+              <div class="osp-pomodoro-card__head">
+                <h2 class="osp-pomodoro-card__title"><i class="fa-solid fa-stopwatch"></i> Pomodoro</h2>
+                <div class="osp-pomodoro-presets" role="group" aria-label="Süre seçimi">
+                  <button type="button" id="ospPomo25" class="is-active" data-min="25">25 dk</button>
+                  <button type="button" id="ospPomo40" data-min="40">40 dk</button>
+                </div>
+              </div>
+              <div class="osp-pomodoro-timer" id="ospPomoDisplay">25:00</div>
+              <div class="osp-pomodoro-actions">
+                <button type="button" class="osp-btn-pomo osp-btn-pomo--primary" id="ospPomoStart">Başlat</button>
+                <button type="button" class="osp-btn-pomo osp-btn-pomo--ghost" id="ospPomoPause" disabled>Duraklat</button>
+                <button type="button" class="osp-btn-pomo osp-btn-pomo--mola" id="ospPomoBreak">Mola</button>
+              </div>
+              <p class="osp-pomodoro-hint" id="ospPomoHint">Süre bitince kısa mola ver.</p>
+            </section>
           </div>
+
+          <div class="osp-dash2-charts-grid">
+            <article class="osp-dash2-chart-card" aria-label="TYT net trendi">
+              <div class="osp-dash2-chart-card__head">
+                <h3><i class="fa-solid fa-chart-line"></i> Net trendi</h3>
+                <p>Son 5 deneme · TYT genel net</p>
+              </div>
+              <div class="osp-dash2-chart-card__canvas">
+                <canvas id="ospDash2LineCanvas" aria-label="TYT net çizgi grafiği"></canvas>
+              </div>
+            </article>
+            <article class="osp-dash2-chart-card" aria-label="Branş dengesi">
+              <div class="osp-dash2-chart-card__head">
+                <h3><i class="fa-solid fa-bullseye"></i> Branş dengesi</h3>
+                <p>Son deneme · radar</p>
+              </div>
+              <div class="osp-dash2-chart-card__canvas osp-dash2-chart-card__canvas--radar">
+                <canvas id="ospDash2RadarCanvas" aria-label="Branş radar grafiği"></canvas>
+              </div>
+            </article>
+          </div>
+
+          <details class="osp-mufredat-card osp-mufredat-details">
+            <summary class="osp-mufredat-details__summary">
+              <span class="osp-mufredat-details__title"><i class="fa-solid fa-list-check"></i> Müfredat — konu takibi</span>
+              <span class="osp-mufredat-details__chev" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
+            </summary>
+            <p class="osp-mufredat-card__lead osp-mufredat-card__lead--compact">TYT / AYT konularını işaretle; veriler bu tarayıcıda saklanır.</p>
+            <div id="ospMufredatMount" class="osp-mufredat-mount"></div>
+          </details>
 
           <div class="osp-dash-extras">
             <div class="osp-note-card">
               <h3>Koç bağlantısı</h3>
-              <p>
-                Görevler ve kaynak ilerlemesi koç panelindeki kayıtlarla eşleşir. Soruların için koçunla iletişime geçebilirsin.
-              </p>
+              <p>Görev ve kaynak verilerin koç paneliyle senkron olur.</p>
             </div>
             <div class="osp-quick-card">
               <h3>Hızlı erişim</h3>
               <a class="osp-quick-link" href="/koc-panel" target="_blank" rel="noopener">
-                <i class="fa-solid fa-chalkboard-user"></i> Koç paneli (önizleme)
+                <i class="fa-solid fa-chalkboard-user"></i> Koç paneli
               </a>
-              <p class="osp-quick-hint">
-                Koç hesabın yoksa bu bağlantıyı yalnızca referans için kullan; giriş koç veya yönetici hesabı gerektirir.
-              </p>
+              <p class="osp-quick-hint">Koç hesabı olmadan yalnızca önizleme; giriş gerekir.</p>
             </div>
           </div>
         </section>
@@ -716,7 +755,7 @@
   </div>
 
   <p class="site-credit site-credit--panel">
-    Mustafa AKBAŞ - Furkan Şehmus KIYAR - Veysel Anıl KARAASLAN tarafından üretildi
+    Mustafa AKBAŞ - Furkan Şehmus KIYAR - Veysel Anıl KARAASLAN - Efe KARACABEY tarafından üretildi
   </p>
 
   <script>
@@ -879,6 +918,9 @@
       var parts = nm.split(/\s+/);
       OSP.studentName = parts[0] || nm;
       renderDashboardHero();
+      requestAnimationFrame(function () {
+        initOspDashboard2Charts();
+      });
     }
     var ban = document.getElementById("ospCoachBanner");
     if (ban) {
@@ -965,6 +1007,11 @@
     showView(view);
     openAccordionForView(view);
     if (view === "hedef") renderOspHedefSimulator();
+    if (view === "dashboard") {
+      requestAnimationFrame(function () {
+        initOspDashboard2Charts();
+      });
+    }
     if (view === "net-sihirbazi") {
       import("./js/net-sihirbazi-ui.js")
         .then(function (m) {
@@ -1138,16 +1185,155 @@
   }
 
   function renderDashboardHero() {
-    var g = document.getElementById("ospHeroGreet");
-    if (g) {
-      g.textContent =
-        "Hoş geldin " +
-        OSP.studentName +
-        ", hedef netine sadece " +
-        OSP.targetNetGap +
-        " net kaldı!";
+    var msg = document.getElementById("ospDash2AiMessage");
+    var name = OSP.studentName || "Öğrenci";
+    var sample =
+      name +
+      ", son denemede Fonksiyonlar konunda düşüş var. Bugün planında 2 Pomodoro Matematik tekrarı ve 1 Telafi Testi bulunuyor. Hemen başla!";
+    if (msg) msg.textContent = sample;
+  }
+
+  var ospDash2LineChart = null;
+  var ospDash2RadarChart = null;
+
+  function destroyOspDashboard2Charts() {
+    if (ospDash2LineChart) {
+      try {
+        ospDash2LineChart.destroy();
+      } catch (e) {}
+      ospDash2LineChart = null;
+    }
+    if (ospDash2RadarChart) {
+      try {
+        ospDash2RadarChart.destroy();
+      } catch (e) {}
+      ospDash2RadarChart = null;
     }
   }
+
+  function initOspDashboard2Charts() {
+    if (typeof Chart === "undefined") return;
+    var lineEl = document.getElementById("ospDash2LineCanvas");
+    var radarEl = document.getElementById("ospDash2RadarCanvas");
+    if (!lineEl || !radarEl) return;
+
+    destroyOspDashboard2Charts();
+
+    var mockLine = [32.5, 34.2, 35.8, 37.1, 38.6];
+    var ctxL = lineEl.getContext("2d");
+    var wrap = lineEl.closest(".osp-dash2-chart-card__canvas");
+    var gh = wrap && wrap.clientHeight ? wrap.clientHeight : 260;
+    var grad = ctxL.createLinearGradient(0, 0, 0, gh);
+    grad.addColorStop(0, "rgba(124, 58, 237, 0.48)");
+    grad.addColorStop(0.45, "rgba(109, 40, 217, 0.15)");
+    grad.addColorStop(1, "rgba(124, 58, 237, 0)");
+
+    var commonFont = { family: "'Plus Jakarta Sans', 'Inter', system-ui, sans-serif", size: 11 };
+
+    ospDash2LineChart = new Chart(ctxL, {
+      type: "line",
+      data: {
+        labels: ["D-4", "D-3", "D-2", "D-1", "Son"],
+        datasets: [
+          {
+            label: "TYT net",
+            data: mockLine,
+            borderColor: "#7c3aed",
+            backgroundColor: grad,
+            borderWidth: 2.5,
+            tension: 0.42,
+            fill: true,
+            pointBackgroundColor: "#6d28d9",
+            pointBorderColor: "#fff",
+            pointBorderWidth: 2,
+            pointRadius: 5,
+            pointHoverRadius: 7,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 900, easing: "easeOutQuart" },
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "rgba(15, 23, 42, 0.92)",
+            titleFont: commonFont,
+            bodyFont: commonFont,
+            padding: 12,
+            cornerRadius: 12,
+          },
+        },
+        scales: {
+          y: {
+            beginAtZero: false,
+            suggestedMin: Math.max(0, Math.min.apply(null, mockLine) - 2),
+            suggestedMax: Math.max.apply(null, mockLine) + 2,
+            grid: { color: "rgba(148, 163, 184, 0.2)" },
+            ticks: { font: commonFont, color: "#64748b" },
+          },
+          x: {
+            grid: { display: false },
+            ticks: { font: commonFont, color: "#64748b" },
+          },
+        },
+      },
+    });
+
+    var mockRadar = [76, 84, 72, 86];
+    ospDash2RadarChart = new Chart(radarEl.getContext("2d"), {
+      type: "radar",
+      data: {
+        labels: ["Matematik", "Türkçe", "Fen", "Sosyal"],
+        datasets: [
+          {
+            label: "Son deneme",
+            data: mockRadar,
+            borderColor: "#7c3aed",
+            backgroundColor: "rgba(124, 58, 237, 0.22)",
+            borderWidth: 2,
+            pointBackgroundColor: "#6d28d9",
+            pointBorderColor: "#fff",
+            pointRadius: 4,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 900, easing: "easeOutQuart" },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "rgba(15, 23, 42, 0.92)",
+            bodyFont: commonFont,
+            titleFont: commonFont,
+            padding: 12,
+            cornerRadius: 12,
+            callbacks: {
+              label: function (ctx) {
+                return ctx.label + ": %" + ctx.raw;
+              },
+            },
+          },
+        },
+        scales: {
+          r: {
+            min: 0,
+            max: 100,
+            ticks: { stepSize: 20, color: "#94a3b8", backdropColor: "transparent" },
+            grid: { color: "rgba(124, 58, 237, 0.12)" },
+            angleLines: { color: "rgba(124, 58, 237, 0.14)" },
+            pointLabels: { font: commonFont, color: "#475569" },
+          },
+        },
+      },
+    });
+  }
+
+  OSP.initDashboard2Charts = initOspDashboard2Charts;
 
   function renderWeek() {
     var c = document.getElementById("ospWeekContainer");
@@ -1547,6 +1733,20 @@
     initOspKocaSor();
 
     renderDashboardHero();
+    initOspDashboard2Charts();
+
+    var btnDash2 = document.getElementById("ospDash2BtnStart");
+    if (btnDash2 && !btnDash2.dataset.bound) {
+      btnDash2.dataset.bound = "1";
+      btnDash2.addEventListener("click", function () {
+        var anchor = document.getElementById("ospPomodoroAnchor");
+        if (anchor) {
+          anchor.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+        ospToast("Odak merkezine geçildi — Pomodoro ile başlayabilirsin.");
+      });
+    }
+
     document.getElementById("ospWgNet").textContent = String(OSP.lastExamNet);
     document.getElementById("ospWgSolved").textContent = formatNum(OSP.totalSolved);
     document.getElementById("ospWgWeek").textContent = "%" + computeWeekPct();
@@ -1585,6 +1785,9 @@
 
     window.addEventListener("resize", function () {
       if (window.innerWidth > 992) closeMobileSidebar();
+      if (document.getElementById("ospViewDashboard") && !document.getElementById("ospViewDashboard").hidden) {
+        initOspDashboard2Charts();
+      }
     });
   }
 

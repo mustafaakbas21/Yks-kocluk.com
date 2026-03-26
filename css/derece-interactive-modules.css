@@ -131,6 +131,39 @@
   color: var(--osp-muted, #64748b);
 }
 
+/* Dashboard: geri sayım ile aynı satırda daha kompakt */
+.osp-pomodoro-card--tools {
+  margin-bottom: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 1.1rem 1.2rem 1.15rem;
+  box-sizing: border-box;
+}
+
+.osp-pomodoro-card--tools .osp-pomodoro-card__head {
+  margin-bottom: 0.55rem;
+}
+
+.osp-pomodoro-card--tools .osp-pomodoro-card__title {
+  font-size: 0.95rem;
+}
+
+.osp-pomodoro-card--tools .osp-pomodoro-timer {
+  font-size: clamp(1.75rem, 5vw, 2.6rem);
+  margin: 0.25rem 0 0.55rem;
+}
+
+.osp-pomodoro-card--tools .osp-pomodoro-hint {
+  margin-top: 0.5rem;
+  font-size: 0.74rem;
+}
+
+.osp-pomodoro-card--tools .osp-btn-pomo {
+  padding: 0.5rem 0.9rem;
+  font-size: 0.8rem;
+}
+
 /* ----- Öğrenci — Hedef simülatörü (progress) ----- */
 .osp-hedef-page {
   max-width: 52rem;

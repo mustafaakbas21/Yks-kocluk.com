@@ -1,7 +1,9 @@
 /**
  * TYT-AYT Net Sihirbazı — tam üniversite listesi + bölüm şablonları
  * YKS Puan — TYT ders bazlı + AYT alan bazlı (demo gösterge)
+ * Konu ağacı: `yks-mufredat.js` (YKS2026_Mufredat).
  */
+import { YKS2026_Mufredat } from "./yks-mufredat.js";
 import {
   TR_UNIVERSITIES_UNIQUE,
   PROGRAM_TEMPLATES_UI,
@@ -13,6 +15,8 @@ import {
   netSihirbaziMotorTableHtml,
   netSihirbaziSkeletonHtml,
 } from "./net-sihirbazi-engine.js";
+
+export { YKS2026_Mufredat };
 
 /**
  * @param {{ uniSelectId: string, deptSelectId: string, tableWrapId: string, uniTitleId?: string, deptTitleId?: string, subtitleId?: string, uniFilterId?: string, deptFilterId?: string }} options

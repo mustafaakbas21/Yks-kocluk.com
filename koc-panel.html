@@ -15,7 +15,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" crossorigin="anonymous" />
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="css/koc-panel.css" />
   <link rel="stylesheet" href="css/derece-interactive-modules.css" />
@@ -71,6 +74,126 @@
     .dashboard-insight strong { color: #5b21b6; }
     .chart-card__canvas-wrap { position: relative; height: 220px; width: 100%; margin-top: 0.5rem; }
     /* YKS premium sayaç — Dashboard üstü (Inter) */
+    /* Excel / CSV toplu öğrenci içe aktarma */
+    .bulk-import-dropzone {
+      border: 2px dashed #c4b5fd;
+      border-radius: 16px;
+      padding: 2rem 1.25rem;
+      text-align: center;
+      background: linear-gradient(180deg, #faf5ff 0%, #fff 100%);
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    }
+    .bulk-import-dropzone:hover,
+    .bulk-import-dropzone:focus-within {
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+    }
+    .bulk-import-dropzone.is-dragover {
+      border-color: #5b21b6;
+      background: #f3e8ff;
+      box-shadow: 0 0 0 4px rgba(91, 33, 182, 0.15);
+    }
+    .bulk-import-dropzone__icon {
+      width: 3.25rem;
+      height: 3.25rem;
+      margin: 0 auto 0.85rem;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #7c3aed, #6d28d9);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.35rem;
+    }
+    .bulk-import-dropzone__title {
+      font-weight: 700;
+      color: #4c1d95;
+      margin: 0 0 0.35rem;
+      font-size: 0.95rem;
+    }
+    .bulk-import-dropzone__hint {
+      margin: 0;
+      font-size: 0.82rem;
+      color: #64748b;
+      line-height: 1.45;
+    }
+    .bulk-import-modal-body { display: flex; flex-direction: column; gap: 0; }
+    .bulk-import-lead {
+      margin: -0.25rem 0 1rem;
+      font-size: 0.88rem;
+      line-height: 1.55;
+      color: #64748b;
+    }
+    .bulk-import-template-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+      box-sizing: border-box;
+      padding: 0.85rem 1.15rem;
+      margin: 0 0 1.15rem;
+      font-family: inherit;
+      font-size: 0.92rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #5b21b6;
+      background: linear-gradient(180deg, #faf5ff 0%, #f5f3ff 100%);
+      border: 2px solid #a78bfa;
+      border-radius: 14px;
+      cursor: pointer;
+      box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.25) inset, 0 6px 20px rgba(91, 33, 182, 0.1);
+      transition: border-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.15s;
+    }
+    .bulk-import-template-btn:hover {
+      border-color: #7c3aed;
+      color: #4c1d95;
+      box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.35) inset, 0 8px 26px rgba(91, 33, 182, 0.14);
+      transform: translateY(-1px);
+    }
+    .bulk-import-template-btn:active {
+      transform: translateY(0);
+    }
+    .bulk-import-dropzone--xl {
+      padding: 2.35rem 1.35rem;
+      min-height: 168px;
+    }
+    .bulk-import-progress {
+      margin-top: 1.25rem;
+    }
+    .bulk-import-progress[hidden] {
+      display: none !important;
+    }
+    .bulk-import-progress__bar {
+      height: 10px;
+      border-radius: 999px;
+      background: #ede9fe;
+      overflow: hidden;
+    }
+    .bulk-import-progress__fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #7c3aed, #a78bfa, #c4b5fd);
+      background-size: 200% 100%;
+      transition: width 0.25s ease;
+    }
+    .bulk-import-progress.is-busy .bulk-import-progress__fill {
+      animation: bulk-import-progress-shimmer 1.1s ease-in-out infinite;
+    }
+    @keyframes bulk-import-progress-shimmer {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    .bulk-import-progress__label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #64748b;
+      margin-top: 0.45rem;
+      text-align: center;
+    }
     .yks-countdown-widget {
       position: relative;
       width: 100%;
@@ -318,7 +441,8 @@
     .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--ogr-open > .sidebar__submenu,
     .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--rv-open > .sidebar__submenu,
     .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--sim-open > .sidebar__submenu,
-    .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--gelen-open > .sidebar__submenu {
+    .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--gelen-open > .sidebar__submenu,
+    .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--dana-open > .sidebar__submenu {
       max-height: min(1200px, 90vh);
       opacity: 1;
       pointer-events: auto;
@@ -384,7 +508,8 @@
     .sidebar__item--ogrenci.sidebar__item--ogr-open .sidebar__tm-chevron,
     .sidebar__item--randevu.sidebar__item--rv-open .sidebar__tm-chevron,
     .sidebar__item--simulasyon.sidebar__item--sim-open .sidebar__tm-chevron,
-    .sidebar__item--gelen.sidebar__item--gelen-open .sidebar__tm-chevron {
+    .sidebar__item--gelen.sidebar__item--gelen-open .sidebar__tm-chevron,
+    .sidebar__item--deneme-analizi.sidebar__item--dana-open .sidebar__tm-chevron {
       transform: rotate(180deg);
     }
     /* Öğrenciler / Deneme / Randevu: açıkken sütun listesi */
@@ -392,14 +517,16 @@
     .sidebar__item--randevu.sidebar__item--rv-open .sidebar__submenu--rv-nested,
     .sidebar__item--deneme.sidebar__item--da-open .sidebar__submenu--da-nested,
     .sidebar__item--simulasyon.sidebar__item--sim-open .sidebar__submenu--sim-nested,
-    .sidebar__item--gelen.sidebar__item--gelen-open .sidebar__submenu--gelen-nested {
+    .sidebar__item--gelen.sidebar__item--gelen-open .sidebar__submenu--gelen-nested,
+    .sidebar__item--deneme-analizi.sidebar__item--dana-open .sidebar__submenu--dana-nested {
       display: flex !important;
       flex-direction: column;
     }
     .sidebar__submenu--ogr-nested,
     .sidebar__submenu--rv-nested,
     .sidebar__submenu--sim-nested,
-    .sidebar__submenu--gelen-nested {
+    .sidebar__submenu--gelen-nested,
+    .sidebar__submenu--dana-nested {
       padding-left: 1.35rem !important;
       margin-left: 0.35rem;
       border-left: 2px solid rgba(124, 58, 237, 0.22);
@@ -407,7 +534,8 @@
     .app--sidebar-readable .sidebar--elite .sidebar__item--ogrenci .sidebar__sublink span,
     .app--sidebar-readable .sidebar--elite .sidebar__item--randevu .sidebar__sublink span,
     .app--sidebar-readable .sidebar--elite .sidebar__item--simulasyon .sidebar__sublink span,
-    .app--sidebar-readable .sidebar--elite .sidebar__item--gelen .sidebar__sublink span {
+    .app--sidebar-readable .sidebar--elite .sidebar__item--gelen .sidebar__sublink span,
+    .app--sidebar-readable .sidebar--elite .sidebar__item--deneme-analizi .sidebar__sublink span {
       font-weight: 700;
       font-size: 0.74rem !important;
     }
@@ -1739,6 +1867,429 @@
     .sd-fin-kpi { background: linear-gradient(145deg, rgba(49, 46, 129, 0.9), rgba(30, 27, 75, 0.95)); border: 1px solid rgba(167, 139, 250, 0.25); border-radius: 12px; padding: 0.85rem 1rem; }
     .sd-fin-kpi__lbl { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: #c4b5fd; font-weight: 700; }
     .sd-fin-kpi__val { font-size: 1.25rem; font-weight: 800; color: #fff; margin-top: 0.25rem; }
+    /* Deneme Analizi modülü — Global Takvim & iskeletler */
+    .dana-deneme-root { padding: 0 0 2rem; max-width: 1200px; margin: 0 auto; }
+    .dana-deneme-hero {
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+      margin-bottom: 1.35rem;
+    }
+    .dana-deneme-hero__titles h1 { margin: 0 0 0.35rem; font-size: 1.35rem; font-weight: 800; color: #1e1b4b; letter-spacing: -0.02em; }
+    .dana-deneme-hero__titles p { margin: 0; font-size: 0.88rem; color: #64748b; max-width: 42ch; }
+    .btn--dana-cta {
+      display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1.15rem; font-weight: 800; font-size: 0.88rem;
+      border: none; border-radius: 14px; cursor: pointer; font-family: inherit;
+      background: linear-gradient(135deg, #5b21b6, #7c3aed); color: #fff;
+      box-shadow: 0 10px 28px rgba(91, 33, 182, 0.38); transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .btn--dana-cta:hover { transform: translateY(-2px); box-shadow: 0 14px 36px rgba(91, 33, 182, 0.45); }
+    .dana-tg-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem;
+    }
+    .dana-tg-card {
+      position: relative; border-radius: 18px; overflow: hidden;
+      background: linear-gradient(165deg, #ffffff 0%, #faf5ff 55%, #f3e8ff 100%);
+      border: 1px solid rgba(124, 58, 237, 0.18); box-shadow: 0 12px 36px rgba(30, 27, 75, 0.1);
+      padding: 1.1rem 1.15rem 1.15rem; display: flex; flex-direction: column; gap: 0.85rem;
+      min-height: 200px;
+    }
+    .dana-tg-card__shine { position: absolute; inset: -40% -20% auto auto; width: 70%; height: 80%; background: radial-gradient(circle, rgba(167, 139, 250, 0.35) 0%, transparent 65%); pointer-events: none; }
+    .dana-tg-card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.65rem; position: relative; z-index: 1; }
+    .dana-tg-card__logo {
+      width: 52px; height: 52px; border-radius: 14px; background: linear-gradient(145deg, #ede9fe, #fff);
+      border: 1px solid rgba(124, 58, 237, 0.2); display: flex; align-items: center; justify-content: center;
+      font-size: 1.35rem; color: #6d28d9; flex-shrink: 0;
+    }
+    .dana-tg-card__name { font-weight: 800; font-size: 0.98rem; color: #0f172a; line-height: 1.35; margin: 0; }
+    .dana-tg-card__badge {
+      font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
+      padding: 0.28rem 0.5rem; border-radius: 999px; background: rgba(16, 185, 129, 0.15); color: #047857; border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+    .dana-countdown {
+      position: relative; z-index: 1;
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.35rem;
+      padding: 0.65rem 0.5rem; border-radius: 14px;
+      background: linear-gradient(180deg, rgba(30, 27, 75, 0.92), rgba(15, 23, 42, 0.98));
+      border: 1px solid rgba(167, 139, 250, 0.25);
+    }
+    .dana-countdown__cell { text-align: center; }
+    .dana-countdown__val { display: block; font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; color: #e9d5ff; line-height: 1.2; }
+    .dana-countdown__lbl { font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; margin-top: 0.15rem; }
+    .dana-tg-card__meta { font-size: 0.75rem; color: #64748b; margin: 0; position: relative; z-index: 1; }
+    .dana-skel-root { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
+    .dana-skel-card {
+      border-radius: 20px; border: 1px dashed rgba(124, 58, 237, 0.28); background: linear-gradient(180deg, #faf5ff, #fff);
+      padding: 2.5rem 1.5rem; text-align: center;
+    }
+    .dana-skel-card__icon { font-size: 2.5rem; color: #a78bfa; margin-bottom: 1rem; opacity: 0.9; }
+    .dana-skel-card h2 { margin: 0 0 0.5rem; font-size: 1.2rem; font-weight: 800; color: #312e81; }
+    .dana-skel-card p { margin: 0; font-size: 0.9rem; color: #64748b; line-height: 1.55; }
+    /* Ultra-Detaylı Karne — Chart dashboard */
+    .dana-karne-dash { padding: 0 1rem 2rem; max-width: 1180px; margin: 0 auto; box-sizing: border-box; }
+    .dana-karne-dash__head {
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+    .dana-karne-dash__meta { margin: 0; font-size: 0.82rem; color: #64748b; }
+    .dana-karne-dash__meta strong { color: #5b21b6; font-weight: 800; }
+    .dana-karne-dash__grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem;
+    }
+    @media (max-width: 960px) { .dana-karne-dash__grid { grid-template-columns: 1fr; } }
+    .dana-karne-dash__grid--full { grid-column: 1 / -1; }
+    .dana-karne-chart-card {
+      background: linear-gradient(165deg, #ffffff 0%, #faf5ff 50%, #f5f3ff 100%);
+      border: 1px solid rgba(124, 58, 237, 0.14); border-radius: 18px;
+      padding: 1rem 1.1rem 1.15rem; box-shadow: 0 10px 32px rgba(30, 27, 75, 0.08);
+      opacity: 0; animation: dana-karne-fade-in 0.65s ease-out forwards;
+    }
+    .dana-karne-chart-card:nth-child(1) { animation-delay: 0.05s; }
+    .dana-karne-chart-card:nth-child(2) { animation-delay: 0.12s; }
+    .dana-karne-chart-card:nth-child(3) { animation-delay: 0.19s; }
+    @keyframes dana-karne-fade-in {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .dana-karne-chart-card__title {
+      margin: 0 0 0.35rem; font-size: 0.92rem; font-weight: 800; color: #312881;
+      display: flex; align-items: center; gap: 0.45rem;
+    }
+    .dana-karne-chart-card__title i { color: #7c3aed; font-size: 0.95rem; opacity: 0.9; }
+    .dana-karne-chart-card__sub { margin: 0 0 0.65rem; font-size: 0.72rem; color: #94a3b8; font-weight: 600; }
+    .dana-karne-chart-card__canvas {
+      position: relative; height: min(280px, 42vw); min-height: 220px; width: 100%;
+    }
+    .dana-karne-chart-card__canvas canvas { max-height: 100%; }
+    .dana-karne-chart-card--wide .dana-karne-chart-card__canvas { height: min(300px, 50vw); min-height: 240px; }
+    .dana-karne-pdf-toolbar { display: flex; flex-wrap: wrap; gap: 0.55rem; align-items: center; justify-content: flex-end; }
+    .btn-dana-pdf {
+      position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem;
+      padding: 0.55rem 0.95rem; font-family: inherit; font-size: 0.78rem; font-weight: 800;
+      border: 1px solid rgba(124, 58, 237, 0.35); border-radius: 12px; cursor: pointer;
+      background: linear-gradient(135deg, #fff, #f5f3ff); color: #5b21b6;
+      box-shadow: 0 4px 14px rgba(91, 33, 182, 0.12); transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
+    }
+    .btn-dana-pdf:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(91, 33, 182, 0.18); }
+    .btn-dana-pdf:disabled { opacity: 0.72; cursor: not-allowed; }
+    .btn-dana-pdf__emoji { font-size: 1rem; line-height: 1; }
+    .btn-dana-pdf__spin {
+      display: none; width: 15px; height: 15px; border: 2px solid rgba(91, 33, 182, 0.25);
+      border-top-color: #7c3aed; border-radius: 50%; animation: dana-pdf-spin 0.7s linear infinite; flex-shrink: 0;
+    }
+    .btn-dana-pdf.is-loading .btn-dana-pdf__spin { display: block; }
+    .btn-dana-pdf.is-loading .btn-dana-pdf__emoji { opacity: 0.5; }
+    @keyframes dana-pdf-spin { to { transform: rotate(360deg); } }
+    .dana-karne-telafi-cta {
+      margin-top: 1rem;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .dana-karne-telafi-btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.35rem;
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #faf5ff;
+      cursor: pointer;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #6d28d9 0%, #4f46e5 45%, #7c3aed 100%);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.14) inset,
+        0 4px 20px rgba(109, 40, 217, 0.45),
+        0 0 28px rgba(124, 58, 237, 0.55);
+      animation: dana-telafi-glow 2.4s ease-in-out infinite;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+    .dana-karne-telafi-btn:hover {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.2) inset,
+        0 8px 28px rgba(109, 40, 217, 0.55),
+        0 0 36px rgba(167, 139, 250, 0.65);
+    }
+    .dana-karne-telafi-btn:active { transform: translateY(0) scale(0.99); }
+    @keyframes dana-telafi-glow {
+      0%, 100% {
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.14) inset,
+          0 4px 20px rgba(109, 40, 217, 0.45),
+          0 0 24px rgba(124, 58, 237, 0.5);
+      }
+      50% {
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.18) inset,
+          0 6px 26px rgba(109, 40, 217, 0.6),
+          0 0 40px rgba(167, 139, 250, 0.75);
+      }
+    }
+    .dana-telafi-modal[hidden] { display: none !important; }
+    .dana-telafi-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 12050;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      box-sizing: border-box;
+    }
+    .dana-telafi-modal__backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(6px);
+    }
+    .dana-telafi-modal__panel {
+      position: relative;
+      max-width: 440px;
+      width: 100%;
+      background: #fff;
+      border-radius: 18px;
+      padding: 1.35rem 1.4rem 1.2rem;
+      box-shadow: 0 22px 60px rgba(15, 23, 42, 0.28);
+      border: 1px solid rgba(124, 58, 237, 0.2);
+    }
+    .dana-telafi-modal__title {
+      margin: 0 0 0.65rem;
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #312e81;
+      letter-spacing: -0.02em;
+    }
+    .dana-telafi-modal__body {
+      margin: 0 0 1.15rem;
+      font-size: 0.88rem;
+      line-height: 1.55;
+      color: #475569;
+    }
+    .dana-telafi-modal__body strong { color: #4c1d95; }
+    .dana-telafi-modal__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      justify-content: flex-end;
+    }
+    .dana-telafi-modal__btn {
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: 700;
+      padding: 0.55rem 1rem;
+      border-radius: 11px;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+    .dana-telafi-modal__btn--ghost {
+      background: #f1f5f9;
+      color: #475569;
+      border-color: #e2e8f0;
+    }
+    .dana-telafi-modal__btn--primary {
+      background: linear-gradient(135deg, #6d28d9, #5b21b6);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(91, 33, 182, 0.35);
+    }
+    /* Hata Karnesi — optik / deneme analizi */
+    .optik-hata-karne {
+      margin: 1.25rem 0 0;
+      padding: 1.15rem 1.2rem 1.25rem;
+      border-radius: 18px;
+      background: linear-gradient(165deg, #fafafa 0%, #ffffff 45%);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      box-shadow: 0 10px 36px rgba(15, 23, 42, 0.06);
+    }
+    .optik-hata-karne__head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin: 0 0 0.85rem;
+    }
+    .optik-hata-karne__title {
+      margin: 0;
+      font-size: 1.02rem;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+    .optik-hata-karne__title i { color: #7c3aed; }
+    .optik-hata-karne__sub {
+      margin: 0.2rem 0 0;
+      font-size: 0.78rem;
+      color: #64748b;
+      font-weight: 600;
+      max-width: 520px;
+      line-height: 1.45;
+    }
+    .optik-hata-karne__table-wrap {
+      overflow-x: auto;
+      border-radius: 14px;
+      border: 1px solid rgba(226, 232, 240, 0.95);
+      background: #fff;
+    }
+    .optik-hata-karne__table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 0.82rem;
+    }
+    .optik-hata-karne__table thead th {
+      text-align: left;
+      padding: 0.65rem 0.85rem;
+      font-weight: 800;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .optik-hata-karne__table tbody td {
+      padding: 0.6rem 0.85rem;
+      border-bottom: 1px solid #f1f5f9;
+      color: #334155;
+      font-weight: 600;
+    }
+    .optik-hata-karne__table tbody tr:last-child td { border-bottom: none; }
+    .optik-hata-karne__table tbody tr.is-wrong td {
+      background: rgba(254, 226, 226, 0.72);
+      color: #991b1b;
+    }
+    .optik-hata-karne__table tbody tr.is-empty td {
+      background: rgba(241, 245, 249, 0.95);
+      color: #475569;
+    }
+    .optik-hata-karne__badge {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 800;
+    }
+    .optik-hata-karne__table tbody tr.is-wrong .optik-hata-karne__badge {
+      background: rgba(220, 38, 38, 0.15);
+      color: #b91c1c;
+    }
+    .optik-hata-karne__table tbody tr.is-empty .optik-hata-karne__badge {
+      background: rgba(100, 116, 139, 0.18);
+      color: #475569;
+    }
+    .optik-hata-karne__empty {
+      text-align: center;
+      padding: 1.25rem 1rem !important;
+      color: #64748b !important;
+      font-weight: 600 !important;
+      background: #f8fafc !important;
+    }
+    .optik-hata-karne__cta {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 1rem;
+    }
+    .optik-hata-karne__ai-btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.8rem 1.5rem;
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #faf5ff;
+      cursor: pointer;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #6d28d9 0%, #5b21b6 50%, #7c3aed 100%);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.15) inset,
+        0 6px 24px rgba(91, 33, 182, 0.45),
+        0 0 32px rgba(124, 58, 237, 0.5);
+      animation: optik-hata-telafi-glow 2.5s ease-in-out infinite;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .optik-hata-karne__ai-btn:hover {
+      transform: translateY(-2px);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.22) inset,
+        0 10px 32px rgba(91, 33, 182, 0.55),
+        0 0 42px rgba(167, 139, 250, 0.6);
+    }
+    @keyframes optik-hata-telafi-glow {
+      0%, 100% {
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.15) inset,
+          0 6px 22px rgba(91, 33, 182, 0.45),
+          0 0 28px rgba(124, 58, 237, 0.48);
+      }
+      50% {
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.2) inset,
+          0 8px 28px rgba(91, 33, 182, 0.58),
+          0 0 40px rgba(192, 132, 252, 0.65);
+      }
+    }
+    @media (max-width: 640px) {
+      .optik-hata-karne__table thead { display: none; }
+      .optik-hata-karne__table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.35rem 0.75rem;
+        padding: 0.65rem 0.75rem;
+        border-bottom: 1px solid #e2e8f0;
+      }
+      .optik-hata-karne__table tbody td {
+        border: none;
+        padding: 0.2rem 0;
+      }
+      .optik-hata-karne__table tbody td::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.65rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: #94a3b8;
+        margin-bottom: 0.12rem;
+      }
+      .optik-hata-karne__table tbody td:nth-child(2) { grid-column: 1 / -1; }
+    }
+    .dana-karne-pdf-capture { background: linear-gradient(180deg, #faf5ff 0%, #fff 12%); border-radius: 18px; padding: 1rem 1rem 1.25rem; border: 1px solid rgba(124, 58, 237, 0.1); }
+    .dana-karne-pdf-hero {
+      text-align: center; padding: 1rem 0.9rem 0.85rem; margin: 0 0 1rem; border-radius: 14px;
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(99, 102, 241, 0.06));
+      border: 1px solid rgba(124, 58, 237, 0.18);
+    }
+    .dana-karne-pdf-hero__title { margin: 0 0 0.35rem; font-size: 1.15rem; font-weight: 800; color: #4c1d95; letter-spacing: -0.02em; }
+    .dana-karne-pdf-hero__date, .dana-karne-pdf-hero__student { margin: 0.15rem 0 0; font-size: 0.8rem; color: #64748b; font-weight: 600; }
+    .dana-karne-pdf-hero__student { color: #312e81; }
+    .dana-net-strip__list {
+      list-style: none; margin: 0 0 1rem; padding: 0.65rem 0.85rem; display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem;
+      justify-content: center; background: #fff; border-radius: 12px; border: 1px solid rgba(124, 58, 237, 0.14);
+    }
+    .dana-net-strip__list li { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.72rem; color: #64748b; font-weight: 600; }
+    .dana-net-strip__list strong { font-size: 0.95rem; color: #5b21b6; font-weight: 800; }
+    .dana-pdf-bulk-host { font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif; background: #fff; color: #0f172a; }
+    .dana-bulk-pdf-header { text-align: center; margin-bottom: 1rem; }
+    .dana-bulk-pdf-header h1 { margin: 0 0 0.35rem; font-size: 1.1rem; font-weight: 800; color: #5b21b6; }
+    .dana-bulk-pdf-header p { margin: 0; font-size: 0.75rem; color: #64748b; }
+    .dana-bulk-pdf-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+    .dana-bulk-pdf-table thead th {
+      background: linear-gradient(180deg, #6d28d9, #5b21b6); color: #fff; font-weight: 800; text-align: left;
+      padding: 0.55rem 0.5rem; border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .dana-bulk-pdf-table tbody td { padding: 0.48rem 0.5rem; border-bottom: 1px solid #e9d5ff; color: #334155; }
+    .dana-bulk-pdf-table tbody tr:nth-child(even) { background: #faf5ff; }
   </style>
   <link rel="stylesheet" href="css/zoho-compose.css" />
   <link rel="stylesheet" href="css/koc-panel-premium-light.css" />
@@ -1801,6 +2352,33 @@
             <button type="button" class="sidebar__link" data-nav="haftalik-program" title="Haftalık çalışma programı">
               <i class="fa-solid fa-calendar-week"></i><span>Haftalık Program</span>
             </button>
+          </li>
+          <li class="sidebar__item--deneme-analizi has-submenu">
+            <button
+              type="button"
+              class="sidebar__link sidebar__link--tm-accordion"
+              id="sidebarDanaToggle"
+              aria-expanded="false"
+              aria-controls="sidebarDanaSubmenu"
+              title="Deneme Analizi modülünü aç/kapat"
+            >
+              <i class="fa-solid fa-chart-simple"></i><span>Deneme Analizi</span>
+              <span class="sidebar__tm-chevron" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
+            </button>
+            <div class="sidebar__submenu sidebar__submenu--dana-nested" id="sidebarDanaSubmenu" role="group" aria-label="Deneme Analizi alt menü">
+              <button type="button" class="sidebar__sublink" data-nav="deneme-analiz-takvim" title="Türkiye geneli deneme takvimi">
+                <i class="fa-solid fa-earth-americas"></i><span>Global Deneme Takvimi</span>
+              </button>
+              <button type="button" class="sidebar__sublink" data-nav="deneme-analiz-optik" title="Akıllı optik okuma">
+                <i class="fa-solid fa-qrcode"></i><span>Akıllı Optik</span>
+              </button>
+              <button type="button" class="sidebar__sublink" data-nav="deneme-analiz-karne" title="Ultra detaylı karne">
+                <i class="fa-solid fa-id-card"></i><span>Ultra-Detaylı Karne</span>
+              </button>
+              <button type="button" class="sidebar__sublink" data-nav="deneme-analiz-telafi" title="AI telafi reçetesi">
+                <i class="fa-solid fa-prescription-bottle-medical"></i><span>AI Telafi Reçetesi</span>
+              </button>
+            </div>
           </li>
           <li class="sidebar__item--simulasyon has-submenu">
             <button
@@ -2060,7 +2638,12 @@
         <div class="main-view" data-view="ogrenciler" id="view-ogrenciler" hidden>
           <div class="page-head">
             <h1 class="page-head__title">Öğrencilerim</h1>
-            <button type="button" class="btn btn--sm btn--purple" id="btnPageAddStudent"><i class="fa-solid fa-user-plus"></i> Yeni Öğrenci</button>
+            <div class="page-head__actions">
+              <button type="button" class="btn btn--sm btn--xs" id="btnPageBulkStudentImport" title="Excel veya CSV ile liste yükleyin">
+                <i class="fa-solid fa-file-excel"></i> Excel ile Toplu Ekle
+              </button>
+              <button type="button" class="btn btn--sm btn--purple" id="btnPageAddStudent"><i class="fa-solid fa-user-plus"></i> Yeni Öğrenci</button>
+            </div>
           </div>
           <p class="page-desc"><strong>Düzenle</strong> veya <strong>Sil</strong> ile kayıt yönetimi. Finans ve cari özet için sol menüden <strong>Muhasebe</strong> sayfasını kullanın.</p>
           <div class="student-grid cards-row--wide" id="studentsCardsRoot">
@@ -2544,7 +3127,7 @@
             <div class="yks-pro-hero">
               <span class="yks-pro-hero__badge">Akıllı kaynak</span>
               <h1>Akıllı Kaynak Yönetim ve Reçete</h1>
-              <p>Öğrenci seçmeden kitap listesi görünmez. Atamalar Appwrite <code>students/…/atananKaynaklar</code> altında saklanır; kütüphane <strong>Kütüphanem</strong> sayfasından yönetilir.</p>
+              <p>Öğrenci seçmeden kitap listesi görünmez. Atamalar Appwrite <code>atanan_kaynaklar</code> koleksiyonunda <code>student_id</code> ile saklanır; kütüphane <strong>Kütüphanem</strong> sayfasından yönetilir.</p>
             </div>
             <div class="kk-student-bar">
               <div class="kk-student-bar__row">
@@ -2726,6 +3309,33 @@
               </aside>
             </div>
 
+            <div class="optik-hata-karne eds-hata-karne" id="edsHataKarneWrap" aria-label="Hata karnesi">
+              <div class="optik-hata-karne__head">
+                <div>
+                  <h3 class="optik-hata-karne__title"><i class="fa-solid fa-triangle-exclamation"></i> Hata Karnesi</h3>
+                  <p class="optik-hata-karne__sub">Yanlış ve boş sorular soru numarasıyla listelenir; çözüm süresi Faz 2’de optik zaman damgasıyla doldurulacak.</p>
+                </div>
+              </div>
+              <div class="optik-hata-karne__table-wrap">
+                <table class="optik-hata-karne__table">
+                  <thead>
+                    <tr>
+                      <th>Soru No</th>
+                      <th>Ders &gt; Konu</th>
+                      <th>Durum</th>
+                      <th>Çözüm süresi</th>
+                    </tr>
+                  </thead>
+                  <tbody id="edsHataKarneTbody"></tbody>
+                </table>
+              </div>
+              <div class="optik-hata-karne__cta">
+                <button type="button" class="optik-hata-karne__ai-btn" id="btnEdsHataTelafiAi" title="AI Üretici ile telafı testi">
+                  <span aria-hidden="true">✨</span> AI ile Telafi Testi Üret
+                </button>
+              </div>
+            </div>
+
             <div class="eds-da__actions">
               <button type="button" class="btn btn--purple btn-eds-primary" id="btnDaSaveLocal"><i class="fa-solid fa-chart-line"></i> Grafiğe ekle (yerel trend)</button>
               <button type="button" class="btn btn--purple btn-eds-primary" id="btnDaSaveFirestore"><i class="fa-solid fa-cloud-arrow-up"></i> Appwrite’a kaydet</button>
@@ -2851,6 +3461,34 @@
                 <div class="eds-da__panel-head"><i class="fa-solid fa-table-list"></i> Branşlar — doğru / yanlış / boş</div>
                 <div id="optikManualBranchRoot"></div>
               </div>
+
+              <div class="optik-hata-karne" id="optikHataKarneWrap" aria-label="Hata karnesi">
+                <div class="optik-hata-karne__head">
+                  <div>
+                    <h3 class="optik-hata-karne__title"><i class="fa-solid fa-triangle-exclamation"></i> Hata Karnesi</h3>
+                    <p class="optik-hata-karne__sub">Branş toplamlarından türetilen soru–konu eşlemesi (MVP). Çözüm süresi sütunu şimdilik «—».</p>
+                  </div>
+                </div>
+                <div class="optik-hata-karne__table-wrap">
+                  <table class="optik-hata-karne__table">
+                    <thead>
+                      <tr>
+                        <th>Soru No</th>
+                        <th>Ders &gt; Konu</th>
+                        <th>Durum</th>
+                        <th>Çözüm süresi</th>
+                      </tr>
+                    </thead>
+                    <tbody id="optikHataKarneTbody"></tbody>
+                  </table>
+                </div>
+                <div class="optik-hata-karne__cta">
+                  <button type="button" class="optik-hata-karne__ai-btn" id="btnOptikHataTelafiAi" title="AI Üretici ile telafı testi">
+                    <span aria-hidden="true">✨</span> AI ile Telafi Testi Üret
+                  </button>
+                </div>
+              </div>
+
               <div class="eds-da__actions">
                 <button type="button" class="btn btn--purple btn-eds-primary" id="btnOptikManualSave"><i class="fa-solid fa-cloud-arrow-up"></i> Appwrite’a kaydet</button>
                 <button type="button" class="btn btn-eds-secondary" id="btnOptikManualReset"><i class="fa-solid fa-rotate-left"></i> Formu sıfırla</button>
@@ -2993,6 +3631,161 @@
           <div class="cards-row cards-row--wide" id="appointmentsPageRow"></div>
         </div>
 
+        <div class="main-view" data-view="deneme-analiz-takvim" id="view-deneme-analiz-takvim" hidden>
+          <div class="dana-deneme-root" id="denemeAnalizTakvimRoot">
+            <div class="dana-deneme-hero">
+              <div class="dana-deneme-hero__titles">
+                <h1>Global Deneme Takvimi</h1>
+                <p>Türkiye geneli yayın ve kurum denemelerini tek ekranda izleyin; tarihleri planlayın.</p>
+              </div>
+              <button type="button" class="btn--dana-cta" id="btnDanaNewExamPlan"><i class="fa-solid fa-plus"></i> Yeni Deneme Planla</button>
+            </div>
+            <h2 class="page-head__title" style="margin:0 0 1rem;font-size:1.05rem;font-weight:800;color:#4c1d95">Yaklaşan Türkiye Geneli Denemeler</h2>
+            <div class="dana-tg-grid" aria-label="Yaklaşan denemeler">
+              <article class="dana-tg-card" data-dana-countdown="2026-04-15T10:00:00+03:00">
+                <div class="dana-tg-card__shine" aria-hidden="true"></div>
+                <div class="dana-tg-card__top">
+                  <div class="dana-tg-card__logo" title="Kurum logosu"><i class="fa-solid fa-cube"></i></div>
+                  <span class="dana-tg-card__badge">TG</span>
+                </div>
+                <h3 class="dana-tg-card__name">3D Yayınları — TYT Genel Deneme</h3>
+                <div class="dana-countdown" aria-label="Geri sayım">
+                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="d">0</span><span class="dana-countdown__lbl">Gün</span></div>
+                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="h">00</span><span class="dana-countdown__lbl">Saat</span></div>
+                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="m">00</span><span class="dana-countdown__lbl">Dk</span></div>
+                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="s">00</span><span class="dana-countdown__lbl">Sn</span></div>
+                </div>
+                <p class="dana-tg-card__meta">15 Nisan 2026 · 10:00 · Türkiye geneli</p>
+              </article>
+              <article class="dana-tg-card" data-dana-countdown="2026-05-01T09:30:00+03:00">
+                <div class="dana-tg-card__shine" aria-hidden="true"></div>
+                <div class="dana-tg-card__top">
+                  <div class="dana-tg-card__logo" title="Kurum logosu"><i class="fa-solid fa-shapes"></i></div>
+                  <span class="dana-tg-card__badge">TG</span>
+                </div>
+                <h3 class="dana-tg-card__name">Paraf Yayınları — AYT Sayısal</h3>
+                <div class="dana-countdown" aria-label="Geri sayım">
+                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="d">0</span><span class="dana-countdown__lbl">Gün</span></div>
+                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="h">00</span><span class="dana-countdown__lbl">Saat</span></div>
+                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="m">00</span><span class="dana-countdown__lbl">Dk</span></div>
+                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="s">00</span><span class="dana-countdown__lbl">Sn</span></div>
+                </div>
+                <p class="dana-tg-card__meta">1 Mayıs 2026 · 09:30 · Türkiye geneli</p>
+              </article>
+              <article class="dana-tg-card" data-dana-countdown="2026-05-22T14:00:00+03:00">
+                <div class="dana-tg-card__shine" aria-hidden="true"></div>
+                <div class="dana-tg-card__top">
+                  <div class="dana-tg-card__logo" title="Kurum logosu"><i class="fa-solid fa-layer-group"></i></div>
+                  <span class="dana-tg-card__badge">TG</span>
+                </div>
+                <h3 class="dana-tg-card__name">ÖSYM Tarzı — TYT Deneme</h3>
+                <div class="dana-countdown" aria-label="Geri sayım">
+                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="d">0</span><span class="dana-countdown__lbl">Gün</span></div>
+                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="h">00</span><span class="dana-countdown__lbl">Saat</span></div>
+                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="m">00</span><span class="dana-countdown__lbl">Dk</span></div>
+                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="s">00</span><span class="dana-countdown__lbl">Sn</span></div>
+                </div>
+                <p class="dana-tg-card__meta">22 Mayıs 2026 · 14:00 · Türkiye geneli</p>
+              </article>
+            </div>
+          </div>
+        </div>
+
+        <div class="main-view" data-view="deneme-analiz-optik" id="view-deneme-analiz-optik" hidden>
+          <div class="page-head">
+            <h1 class="page-head__title">Akıllı Optik</h1>
+          </div>
+          <div class="dana-skel-root">
+            <div class="dana-skel-card">
+              <div class="dana-skel-card__icon"><i class="fa-solid fa-qrcode"></i></div>
+              <h2>Akıllı Optik</h2>
+              <p>Bu alan yakında optik okuma ve eşleştirme akışı ile doldurulacak. Şimdilik gezinmeyi test edebilirsiniz.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="main-view" data-view="deneme-analiz-karne" id="view-deneme-analiz-karne" hidden>
+          <div class="page-head">
+            <h1 class="page-head__title">Ultra-Detaylı Karne</h1>
+          </div>
+          <div class="dana-karne-dash" id="danaKarneDashRoot">
+            <div class="dana-karne-dash__head">
+              <p class="dana-karne-dash__meta">
+                YKS 2026 müfredatına göre kazanım görünümü · <strong id="danaKarneStudentLabel">Demo profili</strong>
+              </p>
+              <div class="dana-karne-pdf-toolbar" role="group" aria-label="PDF raporları">
+                <button type="button" class="btn-dana-pdf" id="btnDanaPdfBulkRank" title="Sıralı liste PDF">
+                  <span class="btn-dana-pdf__spin" aria-hidden="true"></span>
+                  <span class="btn-dana-pdf__emoji" aria-hidden="true">📄</span>
+                  <span class="btn-dana-pdf__label">Toplu Sonuç İndir (Sıralı Liste)</span>
+                </button>
+                <button type="button" class="btn-dana-pdf" id="btnDanaPdfKarneA4" title="A4 grafik karne PDF">
+                  <span class="btn-dana-pdf__spin" aria-hidden="true"></span>
+                  <span class="btn-dana-pdf__emoji" aria-hidden="true">🎯</span>
+                  <span class="btn-dana-pdf__label">Öğrenci Karnesi İndir (A4 Grafik)</span>
+                </button>
+              </div>
+            </div>
+            <div class="dana-karne-pdf-capture" id="danaKarnePdfCapture">
+              <header class="dana-karne-pdf-hero">
+                <h2 class="dana-karne-pdf-hero__title">DerecePanel Öğrenci Sınav Karnesi</h2>
+                <p class="dana-karne-pdf-hero__date" id="danaKarnePdfHeroDate"></p>
+                <p class="dana-karne-pdf-hero__student" id="danaKarnePdfHeroStudent"></p>
+              </header>
+              <div class="dana-karne-net-strip" id="danaKarneNetSummary" aria-label="Net özeti"></div>
+              <div class="dana-karne-dash__grid">
+                <div class="dana-karne-chart-card">
+                  <h3 class="dana-karne-chart-card__title"><i class="fa-solid fa-chart-line"></i> Son 5 Deneme · Net yükselişi</h3>
+                  <p class="dana-karne-chart-card__sub">TYT toplam net — örnek seri</p>
+                  <div class="dana-karne-chart-card__canvas"><canvas id="trendChart" aria-label="Net trendi grafiği"></canvas></div>
+                </div>
+                <div class="dana-karne-chart-card">
+                  <h3 class="dana-karne-chart-card__title"><i class="fa-solid fa-bullseye"></i> Ders bazlı yetkinlik</h3>
+                  <p class="dana-karne-chart-card__sub">Matematik · Türkçe · Fen · Sosyal</p>
+                  <div class="dana-karne-chart-card__canvas"><canvas id="radarChart" aria-label="Radar yetkinlik grafiği"></canvas></div>
+                </div>
+                <div class="dana-karne-chart-card dana-karne-chart-card--wide dana-karne-dash__grid--full">
+                  <h3 class="dana-karne-chart-card__title"><i class="fa-solid fa-chart-pie"></i> Kazanım / konu analizi</h3>
+                  <p class="dana-karne-chart-card__sub">Yeşil güvenli · Sarı dikkat · Kırmızı telafi — üzerine gelin veya tıklayın</p>
+                  <div class="dana-karne-chart-card__canvas dana-karne-chart-card__canvas--doughnut">
+                    <canvas id="topicChart" aria-label="Konu başarı dağılımı"></canvas>
+                  </div>
+                  <div class="dana-karne-telafi-cta">
+                    <button type="button" class="dana-karne-telafi-btn" id="btnDanaAiTelafiTest" title="Kırmızı (telafi) konular için AI Üreticiyi başlat">
+                      <span aria-hidden="true">✨</span> AI Telafi Testi Hazırla (Eksik Konular)
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="danaTelafiConfirmModal" class="dana-telafi-modal" hidden aria-hidden="true">
+            <div class="dana-telafi-modal__backdrop" data-dana-telafi-close tabindex="-1" aria-hidden="true"></div>
+            <div class="dana-telafi-modal__panel" role="dialog" aria-modal="true" aria-labelledby="danaTelafiModalTitle">
+              <h3 id="danaTelafiModalTitle" class="dana-telafi-modal__title"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> AI Telafi Testi</h3>
+              <p id="danaTelafiModalBody" class="dana-telafi-modal__body"></p>
+              <div class="dana-telafi-modal__actions">
+                <button type="button" class="dana-telafi-modal__btn dana-telafi-modal__btn--ghost" id="danaTelafiModalCancel">Vazgeç</button>
+                <button type="button" class="dana-telafi-modal__btn dana-telafi-modal__btn--primary" id="danaTelafiModalConfirm">Onayla</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="main-view" data-view="deneme-analiz-telafi" id="view-deneme-analiz-telafi" hidden>
+          <div class="page-head">
+            <h1 class="page-head__title">AI Telafi Reçetesi</h1>
+          </div>
+          <div class="dana-skel-root">
+            <div class="dana-skel-card">
+              <div class="dana-skel-card__icon"><i class="fa-solid fa-prescription-bottle-medical"></i></div>
+              <h2>AI Telafi Reçetesi</h2>
+              <p>Zayıf alanlara özel telafi önerileri burada listelenecek. Yapay zeka motoru bağlandığında canlı veri gösterilecek.</p>
+            </div>
+          </div>
+        </div>
+
         <div class="main-view tm-workspace-view" data-view="testmaker" id="view-testmaker" hidden>
           <div id="tmWorkspaceRoot" class="tm-workspace">
             <header class="tm-workspace__header tm-workspace__header--ribbon">
@@ -3006,6 +3799,7 @@
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard" title="Ana panel"><i class="fa-solid fa-house"></i> Giriş</button>
                 <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="testmaker" title="Test oluştur"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test" title="AI Test Üretici"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-cropper" title="PDF üzerinden otomatik soru kırpma"><i class="fa-solid fa-scissors"></i> Otomatik Kırpıcı</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library" title="Kütüphane"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor" title="PDF işaretleme"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper" title="Manuel soru kırpma"><i class="fas fa-cut"></i> Soru Kırpma</button>
@@ -3412,6 +4206,7 @@
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
                 <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-cropper" title="PDF üzerinden otomatik soru kırpma"><i class="fa-solid fa-scissors"></i> Otomatik Kırpıcı</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fas fa-cut"></i> Soru Kırpma</button>
@@ -3490,6 +4285,7 @@
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fas fa-cut"></i> Soru Kırpma</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="soru-arsivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>
               </nav>
             </header>
             <div class="tm-auto-cropper-shell">
@@ -3505,10 +4301,10 @@
                   <span>Hassasiyet (Sensitivity): <strong id="tmAutoCropSensVal">1.00</strong></span>
                   <input type="range" id="tmAutoCropSensitivity" min="0.65" max="1.45" step="0.05" value="1.00" />
                 </label>
-                <div class="tm-auto-cropper-meta">
+                <div class="tm-auto-cropper-toolbar" role="group" aria-label="Ders ve konu seçimi">
                   <label><span>Sınav</span><select id="tmAutoCropExam"><option value="TYT">TYT</option><option value="AYT">AYT</option></select></label>
-                  <label><span>Ders</span><input type="text" id="tmAutoCropDers" placeholder="Örn: Matematik" /></label>
-                  <label><span>Konu</span><input type="text" id="tmAutoCropKonu" placeholder="Örn: Problemler" /></label>
+                  <label><span>Ders seçiniz</span><select id="tmAutoCropDersSelect"><option value="">— Ders seçiniz —</option></select></label>
+                  <label><span>Konu seçiniz</span><select id="tmAutoCropKonuSelect"><option value="">— Önce ders —</option></select></label>
                   <label><span>Zorluk</span><select id="tmAutoCropZorluk"><option value="Kolay">Kolay</option><option value="Orta" selected>Orta</option><option value="Zor">Zor</option></select></label>
                 </div>
                 <div class="tm-auto-cropper-actions">
@@ -3523,14 +4319,19 @@
                 </div>
                 <div class="tm-auto-cropper-tools">
                   <label><span>Sayfa filtresi</span><select id="tmAutoCropPageFilter"><option value="all">Tümü</option></select></label>
-                  <label><span>Toplu ders override</span><input type="text" id="tmAutoCropBulkDers" placeholder="Örn: Matematik" /></label>
-                  <button type="button" class="btn btn--ghost" id="tmAutoCropApplyBulkDers">Uygula</button>
+                  <button type="button" class="btn btn--ghost" id="tmAutoCropApplyToolbarMeta" title="Üstteki ders/konuyu görünen sayfadaki tüm öğelere uygular">Üst ders/konuyu uygula</button>
                   <button type="button" class="btn btn--ghost" id="tmAutoCropSelectAll">Tümünü Seç</button>
                   <button type="button" class="btn btn--ghost" id="tmAutoCropSelectNone">Seçimi Kaldır</button>
                 </div>
                 <p class="tm-auto-cropper-result__hint" id="tmAutoCropHint">Henüz kırpılmış soru yok.</p>
                 <div class="tm-auto-cropper-grid" id="tmAutoCropGrid"></div>
               </section>
+            </div>
+            <div id="tmAutoCropSavingOverlay" class="tm-auto-crop-saving-overlay" hidden aria-live="polite">
+              <div class="tm-auto-crop-saving-overlay__box">
+                <div class="tm-auto-crop-saving-overlay__spinner" aria-hidden="true"></div>
+                <p>Kaydediliyor... Lütfen bekleyin</p>
+              </div>
             </div>
           </div>
         </div>
@@ -3547,6 +4348,7 @@
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-cropper" title="PDF üzerinden otomatik soru kırpma"><i class="fa-solid fa-scissors"></i> Otomatik Kırpıcı</button>
               <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fas fa-cut"></i> Soru Kırpma</button>
@@ -3582,6 +4384,7 @@
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-cropper" title="PDF üzerinden otomatik soru kırpma"><i class="fa-solid fa-scissors"></i> Otomatik Kırpıcı</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
               <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fas fa-cut"></i> Soru Kırpma</button>
@@ -3614,6 +4417,7 @@
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-cropper" title="PDF üzerinden otomatik soru kırpma"><i class="fa-solid fa-scissors"></i> Otomatik Kırpıcı</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
               <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="pdf-cropper"><i class="fas fa-cut"></i> Soru Kırpma</button>
@@ -3747,6 +4551,7 @@
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-cropper" title="PDF üzerinden otomatik soru kırpma"><i class="fa-solid fa-scissors"></i> Otomatik Kırpıcı</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fas fa-cut"></i> Soru Kırpma</button>
@@ -4522,7 +5327,7 @@
               <div class="form-group student-avatar-picker" style="grid-column: 1 / -1;">
                 <label class="form-required">Profil fotoğrafı</label>
                 <div class="student-avatar-picker__row">
-                  <img id="stAvatarPreview" class="student-avatar-picker__img" src="https://api.dicebear.com/7.x/avataaars/png?seed=yks_pastel_1&amp;size=128&amp;backgroundColor=b6e3f4" alt="Profil önizleme" />
+                  <img id="stAvatarPreview" class="student-avatar-picker__img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23ede9fe'/%3E%3C/svg%3E" alt="Profil önizleme" width="128" height="128" />
                   <div class="student-avatar-picker__actions">
                     <p class="student-avatar-picker__meta" id="stAvatarMeta">YKS adayı avatar (40 çizgi film, pastel)</p>
                     <div class="student-avatar-picker__btns">
@@ -4734,7 +5539,7 @@
             <div class="form-group student-avatar-picker" style="grid-column: 1 / -1;">
               <label>Profil fotoğrafı</label>
               <div class="student-avatar-picker__row">
-                <img id="stEditAvatarPreview" class="student-avatar-picker__img" src="https://api.dicebear.com/7.x/avataaars/png?seed=yks_pastel_1&amp;size=128&amp;backgroundColor=b6e3f4" alt="Düzenleme önizleme" />
+                <img id="stEditAvatarPreview" class="student-avatar-picker__img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23ede9fe'/%3E%3C/svg%3E" alt="Düzenleme önizleme" width="128" height="128" />
                 <div class="student-avatar-picker__actions">
                   <p class="student-avatar-picker__meta" id="stEditAvatarMeta">YKS adayı avatar (40 çizgi film)</p>
                   <div class="student-avatar-picker__btns">
@@ -5163,6 +5968,48 @@
       </form>
     </div>
 
+    <!-- Toplu öğrenci — Excel / CSV (SheetJS) -->
+    <div class="modal modal--lg" id="bulkStudentImportModal" role="dialog" aria-labelledby="bulkStudentImportTitle" hidden>
+      <div class="modal__head">
+        <div>
+          <h2 class="modal__title" id="bulkStudentImportTitle"><i class="fa-solid fa-file-import"></i> Hızlı kurulum — toplu öğrenci</h2>
+          <p class="modal__subtitle">Şablonu indirip doldurun; dosyayı aşağıdaki alana sürükleyin veya tıklayarak seçin.</p>
+        </div>
+        <button type="button" class="modal__close" data-close-modal aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal__body bulk-import-modal-body">
+        <p class="bulk-import-lead">
+          Şablon, <strong>Yeni öğrenci kaydı</strong> formundaki alanlarla <strong>birebir</strong> aynı başlıkları kullanır (21 sütun).
+          <strong>Portal kullanıcı adı</strong> doluysa şifre boş bırakılabilir; sistem <code>YksDerece2026!</code> varsayılanını uygular (min. 8 karakter, manuel form ile uyumlu).
+          Örnek satırı silebilir veya düzenleyebilirsiniz.
+        </p>
+        <button type="button" class="bulk-import-template-btn" id="bulkImportDownloadTemplate">
+          📥 Örnek Şablonu İndir
+        </button>
+        <div
+          class="bulk-import-dropzone bulk-import-dropzone--xl"
+          id="bulkImportDropzone"
+          tabindex="0"
+          role="button"
+          aria-label="Dosya yükleme alanı"
+        >
+          <div class="bulk-import-dropzone__icon" aria-hidden="true"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+          <p class="bulk-import-dropzone__title">Sürükleyip bırakın veya tıklayın</p>
+          <p class="bulk-import-dropzone__hint">.xlsx, .xls veya .csv · İlk satır başlık satırı olmalıdır</p>
+        </div>
+        <input type="file" id="bulkImportFileInput" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" hidden />
+        <div class="bulk-import-progress" id="bulkImportProgress" hidden>
+          <div class="bulk-import-progress__bar" aria-hidden="true">
+            <div class="bulk-import-progress__fill" id="bulkImportProgressFill"></div>
+          </div>
+          <p class="bulk-import-progress__label" id="bulkImportProgressLabel">Hazır</p>
+        </div>
+      </div>
+      <div class="modal__foot" style="margin: 0 -1.5rem -1.5rem">
+        <button type="button" class="btn-modal-secondary" data-close-modal id="btnBulkImportCloseFooter">Kapat</button>
+      </div>
+    </div>
+
     <!-- Yeni kaynak ata — Appwrite kütüphanesi -->
     <div class="modal modal--lg modal--kk" id="kkModalAta" role="dialog" aria-labelledby="kkModalAtaTitle" hidden>
       <div class="modal__head">
@@ -5357,11 +6204,23 @@
     </div>
   </div>
 
+  <div id="optikHataTelafiModal" class="dana-telafi-modal" hidden aria-hidden="true">
+    <div class="dana-telafi-modal__backdrop" data-optik-hata-telafi-close tabindex="-1" aria-hidden="true"></div>
+    <div class="dana-telafi-modal__panel" role="dialog" aria-modal="true" aria-labelledby="optikHataTelafiModalTitle">
+      <h3 id="optikHataTelafiModalTitle" class="dana-telafi-modal__title"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Hata karnesi — AI telafi</h3>
+      <p id="optikHataTelafiModalBody" class="dana-telafi-modal__body"></p>
+      <div class="dana-telafi-modal__actions">
+        <button type="button" class="dana-telafi-modal__btn dana-telafi-modal__btn--ghost" id="optikHataTelafiModalCancel">Vazgeç</button>
+        <button type="button" class="dana-telafi-modal__btn dana-telafi-modal__btn--primary" id="optikHataTelafiModalConfirm">Onayla</button>
+      </div>
+    </div>
+  </div>
+
   <div id="avatarGallerySheet" class="avatar-gallery-sheet" hidden aria-hidden="true">
     <div class="avatar-gallery-sheet__backdrop" data-close-avatar-gallery tabindex="-1"></div>
     <div class="avatar-gallery-sheet__panel" role="dialog" aria-labelledby="avatarGalleryTitle">
       <div class="avatar-gallery-sheet__head">
-        <h3 id="avatarGalleryTitle">Avatar seç (40 pastel)</h3>
+        <h3 id="avatarGalleryTitle">Avatar seç (20 + 20 çizgi film)</h3>
         <button type="button" class="modal__close" data-close-avatar-gallery aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="avatar-gallery-sheet__grid" id="avatarGalleryGrid"></div>
@@ -5371,7 +6230,7 @@
   <div class="toast toast--tr" id="panelToast" role="status" aria-live="polite" hidden></div>
 
   <p class="site-credit site-credit--panel">
-    Mustafa AKBAŞ - Furkan Şehmus KIYAR - Veysel Anıl KARAASLAN tarafından üretildi
+    Mustafa AKBAŞ - Furkan Şehmus KIYAR - Veysel Anıl KARAASLAN - Efe KARACABEY tarafından üretildi
   </p>
 
   <script>
@@ -5395,7 +6254,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5/dist/iro.min.js" crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js" crossorigin="anonymous"></script>
   <!-- PDF indir: global html2canvas (bundle sonrası; sayfa başına yakalama) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous"></script>
   <!-- Eski flip sayaç (yksCountdownHost) kaldırıldı; tek sayaç: #yks-countdown-widget + initDashboardYksCountdownWidget -->
@@ -5441,6 +6300,6 @@
   <script type="module" src="js/yks-hedef-uni-picker.js"></script>
   <script type="module" src="js/form-password-toggle.js"></script>
   <script type="module" src="js/sorun-bildir.js"></script>
-  <script type="module" src="js/koc-panel.js?v=20260326-4"></script>
+  <script type="module" src="js/koc-panel.js?v=20260327-hata-karne"></script>
 </body>
 </html>

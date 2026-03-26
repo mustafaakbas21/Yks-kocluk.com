@@ -1,6 +1,8 @@
 /**
  * Öğrenci paneli — Hedef Simülatörü (Chart.js + YÖK Atlas örnek tablosu)
+ * Müfredat ağacı merkezi kaynak: `yks-mufredat.js`.
  */
+import { YKS2026_Mufredat } from "./yks-mufredat.js";
 import { findAtlasProgramById, TR_UNIVERSITIES_UNIQUE, PROGRAM_TEMPLATES_UI } from "./yok-atlas-data.js";
 import {
   buildSimulatorRows,
@@ -12,6 +14,8 @@ import {
   studentAytTableSectionTitle,
   normalizeStudentYksAlanKey,
 } from "./hedef-atlas-helpers.js";
+
+export { YKS2026_Mufredat };
 
 var ospHedefRadarChart = null;
 

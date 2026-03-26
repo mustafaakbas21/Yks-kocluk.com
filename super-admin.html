@@ -1498,6 +1498,9 @@
         <i class="fa-solid fa-file-invoice"></i> Teklifler
         <span id="saQuoteBadge" class="sa-quote-badge" hidden>0</span>
       </button>
+      <button type="button" class="btn-ghost" id="btnSaRefresh" title="Sayfayı yenile">
+        <i class="fa-solid fa-rotate-right"></i> Yenile
+      </button>
       <button type="button" class="btn-ghost" id="btnLogout"><i class="fa-solid fa-right-from-bracket"></i> Çıkış</button>
     </div>
   </header>
@@ -1526,11 +1529,6 @@
           <p class="sa-nav-group__label">Öğrenciler</p>
           <a class="sa-nav-link" href="#yeni-ogrenci" data-sa-route="yeni-ogrenci"><i class="fa-solid fa-user-graduate"></i> Yeni öğrenci</a>
           <a class="sa-nav-link" href="#ogrenciler" data-sa-route="ogrenciler"><i class="fa-solid fa-users"></i> Öğrenci listesi</a>
-        </div>
-        <div class="sa-nav-group">
-          <p class="sa-nav-group__label">Analiz araçları</p>
-          <a class="sa-nav-link" href="#arac-net" data-sa-route="arac-net"><i class="fa-solid fa-wand-magic-sparkles"></i> TYT-AYT Net Sihirbazı</a>
-          <a class="sa-nav-link" href="#arac-yks" data-sa-route="arac-yks"><i class="fa-solid fa-calculator"></i> YKS Puan Hesaplama</a>
         </div>
         <div class="sa-nav-group">
           <p class="sa-nav-group__label">Sistem</p>
@@ -1967,30 +1965,6 @@
       </div>
     </div>
 
-    <section class="sa-view" data-sa-page="arac-net">
-      <div class="card">
-        <h2 class="section-title"><i class="fa-solid fa-wand-magic-sparkles"></i> TYT-AYT Net Sihirbazı</h2>
-        <p style="font-size:0.88rem;color:var(--muted);margin:0 0 0.5rem;line-height:1.55;max-width:60ch">
-          YÖK şablonuna uygun hedef net tabloları ve ders bazlı planlama aracı koç panelinde çalışır. Kurucu olarak önizlemek veya kullanmak için koç panelini ayrı sekmede açın (koç oturumu gerekir).
-        </p>
-        <div class="sa-tool-actions">
-          <a class="btn-create" href="/koc-panel?tool=net-sihirbazi" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-up-right-from-square"></i> Koç panelinde aç</a>
-        </div>
-      </div>
-    </section>
-
-    <section class="sa-view" data-sa-page="arac-yks">
-      <div class="card">
-        <h2 class="section-title"><i class="fa-solid fa-calculator"></i> YKS Puan Hesaplama</h2>
-        <p style="font-size:0.88rem;color:var(--muted);margin:0 0 0.5rem;line-height:1.55;max-width:60ch">
-          Yerleştirme puanı göstergesi (demo) ve TYT-AYT bileşenleri koç panelinde sunulur. Ayrı sekmede koç panelinden açabilirsiniz.
-        </p>
-        <div class="sa-tool-actions">
-          <a class="btn-create" href="/koc-panel?tool=yks-puan" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-up-right-from-square"></i> Koç panelinde aç</a>
-        </div>
-      </div>
-    </section>
-
     <section class="sa-view" data-sa-page="destek">
     <section class="card" id="saSectionDestek">
       <h2 class="section-title"><i class="fa-solid fa-headset"></i> Sorunlar &amp; destek talepleri</h2>
@@ -2331,7 +2305,7 @@
   </div>
 
   <p class="site-credit site-credit--admin">
-    Mustafa AKBAŞ - Furkan Şehmus KIYAR - Veysel Anıl KARAASLAN tarafından üretildi
+    Mustafa AKBAŞ - Furkan Şehmus KIYAR - Veysel Anıl KARAASLAN - Efe KARACABEY tarafından üretildi
   </p>
 
   <script type="module" src="js/form-password-toggle.js"></script>

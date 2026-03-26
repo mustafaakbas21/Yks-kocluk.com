@@ -263,6 +263,8 @@ async function submitForm(modal, form) {
     var m =
       /network|fetch|failed to fetch|timeout/i.test(raw)
         ? "Bağlantı hatası oluştu. İnternetinizi kontrol edip tekrar deneyin."
+        : /collection.*not.*found|could not be found|hata_bildirimleri/i.test(raw)
+          ? "Şu anda sorun bildirim sistemi geçici olarak devre dışı. Lütfen daha sonra tekrar deneyin veya doğrudan kurum koçunuzla iletişime geçin."
         : /Unknown attribute|Invalid document structure|schema/i.test(raw)
           ? "Kayıt şemasıyla uyumsuzluk. Yöneticiye bildirin veya daha sonra deneyin."
           : raw || "Gönderim başarısız. Lütfen tekrar deneyin.";

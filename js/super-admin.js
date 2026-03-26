@@ -340,6 +340,14 @@ function saTeardownAdminSubscriptions() {
   saSessionGateDone = false;
 }
 
+// Tek tıkla sayfa yenile (kurucu paneli üst barındaki buton).
+var saRefreshBtn = document.getElementById("btnSaRefresh");
+if (saRefreshBtn) {
+  saRefreshBtn.addEventListener("click", function () {
+    window.location.reload();
+  });
+}
+
 function saBootstrapDashboardSubscriptions() {
   if (saAuthBootstrapped) return;
   saAuthBootstrapped = true;
@@ -2869,6 +2877,15 @@ document.getElementById("formCreateStudent") &&
         plainPassword: pass,
         createdAt: serverTimestamp(),
         lastPasswordChangeAt: serverTimestamp(),
+      });
+      // Koç paneli, öğrencileri `students` koleksiyonundan `coach_id` ile okur.
+      // Admin panelinden eklenen öğrenciyi de aynı modele yansıt.
+      await addDoc(collection(db, "students"), {
+        name: full || u,
+        coach_id: coachId,
+        portalUsername: u,
+        studentAuthUid: cred.user.uid,
+        createdAt: serverTimestamp(),
       });
       showStudentFormMsg(true, "Öğrenci hesabı oluşturuldu: " + u + " (koç: " + coachId + "). Giriş: Öğrenci sekmesi.");
       e.target.reset();
