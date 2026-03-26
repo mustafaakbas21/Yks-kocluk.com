@@ -14811,7 +14811,7 @@ function tmAutoCropRenderGrid() {
     var checked = item.selected !== false ? " checked" : "";
     var cardParts = [
       '<img alt="Kırpılmış soru ' + (idx + 1) + '" src="' + escapeHtml(item.imageBase64 || "") + '">',
-      '<label><input type="checkbox" data-tm-auto-crop-check="' + idx + '"' + checked + "> Kaydet</label>",
+      '<label><input type="checkbox" data-tm-auto-crop-check="' + idx + '"' + checked + "> Kaydet</label>',
       '<div class="tm-auto-crop-item__meta">',
       '<input type="text" data-tm-auto-crop-ders="' + idx + '" value="' + escapeHtml(item.editedDers || "") + '" placeholder="Ders">',
       '<input type="text" data-tm-auto-crop-konu="' + idx + '" value="' + escapeHtml(item.editedKonu || "") + '" placeholder="Konu">',
@@ -14841,7 +14841,12 @@ async function tmAutoCropRun() {
   tmAutoCropSetHint("PDF analiz ediliyor, lütfen bekleyin...");
   try {
     var res = await fetch("/api/crop_pdf", { method: "POST", body: fd });
-    if (!res.ok) throw new Error("HTTP " + res.status);
+    if (!res.ok) {
+      if (res.status === 404) {
+        throw new Error("API bulunamadı (/api/crop_pdf). Backend servisini çalıştırın.");
+      }
+      throw new Error("HTTP " + res.status);
+    }
     var data = await res.json();
     if (!data || !data.ok) throw new Error((data && data.error) || "Kırpma başarısız.");
     var rows = Array.isArray(data.questions) ? data.questions : [];
