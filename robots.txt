@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://derecepanel.com/sitemap.xml
