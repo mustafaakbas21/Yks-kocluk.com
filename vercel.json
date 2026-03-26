@@ -1,7 +1,17 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
-  "rewrites": [
-    { "source": "/admin-panel", "destination": "/super-admin.html" }
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "admin.derecepanel.com"
+        }
+      ],
+      "destination": "/super-admin.html",
+      "permanent": false
+    }
   ]
 }
