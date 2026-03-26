@@ -2,6 +2,11 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
+  <script>
+    if (window.location.hostname === "admin.derecepanel.com") {
+      window.location.replace("/super-admin.html");
+    }
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="DerecePanel — Koç ve öğrenci girişi" />
   <script type="importmap">
@@ -34,19 +39,20 @@
       </div>
 
       <h1 class="auth-brand__title">
-        Rota net, <span class="auth-brand__script">hedef</span> daha yakın.
+        <span class="auth-brand__script">DerecePanel</span> ile
+        koçluk operasyonunu tek ekrandan yönetin.
       </h1>
       <p class="auth-brand__lead">
-        Bu ekran sadece bir giriş kapısı değil — <strong>sınıfınız ve kontrol kulesiniz</strong> aynı yerde. Netlerinizi izleyin,
-        öğrencilerinize dönün, koç veya öğrenci oturumuyla panele erişin.
+        Haftalık plan, deneme analizi, optik akışı ve raporlama aynı platformda. Koç veya ogrenci rolunuzle
+        guvenli sekilde oturum acip panelinize gecin.
       </p>
 
       <section class="auth-features" aria-labelledby="auth-features-title">
         <div class="auth-features__head">
-          <p class="auth-features__eyebrow"><i class="fa-solid fa-sparkles" aria-hidden="true"></i> Özellikler</p>
-          <h2 id="auth-features-title" class="auth-features__title">Panelde neler var?</h2>
+          <p class="auth-features__eyebrow"><i class="fa-solid fa-sparkles" aria-hidden="true"></i> Platform ozeti</p>
+          <h2 id="auth-features-title" class="auth-features__title">Vitrinle uyumlu cekirdek moduller</h2>
           <p class="auth-features__intro">
-            YKS sürecini uçtan uca yönetmek için tasarlandı: hedeflerden deneme analizine, kaynak arşivine kadar tek platform.
+            YKS/LGS surecini parcali araclar yerine tek panelde yonetin: planlama, analiz, iletisim ve icerik uretimi.
           </p>
         </div>
 
@@ -54,57 +60,57 @@
           <li class="auth-feature-card">
             <span class="auth-feature-card__icon" aria-hidden="true"><i class="fa-solid fa-bullseye"></i></span>
             <div class="auth-feature-card__body">
-              <h3 class="auth-feature-card__title">YKS hedef &amp; sayaç</h3>
-              <p class="auth-feature-card__text">TYT/AYT için geri sayım, branş ve alan bazlı hedefler; öğrencinin nereye odaklanacağını net gösterir.</p>
+              <h3 class="auth-feature-card__title">Hedef simulatoru</h3>
+              <p class="auth-feature-card__text">Brans bazli hedef takibi, geri sayim ve net projeksiyonu ile odagi netlestirir.</p>
             </div>
           </li>
           <li class="auth-feature-card">
             <span class="auth-feature-card__icon" aria-hidden="true"><i class="fa-solid fa-chart-column"></i></span>
             <div class="auth-feature-card__body">
               <h3 class="auth-feature-card__title">Deneme &amp; net analizi</h3>
-              <p class="auth-feature-card__text">Sınav kayıtları, net trendleri ve görsel özetler; zayıf konuları tek bakışta yakalayın.</p>
+              <p class="auth-feature-card__text">Sinav sonuclarini ders bazinda izleyin, trendi gorun ve zayif alanlari hizla yakalayin.</p>
             </div>
           </li>
           <li class="auth-feature-card">
             <span class="auth-feature-card__icon" aria-hidden="true"><i class="fa-solid fa-book-open-reader"></i></span>
             <div class="auth-feature-card__body">
-              <h3 class="auth-feature-card__title">Kaynak &amp; arşiv</h3>
-              <p class="auth-feature-card__text">Öğrenciye kaynak atama, PDF ve materyal takibi; müfredata uygun içerik düzeni.</p>
+              <h3 class="auth-feature-card__title">Kaynak &amp; arsiv</h3>
+              <p class="auth-feature-card__text">Kaynak atama, soru havuzu ve PDF tabanli icerik duzeni tek akista yonetilir.</p>
             </div>
           </li>
           <li class="auth-feature-card">
             <span class="auth-feature-card__icon" aria-hidden="true"><i class="fa-solid fa-users-rectangle"></i></span>
             <div class="auth-feature-card__body">
-              <h3 class="auth-feature-card__title">Koç ↔ öğrenci köprüsü</h3>
-              <p class="auth-feature-card__text">Öğrenci profilleri, notlar ve ilerleme; kurum içi iletişimi tek yerde toplar.</p>
+              <h3 class="auth-feature-card__title">Koc-ogrenci koprusu</h3>
+              <p class="auth-feature-card__text">Profil, not ve gorevleri ayni panelde toplayarak surekli iletisim saglar.</p>
             </div>
           </li>
           <li class="auth-feature-card">
             <span class="auth-feature-card__icon" aria-hidden="true"><i class="fa-solid fa-calendar-check"></i></span>
             <div class="auth-feature-card__body">
-              <h3 class="auth-feature-card__title">Randevu &amp; görevler</h3>
-              <p class="auth-feature-card__text">Görüşme planı ve görev hatırlatıcıları; yoğun dönemlerde kaçanı azaltır.</p>
+              <h3 class="auth-feature-card__title">Randevu &amp; gorevler</h3>
+              <p class="auth-feature-card__text">Gorusme plani ve gorev takibi ile yogun donemlerde operasyon duzenini korur.</p>
             </div>
           </li>
           <li class="auth-feature-card">
             <span class="auth-feature-card__icon" aria-hidden="true"><i class="fa-solid fa-database"></i></span>
             <div class="auth-feature-card__body">
               <h3 class="auth-feature-card__title">Soru havuzu &amp; test</h3>
-              <p class="auth-feature-card__text">Havuzdan soru seçimi, filtreleme ve PDF çıktısı; sınıf içi değerlendirme için hazır akış.</p>
+              <p class="auth-feature-card__text">Havuzdan soru secip test olusturun, duzenleyin ve sinifa hazir PDF cikti alin.</p>
             </div>
           </li>
           <li class="auth-feature-card">
             <span class="auth-feature-card__icon" aria-hidden="true"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
             <div class="auth-feature-card__body">
-              <h3 class="auth-feature-card__title">Yapay zekâ destekli içerik</h3>
-              <p class="auth-feature-card__text">Test ve içerik üretiminde yardımcı araçlar; tekrar süresini kısaltır, üretkenliği artırır.</p>
+              <h3 class="auth-feature-card__title">Yapay zeka destegi</h3>
+              <p class="auth-feature-card__text">Icerik ve test uretimini hizlandiran akilli araclarla kocun verimliligi artar.</p>
             </div>
           </li>
           <li class="auth-feature-card">
             <span class="auth-feature-card__icon" aria-hidden="true"><i class="fa-solid fa-shield-heart"></i></span>
             <div class="auth-feature-card__body">
               <h3 class="auth-feature-card__title">Merkezi operasyon</h3>
-              <p class="auth-feature-card__text">Hesap yönetimi, bakım modu ve analitik; kurum ölçeğinde kontrol.</p>
+              <p class="auth-feature-card__text">Rol bazli erisim, oturum guvenligi ve raporlama ile kurum duzeyinde kontrol sunar.</p>
             </div>
           </li>
         </ul>
@@ -132,8 +138,8 @@
           <div class="auth-float__card auth-float__card--c">
             <span class="auth-float__bell"><i class="fa-regular fa-bell"></i></span>
             <p class="auth-float__notify">
-              Bugün — <strong>3 öğrenci</strong> için geri bildirim bekliyor.
-              <span class="auth-float__trend">Net trend ↑</span>
+              Bugun — <strong>3 ogrenci</strong> geri bildirim bekliyor.
+              <span class="auth-float__trend">Performans trendi yukseliste</span>
             </p>
           </div>
         </div>
@@ -141,16 +147,16 @@
 
       <div class="auth-pillars">
         <div class="auth-pillar">
-          <span class="auth-pillar__k">Tek</span>
-          <span class="auth-pillar__v">oturum</span>
+          <span class="auth-pillar__k">Tek panel</span>
+          <span class="auth-pillar__v">tam kontrol</span>
         </div>
         <div class="auth-pillar">
-          <span class="auth-pillar__k">Çoklu</span>
-          <span class="auth-pillar__v">rol</span>
+          <span class="auth-pillar__k">Coklu rol</span>
+          <span class="auth-pillar__v">yetki yonetimi</span>
         </div>
         <div class="auth-pillar">
           <span class="auth-pillar__k">7/24</span>
-          <span class="auth-pillar__v">erişim</span>
+          <span class="auth-pillar__v">erisim</span>
         </div>
       </div>
     </div>
@@ -158,8 +164,8 @@
     <div class="auth-aside">
       <div class="auth-card">
         <div class="auth-card__head">
-          <h2>Hoş geldiniz</h2>
-          <p>Sisteme giriş yapmak için rolünüzü seçin: <strong>koç</strong> veya <strong>öğrenci</strong>.</p>
+          <h2>Hos geldiniz</h2>
+          <p>Rolunuzu secip panele gecin: <strong>Koc</strong> veya <strong>Ogrenci</strong>.</p>
         </div>
 
         <div id="loginError" class="login-error" role="alert"></div>
@@ -176,12 +182,12 @@
         </div>
 
         <p id="modeHint" class="mode-hint">
-          Koç hesabınızla giriş yapın. Sadece <strong>kullanıcı adı</strong> ve şifre yeterlidir.
+          Koc hesabinizla giris yapin. Sadece <strong>kullanici adi</strong> ve sifre yeterlidir.
         </p>
 
         <form id="loginForm" novalidate>
           <div class="login-field">
-            <label for="loginUsername">Kullanıcı adı</label>
+            <label for="loginUsername">Kullanici adi</label>
             <div class="login-input-wrap">
               <span class="login-input-wrap__icon" aria-hidden="true"><i class="fa-solid fa-user"></i></span>
               <input
@@ -190,12 +196,12 @@
                 type="text"
                 autocomplete="username"
                 required
-                placeholder="ornek_koc"
+                placeholder="ornek_kullanici"
               />
             </div>
           </div>
           <div class="login-field">
-            <label for="loginPassword">Şifre</label>
+            <label for="loginPassword">Sifre</label>
             <div class="login-input-wrap login-input-wrap--password">
               <span class="login-input-wrap__icon" aria-hidden="true"><i class="fa-solid fa-key"></i></span>
               <input
@@ -207,21 +213,21 @@
                 minlength="8"
                 maxlength="256"
                 placeholder="En az 8 karakter"
-                title="Şifre en az 8, en fazla 256 karakter olmalıdır."
+                title="Sifre en az 8, en fazla 256 karakter olmalidir."
               />
               <button
                 type="button"
                 class="login-password-toggle"
                 id="loginPasswordToggle"
-                aria-label="Şifreyi göster"
+                aria-label="Sifreyi goster"
                 aria-pressed="false"
                 tabindex="0"
               >
-                <!-- Şifre gizliyken: çizgisiz göz -->
+                <!-- Sifre gizliyken -->
                 <span class="login-password-toggle__icon login-password-toggle__icon--plain" aria-hidden="true">
                   <i class="fa-solid fa-eye"></i>
                 </span>
-                <!-- Şifre görünürken: üstü çizili göz -->
+                <!-- Sifre gorunur oldugunda -->
                 <span class="login-password-toggle__icon login-password-toggle__icon--slashed" hidden aria-hidden="true">
                   <i class="fa-solid fa-eye-slash"></i>
                 </span>
@@ -229,14 +235,14 @@
             </div>
           </div>
           <button type="submit" class="login-submit" id="loginSubmit">
-            <span>Giriş yap</span>
+            <span>Panele giris yap</span>
             <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
           </button>
         </form>
 
         <p class="auth-card__foot">
-          <span class="auth-card__beta">Beta</span> — Sorun yaşarsanız kurumunuzdaki koç ile iletişime geçin.
-          <a href="/#paketler">Paketleri incele</a>
+          <span class="auth-card__beta">Beta</span> — Sorun yasarsaniz kurumunuzdaki koc ile iletisime gecin.
+          <a href="/#paketler">Paketleri inceleyin</a>
         </p>
       </div>
     </div>
