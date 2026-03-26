@@ -4,7 +4,6 @@
   "description": "DerecePanel — YKS koçluk (Appwrite SDK)",
   "main": "index.js",
   "scripts": {
-    "sync-public": "node scripts/sync-public-for-vercel.mjs",
     "test": "echo \"Error: no test specified\" && exit 1",
     "factory-reset": "node factory-reset.js",
     "nuke": "node nuke-and-reset.js",

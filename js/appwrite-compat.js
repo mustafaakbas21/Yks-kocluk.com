@@ -559,7 +559,7 @@ export async function blockCurrentAccount() {
 }
 
 export async function sendPasswordResetEmail(email) {
-  await account.createRecovery(String(email || ""), window.location.origin + "/login.html");
+  await account.createRecovery(String(email || ""), window.location.origin + "/login");
 }
 
 /**

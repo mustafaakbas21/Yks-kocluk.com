@@ -1,6 +1,6 @@
 /**
  * Form şifre göster/gizle — .form-pw-wrap içindeki input + .form-pw-toggle
- * login.html / panel-admin-auth.html giriş alanına dokunulmaz (id’ler farklıysa ayrı init gerekir).
+ * /login (login.html) / panel-admin-auth.html giriş alanına dokunulmaz (id’ler farklıysa ayrı init gerekir).
  */
 (function () {
   function applyVisibility(input, btn, iconPlain, iconSlashed, isPlainVisible) {

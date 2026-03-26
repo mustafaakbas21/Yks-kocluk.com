@@ -1,16 +1,15 @@
 {
-  "cleanUrls": false,
+  "cleanUrls": true,
   "trailingSlash": false,
+  "rewrites": [
+    { "source": "/sitemap.xml", "destination": "/public/sitemap.xml" },
+    { "source": "/robots.txt", "destination": "/public/robots.txt" }
+  ],
   "redirects": [
     {
-      "source": "/login",
-      "destination": "/login.html",
-      "permanent": false
-    },
-    {
-      "source": "/login/",
-      "destination": "/login.html",
-      "permanent": false
+      "source": "/login.html",
+      "destination": "/login",
+      "permanent": true
     },
     {
       "source": "/",

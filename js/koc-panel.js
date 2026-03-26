@@ -15931,7 +15931,7 @@ function initAllButtons() {
       if (!confirm("Çıkış yapılsın mı?")) return;
       localStorage.removeItem("currentUser");
       signOut(auth).finally(function () {
-        window.location.replace("login.html");
+        window.location.replace("/login");
       });
     });
 
@@ -16110,7 +16110,7 @@ function loadKocPanelForUser(user) {
       var profile = snap.data();
       if (!profile || !profile.role) {
         return signOut(auth).then(function () {
-          window.location.replace("login.html");
+          window.location.replace("/login");
         });
       }
       if (profile.role === "admin") {
@@ -16133,7 +16133,7 @@ function loadKocPanelForUser(user) {
       }
       if (profile.role !== "coach") {
         return signOut(auth).then(function () {
-          window.location.replace("login.html");
+          window.location.replace("/login");
         });
       }
       var appSettings = await getAppSettings();
@@ -16147,7 +16147,7 @@ function loadKocPanelForUser(user) {
         try {
           localStorage.setItem("loginFlashError", "Bakımdayız. Şu an yalnızca kurucu girişi açıktır.");
         } catch (e) {}
-        window.location.replace("login.html");
+        window.location.replace("/login");
         return;
       }
       var uname = profile.username;
@@ -16157,7 +16157,7 @@ function loadKocPanelForUser(user) {
     })
     .catch(function () {
       signOut(auth).finally(function () {
-        window.location.replace("login.html");
+        window.location.replace("/login");
       });
     });
 }
@@ -16174,7 +16174,7 @@ onAuthStateChanged(auth, function (user) {
         try {
           if (auth && auth.currentUser) return;
         } catch (_e) {}
-        window.location.replace("login.html");
+        window.location.replace("/login");
       }, KOC_AUTH_NULL_REDIRECT_MS);
     }
     return;
@@ -16211,7 +16211,7 @@ setTimeout(function () {
         );
         return;
       }
-      window.location.replace("login.html");
+      window.location.replace("/login");
     })
     .catch(function (err) {
       console.error("[koc-panel] verifyAppwriteAccount (yedek oturum)", err);
@@ -16224,6 +16224,6 @@ setTimeout(function () {
         if (typeof showToast === "function") showToast("Bir sorun oluştu.");
         else alert("Bir sorun oluştu.");
       } catch (e2) {}
-      if (!kocAuthResolved) window.location.replace("login.html");
+      if (!kocAuthResolved) window.location.replace("/login");
     });
 }, 1800);
