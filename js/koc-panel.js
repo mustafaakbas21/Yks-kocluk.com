@@ -14809,14 +14809,16 @@ function tmAutoCropRenderGrid() {
     var card = document.createElement("div");
     card.className = "tm-auto-crop-item";
     var checked = item.selected !== false ? " checked" : "";
-    card.innerHTML =
-      '<img alt="Kırpılmış soru ' + (idx + 1) + '" src="' + escapeHtml(item.imageBase64 || "") + '">' +
-      '<label><input type="checkbox" data-tm-auto-crop-check="' + idx + '"' + checked + "> Kaydet</label>' +
-      '<div class="tm-auto-crop-item__meta">' +
-      '<input type="text" data-tm-auto-crop-ders="' + idx + '" value="' + escapeHtml(item.editedDers || "") + '" placeholder="Ders">' +
-      '<input type="text" data-tm-auto-crop-konu="' + idx + '" value="' + escapeHtml(item.editedKonu || "") + '" placeholder="Konu">' +
-      "</div>" +
-      '<div class="tm-auto-crop-item__actions"><button type="button" class="tm-auto-crop-item__reset" data-tm-auto-crop-reset="' + idx + '">Öneriyi geri al</button></div>';
+    var cardParts = [
+      '<img alt="Kırpılmış soru ' + (idx + 1) + '" src="' + escapeHtml(item.imageBase64 || "") + '">',
+      '<label><input type="checkbox" data-tm-auto-crop-check="' + idx + '"' + checked + "> Kaydet</label>",
+      '<div class="tm-auto-crop-item__meta">',
+      '<input type="text" data-tm-auto-crop-ders="' + idx + '" value="' + escapeHtml(item.editedDers || "") + '" placeholder="Ders">',
+      '<input type="text" data-tm-auto-crop-konu="' + idx + '" value="' + escapeHtml(item.editedKonu || "") + '" placeholder="Konu">',
+      "</div>",
+      '<div class="tm-auto-crop-item__actions"><button type="button" class="tm-auto-crop-item__reset" data-tm-auto-crop-reset="' + idx + '">Öneriyi geri al</button></div>',
+    ];
+    card.innerHTML = cardParts.join("");
     grid.appendChild(card);
   });
   if (saveBtn) {
@@ -16593,6 +16595,15 @@ function bootstrapKocPanelAfterAuth() {
   initDashboardYksCountdownWidget();
   updateCoachProfile();
   subscribeFirestore();
+  // Snapshot gecikirse dashboard metriklerini ilk yüklemede boş bırakma.
+  Promise.resolve()
+    .then(function () {
+      refreshDashboardAnalytics();
+      return fetchAndRenderAppointmentChart();
+    })
+    .catch(function (err) {
+      console.warn("[dashboard init] İlk analitik yükleme hatası:", err);
+    });
   var initView = getInitialKocViewFromUrl();
   navigateTo(initView || "dashboard");
   if (initView) showSaAnalyticsToolBanner();
