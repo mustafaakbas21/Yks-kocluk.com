@@ -134,7 +134,7 @@ async function redirectIfAdminSession() {
     };
     var profile = await findProfileFromDatabase(fakeUser, "");
     if (profile && isKurucuRole(profile.role)) {
-      window.location.replace("super-admin.html");
+      window.location.replace("/super-admin");
     }
   } catch (e) {
     console.warn("[admin-auth] session check:", e);
@@ -222,7 +222,7 @@ if (form) {
         console.warn("[admin-auth] lastLogin:", e);
       }
 
-      window.location.replace("super-admin.html");
+      window.location.replace("/super-admin");
     } catch (err) {
       var rawMsg = err && err.message != null ? String(err.message) : "";
       var messageLower = rawMsg.toLowerCase();

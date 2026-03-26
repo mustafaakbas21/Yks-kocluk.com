@@ -2779,7 +2779,7 @@ function onTableAction(ev) {
       alert("sessionStorage kullanılamıyor.");
       return;
     }
-    window.location.href = "koc-panel.html";
+    window.location.href = "/koc";
   }
 }
 

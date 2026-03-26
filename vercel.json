@@ -1,17 +1,13 @@
 {
-  "cleanUrls": false,
+  "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
     { "source": "/login", "destination": "/login.html" },
+    { "source": "/koc", "destination": "/koc-panel.html" },
     { "source": "/sitemap.xml", "destination": "/public/sitemap.xml" },
     { "source": "/robots.txt", "destination": "/public/robots.txt" }
   ],
   "redirects": [
-    {
-      "source": "/login.html",
-      "destination": "/login",
-      "permanent": true
-    },
     {
       "source": "/",
       "has": [

@@ -177,7 +177,7 @@ function showSaAnalyticsToolBanner() {
   bar.innerHTML =
     '<span><i class="fa-solid fa-chart-line" style="margin-right:0.45rem;color:#34f5c5"></i>Kurucu — <strong>' +
     escapeHtml(label) +
-    '</strong></span><a href="super-admin.html" style="color:#c4b5fd;text-decoration:underline;font-weight:800">Kurucu paneline dön</a>';
+    '</strong></span><a href="/super-admin" style="color:#c4b5fd;text-decoration:underline;font-weight:800">Kurucu paneline dön</a>';
   document.body.insertBefore(bar, document.body.firstChild);
 }
 
@@ -213,7 +213,7 @@ function showImpersonateBanner(coachUsername) {
         sessionStorage.removeItem("superAdminViewAsCoach");
       } catch (err) {}
       document.body.style.paddingTop = "";
-      window.location.href = "super-admin.html";
+      window.location.href = "/super-admin";
     });
   }
 }
@@ -1436,7 +1436,7 @@ function initAiTestGenWizard() {
         return;
       }
 
-      window.location.href = "test-tasarimi.html";
+      window.location.href = "/test-tasarimi";
     } catch (errFetch) {
       tmStopAiOverlayRotation();
       tmSetAiGenOverlayOpen(false);
@@ -16128,7 +16128,7 @@ function loadKocPanelForUser(user) {
           bootstrapKocPanelAfterAuth();
           return;
         }
-        window.location.replace("super-admin.html");
+        window.location.replace("/super-admin");
         return;
       }
       if (profile.role !== "coach") {
