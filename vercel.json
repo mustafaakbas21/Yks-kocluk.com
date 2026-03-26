@@ -3,7 +3,8 @@
   "trailingSlash": false,
   "rewrites": [
     { "source": "/robots.txt", "destination": "/public/robots.txt" },
-    { "source": "/sitemap.xml", "destination": "/public/sitemap.xml" }
+    { "source": "/sitemap.xml", "destination": "/public/sitemap.xml" },
+    { "source": "/login", "destination": "/login.html" }
   ],
   "redirects": [
     {
