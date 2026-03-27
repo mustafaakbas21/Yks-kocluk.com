@@ -21,6 +21,25 @@ import {
 let planUnsub = null;
 var ospAuthResolved = false;
 
+async function fetchOspStudentExams(studentDocId) {
+  if (!studentDocId || !window.OSP) return;
+  try {
+    var qs = query(collection(db, "exams"), where("studentId", "==", studentDocId));
+    var snap = await getDocs(qs);
+    var list = [];
+    snap.forEach(function (d) {
+      list.push(Object.assign({ id: d.id }, d.data()));
+    });
+    list.sort(function (a, b) {
+      return String(a.date || "").localeCompare(String(b.date || ""));
+    });
+    window.OSP.lastFetchedExams = list;
+  } catch (err) {
+    console.warn("[öğrenci] sınav listesi", err);
+    window.OSP.lastFetchedExams = [];
+  }
+}
+
 window.OspPortal = window.OspPortal || {};
 window.OspPortal.studentDocId = null;
 
@@ -111,6 +130,10 @@ async function loadOspForUser(user) {
         window.OspPortal.studentDocId = studentDocId;
 
         if (studentDocId) {
+          await fetchOspStudentExams(studentDocId);
+          if (window.OSP && typeof window.OSP.refreshDashboardAfterExams === "function") {
+            window.OSP.refreshDashboardAfterExams();
+          }
           planUnsub = onSnapshot(doc(db, "studentPortalPlans", studentDocId), function (planSnap) {
             if (!docExists(planSnap)) return;
             var data = planSnap.data();

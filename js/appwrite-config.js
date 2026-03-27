@@ -29,6 +29,16 @@ export const APPWRITE_ADMIN_ROSTER_ROLE = "admin_roster";
  * Koleksiyon otomatik ID ile oluşturulduysa (ör. 64 karakterlik hex değil, kısa ID) burayı Console’daki ID ile güncelleyin.
  */
 export const APPWRITE_COLLECTION_QUOTE_REQUESTS = "quoteRequests";
+/** DenemeDeposu — PDF / cevap anahtarı (create okuma; Console’da bucket ID aynı olmalı) */
+export const APPWRITE_BUCKET_DENEME_DEPOSU = "deneme_deposu";
+/** Koç / kullanıcı avatarları — Console’da bucket oluşturun (ör. `avatarlar`); oturum açık kullanıcıya dosya oluşturma izni verin. */
+export const APPWRITE_BUCKET_AVATARLAR = "avatarlar";
+/**
+ * GlobalDenemeler — önerilen şema: adi, yayinevi, sinavTuru (TYT|AYT), tarihSaat (datetime ISO),
+ * sonucTarihi (datetime, opsiyonel), pdfId (string, opsiyonel), cevapAnahtariId (string, opsiyonel).
+ * Koleksiyon ID’si Console ile birebir eşleşmeli (varsayılan snake_case).
+ */
+export const APPWRITE_COLLECTION_GLOBAL_DENEMELER = "global_denemeler";
 
 const client = new Client()
   .setEndpoint(APPWRITE_ENDPOINT)

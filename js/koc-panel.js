@@ -61,6 +61,9 @@ import {
   studentCreatorAuthKoc as studentCreatorAuth,
   verifyAppwriteAccount,
   getAppSettings,
+  getAccountPrefs,
+  updateAccountPrefs,
+  uploadCoachAvatarToStorage,
 } from "./appwrite-compat.js";
 import {
   saveSoruHavuzuEntry,
@@ -82,8 +85,14 @@ import {
 import {
   client,
   storage,
+  databases,
+  APPWRITE_DATABASE_ID,
   APPWRITE_COLLECTION_ATANAN_KAYNAKLAR,
+  APPWRITE_BUCKET_DENEME_DEPOSU,
+  APPWRITE_COLLECTION_GLOBAL_DENEMELER,
+  APPWRITE_BUCKET_AVATARLAR,
 } from "./appwrite-config.js";
+import { Query, ID } from "./appwrite-browser.js";
 
 /** Aktif görünüme göre deneme/optik net kuralı (ÖSYM / Y3). */
 function coachNetFromBranchDy(d, y) {
@@ -3335,6 +3344,10 @@ let netBasariChartInstance = null;
 let examTypeFilter = "all";
 let examsPageFilter = "all";
 let searchQuery = "";
+let globalSearchDropdownTimer = null;
+let globalSearchUiInitialized = false;
+var GLOBAL_SEARCH_MIN_LEN = 3;
+var GLOBAL_SEARCH_MAX_PER_CAT = 8;
 const navigateCallbacks = [];
 
 let currentView = "dashboard";
@@ -3971,6 +3984,261 @@ function examMatchesFilters(row) {
   return true;
 }
 
+function globalSearchNormalizeQ(raw) {
+  return String(raw || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function closeGlobalSearchResults() {
+  var panel = document.getElementById("globalSearchResults");
+  if (!panel) return;
+  panel.hidden = true;
+  panel.innerHTML = "";
+}
+
+function globalSearchStudentHaystack(s) {
+  var name = s.name || s.studentName || "";
+  var fn = s.firstName || "";
+  var ln = s.lastName || "";
+  return [
+    name,
+    fn,
+    ln,
+    fn && ln ? fn + " " + ln : "",
+    s.portalUsername,
+    s.email,
+    s.schoolName,
+    s.tcKimlikNo,
+    s.id,
+  ]
+    .filter(function (x) {
+      return x != null && String(x).trim() !== "";
+    })
+    .join(" ")
+    .toLowerCase();
+}
+
+function globalSearchExamHaystack(e) {
+  var og = e.studentName || e.ogrenciAdi || e.name || "";
+  var tur = (e.examType || e.type || e.tur || "").toString();
+  var d = toDate(e.examDate) || toDate(e.date);
+  var tarih = d && !isNaN(d.getTime()) ? d.toLocaleDateString("tr-TR") : String(e.date || "");
+  var examName = e.examName || e.title || e.name || "";
+  return (og + " " + tur + " " + tarih + " " + examName + " " + (e.status || "") + " " + (e.net != null ? String(e.net) : ""))
+    .toLowerCase();
+}
+
+function globalSearchApptHaystack(a) {
+  var name = a.studentName || a.ogrenciAdi || a.name || "";
+  var title = a.title || a.type || a.note || "";
+  var meta = formatAppointmentMeta(a);
+  return (name + " " + title + " " + meta + " " + (a.topic || "")).toLowerCase();
+}
+
+function filterGlobalSearchStudents(q) {
+  if (!q) return [];
+  return cachedStudents.filter(function (s) {
+    return globalSearchStudentHaystack(s).indexOf(q) !== -1;
+  });
+}
+
+function filterGlobalSearchExams(q) {
+  if (!q) return [];
+  return cachedExams.filter(function (e) {
+    return globalSearchExamHaystack(e).indexOf(q) !== -1;
+  });
+}
+
+function filterGlobalSearchAppointments(q) {
+  if (!q) return [];
+  return cachedAppointments.filter(function (a) {
+    return globalSearchApptHaystack(a).indexOf(q) !== -1;
+  });
+}
+
+function globalSearchExamMetaLine(row) {
+  var d = toDate(row.examDate) || toDate(row.date);
+  return d && !isNaN(d.getTime()) ? d.toLocaleDateString("tr-TR") : String(row.date || "—");
+}
+
+function renderGlobalSearchResultsUi(students, exams, appts) {
+  var panel = document.getElementById("globalSearchResults");
+  if (!panel) return;
+  var lim = GLOBAL_SEARCH_MAX_PER_CAT;
+  var stSlice = students.slice(0, lim);
+  var exSlice = exams.slice(0, lim);
+  var apSlice = appts.slice(0, lim);
+  var parts = [];
+  if (stSlice.length === 0 && exSlice.length === 0 && apSlice.length === 0) {
+    panel.innerHTML = '<div class="global-search-results__empty">Sonuç bulunamadı…</div>';
+    panel.hidden = false;
+    return;
+  }
+  if (stSlice.length) {
+    parts.push('<div class="global-search-results__section" role="group" aria-label="Öğrenciler">');
+    parts.push('<div class="global-search-results__heading">👨‍🎓 Öğrenciler</div>');
+    stSlice.forEach(function (s) {
+      var name = s.name || s.studentName || "Öğrenci";
+      var rawAv = s.avatarUrl;
+      var src = escapeHtml(String(yksStudentAvatarDisplaySrc(rawAv, name, s.gender)));
+      var sid = escapeHtml(s.id);
+      parts.push(
+        '<button type="button" class="global-search-results__row" role="option" data-gs-type="student" data-gs-id="' +
+          sid +
+          '">' +
+          '<span class="global-search-results__row-main">' +
+          '<img class="global-search-results__avatar" src="' +
+          src +
+          '" alt="" width="36" height="36" decoding="async"/>' +
+          '<span class="global-search-results__title">' +
+          escapeHtml(name) +
+          "</span></span></button>"
+      );
+    });
+    parts.push("</div>");
+  }
+  if (exSlice.length) {
+    parts.push('<div class="global-search-results__section" role="group" aria-label="Denemeler">');
+    parts.push('<div class="global-search-results__heading">📝 Denemeler</div>');
+    exSlice.forEach(function (e) {
+      var og = e.studentName || e.ogrenciAdi || e.name || "—";
+      var tur = (e.examType || e.type || e.tur || "TYT").toUpperCase();
+      var label = escapeHtml(og + " · " + (tur === "AYT" ? "AYT" : "TYT"));
+      var meta = escapeHtml(globalSearchExamMetaLine(e));
+      var eid = escapeHtml(e.id);
+      parts.push(
+        '<button type="button" class="global-search-results__row" role="option" data-gs-type="exam" data-gs-id="' +
+          eid +
+          '">' +
+          '<span class="global-search-results__row-main"><span class="global-search-results__title">' +
+          label +
+          '</span></span><span class="global-search-results__row-meta">' +
+          meta +
+          "</span></button>"
+      );
+    });
+    parts.push("</div>");
+  }
+  if (apSlice.length) {
+    parts.push('<div class="global-search-results__section" role="group" aria-label="Randevular">');
+    parts.push('<div class="global-search-results__heading">📅 Randevular</div>');
+    apSlice.forEach(function (a) {
+      var name = a.studentName || a.ogrenciAdi || a.name || "Öğrenci";
+      var title = a.title || a.type || a.note || "Randevu";
+      var meta = escapeHtml(formatAppointmentMeta(a));
+      var aid = escapeHtml(a.id);
+      parts.push(
+        '<button type="button" class="global-search-results__row" role="option" data-gs-type="appointment" data-gs-id="' +
+          aid +
+          '">' +
+          '<span class="global-search-results__row-main"><span class="global-search-results__title">' +
+          escapeHtml(name + " — " + title) +
+          '</span></span><span class="global-search-results__row-meta">' +
+          meta +
+          "</span></button>"
+      );
+    });
+    parts.push("</div>");
+  }
+  panel.innerHTML = parts.join("");
+  panel.hidden = false;
+}
+
+function runGlobalSearchDropdown() {
+  var searchEl = document.getElementById("searchInput");
+  var q = globalSearchNormalizeQ(searchEl ? searchEl.value : searchQuery);
+  if (q.length < GLOBAL_SEARCH_MIN_LEN) {
+    closeGlobalSearchResults();
+    return;
+  }
+  var st = filterGlobalSearchStudents(q);
+  var ex = filterGlobalSearchExams(q);
+  var ap = filterGlobalSearchAppointments(q);
+  renderGlobalSearchResultsUi(st, ex, ap);
+}
+
+function globalSearchAfterPickCleanup() {
+  var searchEl = document.getElementById("searchInput");
+  closeGlobalSearchResults();
+  if (searchEl) searchEl.value = "";
+  searchQuery = "";
+  apptCarouselOffset = 0;
+  renderDashboardExams();
+  renderDashboardAppointments();
+}
+
+function handleGlobalSearchResultAction(type, id) {
+  var cleanId = String(id || "").trim();
+  if (!cleanId) return;
+  globalSearchAfterPickCleanup();
+  if (type === "student") {
+    openStudentDetail(cleanId);
+    return;
+  }
+  if (type === "exam") {
+    navigateTo("denemeler");
+    requestAnimationFrame(function () {
+      var ex = cachedExams.find(function (x) {
+        return String(x.id) === cleanId;
+      });
+      var sid = ex ? ex.studentId || ex.student_id || "" : "";
+      sid = String(sid || "").trim();
+      var sel = document.getElementById("daStudentSelect");
+      if (sel && sid && Array.prototype.some.call(sel.options, function (o) { return o.value === sid; })) {
+        sel.value = sid;
+        try {
+          sel.dispatchEvent(new Event("change", { bubbles: true }));
+        } catch (_e) {}
+      }
+      openExamModalEdit(cleanId);
+    });
+    return;
+  }
+  if (type === "appointment") {
+    navigateTo("randevu");
+    requestAnimationFrame(function () {
+      openAppointmentModalEdit(cleanId);
+    });
+  }
+}
+
+function initGlobalSearchFmOnce() {
+  if (globalSearchUiInitialized) return;
+  globalSearchUiInitialized = true;
+  var panel = document.getElementById("globalSearchResults");
+  if (panel && !panel.dataset.gsDelegated) {
+    panel.dataset.gsDelegated = "1";
+    panel.addEventListener("click", function (ev) {
+      var btn = ev.target.closest && ev.target.closest("[data-gs-type][data-gs-id]");
+      if (!btn) return;
+      var t = btn.getAttribute("data-gs-type");
+      var id = btn.getAttribute("data-gs-id");
+      handleGlobalSearchResultAction(t, id);
+    });
+  }
+  document.addEventListener(
+    "mousedown",
+    function (ev) {
+      var wrap = document.getElementById("globalSearchWrap");
+      var p = document.getElementById("globalSearchResults");
+      if (!wrap || !p || p.hidden) return;
+      if (wrap.contains(ev.target)) return;
+      closeGlobalSearchResults();
+    },
+    true
+  );
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key !== "Escape") return;
+    var p = document.getElementById("globalSearchResults");
+    if (p && !p.hidden) {
+      closeGlobalSearchResults();
+      ev.stopPropagation();
+    }
+  });
+}
+
 function examRowHtml(row, colspan) {
   const ogrenci = row.studentName || row.ogrenciAdi || row.name || "—";
   const tur = (row.examType || row.type || row.tur || "TYT").toUpperCase();
@@ -4087,36 +4355,6 @@ function renderExamsFullPage() {
     .join("");
 }
 
-var COACH_FINANCE_MOCK_KEY = "yks_coach_finance_mock_v1";
-
-function loadFinanceMock() {
-  try {
-    var raw = localStorage.getItem(COACH_FINANCE_MOCK_KEY);
-    return raw ? JSON.parse(raw) : { overdueByStudent: {} };
-  } catch (e) {
-    return { overdueByStudent: {} };
-  }
-}
-
-function saveFinanceMock(obj) {
-  try {
-    localStorage.setItem(COACH_FINANCE_MOCK_KEY, JSON.stringify(obj));
-  } catch (e) {}
-}
-
-function ensureFinanceMockSeeded() {
-  if (!cachedStudents || cachedStudents.length === 0) return;
-  var m = loadFinanceMock();
-  if (m.overdueByStudent && Object.keys(m.overdueByStudent).length > 0) return;
-  var due = {};
-  cachedStudents.slice(0, Math.min(4, cachedStudents.length)).forEach(function (s, ix) {
-    if (ix % 2 === 0) {
-      due[s.id] = { amount: 1200 + ix * 350, dueDate: "2025-09-15", note: "Taksit" };
-    }
-  });
-  saveFinanceMock({ overdueByStudent: due });
-}
-
 function sumPaymentsForStudent(studentId) {
   return cachedPayments
     .filter(function (p) {
@@ -4134,10 +4372,15 @@ function getStudentFinanceRow(studentId) {
   var total = st ? parseFloat(st.agreedTotalFee) || 0 : 0;
   var paid = sumPaymentsForStudent(studentId);
   var balance = Math.max(0, total - paid);
-  var mock = loadFinanceMock();
-  var od = mock.overdueByStudent && mock.overdueByStudent[studentId];
-  var overdueAmt = od ? parseFloat(od.amount) || 0 : 0;
-  var dueDate = od && od.dueDate ? String(od.dueDate) : "";
+  var overdueAmt = st
+    ? parseFloat(st.financeOverdueAmount != null ? st.financeOverdueAmount : st.overdueAmount != null ? st.overdueAmount : 0) || 0
+    : 0;
+  var dueDate =
+    st && st.financeOverdueDueDate
+      ? String(st.financeOverdueDueDate)
+      : st && st.overdueDueDate
+        ? String(st.overdueDueDate)
+        : "";
   var today = new Date().toISOString().slice(0, 10);
   var isOverdue = overdueAmt > 0 && dueDate && dueDate < today;
   var statusLabel = "—";
@@ -4177,7 +4420,6 @@ function fmtTryMoney(n) {
 }
 
 function renderStudentDetailMuhasebeTab(studentId) {
-  ensureFinanceMockSeeded();
   var fin = getStudentFinanceRow(studentId);
   var alertEl = document.getElementById("sdFinanceAlert");
   if (alertEl) {
@@ -4230,12 +4472,61 @@ function renderStudentDetailMuhasebeTab(studentId) {
   }
 }
 
+function setStudentsGridLoading(on) {
+  var root = document.getElementById("studentsCardsRoot");
+  if (!root) return;
+  if (on) {
+    root.innerHTML =
+      '<div class="dp-pro-loading" role="status" style="grid-column:1/-1;text-align:center;padding:2.5rem 1rem">' +
+      '<div class="dp-pro-spinner" aria-hidden="true"></div>' +
+      '<p style="margin:0.75rem 0 0;font-weight:600;color:#5b21b6">Öğrenciler yükleniyor…</p></div>';
+  }
+}
+
+function populateDanaKarneStudentSelect() {
+  var sel = document.getElementById("danaKarneStudentSelect");
+  if (!sel) return;
+  var keep = sel.value;
+  sel.innerHTML = '<option value="">Öğrenci seçin</option>';
+  cachedStudents.forEach(function (s) {
+    var o = document.createElement("option");
+    o.value = s.id;
+    o.textContent = s.name || s.studentName || s.id;
+    sel.appendChild(o);
+  });
+  if (
+    keep &&
+    Array.prototype.some.call(sel.options, function (op) {
+      return op.value === keep;
+    })
+  ) {
+    sel.value = keep;
+  } else if (cachedStudents.length === 1) {
+    sel.value = cachedStudents[0].id;
+  }
+}
+
+function bindDanaKarneStudentSelectOnce() {
+  var sel = document.getElementById("danaKarneStudentSelect");
+  if (!sel || sel.dataset.danaKarneBound) return;
+  sel.dataset.danaKarneBound = "1";
+  sel.addEventListener("change", function () {
+    var v = String(sel.value || "").trim();
+    renderKarneCharts(v).catch(function (e) {
+      console.error("[dana-karne]", e);
+    });
+  });
+}
+
 function renderStudentsPage() {
   var root = document.getElementById("studentsCardsRoot");
   if (!root) return;
   if (cachedStudents.length === 0) {
     root.innerHTML =
-      '<p class="table-empty" style="grid-column:1/-1;margin:0">Henüz öğrenci yok. <strong>Yeni Öğrenci</strong> ile ekleyin.</p>';
+      '<div class="dp-zero-state dp-zero-state--students" style="grid-column:1/-1" role="status">' +
+      '<div class="dp-zero-state__icon" aria-hidden="true"><i class="fa-regular fa-user"></i></div>' +
+      '<p class="dp-zero-state__title">Henüz sisteme öğrenci eklemediniz.</p>' +
+      '<p class="dp-zero-state__hint">Sağ üstten <strong>Yeni Öğrenci</strong> ile hemen ekleyebilirsiniz.</p></div>';
     return;
   }
   root.innerHTML = cachedStudents
@@ -4273,7 +4564,6 @@ function renderStudentsPage() {
 function renderMuhasebeStudentLedger() {
   var tbody = document.getElementById("muhasebeCariBody");
   if (!tbody) return;
-  ensureFinanceMockSeeded();
   if (cachedStudents.length === 0) {
     tbody.innerHTML =
       '<tr><td colspan="7" class="table-empty">Henüz öğrenci yok. Öğrenci ekleyin veya <strong>Kayıt</strong> bölümünden anlaşma girin.</td></tr>';
@@ -4422,14 +4712,6 @@ async function migrateStudentDocumentId(oldId, newIdRaw) {
         m[newId] = m[oldId];
         delete m[oldId];
         localStorage.setItem(SD_NOTE_KEY, JSON.stringify(m));
-      }
-    } catch (e) {}
-    try {
-      var mock = loadFinanceMock();
-      if (mock.overdueByStudent && mock.overdueByStudent[oldId] != null) {
-        mock.overdueByStudent[newId] = mock.overdueByStudent[oldId];
-        delete mock.overdueByStudent[oldId];
-        saveFinanceMock(mock);
       }
     } catch (e) {}
     if (kkSelectedStudentId === oldId) {
@@ -7010,8 +7292,10 @@ function renderNetBasariChart() {
         plugins: { legend: { display: false }, tooltip: { enabled: false } },
       },
     });
+    dpSetCanvasChartOverlay(canvas, true);
     return;
   }
+  dpSetCanvasChartOverlay(canvas, false);
   var kalan = Math.max(0, 100 - pct);
   netBasariChartInstance = new Chart(ctx, {
     type: "doughnut",
@@ -7108,6 +7392,12 @@ function updateCoachProfile() {
     } catch (e) {
       console.warn("[profile greet]", e);
     }
+    var prefs = {};
+    try {
+      prefs = await getAccountPrefs();
+    } catch (_p) {}
+    var avImg = document.getElementById("profileAvatarImg");
+    if (avImg) avImg.src = coachAvatarSrcFromPrefs(prefs, displayName);
     greet.innerHTML = part + ", <strong>" + escapeHtml(displayName) + "</strong>";
   })();
 }
@@ -7120,6 +7410,144 @@ function firestoreErrorHtml(err) {
 }
 
 var profileSettingsInitial = { name: "", email: "" };
+
+/** Koç profil modalı — avatar seçimi / yükleme durumu */
+var coachProfileAvatarState = {
+  changed: false,
+  mode: "unchanged",
+  file: null,
+  presetUrl: "",
+};
+
+function coachAvatarSrcFromPrefs(prefs, displayName) {
+  var p = prefs || {};
+  var fid = p.avatarId != null ? String(p.avatarId).trim() : "";
+  var url = p.avatarUrl != null ? String(p.avatarUrl).trim() : "";
+  if (fid) {
+    try {
+      return storage.getFilePreview({
+        bucketId: APPWRITE_BUCKET_AVATARLAR,
+        fileId: fid,
+        width: 256,
+        height: 256,
+        quality: 86,
+      });
+    } catch (_e) {
+      /* devam */
+    }
+  }
+  if (url) return url;
+  var seed = (displayName && String(displayName).trim()) || "coachYKS";
+  return "https://api.dicebear.com/7.x/avataaars/svg?seed=" + encodeURIComponent(seed);
+}
+
+function setProfileSettingsTab(index) {
+  var root = document.getElementById("profileSettingsModal");
+  if (!root) return;
+  root.querySelectorAll("[data-profile-tab]").forEach(function (btn) {
+    var i = parseInt(btn.getAttribute("data-profile-tab"), 10);
+    var on = i === index;
+    btn.classList.toggle("is-active", on);
+    btn.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  root.querySelectorAll("[data-profile-panel]").forEach(function (panel) {
+    var i = parseInt(panel.getAttribute("data-profile-panel"), 10);
+    panel.hidden = i !== index;
+  });
+}
+
+function initProfileSettingsTabs() {
+  var root = document.getElementById("profileSettingsModal");
+  if (!root) return;
+  root.querySelectorAll("[data-profile-tab]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var i = parseInt(btn.getAttribute("data-profile-tab"), 10);
+      if (!isNaN(i)) setProfileSettingsTab(i);
+    });
+  });
+}
+
+function setCoachProfileAvatarFromPreset(url) {
+  var img = document.getElementById("coachProfileAvatarPreview");
+  if (!img || !url) return;
+  img.src = url;
+  coachProfileAvatarState.mode = "preset";
+  coachProfileAvatarState.presetUrl = url;
+  coachProfileAvatarState.file = null;
+  coachProfileAvatarState.changed = true;
+}
+
+function setCoachProfileAvatarFromFile(file) {
+  var img = document.getElementById("coachProfileAvatarPreview");
+  if (!img || !file) return;
+  if (!/^image\//i.test(file.type || "")) {
+    showToast("Lütfen bir görsel seçin.");
+    return;
+  }
+  try {
+    img.src = URL.createObjectURL(file);
+  } catch (_e) {
+    showToast("Önizleme oluşturulamadı.");
+    return;
+  }
+  coachProfileAvatarState.mode = "file";
+  coachProfileAvatarState.file = file;
+  coachProfileAvatarState.presetUrl = "";
+  coachProfileAvatarState.changed = true;
+}
+
+function initCoachProfileAvatarPickers() {
+  var dz = document.getElementById("coachProfileAvatarDropzone");
+  var fin = document.getElementById("coachProfileAvatarFile");
+  var gal = document.getElementById("btnCoachProfileAvatarGallery");
+  if (dz && fin) {
+    dz.addEventListener("click", function () {
+      fin.click();
+    });
+    dz.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        fin.click();
+      }
+    });
+    ["dragenter", "dragover"].forEach(function (evn) {
+      dz.addEventListener(evn, function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dz.classList.add("is-dragover");
+      });
+    });
+    ["dragleave", "drop"].forEach(function (evn) {
+      dz.addEventListener(evn, function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (evn === "drop") {
+          var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+          if (f) setCoachProfileAvatarFromFile(f);
+        }
+        dz.classList.remove("is-dragover");
+      });
+    });
+    fin.addEventListener("change", function () {
+      var f = fin.files && fin.files[0];
+      fin.value = "";
+      if (f) setCoachProfileAvatarFromFile(f);
+    });
+  }
+  if (gal) {
+    gal.addEventListener("click", function () {
+      openAvatarGallerySheet("coach");
+    });
+  }
+}
+
+function coachPwErrorMessage(err) {
+  var msg = err && err.message ? String(err.message) : "İşlem tamamlanamadı.";
+  if (/password|şifre|unauthorized|401|invalid credentials|wrong password|old password|current password|eski|currentPassword/i.test(msg)) {
+    return "Mevcut şifre hatalı veya yeni şifre kabul edilmedi. Lütfen kontrol edin.";
+  }
+  return msg;
+}
 
 function setProfileSettingsMsg(text, isErr) {
   var el = document.getElementById("profileSettingsMsg");
@@ -7140,18 +7568,32 @@ async function fillProfileSettingsForm() {
   var cp = document.getElementById("profileCurrentPassword");
   var np = document.getElementById("profileNewPassword");
   var np2 = document.getElementById("profileNewPassword2");
+  var prevImg = document.getElementById("coachProfileAvatarPreview");
   if (cp) cp.value = "";
   if (np) np.value = "";
   if (np2) np2.value = "";
   setProfileSettingsMsg("", false);
+  setProfileSettingsTab(0);
+  coachProfileAvatarState.changed = false;
+  coachProfileAvatarState.mode = "unchanged";
+  coachProfileAvatarState.file = null;
+  coachProfileAvatarState.presetUrl = "";
   profileSettingsInitial = { name: "", email: "" };
+  var prefs = {};
+  var displayName = "";
   try {
     var r = await verifyAppwriteAccount(6000);
     if (r.ok && r.user) {
       profileSettingsInitial.name = (r.user.name && String(r.user.name).trim()) || "";
       profileSettingsInitial.email = (r.user.email && String(r.user.email).trim()) || "";
+      displayName = profileSettingsInitial.name;
+      try {
+        prefs = await getAccountPrefs();
+      } catch (_pr) {}
       if (n) n.value = profileSettingsInitial.name;
       if (e) e.value = profileSettingsInitial.email;
+      if (prevImg)
+        prevImg.src = coachAvatarSrcFromPrefs(prefs, displayName || profileSettingsInitial.email || "Koç");
       return;
     }
   } catch (err) {}
@@ -7161,8 +7603,14 @@ async function fillProfileSettingsForm() {
       var d = snap.data();
       profileSettingsInitial.name = String(d.fullName || d.name || "").trim();
       profileSettingsInitial.email = String(d.email || (auth.currentUser.email || "")).trim();
+      displayName = profileSettingsInitial.name;
+      try {
+        prefs = await getAccountPrefs();
+      } catch (_pr2) {}
       if (n && !n.value) n.value = profileSettingsInitial.name;
       if (e && !e.value) e.value = profileSettingsInitial.email;
+      if (prevImg)
+        prevImg.src = coachAvatarSrcFromPrefs(prefs, displayName || profileSettingsInitial.email || "Koç");
     }
   }
 }
@@ -7170,61 +7618,110 @@ async function fillProfileSettingsForm() {
 async function submitProfileSettings() {
   setProfileSettingsMsg("", false);
   var nEl = document.getElementById("profileDisplayName");
-  var eEl = document.getElementById("profileEmail");
   var curPw = document.getElementById("profileCurrentPassword");
   var np = document.getElementById("profileNewPassword");
   var np2 = document.getElementById("profileNewPassword2");
   var name = nEl ? String(nEl.value || "").trim() : "";
-  var email = eEl ? String(eEl.value || "").trim().toLowerCase() : "";
   var cur = curPw ? String(curPw.value || "") : "";
   var nw = np ? String(np.value || "") : "";
   var nw2 = np2 ? String(np2.value || "") : "";
 
   if (!name) {
     setProfileSettingsMsg("Ad soyad boş olamaz.", true);
+    setProfileSettingsTab(0);
     return;
   }
-  var emailCh = email && email !== String(profileSettingsInitial.email || "").toLowerCase().trim();
+  var nameCh = name !== profileSettingsInitial.name;
   var passCh = nw.length > 0 || nw2.length > 0;
-  if ((emailCh || passCh) && cur.length < 1) {
-    setProfileSettingsMsg("E-posta veya şifre değişikliği için mevcut şifrenizi girin.", true);
-    return;
-  }
   if (passCh) {
+    if (cur.length < 1) {
+      setProfileSettingsMsg("Şifre değişikliği için mevcut şifrenizi girin.", true);
+      setProfileSettingsTab(1);
+      return;
+    }
     if (nw.length < 8) {
       setProfileSettingsMsg("Yeni şifre en az 8 karakter olmalıdır.", true);
+      setProfileSettingsTab(1);
       return;
     }
     if (nw !== nw2) {
       setProfileSettingsMsg("Yeni şifreler eşleşmiyor.", true);
+      setProfileSettingsTab(1);
       return;
     }
+  }
+
+  if (!nameCh && !coachProfileAvatarState.changed && !passCh) {
+    showToast("Kaydedilecek değişiklik yok.");
+    return;
   }
 
   var btn = document.getElementById("btnProfileSettingsSave");
   if (btn) btn.disabled = true;
   try {
-    if (name !== profileSettingsInitial.name) {
+    if (nameCh) {
       await updateAccountName(name);
       try {
         if (auth.currentUser && auth.currentUser.uid) {
           await updateDoc(doc(db, "users", auth.currentUser.uid), { fullName: name, name: name });
         }
       } catch (eU) {}
+      profileSettingsInitial.name = name;
     }
-    if (emailCh) {
-      await updateEmail(email, cur);
+
+    if (coachProfileAvatarState.changed) {
+      if (coachProfileAvatarState.mode === "file" && coachProfileAvatarState.file) {
+        var dataUrl = await fileToResizedDataUrl(coachProfileAvatarState.file, 512, 0.88);
+        var blob = dataUrlToBlob(dataUrl);
+        var fileUp = new File([blob], "avatar.jpg", { type: "image/jpeg" });
+        var fid = await uploadCoachAvatarToStorage(fileUp);
+        await updateAccountPrefs({ avatarId: fid, avatarUrl: "" });
+      } else if (coachProfileAvatarState.mode === "preset" && coachProfileAvatarState.presetUrl) {
+        await updateAccountPrefs({ avatarId: "", avatarUrl: coachProfileAvatarState.presetUrl });
+      }
+      coachProfileAvatarState.changed = false;
+      coachProfileAvatarState.mode = "unchanged";
+      coachProfileAvatarState.file = null;
+      coachProfileAvatarState.presetUrl = "";
     }
+
     if (passCh) {
-      await updatePassword(nw, cur);
+      try {
+        await updatePassword(nw, cur);
+      } catch (pwErr) {
+        var pmsg = coachPwErrorMessage(pwErr);
+        if (typeof Swal !== "undefined" && Swal.fire) {
+          Swal.fire({
+            icon: "error",
+            title: "Şifre güncellenemedi",
+            text: pmsg,
+            confirmButtonColor: "#7c3aed",
+          });
+        } else {
+          setProfileSettingsMsg(pmsg, true);
+        }
+        return;
+      }
+      if (curPw) curPw.value = "";
+      if (np) np.value = "";
+      if (np2) np2.value = "";
     }
-    profileSettingsInitial.name = name;
-    profileSettingsInitial.email = email;
-    if (curPw) curPw.value = "";
-    if (np) np.value = "";
-    if (np2) np2.value = "";
+
+    var prefsOut = {};
+    try {
+      prefsOut = await getAccountPrefs();
+    } catch (_g) {}
+    var avImg = document.getElementById("profileAvatarImg");
+    if (avImg) avImg.src = coachAvatarSrcFromPrefs(prefsOut, name);
+    var greet = document.querySelector(".profile-card__greet");
+    if (greet) {
+      var h = new Date().getHours();
+      var part = h < 12 ? "Günaydın" : h < 18 ? "İyi günler" : "İyi akşamlar";
+      greet.innerHTML = part + ", <strong>" + escapeHtml(name) + "</strong>";
+    }
+
     updateCoachProfile();
-    showToast("Profil güncellendi.");
+    showToast("Ayarlar başarıyla kaydedildi.");
     closeModal("profileSettingsModal");
   } catch (err) {
     console.error(err);
@@ -7397,6 +7894,7 @@ function onExamsSnap(snap) {
   refreshDashboardAnalytics();
   refreshStudentDetailIfOpen();
   if (currentView === "karne") renderKarneReport();
+  refreshMriIfVisible();
 }
 
 function onStudentsSnap(snap) {
@@ -7406,6 +7904,7 @@ function onStudentsSnap(snap) {
   renderStudentsList(snap.docs);
   renderStudentsPage();
   fillStudentSelects();
+  populateDanaKarneStudentSelect();
   refreshDashboardAnalytics();
   if (
     currentView === "ogrenci-detay" &&
@@ -7483,7 +7982,6 @@ function renderPaymentsTable() {
 }
 
 function updateMuhasebeStats() {
-  ensureFinanceMockSeeded();
   var now = new Date();
   var ym = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
   var monthTotal = 0;
@@ -7517,7 +8015,6 @@ function normalizePhoneForWa(raw) {
 function renderMuhasebeOverdueTable() {
   var tbody = document.getElementById("muhasebeOverdueBody");
   if (!tbody) return;
-  ensureFinanceMockSeeded();
   var rows = [];
   cachedStudents.forEach(function (s) {
     var f = getStudentFinanceRow(s.id);
@@ -7817,17 +8314,23 @@ function applySpaInitialShellState() {
 
 function openAvatarGallerySheet(target) {
   var stModal = document.getElementById("studentModal");
-  if (!stModal || stModal.hidden) {
-    return;
+  var profModal = document.getElementById("profileSettingsModal");
+  if (target === "coach") {
+    if (!profModal || profModal.hidden) return;
+    window.__avatarPickTarget = "coach";
+  } else {
+    if (!stModal || stModal.hidden) return;
+    window.__avatarPickTarget = target === "edit" ? "edit" : "add";
   }
-  window.__avatarPickTarget = target === "edit" ? "edit" : "add";
   var sheet = document.getElementById("avatarGallerySheet");
   var grid = document.getElementById("avatarGalleryGrid");
   // Tesettür artık yok; avatar seçimi sadece Erkek/Kadın sabit eşleşmesi üzerinden yapılır.
   var pool =
-    target === "edit"
-      ? getAvatarPoolByGender(getSelectedEditGender()).slice()
-      : getAvatarPoolByGender(getSelectedAddGender()).slice();
+    target === "coach"
+      ? erkekAvatarları.concat(kadinAvatarları).slice()
+      : target === "edit"
+        ? getAvatarPoolByGender(getSelectedEditGender()).slice()
+        : getAvatarPoolByGender(getSelectedAddGender()).slice();
   if (!grid || !pool.length) return;
   window.__avatarGalleryPool = pool;
   grid.innerHTML = pool
@@ -7850,7 +8353,9 @@ function openAvatarGallerySheet(target) {
       var pl = window.__avatarGalleryPool;
       var u = pl && pl[idx];
       if (!u) return;
-      if (window.__avatarPickTarget === "edit") {
+      if (window.__avatarPickTarget === "coach") {
+        setCoachProfileAvatarFromPreset(u);
+      } else if (window.__avatarPickTarget === "edit") {
         setEditStudentAvatarPreview(u, { mode: "preset" });
       } else {
         setStudentAvatarPreview(u, { mode: "preset" });
@@ -7916,6 +8421,10 @@ function initStudentAvatarPicker() {
         return;
       }
       pickRandomAvatarForAddForm();
+      var gs = document.getElementById("avatarGallerySheet");
+      if (gs && !gs.hidden && window.__avatarPickTarget === "add") {
+        openAvatarGallerySheet("add");
+      }
     });
   });
 }
@@ -7961,6 +8470,10 @@ function initStudentEditAvatarControls() {
         return;
       }
       pickRandomAvatarForEditForm();
+      var gs = document.getElementById("avatarGallerySheet");
+      if (gs && !gs.hidden && window.__avatarPickTarget === "edit") {
+        openAvatarGallerySheet("edit");
+      }
     });
   });
 }
@@ -8024,7 +8537,6 @@ function fillStudentSelects() {
 }
 
 /* --- Deneme Analizleri: EDS tarzı branş + yerel trend + Appwrite --- */
-var DA_CHART_STORAGE_KEY = "yks_deneme_analiz_chart_v1";
 var edsDenemeBound = false;
 
 var edsDaState = {
@@ -8220,38 +8732,26 @@ function yksRenderEdsHataKarnesi() {
   yksRenderHataKarnesiTbody("edsHataKarneTbody", list);
 }
 
-function daLoadChartStore() {
-  try {
-    var raw = localStorage.getItem(DA_CHART_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch (e) {
-    return {};
-  }
-}
-
-function daSaveChartStore(obj) {
-  try {
-    localStorage.setItem(DA_CHART_STORAGE_KEY, JSON.stringify(obj));
-  } catch (e) {}
-}
-
 function daGetSeries(studentId) {
   if (!studentId) return [];
-  var all = daLoadChartStore();
-  return Array.isArray(all[studentId]) ? all[studentId] : [];
-}
-
-function daAppendChartPoint(studentId, label, tyt, ayt) {
-  var all = daLoadChartStore();
-  if (!all[studentId]) all[studentId] = [];
-  all[studentId].push({
-    label: label,
-    tyt: tyt,
-    ayt: ayt,
-    at: Date.now(),
+  var ex = examsForStudent(studentId)
+    .filter(function (e) {
+      var tur = (e.examType || e.type || e.tur || "").toUpperCase();
+      return tur === "TYT" || tur === "AYT";
+    })
+    .sort(function (a, b) {
+      return String(a.date || "").localeCompare(String(b.date || ""));
+    });
+  return ex.map(function (e) {
+    var tur = (e.examType || e.type || e.tur || "TYT").toUpperCase();
+    var net = parseTrNum(e.net);
+    return {
+      label:
+        ((e.date || "").slice(0, 10) || e.examName || "Deneme").trim() || "Kayıt",
+      tyt: tur === "TYT" && !isNaN(net) ? net : null,
+      ayt: tur === "AYT" && !isNaN(net) ? net : null,
+    };
   });
-  daSaveChartStore(all);
-  return all[studentId];
 }
 
 function edsEnsureRow(key, soru) {
@@ -8371,9 +8871,20 @@ function renderDenemeAnalizChart() {
   if (!canvas || typeof Chart === "undefined") return;
   var existing = Chart.getChart(canvas);
   if (existing) existing.destroy();
+  dpSetCanvasChartOverlay(canvas, false);
   var sel = document.getElementById("daStudentSelect");
   var sid = sel && sel.value;
   var series = daGetSeries(sid);
+  var hasTyt = series.some(function (p) {
+    return p.tyt != null && p.tyt !== "" && !isNaN(Number(p.tyt));
+  });
+  var hasAyt = series.some(function (p) {
+    return p.ayt != null && p.ayt !== "" && !isNaN(Number(p.ayt));
+  });
+  if (!series.length || (!hasTyt && !hasAyt)) {
+    dpSetCanvasChartOverlay(canvas, true);
+    return;
+  }
   var labels = series.map(function (p) {
     return (p.label && String(p.label).trim()) || "Kayıt";
   });
@@ -8746,27 +9257,6 @@ function bindDenemeAnalizForm() {
       showToast("Form sıfırlandı.");
     });
 
-  document.getElementById("btnDaSaveLocal") &&
-    document.getElementById("btnDaSaveLocal").addEventListener("click", function () {
-      var sid = sel.value;
-      if (!sid) {
-        showToast("Öğrenci seçin.");
-        return;
-      }
-      var titleEl = document.getElementById("daExamTitle");
-      var name = (titleEl && titleEl.value.trim()) || "Deneme";
-      var tot = edsComputeTotals();
-      if (!tot.totalSoru) {
-        showToast("Önce branşlara D/Y girin.");
-        return;
-      }
-      var tytPt = edsDaState.examMode === "TYT" ? tot.totalNet : null;
-      var aytPt = edsDaState.examMode === "AYT" ? tot.totalNet : null;
-      daAppendChartPoint(sid, name, tytPt, aytPt);
-      renderDenemeAnalizChart();
-      showToast("Yerel trend grafiğe eklendi.");
-    });
-
   document.getElementById("btnDaSaveFirestore") &&
     document.getElementById("btnDaSaveFirestore").addEventListener("click", async function () {
       var sid = sel.value;
@@ -8818,6 +9308,7 @@ function bindDenemeAnalizForm() {
         showToast("Deneme Appwrite veritabanına kaydedildi.");
         renderExamsFullPage();
         renderDashboardExams();
+        renderDenemeAnalizChart();
       } catch (err) {
         console.error(err);
         alert(err.message || err);
@@ -8826,6 +9317,7 @@ function bindDenemeAnalizForm() {
 
   sel.addEventListener("change", function () {
     renderDenemeAnalizChart();
+    renderDenemeRadarChart();
   });
 
   var daRule = document.getElementById("daScoringRule");
@@ -9634,6 +10126,7 @@ var MODAL_IDS = [
   "financeModal",
   "examModal",
   "bulkStudentImportModal",
+  "danaGlobalDenemePlanModal",
   "kkModalAta",
   "hpWeeklyTaskModal",
   "profileSettingsModal",
@@ -9653,6 +10146,7 @@ function closeAllModals() {
     var m = document.getElementById(id);
     if (m) m.hidden = true;
   });
+  resetDanaGlobalDenemePlanModal();
   o.classList.remove("is-open");
   o.setAttribute("aria-hidden", "true");
   document.body.style.overflow = "";
@@ -9675,6 +10169,7 @@ function closeModal(modalId) {
   if (!m || !o) return;
   if (modalId === "studentModal") resetStudentModalPanes();
   if (modalId === "bulkStudentImportModal") resetBulkStudentImportModalUi();
+  if (modalId === "danaGlobalDenemePlanModal") resetDanaGlobalDenemePlanModal();
   if (modalId === "hpWeeklyTaskModal") hpResetWeeklyTaskModalChrome();
   if (modalId === "tmPageDeleteConfirmModal") tmPendingDeletePaper = null;
   m.hidden = true;
@@ -9717,7 +10212,7 @@ function openStudentModal() {
   });
   studentAddAvatarState.mode = "preset";
   studentAddAvatarState.customDataUrl = "";
-  studentAddAvatarState.url = getAvatarByGender("Erkek");
+  studentAddAvatarState.url = erkekAvatarları[0];
   setStudentAvatarPreview(studentAddAvatarState.url, { mode: "preset" });
   openModal("studentModal");
   var stPw = document.getElementById("st_studentPassword");
@@ -10914,7 +11409,10 @@ function initModals() {
       submitProfileSettings();
     });
   }
+  initProfileSettingsTabs();
+  initCoachProfileAvatarPickers();
   initBulkStudentImportModal();
+  initDanaGlobalDenemePlanModal();
 }
 
 function subscribeFirestore() {
@@ -10929,6 +11427,7 @@ function subscribeFirestore() {
     console.warn("[Appwrite] coach_id eksik veya sorgu kurulamadı.");
     return;
   }
+  setStudentsGridLoading(true);
   firestoreUnsubs.push(
     onSnapshot(
       qa,
@@ -15232,6 +15731,709 @@ function initDenemeAnalizTakvimCountdowns() {
   root._danaTmr = setInterval(tick, 1000);
 }
 
+/** Global deneme takvimi: tam liste (Appwrite); sekme `danaGlobalTakvimActiveFilter` ile süzülür */
+var danaGlobalTakvimAllDocs = [];
+var danaGlobalTakvimActiveFilter = "YKS";
+
+function danaEscapeHtml(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function danaTakvimValidIso(value) {
+  var d = parseFlexibleDate(value);
+  if (!d) return "";
+  return d.toISOString();
+}
+
+function danaGlobalTakvimMapDoc(d) {
+  if (!d) return null;
+  var raw = String(d.sinavTuru || d.sinav_turu || "").trim().toUpperCase();
+  var sinav = "_OTHER";
+  if (raw === "TYT" || raw === "AYT") sinav = raw;
+  return {
+    id: d.$id,
+    baslik:
+      String(d.adi || d.baslik || d.title || "")
+        .trim() || "Deneme",
+    sinavTuru: sinav,
+    tarihSaat: d.tarihSaat != null ? d.tarihSaat : d.tarih_saat != null ? d.tarih_saat : d.date,
+    kurum: String(d.yayinevi || d.kurum || d.publisher || "").trim(),
+  };
+}
+
+function danaGlobalTakvimSortByDate(items) {
+  var copy = (items || []).slice();
+  copy.sort(function (a, b) {
+    var da = parseFlexibleDate(a.tarihSaat);
+    var db = parseFlexibleDate(b.tarihSaat);
+    var ta = da ? da.getTime() : NaN;
+    var tb = db ? db.getTime() : NaN;
+    if (isNaN(ta) && isNaN(tb)) return 0;
+    if (isNaN(ta)) return 1;
+    if (isNaN(tb)) return -1;
+    return ta - tb;
+  });
+  return copy;
+}
+
+function danaGlobalTakvimFilterItems(items, filt) {
+  if (!items || !items.length) return [];
+  if (filt === "YKS" || !filt) return items.slice();
+  return items.filter(function (it) {
+    return it.sinavTuru === filt;
+  });
+}
+
+/** Aylık mini takvim — görüntülenen ay (yıl, ay 0–11) */
+var danaCalYear = null;
+var danaCalMonth = null;
+
+function danaCalPad2(n) {
+  return String(n < 10 ? "0" + n : n);
+}
+
+function danaCalDayKeyFromDate(d) {
+  if (!d || isNaN(d.getTime())) return "";
+  return d.getFullYear() + "-" + danaCalPad2(d.getMonth() + 1) + "-" + danaCalPad2(d.getDate());
+}
+
+function danaCalEnsureViewMonth() {
+  if (danaCalYear == null || danaCalMonth == null) {
+    var n = new Date();
+    danaCalYear = n.getFullYear();
+    danaCalMonth = n.getMonth();
+  }
+}
+
+function danaCalGroupByLocalDay(items) {
+  var map = {};
+  (items || []).forEach(function (it) {
+    var d = parseFlexibleDate(it.tarihSaat);
+    if (!d) return;
+    var key = danaCalDayKeyFromDate(d);
+    if (!key) return;
+    if (!map[key]) map[key] = [];
+    map[key].push(it);
+  });
+  return map;
+}
+
+function danaCalBadgeKind(sinavTuru) {
+  if (sinavTuru === "TYT") return "tyt";
+  if (sinavTuru === "AYT") return "ayt";
+  return "yks";
+}
+
+function danaCalShortBadgeText(item) {
+  var tag = item.sinavTuru === "AYT" ? "AYT" : item.sinavTuru === "TYT" ? "TYT" : "YKS";
+  var raw = String(item.baslik || "Deneme").trim().replace(/\s+/g, " ");
+  if (raw.length > 16) raw = raw.slice(0, 14) + "…";
+  return tag + " - " + raw;
+}
+
+function danaCalTooltipLine(item) {
+  var title = String(item.baslik || "").trim();
+  var pub = String(item.kurum || "").trim();
+  var d = parseFlexibleDate(item.tarihSaat);
+  var timeStr =
+    d && !isNaN(d.getTime())
+      ? d.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
+      : "";
+  var parts = [];
+  if (title) parts.push(title);
+  if (pub) parts.push(pub);
+  if (timeStr) parts.push(timeStr);
+  return parts.join(" · ");
+}
+
+function danaCalQuoteSelectorAttr(s) {
+  return String(s == null ? "" : s).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function danaCalScrollToExamCard(examId) {
+  if (!examId) return;
+  var el = document.querySelector('[data-dana-exam-id="' + danaCalQuoteSelectorAttr(examId) + '"]');
+  if (!el) return;
+  try {
+    el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    el.classList.add("dana-tg-card--flash");
+    setTimeout(function () {
+      el.classList.remove("dana-tg-card--flash");
+    }, 1400);
+  } catch (e) {
+    el.scrollIntoView(true);
+  }
+}
+
+function renderDanaMonthlyCalendar() {
+  var titleEl = document.getElementById("danaCalTitle");
+  var gridEl = document.getElementById("danaCalGrid");
+  if (!titleEl || !gridEl) return;
+  danaCalEnsureViewMonth();
+  var y = danaCalYear;
+  var m = danaCalMonth;
+  var monthStart = new Date(y, m, 1);
+  titleEl.textContent =
+    monthStart.toLocaleDateString("tr-TR", { month: "long", year: "numeric" });
+  titleEl.style.textTransform = "capitalize";
+  var firstDow = monthStart.getDay();
+  var lead = (firstDow + 6) % 7;
+  var daysInMonth = new Date(y, m + 1, 0).getDate();
+  var today = new Date();
+  var filt = danaGlobalTakvimActiveFilter || "YKS";
+  var items = danaGlobalTakvimFilterItems(danaGlobalTakvimAllDocs || [], filt);
+  var byDay = danaCalGroupByLocalDay(items);
+  gridEl.innerHTML = "";
+  var frag = document.createDocumentFragment();
+  var i;
+  for (i = 0; i < lead; i++) {
+    var pad = document.createElement("div");
+    pad.className = "dana-cal__cell dana-cal__cell--muted dana-cal__cell--empty";
+    pad.setAttribute("aria-hidden", "true");
+    frag.appendChild(pad);
+  }
+  for (var day = 1; day <= daysInMonth; day++) {
+    var cell = document.createElement("div");
+    cell.className = "dana-cal__cell";
+    cell.setAttribute("role", "gridcell");
+    var key = y + "-" + danaCalPad2(m + 1) + "-" + danaCalPad2(day);
+    if (y === today.getFullYear() && m === today.getMonth() && day === today.getDate()) {
+      cell.classList.add("dana-cal__cell--today");
+    }
+    var num = document.createElement("span");
+    num.className = "dana-cal__num";
+    num.textContent = String(day);
+    cell.appendChild(num);
+    var list = byDay[key];
+    if (list && list.length) {
+      list = list.slice().sort(function (a, b) {
+        var ta = parseFlexibleDate(a.tarihSaat);
+        var tb = parseFlexibleDate(b.tarihSaat);
+        if (!ta || !tb) return 0;
+        return ta.getTime() - tb.getTime();
+      });
+      var wrap = document.createElement("div");
+      wrap.className = "dana-cal__badges";
+      list.forEach(function (ex) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "dana-cal-badge dana-cal-badge--" + danaCalBadgeKind(ex.sinavTuru);
+        var tip = danaCalTooltipLine(ex);
+        if (tip) b.setAttribute("data-dana-tip", tip);
+        b.setAttribute("aria-label", tip || danaCalShortBadgeText(ex));
+        b.textContent = danaCalShortBadgeText(ex);
+        b.addEventListener("click", function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          danaCalScrollToExamCard(ex.id);
+        });
+        wrap.appendChild(b);
+      });
+      cell.appendChild(wrap);
+    }
+    frag.appendChild(cell);
+  }
+  var totalUsed = lead + daysInMonth;
+  var tail = (7 - (totalUsed % 7)) % 7;
+  for (i = 0; i < tail; i++) {
+    var tailPad = document.createElement("div");
+    tailPad.className = "dana-cal__cell dana-cal__cell--muted dana-cal__cell--empty";
+    tailPad.setAttribute("aria-hidden", "true");
+    frag.appendChild(tailPad);
+  }
+  gridEl.appendChild(frag);
+}
+
+function initDanaMonthlyCalendarNavOnce() {
+  var root = document.getElementById("denemeAnalizTakvimRoot");
+  if (!root || root.dataset.danaCalNavBound) return;
+  root.dataset.danaCalNavBound = "1";
+  var prev = document.getElementById("danaCalPrev");
+  var next = document.getElementById("danaCalNext");
+  if (prev) {
+    prev.addEventListener("click", function () {
+      danaCalEnsureViewMonth();
+      danaCalMonth -= 1;
+      if (danaCalMonth < 0) {
+        danaCalMonth = 11;
+        danaCalYear -= 1;
+      }
+      renderDanaMonthlyCalendar();
+    });
+  }
+  if (next) {
+    next.addEventListener("click", function () {
+      danaCalEnsureViewMonth();
+      danaCalMonth += 1;
+      if (danaCalMonth > 11) {
+        danaCalMonth = 0;
+        danaCalYear += 1;
+      }
+      renderDanaMonthlyCalendar();
+    });
+  }
+}
+
+function danaGlobalTakvimBuildMeta(item) {
+  var parts = [];
+  var line = formatDateTimeTr(item.tarihSaat, { emptyLabel: "" });
+  if (line && line !== "—") parts.push(line);
+  parts.push(item.kurum || "Türkiye geneli");
+  return parts.join(" · ");
+}
+
+async function danaGlobalTakvimLoadFromAppwrite() {
+  try {
+    var res = await databases.listDocuments(APPWRITE_DATABASE_ID, APPWRITE_COLLECTION_GLOBAL_DENEMELER, [
+      Query.limit(250),
+    ]);
+    var docs = (res && res.documents) || [];
+    var out = [];
+    docs.forEach(function (d) {
+      var m = danaGlobalTakvimMapDoc(d);
+      if (m) out.push(m);
+    });
+    return danaGlobalTakvimSortByDate(out);
+  } catch (e) {
+    console.warn("[dana-takvim] listDocuments:", e && e.message ? e.message : e);
+    return [];
+  }
+}
+
+function danaGlobalTakvimRender() {
+  initDanaMonthlyCalendarNavOnce();
+  var grid = document.getElementById("danaTakvimCardsGrid");
+  var empty = document.getElementById("danaTakvimEmpty");
+  var emptyTitle = document.getElementById("danaTakvimEmptyTitle");
+  var emptyHint = document.getElementById("danaTakvimEmptyHint");
+  if (!grid || !empty || !emptyTitle || !emptyHint) {
+    renderDanaMonthlyCalendar();
+    return;
+  }
+  var all = danaGlobalTakvimAllDocs || [];
+  var filt = danaGlobalTakvimActiveFilter || "YKS";
+  var items = danaGlobalTakvimFilterItems(all, filt);
+  grid.innerHTML = "";
+  if (!items.length) {
+    empty.hidden = false;
+    if (!all.length) {
+      emptyTitle.textContent = "Planlanmış deneme yok";
+      emptyHint.textContent =
+        "Planlanmış bir deneme bulunmuyor. Yeni bir deneme planlayarak takviminizi oluşturun.";
+    } else {
+      emptyTitle.textContent = "Bu filtrede deneme yok";
+      emptyHint.textContent = "TYT veya AYT sekmesine geçin ya da YKS (Tümü) ile tümünü görün.";
+    }
+    renderDanaMonthlyCalendar();
+    return;
+  }
+  empty.hidden = true;
+  items.forEach(function (item) {
+    var art = document.createElement("article");
+    art.className = "dana-tg-card";
+    if (item.id) art.setAttribute("data-dana-exam-id", String(item.id));
+    var iso = danaTakvimValidIso(item.tarihSaat);
+    if (iso) art.setAttribute("data-dana-countdown", iso);
+    var badge = item.sinavTuru === "AYT" ? "AYT" : item.sinavTuru === "TYT" ? "TYT" : "TG";
+    var iconClass =
+      item.sinavTuru === "AYT" ? "fa-flask" : item.sinavTuru === "TYT" ? "fa-scroll" : "fa-layer-group";
+    var safeTitle = danaEscapeHtml(item.baslik);
+    var safeMeta = danaEscapeHtml(danaGlobalTakvimBuildMeta(item));
+    var countHtml = iso
+      ? '<div class="dana-countdown" aria-label="Geri sayım">' +
+        '<div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="d">0</span><span class="dana-countdown__lbl">Gün</span></div>' +
+        '<div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="h">00</span><span class="dana-countdown__lbl">Saat</span></div>' +
+        '<div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="m">00</span><span class="dana-countdown__lbl">Dk</span></div>' +
+        '<div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="s">00</span><span class="dana-countdown__lbl">Sn</span></div>' +
+        "</div>"
+      : "";
+    art.innerHTML =
+      '<div class="dana-tg-card__shine" aria-hidden="true"></div>' +
+      '<div class="dana-tg-card__top">' +
+      '<div class="dana-tg-card__logo" title="Sınav türü"><i class="fa-solid ' +
+      iconClass +
+      '"></i></div>' +
+      '<span class="dana-tg-card__badge">' +
+      danaEscapeHtml(badge) +
+      "</span>" +
+      "</div>" +
+      '<h3 class="dana-tg-card__name">' +
+      safeTitle +
+      "</h3>" +
+      countHtml +
+      '<p class="dana-tg-card__meta">' +
+      safeMeta +
+      "</p>";
+    grid.appendChild(art);
+  });
+  renderDanaMonthlyCalendar();
+}
+
+function initDanaGlobalTakvimFiltersOnce() {
+  var root = document.getElementById("denemeAnalizTakvimRoot");
+  if (!root || root.dataset.danaTakvimTabsBound) return;
+  root.dataset.danaTakvimTabsBound = "1";
+  root.querySelectorAll("[data-dana-takvim-filter]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var f = btn.getAttribute("data-dana-takvim-filter") || "YKS";
+      danaGlobalTakvimActiveFilter = f;
+      root.querySelectorAll("[data-dana-takvim-filter]").forEach(function (b) {
+        var on = b === btn;
+        b.classList.toggle("is-active", on);
+        b.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      clearDenemeAnalizTakvimCountdowns();
+      danaGlobalTakvimRender();
+      initDenemeAnalizTakvimCountdowns();
+    });
+  });
+}
+
+function danaGlobalTakvimRefresh() {
+  clearDenemeAnalizTakvimCountdowns();
+  initDanaGlobalTakvimFiltersOnce();
+  initDanaMonthlyCalendarNavOnce();
+  var grid = document.getElementById("danaTakvimCardsGrid");
+  var emptyEl = document.getElementById("danaTakvimEmpty");
+  var emptyTitle = document.getElementById("danaTakvimEmptyTitle");
+  var emptyHint = document.getElementById("danaTakvimEmptyHint");
+  if (grid) grid.innerHTML = "";
+  if (emptyEl && emptyTitle && emptyHint) {
+    emptyEl.hidden = false;
+    emptyTitle.textContent = "Yükleniyor…";
+    emptyHint.textContent = "Deneme takvimi Appwrite ile senkronize ediliyor.";
+  }
+  return danaGlobalTakvimLoadFromAppwrite().then(function (rows) {
+    danaGlobalTakvimAllDocs = rows || [];
+    danaGlobalTakvimRender();
+    initDenemeAnalizTakvimCountdowns();
+  });
+}
+
+/** Kayıt sonrası: liste yenilenir; tam yükleme maskesi yok (takvim sekmesi açıksa grid güncellenir). */
+function danaGlobalTakvimAfterMutation() {
+  return danaGlobalTakvimLoadFromAppwrite().then(function (rows) {
+    danaGlobalTakvimAllDocs = rows || [];
+    var v = document.getElementById("view-deneme-analiz-takvim");
+    if (v && !v.hidden) {
+      clearDenemeAnalizTakvimCountdowns();
+      danaGlobalTakvimRender();
+      initDenemeAnalizTakvimCountdowns();
+    }
+  });
+}
+
+var DANA_GD_MAX_FILE_MB = 40;
+
+function resetDanaGlobalDenemePlanModal() {
+  var form = document.getElementById("formDanaGlobalDenemePlan");
+  if (form) form.reset();
+  var err = document.getElementById("danaGdPlanFormErr");
+  if (err) {
+    err.hidden = true;
+    err.textContent = "";
+  }
+  var pdfLbl = document.getElementById("danaGdPdfLabel");
+  var cevapLbl = document.getElementById("danaGdCevapLabel");
+  if (pdfLbl) {
+    pdfLbl.textContent = "";
+    pdfLbl.removeAttribute("data-file-name");
+  }
+  if (cevapLbl) {
+    cevapLbl.textContent = "";
+    cevapLbl.removeAttribute("data-file-name");
+  }
+  ["danaGdDropPdf", "danaGdDropCevap"].forEach(function (id) {
+    var z = document.getElementById(id);
+    if (z) z.classList.remove("is-dragover");
+  });
+  var sub = document.getElementById("btnDanaGdPlanSubmit");
+  if (sub) sub.disabled = false;
+}
+
+function danaGdCombineDateTimeIso(dateStr, timeStr) {
+  if (!dateStr || !String(dateStr).trim()) return "";
+  var t = timeStr && String(timeStr).trim().length >= 4 ? String(timeStr).trim() : "09:00";
+  if (t.length === 5) t = t + ":00";
+  var d0 = parseFlexibleDate(String(dateStr).trim() + "T" + t);
+  if (!d0) return "";
+  return d0.toISOString();
+}
+
+function danaGdOptionalDateIso(dateStr) {
+  if (!dateStr || !String(dateStr).trim()) return "";
+  var d0 = parseFlexibleDate(String(dateStr).trim() + "T12:00:00");
+  return d0 ? d0.toISOString() : "";
+}
+
+function danaGdSafeFileName(f) {
+  var n = (f && f.name) || "dosya";
+  return String(n)
+    .replace(/[^\w.\-\u00C0-\u024F]+/g, "_")
+    .slice(0, 180);
+}
+
+function danaGdValidatePdf(f) {
+  var mime = (f && f.type) || "";
+  var name = ((f && f.name) || "").toLowerCase();
+  if (mime === "application/pdf" || name.endsWith(".pdf")) return "";
+  return "Deneme dosyası yalnızca PDF olmalıdır.";
+}
+
+function danaGdValidateCevap(f) {
+  var mime = (f && f.type) || "";
+  var name = ((f && f.name) || "").toLowerCase();
+  if (mime === "application/pdf" || mime.indexOf("image/") === 0) return "";
+  var okExt = [".pdf", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".heic"];
+  if (okExt.some(function (ext) {
+    return name.endsWith(ext);
+  }))
+    return "";
+  return "Cevap anahtarı PDF veya görsel (PNG, JPEG, WebP…) olmalıdır.";
+}
+
+function danaGdSetDropzoneFile(fileInput, labelId, file, errEl, validateFn) {
+  if (!fileInput || !labelId) return false;
+  if (file.size > DANA_GD_MAX_FILE_MB * 1024 * 1024) {
+    if (errEl) {
+      errEl.hidden = false;
+      errEl.textContent = "Dosya " + DANA_GD_MAX_FILE_MB + " MB’dan küçük olmalıdır.";
+    }
+    return false;
+  }
+  var v = validateFn(file);
+  if (v) {
+    if (errEl) {
+      errEl.hidden = false;
+      errEl.textContent = v;
+    }
+    return false;
+  }
+  if (errEl) {
+    errEl.hidden = true;
+    errEl.textContent = "";
+  }
+  try {
+    var dt = new DataTransfer();
+    dt.items.add(file);
+    fileInput.files = dt.files;
+  } catch (e) {
+    console.warn("[dana-gd] DataTransfer", e);
+  }
+  var lbl = document.getElementById(labelId);
+  if (lbl) {
+    lbl.textContent = danaGdSafeFileName(file);
+    lbl.setAttribute("data-file-name", danaGdSafeFileName(file));
+  }
+  return true;
+}
+
+function bindDanaGlobalDenemeDropzoneOnce(dropId, inputId, labelId, validateFn) {
+  var dz = document.getElementById(dropId);
+  var fi = document.getElementById(inputId);
+  if (!dz || !fi || dz.dataset.danaGdBound) return;
+  dz.dataset.danaGdBound = "1";
+  var errEl = document.getElementById("danaGdPlanFormErr");
+  dz.addEventListener("click", function () {
+    if (dz.getAttribute("aria-busy") === "true") return;
+    fi.click();
+  });
+  dz.addEventListener("keydown", function (e) {
+    if ((e.key === "Enter" || e.key === " ") && dz.getAttribute("aria-busy") !== "true") {
+      e.preventDefault();
+      fi.click();
+    }
+  });
+  ["dragenter", "dragover"].forEach(function (ev) {
+    dz.addEventListener(ev, function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      dz.classList.add("is-dragover");
+    });
+  });
+  dz.addEventListener("dragleave", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    var related = e.relatedTarget;
+    if (!related || !dz.contains(related)) dz.classList.remove("is-dragover");
+  });
+  dz.addEventListener("drop", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    dz.classList.remove("is-dragover");
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) danaGdSetDropzoneFile(fi, labelId, f, errEl, validateFn);
+  });
+  fi.addEventListener("change", function () {
+    var f = fi.files && fi.files[0];
+    if (f) danaGdSetDropzoneFile(fi, labelId, f, errEl, validateFn);
+  });
+}
+
+async function submitDanaGlobalDenemePlanForm(ev) {
+  ev.preventDefault();
+  var form = ev.currentTarget;
+  if (!form || form.nodeName !== "FORM") return;
+  var errEl = document.getElementById("danaGdPlanFormErr");
+  var sub = document.getElementById("btnDanaGdPlanSubmit");
+  if (errEl) {
+    errEl.hidden = true;
+    errEl.textContent = "";
+  }
+  var adi = (document.getElementById("danaGdAdi") || {}).value;
+  adi = adi ? String(adi).trim() : "";
+  var yayinevi = (document.getElementById("danaGdYayinevi") || {}).value;
+  yayinevi = yayinevi ? String(yayinevi).trim() : "";
+  var sinavTuru = (document.getElementById("danaGdSinavTuru") || {}).value;
+  sinavTuru = sinavTuru ? String(sinavTuru).trim().toUpperCase() : "";
+  var dateStr = (document.getElementById("danaGdUygulamaTarih") || {}).value;
+  var timeStr = (document.getElementById("danaGdUygulamaSaat") || {}).value;
+  var sonucStr = (document.getElementById("danaGdSonucTarih") || {}).value;
+  if (!adi || !yayinevi) {
+    if (errEl) {
+      errEl.hidden = false;
+      errEl.textContent = "Deneme adı ve yayınevi / kurum zorunludur.";
+    }
+    return;
+  }
+  if (sinavTuru !== "TYT" && sinavTuru !== "AYT") {
+    if (errEl) {
+      errEl.hidden = false;
+      errEl.textContent = "Sınav türü TYT veya AYT seçilmelidir.";
+    }
+    return;
+  }
+  if (!dateStr) {
+    if (errEl) {
+      errEl.hidden = false;
+      errEl.textContent = "Uygulama tarihi zorunludur.";
+    }
+    return;
+  }
+  var tarihSaatIso = danaGdCombineDateTimeIso(dateStr, timeStr);
+  if (!tarihSaatIso) {
+    if (errEl) {
+      errEl.hidden = false;
+      errEl.textContent = "Uygulama tarihi veya saati geçersiz.";
+    }
+    return;
+  }
+  var pdfIn = document.getElementById("danaGdFilePdf");
+  var cevapIn = document.getElementById("danaGdFileCevap");
+  var pdfFile = pdfIn && pdfIn.files && pdfIn.files[0] ? pdfIn.files[0] : null;
+  var cevapFile = cevapIn && cevapIn.files && cevapIn.files[0] ? cevapIn.files[0] : null;
+  if (pdfFile) {
+    var ep = danaGdValidatePdf(pdfFile);
+    if (ep) {
+      if (errEl) {
+        errEl.hidden = false;
+        errEl.textContent = ep;
+      }
+      return;
+    }
+  }
+  if (cevapFile) {
+    var ec = danaGdValidateCevap(cevapFile);
+    if (ec) {
+      if (errEl) {
+        errEl.hidden = false;
+        errEl.textContent = ec;
+      }
+      return;
+    }
+  }
+  var sonucIso = danaGdOptionalDateIso(sonucStr);
+  var uploadedFids = [];
+  if (sub) sub.disabled = true;
+  try {
+    var uploadTasks = [];
+    if (pdfFile) {
+      uploadTasks.push(
+        (async function () {
+          var fid = ID.unique();
+          var blob = pdfFile instanceof File ? pdfFile : new File([pdfFile], danaGdSafeFileName(pdfFile), { type: pdfFile.type || "application/pdf" });
+          await storage.createFile(APPWRITE_BUCKET_DENEME_DEPOSU, fid, blob);
+          uploadedFids.push(fid);
+          return { role: "pdf", fid: fid };
+        })()
+      );
+    }
+    if (cevapFile) {
+      uploadTasks.push(
+        (async function () {
+          var fid = ID.unique();
+          var blob =
+            cevapFile instanceof File
+              ? cevapFile
+              : new File([cevapFile], danaGdSafeFileName(cevapFile), { type: cevapFile.type || "application/octet-stream" });
+          await storage.createFile(APPWRITE_BUCKET_DENEME_DEPOSU, fid, blob);
+          uploadedFids.push(fid);
+          return { role: "cevap", fid: fid };
+        })()
+      );
+    }
+    var upRes = uploadTasks.length ? await Promise.all(uploadTasks) : [];
+    var pdfId = "";
+    var cevapAnahtariId = "";
+    upRes.forEach(function (r) {
+      if (r.role === "pdf") pdfId = r.fid;
+      if (r.role === "cevap") cevapAnahtariId = r.fid;
+    });
+    var payload = {
+      adi: adi.slice(0, 500),
+      yayinevi: yayinevi.slice(0, 300),
+      sinavTuru: sinavTuru,
+      tarihSaat: tarihSaatIso,
+    };
+    if (sonucIso) payload.sonucTarihi = sonucIso;
+    if (pdfId) payload.pdfId = pdfId;
+    if (cevapAnahtariId) payload.cevapAnahtariId = cevapAnahtariId;
+    await databases.createDocument(APPWRITE_DATABASE_ID, APPWRITE_COLLECTION_GLOBAL_DENEMELER, ID.unique(), payload);
+    resetDanaGlobalDenemePlanModal();
+    closeModal("danaGlobalDenemePlanModal");
+    await danaGlobalTakvimAfterMutation();
+    var swal = typeof window !== "undefined" ? window.Swal : null;
+    if (swal && typeof swal.fire === "function") {
+      swal.fire({
+        icon: "success",
+        title: "Deneme Başarıyla Planlandı",
+        confirmButtonColor: "#7c3aed",
+      });
+    } else {
+      showToast("Deneme başarıyla planlandı.", { variant: "success" });
+    }
+  } catch (err) {
+    console.error("[dana-gd] save", err);
+    await Promise.all(
+      uploadedFids.map(function (fid) {
+        return storage.deleteFile(APPWRITE_BUCKET_DENEME_DEPOSU, fid).catch(function () {});
+      })
+    );
+    var msg = (err && err.message) || String(err);
+    if (errEl) {
+      errEl.hidden = false;
+      errEl.textContent = msg || "Kayıt oluşturulamadı. Appwrite izin ve şema kontrolü yapın.";
+    }
+    showToast(msg || "Kayıt başarısız.", { variant: "danger" });
+  } finally {
+    if (sub) sub.disabled = false;
+  }
+}
+
+function initDanaGlobalDenemePlanModal() {
+  bindDanaGlobalDenemeDropzoneOnce("danaGdDropPdf", "danaGdFilePdf", "danaGdPdfLabel", danaGdValidatePdf);
+  bindDanaGlobalDenemeDropzoneOnce("danaGdDropCevap", "danaGdFileCevap", "danaGdCevapLabel", danaGdValidateCevap);
+  var form = document.getElementById("formDanaGlobalDenemePlan");
+  if (form && !form.dataset.danaGdSubmitBound) {
+    form.dataset.danaGdSubmitBound = "1";
+    form.addEventListener("submit", submitDanaGlobalDenemePlanForm);
+  }
+}
+
 function destroyDanaKarneCharts() {
   [danaKarneTrendInst, danaKarneRadarInst, danaKarneTopicInst].forEach(function (ch) {
     if (ch && typeof ch.destroy === "function") {
@@ -15245,6 +16447,203 @@ function destroyDanaKarneCharts() {
   danaKarneTrendInst = null;
   danaKarneRadarInst = null;
   danaKarneTopicInst = null;
+}
+
+/** Chart.js sarmalayıcı: yetersiz veride mor temaya uygun yarı saydam örtü */
+function dpSetCanvasChartOverlay(canvas, show, message) {
+  if (!canvas) return;
+  var wrap = canvas.closest(
+    ".dana-karne-chart-card__canvas, .eds-da__chart-wrap, .net-chart-wrap, .net-donut-wrap"
+  );
+  if (!wrap) wrap = canvas.parentElement;
+  if (!wrap) return;
+  var pos = window.getComputedStyle(wrap).position;
+  if (pos === "static" || !pos) wrap.style.position = "relative";
+  var o = wrap.querySelector(".dp-chart-data-overlay");
+  if (!show) {
+    if (o) o.remove();
+    return;
+  }
+  if (!o) {
+    o = document.createElement("div");
+    o.className = "dp-chart-data-overlay";
+    o.setAttribute("role", "status");
+    wrap.appendChild(o);
+  }
+  o.textContent = message || "Grafik için yeterli veri yok";
+}
+
+function danaKarneTytKeyToRadarBranch(key) {
+  var k = String(key || "");
+  if (k === "turkce" || k.indexOf("turkce") === 0) return "turkce";
+  if (k === "matematik" || k.indexOf("matematik") === 0) return "matematik";
+  if (k.indexOf("fen_") === 0 || k === "fen") return "fen";
+  if (k.indexOf("sosyal_") === 0 || k === "sosyal") return "sosyal";
+  return null;
+}
+
+function danaKarneMaxSoruForTytBranchKey(key) {
+  var segs = yksTyTSegmentMeta();
+  var i;
+  for (i = 0; i < segs.length; i++) {
+    if (segs[i].key === key) return segs[i].soru || 1;
+  }
+  return 40;
+}
+
+function danaKarneTopicsFromSummary(summary) {
+  if (!summary) return [];
+  var rows = [];
+  (summary.tytBranches || []).forEach(function (b) {
+    var maxS = danaKarneMaxSoruForTytBranchKey(b.key);
+    var pct =
+      maxS > 0 ? Math.min(100, Math.max(0, Math.round((Number(b.avg) / maxS) * 100))) : 0;
+    var br = danaKarneTytKeyToRadarBranch(b.key) || "matematik";
+    var lab = String(b.label || b.key || "");
+    rows.push({
+      fullLabel: lab + " (TYT · " + (b.n || 0) + " deneme)",
+      shortLabel: lab.length > 20 ? lab.slice(0, 18) + "…" : lab,
+      pct: pct,
+      branch: br,
+      dersKey: "Matematik (TYT/AYT)",
+      unit: "TYT",
+      topicName: lab,
+    });
+  });
+  var alan = summary.studentAlanKey || "sayisal";
+  (summary.aytBranches || []).forEach(function (b) {
+    var maxS = 40;
+    try {
+      var pack = YKS_AYT_BY_ALAN[alan];
+      if (pack && pack.branches) {
+        var j;
+        for (j = 0; j < pack.branches.length; j++) {
+          var br = pack.branches[j];
+          if (br && (br.id === b.key || "ayt_" + br.id === b.key)) {
+            maxS = br.soru || maxS;
+            break;
+          }
+        }
+      }
+    } catch (eM) {}
+    var pct =
+      maxS > 0 ? Math.min(100, Math.max(0, Math.round((Number(b.avg) / maxS) * 100))) : 0;
+    var lab2 = String(b.label || b.key || "");
+    rows.push({
+      fullLabel: lab2 + " (AYT · " + (b.n || 0) + " deneme)",
+      shortLabel: lab2.length > 20 ? lab2.slice(0, 18) + "…" : lab2,
+      pct: pct,
+      branch: "ayt_extra",
+      dersKey: "ayt",
+      unit: "AYT",
+      topicName: lab2,
+    });
+  });
+  return rows;
+}
+
+function danaKarneTrendFromSummary(summary) {
+  if (!summary || !summary.examHistory) return { labels: [], vals: [] };
+  var pts = summary.examHistory.filter(function (x) {
+    return x.type === "TYT" && x.net != null && !isNaN(x.net);
+  });
+  pts = pts.slice().sort(function (a, b) {
+    return String(a.date || "").localeCompare(String(b.date || ""));
+  });
+  if (pts.length > 5) pts = pts.slice(pts.length - 5);
+  var labels = pts.map(function (p, ix) {
+    return (p.date || "").slice(0, 10) || "D" + (ix + 1);
+  });
+  var vals = pts.map(function (p) {
+    return Number(p.net);
+  });
+  return { labels: labels, vals: vals };
+}
+
+function mriSubjectTitleFromRowKey(rowKey, examMode, tytMap, aytMap) {
+  var k = String(rowKey || "");
+  var em = String(examMode || "TYT").toUpperCase();
+  if (em === "AYT") {
+    return String(aytMap[k] || k.replace(/^ayt_/, "") || "AYT dersi").trim();
+  }
+  if (k.indexOf("turkce") === 0 || k === "turkce") return "Türkçe";
+  if (k.indexOf("matematik") === 0 || k === "matematik") return "Matematik";
+  if (k.indexOf("fen_") === 0 || k === "fen") return "Fen Bilimleri";
+  if (k.indexOf("sosyal_") === 0 || k === "sosyal") return "Sosyal Bilimler";
+  return String(tytMap[k] || k || "Ders").trim();
+}
+
+function buildMriRowsFromCache() {
+  var out = [];
+  cachedStudents.forEach(function (s) {
+    var agg = Object.create(null);
+    examsForStudent(s.id).forEach(function (e) {
+      var det = e.yksBranchDetail;
+      if (!det || !det.rows || typeof det.rows !== "object") return;
+      var examMode = String(det.examMode || "TYT").toUpperCase();
+      var tytMap = karneBuildTytBranchLabelMap();
+      var aytMap = karneBuildAytBranchLabelMap(det.aytAlan || "sayisal");
+      Object.keys(det.rows).forEach(function (rowKey) {
+        var row = det.rows[rowKey];
+        if (!row || row.soru == null) return;
+        var cl = clampDy(row.soru, row.d, row.y);
+        var b = Math.max(0, row.soru - cl.d - cl.y);
+        var subj = mriSubjectTitleFromRowKey(rowKey, examMode, tytMap, aytMap);
+        var topicLabel =
+          examMode === "AYT"
+            ? aytMap[rowKey] || String(rowKey).replace(/^ayt_/, "")
+            : tytMap[rowKey] || rowKey;
+        var gk = subj + "\u0000" + topicLabel;
+        if (!agg[gk]) agg[gk] = { subject: subj, topic: topicLabel, d: 0, y: 0, b: 0 };
+        agg[gk].d += cl.d;
+        agg[gk].y += cl.y;
+        agg[gk].b += b;
+      });
+    });
+    var bySubject = Object.create(null);
+    Object.keys(agg).forEach(function (gk) {
+      var a = agg[gk];
+      if (!bySubject[a.subject]) bySubject[a.subject] = [];
+      bySubject[a.subject].push({ name: a.topic, d: a.d, y: a.y, b: a.b });
+    });
+    var subjects = Object.keys(bySubject)
+      .sort(function (a, b) {
+        return a.localeCompare(b, "tr");
+      })
+      .map(function (sub) {
+        return {
+          name: sub,
+          topics: bySubject[sub].sort(function (a, b) {
+            return String(a.name).localeCompare(String(b.name), "tr");
+          }),
+        };
+      });
+    if (!subjects.length) return;
+    var full = String(s.name || s.studentName || "").trim();
+    var parts = full ? full.split(/\s+/) : [];
+    var fn = parts[0] || "";
+    var ln = parts.slice(1).join(" ");
+    out.push({ id: s.id, firstName: fn, lastName: ln, subjects: subjects });
+  });
+  return out;
+}
+
+var mriDataCache = [];
+
+function refreshMriDataCache() {
+  try {
+    mriDataCache = buildMriRowsFromCache();
+  } catch (e) {
+    console.warn("[mri] rebuild", e);
+    mriDataCache = [];
+  }
+}
+
+function refreshMriIfVisible() {
+  refreshMriDataCache();
+  if (currentView !== "konu-mr") return;
+  var inp = document.getElementById("mriSearchInput");
+  renderMriList(filterMriStudents(mriDataCache, inp ? inp.value : ""));
 }
 
 function danaKarnePctToColor(pct) {
@@ -15262,36 +16661,6 @@ function danaKarneBranchAvg(rows, branch) {
   return Math.round(arr.reduce(function (s, r) {
     return s + r.pct;
   }, 0) / arr.length);
-}
-
-/** Müfredattaki gerçek yolları doğrulayarak demo kazanım satırları üretir */
-function danaKarneBuildMockTopics() {
-  var M = YKS2026_Mufredat;
-  var out = [];
-  function add(dersKey, unit, topic, pct, branch) {
-    var block = M[dersKey];
-    if (!block || !block[unit] || block[unit].indexOf(topic) === -1) return;
-    out.push({
-      fullLabel: unit + " > " + topic,
-      shortLabel: topic.length > 20 ? topic.slice(0, 18) + "…" : topic,
-      pct: pct,
-      branch: branch,
-      dersKey: dersKey,
-      unit: unit,
-      topicName: topic,
-    });
-  }
-  add("Matematik (TYT/AYT)", "TYT Başlangıç", "Temel Kavramlar", 82, "matematik");
-  add("Matematik (TYT/AYT)", "TYT Denklem/Eşitsizlik", "Üslü Sayılar", 42, "matematik");
-  add("Türkçe (Edebiyat/Dil)", "Dil Bilgisi (TYT)", "Paragrafta Anlam", 63, "turkce");
-  add("Türkçe (Edebiyat/Dil)", "Dil Bilgisi (TYT)", "Sözcükte Anlam", 91, "turkce");
-  add("Fen Bilimleri", "Fizik", "Hareket", 86, "fen");
-  add("Fen Bilimleri", "Kimya", "Mol Kavramı", 54, "fen");
-  add("Fen Bilimleri", "Biyoloji", "Ekoloji", 77, "fen");
-  add("Sosyal Bilimler", "Tarih", "Osmanlı Tarihi", 71, "sosyal");
-  add("Sosyal Bilimler", "Coğrafya", "İklim Bilgisi", 38, "sosyal");
-  add("Matematik (TYT/AYT)", "Geometri", "Üçgenler", 67, "matematik");
-  return out;
 }
 
 /**
@@ -15487,13 +16856,14 @@ function generateHataKarnesiTelafiTest() {
 
 function generateAITelafiTest() {
   initDanaTelafiConfirmModal();
-  var rows =
-    danaKarneLastTopics && danaKarneLastTopics.length
-      ? danaKarneLastTopics
-      : danaKarneBuildMockTopics();
+  var rows = danaKarneLastTopics && danaKarneLastTopics.length ? danaKarneLastTopics : [];
   var weak = rows.filter(function (r) {
     return Number(r.pct) < 50;
   });
+  if (!rows.length) {
+    showToast("Önce deneme / branş verisi girilmiş öğrenci seçin; analiz için yeterli kayıt yok.");
+    return;
+  }
   if (!weak.length) {
     showToast("Telafi gerektiren konu yok: tüm kazanımlar %50 ve üzeri görünüyor.", { variant: "success" });
     return;
@@ -15544,22 +16914,8 @@ function generateAITelafiTest() {
   danaTelafiModalSetOpen(true);
 }
 
-function danaKarneTrendSeries(studentId) {
-  var base = [32.5, 33.8, 35.2, 36.5, 38.4];
-  var sid = String(studentId || "");
-  if (!sid) return base.slice();
-  var h = 0;
-  for (var i = 0; i < sid.length; i++) {
-    h = (h * 31 + sid.charCodeAt(i)) | 0;
-  }
-  var j = (Math.abs(h) % 11) * 0.12;
-  return base.map(function (v, ix) {
-    return Math.round((v + j * (ix - 2)) * 10) / 10;
-  });
-}
-
 /**
- * Ultra-Detaylı Karne grafikleri (şimdilik müfredat uyumlu mock veri; studentId ileride Appwrite ile bağlanır).
+ * Ultra-Detaylı Karne grafikleri — yalnızca Appwrite deneme / branş özetleri.
  * @param {string} [studentId]
  */
 async function renderKarneCharts(studentId) {
@@ -15568,9 +16924,6 @@ async function renderKarneCharts(studentId) {
     return;
   }
   var sid = String(studentId || "").trim();
-  if (!sid && cachedStudents && cachedStudents.length) {
-    sid = String(cachedStudents[0].id || "").trim();
-  }
   var st = sid
     ? cachedStudents.find(function (x) {
         return String(x.id) === sid;
@@ -15582,15 +16935,9 @@ async function renderKarneCharts(studentId) {
     labelEl.textContent = st
       ? st.name || st.studentName || "Öğrenci"
       : sid
-        ? "Öğrenci bulunamadı (demo)"
-        : "Demo profili (müfredat uyumlu mock)";
+        ? "Öğrenci bulunamadı"
+        : "Öğrenci seçin";
   }
-
-  var topics = danaKarneBuildMockTopics();
-  danaKarneLastTopics = topics.slice();
-  var trendVals = danaKarneTrendSeries(st && st.id ? st.id : sid);
-  var tMin = Math.min.apply(null, trendVals);
-  var tMax = Math.max.apply(null, trendVals);
 
   destroyDanaKarneCharts();
 
@@ -15599,196 +16946,235 @@ async function renderKarneCharts(studentId) {
   var elTopic = document.getElementById("topicChart");
   if (!elTrend || !elRadar || !elTopic) return;
 
+  dpSetCanvasChartOverlay(elTrend, false);
+  dpSetCanvasChartOverlay(elRadar, false);
+  dpSetCanvasChartOverlay(elTopic, false);
+
+  if (!sid || !st) {
+    danaKarneLastTopics = [];
+    dpSetCanvasChartOverlay(elTrend, true);
+    dpSetCanvasChartOverlay(elRadar, true);
+    dpSetCanvasChartOverlay(elTopic, true);
+    danaKarneUpdatePdfHero([], [], 0, 0, 0, 0);
+    return;
+  }
+
+  var summaryRows = buildKarneStudentSummaries({ studentId: sid, examKey: "all" });
+  var summary = summaryRows[0] || null;
+  var topics = danaKarneTopicsFromSummary(summary);
+  danaKarneLastTopics = topics.slice();
+  var trendPack = danaKarneTrendFromSummary(summary || { examHistory: [] });
+  var trendVals = trendPack.vals;
+  var trendLabels = trendPack.labels;
+  var tMin = trendVals.length ? Math.min.apply(null, trendVals) : 0;
+  var tMax = trendVals.length ? Math.max.apply(null, trendVals) : 0;
+
   var anim = { duration: 1000, easing: "easeOutQuart" };
   var commonFont = { family: "'Plus Jakarta Sans', 'Inter', system-ui, sans-serif", size: 11 };
 
-  var wrapT = elTrend.closest(".dana-karne-chart-card__canvas");
-  var gh = wrapT && wrapT.clientHeight ? wrapT.clientHeight : 260;
-  var ctxT = elTrend.getContext("2d");
-  var gradT = ctxT.createLinearGradient(0, 0, 0, gh);
-  gradT.addColorStop(0, "rgba(99, 102, 241, 0.45)");
-  gradT.addColorStop(0.42, "rgba(124, 58, 237, 0.2)");
-  gradT.addColorStop(1, "rgba(124, 58, 237, 0)");
+  if (trendVals.length >= 2) {
+    var wrapT = elTrend.closest(".dana-karne-chart-card__canvas");
+    var gh = wrapT && wrapT.clientHeight ? wrapT.clientHeight : 260;
+    var ctxT = elTrend.getContext("2d");
+    var gradT = ctxT.createLinearGradient(0, 0, 0, gh);
+    gradT.addColorStop(0, "rgba(99, 102, 241, 0.45)");
+    gradT.addColorStop(0.42, "rgba(124, 58, 237, 0.2)");
+    gradT.addColorStop(1, "rgba(124, 58, 237, 0)");
 
-  danaKarneTrendInst = new Chart(ctxT, {
-    type: "line",
-    data: {
-      labels: ["D-4", "D-3", "D-2", "D-1", "Son"],
-      datasets: [
-        {
-          label: "TYT net",
-          data: trendVals,
-          borderColor: "#6366f1",
-          backgroundColor: gradT,
-          borderWidth: 2.5,
-          tension: 0.4,
-          fill: true,
-          pointBackgroundColor: "#4f46e5",
-          pointBorderColor: "#fff",
-          pointBorderWidth: 2,
-          pointRadius: 5,
-          pointHoverRadius: 7,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: anim,
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: "rgba(15, 23, 42, 0.92)",
-          titleFont: commonFont,
-          bodyFont: commonFont,
-          padding: 12,
-          cornerRadius: 12,
-        },
-      },
-      scales: {
-        y: {
-          beginAtZero: false,
-          suggestedMin: Math.max(0, tMin - 2),
-          suggestedMax: tMax + 2,
-          grid: { color: "rgba(148, 163, 184, 0.22)" },
-          ticks: { font: commonFont, color: "#64748b" },
-        },
-        x: {
-          grid: { display: false },
-          ticks: { font: commonFont, color: "#64748b" },
-        },
-      },
-    },
-  });
-
-  var rMat = danaKarneBranchAvg(topics, "matematik");
-  var rTur = danaKarneBranchAvg(topics, "turkce");
-  var rFen = danaKarneBranchAvg(topics, "fen");
-  var rSos = danaKarneBranchAvg(topics, "sosyal");
-
-  danaKarneRadarInst = new Chart(elRadar.getContext("2d"), {
-    type: "radar",
-    data: {
-      labels: ["Matematik", "Türkçe", "Fen", "Sosyal"],
-      datasets: [
-        {
-          label: "Yetkinlik %",
-          data: [rMat, rTur, rFen, rSos],
-          borderColor: "#7c3aed",
-          backgroundColor: "rgba(124, 58, 237, 0.24)",
-          borderWidth: 2,
-          pointBackgroundColor: "#6d28d9",
-          pointBorderColor: "#fff",
-          pointHoverBackgroundColor: "#5b21b6",
-          pointRadius: 4,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: anim,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: "rgba(15, 23, 42, 0.92)",
-          bodyFont: commonFont,
-          titleFont: commonFont,
-          callbacks: {
-            label: function (ctx) {
-              return "Yetkinlik: %" + ctx.raw;
-            },
+    danaKarneTrendInst = new Chart(ctxT, {
+      type: "line",
+      data: {
+        labels: trendLabels,
+        datasets: [
+          {
+            label: "TYT net",
+            data: trendVals,
+            borderColor: "#6366f1",
+            backgroundColor: gradT,
+            borderWidth: 2.5,
+            tension: 0.4,
+            fill: true,
+            pointBackgroundColor: "#4f46e5",
+            pointBorderColor: "#fff",
+            pointBorderWidth: 2,
+            pointRadius: 5,
+            pointHoverRadius: 7,
           },
-        },
+        ],
       },
-      scales: {
-        r: {
-          min: 0,
-          max: 100,
-          ticks: { stepSize: 20, color: "#94a3b8", backdropColor: "transparent" },
-          grid: { color: "rgba(124, 58, 237, 0.12)" },
-          angleLines: { color: "rgba(124, 58, 237, 0.16)" },
-          pointLabels: { font: commonFont, color: "#475569" },
-        },
-      },
-    },
-  });
-
-  var doughLabels = topics.map(function (t) {
-    return t.shortLabel;
-  });
-  var doughData = topics.map(function (t) {
-    return t.pct;
-  });
-  var doughColors = topics.map(function (t) {
-    return danaKarnePctToColor(t.pct);
-  });
-  var fullLabels = topics.map(function (t) {
-    return t.fullLabel;
-  });
-
-  danaKarneTopicInst = new Chart(elTopic.getContext("2d"), {
-    type: "doughnut",
-    data: {
-      labels: doughLabels,
-      datasets: [
-        {
-          data: doughData,
-          backgroundColor: doughColors,
-          borderColor: "#fff",
-          borderWidth: 2,
-          hoverOffset: 10,
-          fullLabels: fullLabels,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      cutout: "62%",
-      animation: anim,
-      layout: { padding: 10 },
-      plugins: {
-        legend: {
-          position: "bottom",
-          labels: {
-            boxWidth: 11,
-            font: commonFont,
-            color: "#475569",
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: anim,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "rgba(15, 23, 42, 0.92)",
+            titleFont: commonFont,
+            bodyFont: commonFont,
             padding: 12,
-            usePointStyle: true,
+            cornerRadius: 12,
           },
         },
-        tooltip: {
-          backgroundColor: "rgba(15, 23, 42, 0.94)",
-          titleFont: { family: commonFont.family, size: 13, weight: "700" },
-          bodyFont: commonFont,
-          padding: 14,
-          cornerRadius: 12,
-          callbacks: {
-            title: function (items) {
-              if (!items.length) return "";
-              var ds = items[0].dataset;
-              var i = items[0].dataIndex;
-              var fl = ds.fullLabels && ds.fullLabels[i];
-              return fl || items[0].label || "";
-            },
-            label: function (ctx) {
-              return "Başarı: %" + ctx.parsed;
-            },
+        scales: {
+          y: {
+            beginAtZero: false,
+            suggestedMin: Math.max(0, tMin - 2),
+            suggestedMax: tMax + 2,
+            grid: { color: "rgba(148, 163, 184, 0.22)" },
+            ticks: { font: commonFont, color: "#64748b" },
+          },
+          x: {
+            grid: { display: false },
+            ticks: { font: commonFont, color: "#64748b" },
           },
         },
       },
-      onClick: function (_evt, elements, chart) {
-        if (!elements.length) return;
-        var i = elements[0].index;
-        var ds = chart.data.datasets[0];
-        var full = ds.fullLabels && ds.fullLabels[i];
-        if (full) showToast(full, { variant: "success" });
-      },
-    },
+    });
+  } else {
+    dpSetCanvasChartOverlay(elTrend, true);
+  }
+
+  var topicsRadar = topics.filter(function (t) {
+    return t.branch !== "ayt_extra";
   });
+  var rMat = danaKarneBranchAvg(topicsRadar, "matematik");
+  var rTur = danaKarneBranchAvg(topicsRadar, "turkce");
+  var rFen = danaKarneBranchAvg(topicsRadar, "fen");
+  var rSos = danaKarneBranchAvg(topicsRadar, "sosyal");
+  var radarSum = rMat + rTur + rFen + rSos;
+
+  if (radarSum > 0) {
+    danaKarneRadarInst = new Chart(elRadar.getContext("2d"), {
+      type: "radar",
+      data: {
+        labels: ["Matematik", "Türkçe", "Fen", "Sosyal"],
+        datasets: [
+          {
+            label: "Yetkinlik %",
+            data: [rMat, rTur, rFen, rSos],
+            borderColor: "#7c3aed",
+            backgroundColor: "rgba(124, 58, 237, 0.24)",
+            borderWidth: 2,
+            pointBackgroundColor: "#6d28d9",
+            pointBorderColor: "#fff",
+            pointHoverBackgroundColor: "#5b21b6",
+            pointRadius: 4,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: anim,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "rgba(15, 23, 42, 0.92)",
+            bodyFont: commonFont,
+            titleFont: commonFont,
+            callbacks: {
+              label: function (ctx) {
+                return "Yetkinlik: %" + ctx.raw;
+              },
+            },
+          },
+        },
+        scales: {
+          r: {
+            min: 0,
+            max: 100,
+            ticks: { stepSize: 20, color: "#94a3b8", backdropColor: "transparent" },
+            grid: { color: "rgba(124, 58, 237, 0.12)" },
+            angleLines: { color: "rgba(124, 58, 237, 0.16)" },
+            pointLabels: { font: commonFont, color: "#475569" },
+          },
+        },
+      },
+    });
+  } else {
+    dpSetCanvasChartOverlay(elRadar, true);
+  }
+
+  if (topics.length) {
+    var doughLabels = topics.map(function (t) {
+      return t.shortLabel;
+    });
+    var doughData = topics.map(function (t) {
+      return t.pct;
+    });
+    var doughColors = topics.map(function (t) {
+      return danaKarnePctToColor(t.pct);
+    });
+    var fullLabels = topics.map(function (t) {
+      return t.fullLabel;
+    });
+
+    danaKarneTopicInst = new Chart(elTopic.getContext("2d"), {
+      type: "doughnut",
+      data: {
+        labels: doughLabels,
+        datasets: [
+          {
+            data: doughData,
+            backgroundColor: doughColors,
+            borderColor: "#fff",
+            borderWidth: 2,
+            hoverOffset: 10,
+            fullLabels: fullLabels,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "62%",
+        animation: anim,
+        layout: { padding: 10 },
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: {
+              boxWidth: 11,
+              font: commonFont,
+              color: "#475569",
+              padding: 12,
+              usePointStyle: true,
+            },
+          },
+          tooltip: {
+            backgroundColor: "rgba(15, 23, 42, 0.94)",
+            titleFont: { family: commonFont.family, size: 13, weight: "700" },
+            bodyFont: commonFont,
+            padding: 14,
+            cornerRadius: 12,
+            callbacks: {
+              title: function (items) {
+                if (!items.length) return "";
+                var ds = items[0].dataset;
+                var i = items[0].dataIndex;
+                var fl = ds.fullLabels && ds.fullLabels[i];
+                return fl || items[0].label || "";
+              },
+              label: function (ctx) {
+                return "Başarı: %" + ctx.parsed;
+              },
+            },
+          },
+        },
+        onClick: function (_evt, elements, chart) {
+          if (!elements.length) return;
+          var i = elements[0].index;
+          var ds = chart.data.datasets[0];
+          var full = ds.fullLabels && ds.fullLabels[i];
+          if (full) showToast(full, { variant: "success" });
+        },
+      },
+    });
+  } else {
+    dpSetCanvasChartOverlay(elTopic, true);
+  }
 
   danaKarneUpdatePdfHero(trendVals, topics, rMat, rTur, rFen, rSos);
 
@@ -15806,29 +17192,34 @@ function danaKarneUpdatePdfHero(trendVals, topics, rMat, rTur, rFen, rSos) {
   }
   if (studEl && labelEl) studEl.textContent = "Öğrenci: " + labelEl.textContent;
   var strip = document.getElementById("danaKarneNetSummary");
-  if (strip && trendVals && trendVals.length) {
-    var last = trendVals[trendVals.length - 1];
-    var first = trendVals[0];
-    var delta = Math.round((last - first) * 10) / 10;
-    var avgTopic =
-      topics && topics.length
-        ? Math.round(topics.reduce(function (s, t) { return s + t.pct; }, 0) / topics.length)
-        : "—";
-    strip.innerHTML =
-      '<ul class="dana-net-strip__list">' +
-      '<li><span>Son TYT net (örnek seri)</span><strong>' +
-      last +
-      "</strong></li>" +
-      '<li><span>5 denemelik değişim</span><strong>' +
-      (delta >= 0 ? "+" : "") +
-      delta +
-      "</strong></li>" +
-      '<li><span>Konu başarı ort. (demo)</span><strong>' +
-      avgTopic +
-      "%</strong></li>" +
-      '<li><span>Radar ort. (4 alan)</span><strong>' +
-      Math.round((Number(rMat) + Number(rTur) + Number(rFen) + Number(rSos)) / 4) +
-      "%</strong></li></ul>";
+  if (strip) {
+    if (trendVals && trendVals.length) {
+      var last = trendVals[trendVals.length - 1];
+      var first = trendVals[0];
+      var delta = Math.round((last - first) * 10) / 10;
+      var avgTopic =
+        topics && topics.length
+          ? Math.round(topics.reduce(function (s, t) { return s + t.pct; }, 0) / topics.length)
+          : "—";
+      strip.innerHTML =
+        '<ul class="dana-net-strip__list">' +
+        '<li><span>Son TYT net</span><strong>' +
+        last +
+        "</strong></li>" +
+        '<li><span>Gözlemlenen dönem değişimi</span><strong>' +
+        (delta >= 0 ? "+" : "") +
+        delta +
+        "</strong></li>" +
+        '<li><span>Branş başarı ort.</span><strong>' +
+        avgTopic +
+        "%</strong></li>" +
+        '<li><span>Radar ort. (TYT dörtlü)</span><strong>' +
+        Math.round((Number(rMat) + Number(rTur) + Number(rFen) + Number(rSos)) / 4) +
+        "%</strong></li></ul>";
+    } else {
+      strip.innerHTML =
+        '<p class="dana-net-strip__empty" style="margin:0;font-size:0.85rem;color:#64748b">TYT deneme net serisi için en az iki kayıt gerekir.</p>';
+    }
   }
 }
 
@@ -15859,43 +17250,31 @@ function danaPdfStudentKarneFilename(displayLabel) {
 }
 
 function danaPdfBuildBulkRows() {
-  var templates = [
-    [37.5, 36, 17.5, 15.5],
-    [36, 34.5, 18, 14.25],
-    [35, 35, 16.75, 15],
-    [38, 33, 17, 15.5],
-    [34.25, 32.5, 17.5, 14],
-    [33.5, 31, 16, 13.5],
-    [32, 30.5, 15.25, 12.75],
-    [31.5, 29, 14.5, 12],
-  ];
-  var names = [];
-  if (cachedStudents && cachedStudents.length) {
-    names = cachedStudents.slice(0, 10).map(function (s) {
-      return s.name || s.studentName || "Öğrenci";
+  var rows = [];
+  buildKarneStudentSummaries({ studentId: "all", examKey: "all" }).forEach(function (s) {
+    if (!(s.tytBranches && s.tytBranches.length)) return;
+    var tr = 0;
+    var mat = 0;
+    var fen = 0;
+    var sos = 0;
+    s.tytBranches.forEach(function (b) {
+      var cat = danaKarneTytKeyToRadarBranch(b.key);
+      if (cat === "turkce") tr = Number(b.avg) || 0;
+      else if (cat === "matematik") mat = Number(b.avg) || 0;
+      else if (cat === "fen") fen += Number(b.avg) || 0;
+      else if (cat === "sosyal") sos += Number(b.avg) || 0;
     });
-  }
-  if (!names.length) {
-    names = [
-      "Ayşe Yılmaz",
-      "Mehmet Kaya",
-      "Zeynep Arslan",
-      "Can Demir",
-      "Elif Şahin",
-      "Burak Öztürk",
-      "Selin Aydın",
-      "Emre Çelik",
-    ];
-  }
-  var rows = names.map(function (name, i) {
-    var m = templates[i % templates.length];
-    var tr = m[0];
-    var mat = m[1];
-    var fen = m[2];
-    var sos = m[3];
     var total = Math.round((tr + mat + fen + sos) * 10) / 10;
-    return { name: name, tr: tr, mat: mat, fen: fen, sos: sos, total: total };
+    rows.push({
+      name: s.name || s.studentName || "Öğrenci",
+      tr: tr,
+      mat: mat,
+      fen: fen,
+      sos: sos,
+      total: total,
+    });
   });
+  if (!rows.length) return [];
   rows.sort(function (a, b) {
     return b.total - a.total;
   });
@@ -15954,6 +17333,10 @@ async function danaPdfDownloadBulkRanking() {
   var host = null;
   try {
     var rows = danaPdfBuildBulkRows();
+    if (!rows.length) {
+      showToast("TYT branş özetine sahip öğrenci kaydı yok; önce deneme analizlerini kaydedin.", { variant: "danger" });
+      return;
+    }
     host = document.createElement("div");
     host.className = "dana-pdf-bulk-host";
     host.setAttribute(
@@ -16057,6 +17440,135 @@ function bindDanaPdfExportOnce() {
   b2.addEventListener("click", function () {
     danaPdfDownloadStudentKarne();
   });
+}
+
+function filterMriStudents(data, q) {
+  var list = data || [];
+  var needle = (q || "").trim().toLowerCase();
+  if (!needle) return list.slice();
+  return list.filter(function (s) {
+    var a = String(s.firstName || "").toLowerCase();
+    var b = String(s.lastName || "").toLowerCase();
+    var full = (a + " " + b).trim();
+    return full.indexOf(needle) !== -1 || a.indexOf(needle) !== -1 || b.indexOf(needle) !== -1;
+  });
+}
+
+function renderMriList(data, searchQuery) {
+  var root = document.getElementById("mriListRoot");
+  if (!root) return;
+  var list = data || [];
+  if (!list.length) {
+    var q = (searchQuery || "").trim();
+    if (q) {
+      root.innerHTML = '<p class="mri-empty" role="status">Eşleşen öğrenci bulunamadı.</p>';
+    } else {
+      root.innerHTML =
+        '<div class="dp-zero-state dp-zero-state--mri" role="status">' +
+        '<div class="dp-zero-state__icon" aria-hidden="true"><i class="fa-solid fa-chart-simple"></i></div>' +
+        "<p class=\"dp-zero-state__title\">Analiz edilecek deneme verisi bulunamadı.</p>" +
+        '<p class="dp-zero-state__hint">Öğrenciler deneme çözdükçe ve koç panelinde branş D/Y/B girildikçe MR raporları burada belirecektir.</p></div>';
+    }
+    return;
+  }
+  root.innerHTML = list
+    .map(function (stu) {
+      var fullName = danaEscapeHtml(String(stu.firstName || "").trim() + " " + String(stu.lastName || "").trim());
+      var subjects = stu.subjects || [];
+      var subjCount = subjects.length;
+      var topicCount = subjects.reduce(function (n, s) {
+        return n + (s.topics ? s.topics.length : 0);
+      }, 0);
+      var subjectsHtml = subjects
+        .map(function (sub) {
+          var subName = danaEscapeHtml(sub.name || "");
+          var rows = (sub.topics || [])
+            .map(function (t) {
+              return (
+                "<tr><td>" +
+                danaEscapeHtml(t.name || "") +
+                "</td><td>" +
+                danaEscapeHtml(String(t.d != null ? t.d : "—")) +
+                "</td><td>" +
+                danaEscapeHtml(String(t.y != null ? t.y : "—")) +
+                "</td><td>" +
+                danaEscapeHtml(String(t.b != null ? t.b : "—")) +
+                "</td></tr>"
+              );
+            })
+            .join("");
+          return (
+            '<div class="mri-sub-acc">' +
+            '<button type="button" class="mri-sub-acc__trigger">' +
+            "<span>" +
+            subName +
+            "</span>" +
+            '<i class="fa-solid fa-chevron-right mri-sub-acc__chev" aria-hidden="true"></i>' +
+            "</button>" +
+            '<div class="mri-sub-acc__panel"><div class="mri-sub-acc__inner">' +
+            '<div class="mri-topic-table-wrap"><table class="mri-topic-table">' +
+            "<thead><tr><th>Konu</th><th>D</th><th>Y</th><th>B</th></tr></thead>" +
+            "<tbody>" +
+            rows +
+            "</tbody></table></div></div></div></div>"
+          );
+        })
+        .join("");
+      return (
+        '<div class="mri-acc">' +
+        '<button type="button" class="mri-acc__trigger">' +
+        "<span>" +
+        '<span class="mri-acc__name">' +
+        fullName +
+        "</span>" +
+        '<span class="mri-acc__meta">' +
+        subjCount +
+        " ders · " +
+        topicCount +
+        " konu</span></span>" +
+        '<i class="fa-solid fa-chevron-right mri-acc__chev" aria-hidden="true"></i>' +
+        "</button>" +
+        '<div class="mri-acc__panel"><div class="mri-acc__panel-inner">' +
+        '<div class="mri-acc__body">' +
+        subjectsHtml +
+        "</div></div></div></div>"
+      );
+    })
+    .join("");
+}
+
+function initMriAccordionDelegationOnce() {
+  var root = document.getElementById("mriListRoot");
+  if (!root || root.dataset.mriAccBound) return;
+  root.dataset.mriAccBound = "1";
+  root.addEventListener("click", function (ev) {
+    var subTr = ev.target.closest && ev.target.closest(".mri-sub-acc__trigger");
+    if (subTr && root.contains(subTr)) {
+      ev.preventDefault();
+      var sub = subTr.closest(".mri-sub-acc");
+      if (sub) sub.classList.toggle("is-open");
+      return;
+    }
+    var tr = ev.target.closest && ev.target.closest(".mri-acc__trigger");
+    if (tr && root.contains(tr)) {
+      ev.preventDefault();
+      var acc = tr.closest(".mri-acc");
+      if (acc) acc.classList.toggle("is-open");
+    }
+  });
+}
+
+function initMriPage() {
+  refreshMriDataCache();
+  initMriAccordionDelegationOnce();
+  var inp = document.getElementById("mriSearchInput");
+  if (inp && !inp.dataset.mriLiveBound) {
+    inp.dataset.mriLiveBound = "1";
+    inp.addEventListener("input", function () {
+      renderMriList(filterMriStudents(mriDataCache, inp.value), inp.value);
+    });
+  }
+  renderMriList(filterMriStudents(mriDataCache, inp ? inp.value : ""), inp ? inp.value : "");
 }
 
 function navigateTo(view) {
@@ -16238,6 +17750,7 @@ function navigateTo(view) {
     refreshKarneKpis();
     renderKarneReport();
   }
+  if (view === "konu-mr") initMriPage();
   if (view === "ogrenciler") renderStudentsPage();
   if (view === "ogrenci-detay") {
     renderStudentDetailPage();
@@ -16303,19 +17816,31 @@ function navigateTo(view) {
     wireZohoInbox();
     loadEmails();
   }
-  if (view === "deneme-analiz-takvim") initDenemeAnalizTakvimCountdowns();
+  if (view === "deneme-analiz-takvim") danaGlobalTakvimRefresh();
   if (view === "deneme-analiz-karne") {
+    bindDanaKarneStudentSelectOnce();
+    populateDanaKarneStudentSelect();
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
-        var sid = "";
-        try {
-          if (cachedStudents && cachedStudents.length) sid = String(cachedStudents[0].id || "").trim();
-        } catch (e) {}
+        var sel = document.getElementById("danaKarneStudentSelect");
+        var sid = sel && sel.value ? String(sel.value).trim() : "";
+        if (!sid && cachedStudents && cachedStudents.length) {
+          sid = String(cachedStudents[0].id || "").trim();
+        }
         renderKarneCharts(sid).catch(function (err) {
           console.error("[dana-karne]", err);
         });
       });
     });
+  }
+  if (view === "kocluk-gorusmeleri") {
+    var tl = document.getElementById("yksKoclukTimeline");
+    if (tl && !tl.children.length) {
+      tl.innerHTML =
+        '<div class="dp-zero-state" role="status" style="max-width:520px;margin:0 auto">' +
+        '<p class="dp-zero-state__title" style="font-size:0.95rem">Henüz görüşme notu yok</p>' +
+        '<p class="dp-zero-state__hint">Kayıtlarınızı eklediğinizde zaman çizelgesi burada görünür.</p></div>';
+    }
   }
   window.dispatchEvent(new CustomEvent("yks:navigate", { detail: { view: view } }));
   } catch (err) {
@@ -16749,6 +18274,7 @@ async function tmAutoCropSaveSelected() {
 function initTmAutoCropperModule() {
   if (tmAutoCropperInited) return;
   tmAutoCropperInited = true;
+  tmAutoCropShowSaving(false);
   var dz = document.getElementById("tmAutoCropDropzone");
   var inp = document.getElementById("tmAutoCropFileInput");
   var fileName = document.getElementById("tmAutoCropFileName");
@@ -17019,10 +18545,12 @@ function initNavigation() {
   if (btnDanaPlan && !btnDanaPlan.dataset.bound) {
     btnDanaPlan.dataset.bound = "1";
     btnDanaPlan.addEventListener("click", function () {
-      showToast("Deneme planlama ekranı yakında eklenecek.", { variant: "success" });
+      resetDanaGlobalDenemePlanModal();
+      openModal("danaGlobalDenemePlanModal");
     });
   }
   bindDanaPdfExportOnce();
+  bindDanaKarneStudentSelectOnce();
 }
 
 var hpSelectedStudentId = "";
@@ -18193,15 +19721,29 @@ function initAllButtons() {
 
   var searchEl = document.getElementById("searchInput");
   if (searchEl) {
-    var debounce;
+    initGlobalSearchFmOnce();
+    var debounceDash;
     searchEl.addEventListener("input", function () {
       searchQuery = searchEl.value || "";
       apptCarouselOffset = 0;
-      clearTimeout(debounce);
-      debounce = setTimeout(function () {
+      clearTimeout(debounceDash);
+      debounceDash = setTimeout(function () {
         renderDashboardExams();
         renderDashboardAppointments();
       }, 200);
+      clearTimeout(globalSearchDropdownTimer);
+      var q = globalSearchNormalizeQ(searchQuery);
+      if (q.length < GLOBAL_SEARCH_MIN_LEN) {
+        closeGlobalSearchResults();
+        return;
+      }
+      globalSearchDropdownTimer = setTimeout(function () {
+        runGlobalSearchDropdown();
+      }, 300);
+    });
+    searchEl.addEventListener("focus", function () {
+      var q = globalSearchNormalizeQ(searchEl.value || "");
+      if (q.length >= GLOBAL_SEARCH_MIN_LEN) runGlobalSearchDropdown();
     });
   }
   document.getElementById("btnSearchFilter") &&

@@ -8,6 +8,8 @@
   --osp-bg-card: #ffffff;
   --osp-border: #eef0f2;
   --osp-text: #1f2937;
+  /* Açık kart / lila blok üzeri gövde metni */
+  --osp-text-strong: #0f172a;
   --osp-muted: #64748b;
   --osp-accent: #6c5ce7;
   --osp-accent-dark: #5b4fcf;
@@ -560,22 +562,29 @@ body.osp-body {
 }
 
 .osp-task-row--done {
-  opacity: 0.65;
+  opacity: 1;
 }
 
 .osp-task-row--done .osp-task-row__title {
   text-decoration: line-through;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.osp-task-row--done .osp-task-row__detail {
+  color: #94a3b8;
 }
 
 .osp-task-row__title {
-  font-weight: 700;
+  font-weight: 800;
   font-size: 0.92rem;
-  color: #0f172a;
+  color: var(--osp-text-strong);
   margin: 0 0 0.2rem;
 }
 
 .osp-task-row__detail {
   font-size: 0.8rem;
+  font-weight: 600;
   color: var(--osp-muted);
   margin: 0;
 }
@@ -1516,9 +1525,9 @@ body.osp-body {
 }
 
 .osp-dash2-chart-card__head h3 i {
-  color: var(--osp-accent);
+  color: var(--osp-accent-dark);
   font-size: 0.88rem;
-  opacity: 0.95;
+  opacity: 1;
 }
 
 .osp-dash2-chart-card__head p {

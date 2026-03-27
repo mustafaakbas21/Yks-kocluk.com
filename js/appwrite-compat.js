@@ -3,6 +3,8 @@ import {
   client,
   databases,
   APPWRITE_DATABASE_ID,
+  storage,
+  APPWRITE_BUCKET_AVATARLAR,
 } from "./appwrite-config.js";
 
 const db = { kind: "appwrite-db" };
@@ -548,6 +550,46 @@ export async function updateEmail(newEmail, currentPassword) {
 /** Appwrite: PATCH /account/name — görünen ad (Profil ayarları) */
 export async function updateAccountName(name) {
   await account.updateName({ name: String(name || "").trim() });
+}
+
+/** Appwrite: GET /account/prefs — tercihler (avatarFileId / avatarUrl vb.) */
+export async function getAccountPrefs() {
+  const p = await account.getPrefs();
+  return p && typeof p === "object" && !Array.isArray(p) ? p : {};
+}
+
+/**
+ * Appwrite: PATCH /account/prefs — mevcut tercihlerle birleştirir (tam nesne replace olduğu için).
+ * Boş string / null / undefined değerler ilgili anahtarı siler.
+ */
+export async function updateAccountPrefs(patch) {
+  const cur = await getAccountPrefs();
+  const next = Object.assign({}, cur);
+  Object.keys(patch || {}).forEach(function (k) {
+    const v = patch[k];
+    if (v === "" || v === null || v === undefined) {
+      delete next[k];
+    } else {
+      next[k] = v;
+    }
+  });
+  await account.updatePrefs({ prefs: next });
+}
+
+/** Koç avatarı — Storage kovasına yükler, dosya kimliğini döner. */
+export async function uploadCoachAvatarToStorage(file) {
+  const f = file instanceof File ? file : new File([file], "avatar.jpg", { type: "image/jpeg" });
+  const fid = ID.unique();
+  try {
+    await storage.createFile({
+      bucketId: APPWRITE_BUCKET_AVATARLAR,
+      fileId: fid,
+      file: f,
+    });
+  } catch (_e) {
+    await storage.createFile(APPWRITE_BUCKET_AVATARLAR, fid, f);
+  }
+  return fid;
 }
 
 /**

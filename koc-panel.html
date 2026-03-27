@@ -53,6 +53,56 @@
     .student-erp-gender { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; padding: 0.5rem 0; }
     .student-erp-gender label { display: inline-flex; align-items: center; gap: 0.45rem; cursor: pointer; font-weight: 600; color: #334155; margin: 0; }
     .student-erp-gender input { width: auto; accent-color: #7c3aed; }
+    /* Koç profil ayarları (sekmeli modal) */
+    #profileSettingsModal .student-erp-tabs { border-radius: 12px 12px 0 0; }
+    #profileSettingsModal .student-erp-panels { max-height: min(58vh, 540px); border-radius: 0 0 12px 12px; }
+    .coach-profile-avatar-dropzone {
+      border: 2px dashed #c4b5fd;
+      border-radius: 16px;
+      padding: 1.25rem 1rem;
+      text-align: center;
+      background: linear-gradient(180deg, #faf5ff 0%, #fff 100%);
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+      margin-top: 0.75rem;
+    }
+    .coach-profile-avatar-dropzone:hover,
+    .coach-profile-avatar-dropzone:focus-within {
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+    }
+    .coach-profile-avatar-dropzone.is-dragover {
+      border-color: #5b21b6;
+      background: #f3e8ff;
+      box-shadow: 0 0 0 4px rgba(91, 33, 182, 0.15);
+    }
+    .coach-profile-avatar-preview-wrap { display: flex; justify-content: center; margin-bottom: 0.5rem; }
+    .coach-profile-avatar-preview {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 4px solid #e9d5ff;
+      box-shadow: 0 8px 28px rgba(109, 40, 217, 0.18);
+      background: #faf5ff;
+    }
+    #profileSettingsModal .profile-settings-outline-input {
+      border: 2px solid #e9d5ff !important;
+      border-radius: 12px;
+      padding: 0.6rem 0.85rem;
+      background: #fff;
+      box-sizing: border-box;
+    }
+    #profileSettingsModal .profile-settings-outline-input:focus {
+      outline: none;
+      border-color: #a78bfa !important;
+      box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.28);
+    }
+    #profileSettingsModal .profile-email-disabled {
+      background: #f5f3ff !important;
+      color: #64748b;
+      cursor: not-allowed;
+    }
     /* Dashboard Analytics */
     .dashboard-kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 0 1.5rem 1.25rem; max-width: calc(100% - 3rem); }
     @media (max-width: 1100px) { .dashboard-kpi-row { grid-template-columns: repeat(2, 1fr); } }
@@ -685,6 +735,120 @@
       padding: 0 1rem 1.5rem;
       min-height: calc(100vh - 120px);
     }
+    /* Öğrenci Deneme MR'ı — arama + iç içe accordion */
+    .mri-page { max-width: 920px; margin: 0 auto; padding: 0 0 2rem; }
+    .mri-page__head .page-head__title { color: #312e81; letter-spacing: -0.02em; }
+    .mri-page__lead { margin: 0.35rem 0 0; font-size: 0.88rem; color: #64748b; max-width: 56ch; }
+    .mri-search-sticky {
+      position: sticky; top: 0; z-index: 20;
+      padding: 0.65rem 0 1rem;
+      margin: 0 -0.25rem;
+      background: linear-gradient(180deg, #f8fafc 0%, #f8fafc 70%, rgba(248, 250, 252, 0));
+    }
+    .mri-search-wrap {
+      display: flex; align-items: center; gap: 0.75rem;
+      width: 100%; max-width: 100%;
+      padding: 0.55rem 1rem 0.55rem 0.85rem;
+      border-radius: 999px;
+      border: 1px solid rgba(226, 232, 240, 0.98);
+      background: #fff;
+      box-shadow: 0 4px 24px rgba(15, 23, 42, 0.07), 0 1px 3px rgba(91, 33, 182, 0.06);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .mri-search-wrap:focus-within {
+      border-color: rgba(124, 58, 237, 0.45);
+      box-shadow: 0 8px 32px rgba(124, 58, 237, 0.14), 0 0 0 3px rgba(167, 139, 250, 0.18);
+    }
+    .mri-search-wrap__icon {
+      color: #64748b; font-size: 1.05rem; flex-shrink: 0;
+    }
+    .mri-search-wrap__input {
+      flex: 1; min-width: 0; border: none; background: transparent;
+      font-family: inherit; font-size: 0.95rem; font-weight: 500; color: #0f172a;
+      outline: none;
+    }
+    .mri-search-wrap__input::placeholder { color: #94a3b8; font-weight: 400; }
+    .mri-section { margin-top: 0.25rem; }
+    .mri-acc-root { display: flex; flex-direction: column; gap: 0.65rem; }
+    .mri-empty {
+      text-align: center; padding: 2rem 1rem; border-radius: 16px;
+      border: 1px dashed rgba(124, 58, 237, 0.28); color: #64748b; font-size: 0.9rem; font-weight: 600;
+      background: linear-gradient(180deg, #faf5ff, #fff);
+    }
+    .mri-acc {
+      border-radius: 14px; border: 1px solid rgba(226, 232, 240, 0.95);
+      background: #fff;
+      box-shadow: 0 2px 12px rgba(15, 23, 42, 0.05);
+      overflow: hidden;
+    }
+    .mri-acc__trigger {
+      width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+      padding: 0.85rem 1rem; border: none; background: linear-gradient(180deg, #faf5ff 0%, #ffffff 100%);
+      font-family: inherit; cursor: pointer; text-align: left;
+      transition: background 0.2s;
+    }
+    .mri-acc__trigger:hover { background: linear-gradient(180deg, #f5f3ff, #fafafa); }
+    .mri-acc__trigger > span:first-of-type {
+      display: flex; flex-direction: column; align-items: flex-start; gap: 0.12rem; min-width: 0; text-align: left;
+    }
+    .mri-acc__name {
+      font-size: 0.95rem; font-weight: 800; color: #312e81; letter-spacing: -0.02em;
+    }
+    .mri-acc__meta { font-size: 0.72rem; font-weight: 600; color: #64748b; margin: 0; }
+    .mri-acc__chev {
+      flex-shrink: 0; color: #7c3aed; font-size: 0.75rem;
+      transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .mri-acc.is-open > .mri-acc__trigger .mri-acc__chev { transform: rotate(90deg); }
+    .mri-acc__panel {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .mri-acc.is-open > .mri-acc__panel { grid-template-rows: 1fr; }
+    .mri-acc__panel-inner { min-height: 0; overflow: hidden; }
+    .mri-acc__body { padding: 0 0.65rem 0.75rem 0.65rem; display: flex; flex-direction: column; gap: 0.45rem; }
+    .mri-sub-acc {
+      border-radius: 11px; border: 1px solid #e2e8f0; background: #fafafa; overflow: hidden;
+    }
+    .mri-sub-acc__trigger {
+      width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+      padding: 0.65rem 0.75rem; border: none; background: transparent;
+      font-family: inherit; font-size: 0.82rem; font-weight: 800; color: #334155; cursor: pointer; text-align: left;
+    }
+    .mri-sub-acc__trigger:hover { background: rgba(124, 58, 237, 0.06); }
+    .mri-sub-acc__chev {
+      font-size: 0.68rem; color: #7c3aed;
+      transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .mri-sub-acc.is-open > .mri-sub-acc__trigger .mri-sub-acc__chev { transform: rotate(90deg); }
+    .mri-sub-acc__panel {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .mri-sub-acc.is-open > .mri-sub-acc__panel { grid-template-rows: 1fr; }
+    .mri-sub-acc__inner { min-height: 0; overflow: hidden; }
+    .mri-topic-table-wrap { padding: 0 0.5rem 0.6rem 0.5rem; }
+    .mri-topic-table {
+      width: 100%; border-collapse: collapse; font-size: 0.78rem;
+    }
+    .mri-topic-table th,
+    .mri-topic-table td {
+      padding: 0.4rem 0.45rem; text-align: left; border-bottom: 1px solid #e2e8f0;
+    }
+    .mri-topic-table th {
+      font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b;
+    }
+    .mri-topic-table td:last-child,
+    .mri-topic-table th:last-child { text-align: center; }
+    .mri-topic-table td:nth-child(2),
+    .mri-topic-table th:nth-child(2),
+    .mri-topic-table td:nth-child(3),
+    .mri-topic-table th:nth-child(3),
+    .mri-topic-table td:nth-child(4),
+    .mri-topic-table th:nth-child(4) { text-align: center; font-variant-numeric: tabular-nums; }
+    .mri-topic-table tbody tr:last-child td { border-bottom: none; }
     .yks-pro-hero {
       background: var(--yks-pro-bg);
       border: 1px solid var(--yks-pro-border);
@@ -749,11 +913,11 @@
     .yks-sortable-item {
       padding: 0.45rem 0.55rem;
       border-radius: 8px;
-      background: rgba(124, 58, 237, 0.15);
-      border: 1px solid rgba(167, 139, 250, 0.35);
-      color: var(--yks-pro-text);
+      background: linear-gradient(180deg, #faf5ff 0%, #ede9fe 100%);
+      border: 1px solid rgba(109, 40, 217, 0.28);
+      color: #1e293b;
       font-size: 0.8rem;
-      font-weight: 600;
+      font-weight: 700;
       cursor: grab;
       user-select: none;
     }
@@ -763,8 +927,8 @@
     .yks-sortable-item .yks-sortable-meta {
       display: block;
       font-size: 0.65rem;
-      font-weight: 600;
-      color: var(--yks-pro-muted);
+      font-weight: 700;
+      color: #475569;
       margin-top: 0.2rem;
     }
     .yks-weekly-grid {
@@ -810,12 +974,14 @@
     .yks-konu-alert--danger {
       background: rgba(220, 38, 38, 0.12);
       border-color: rgba(248, 113, 113, 0.45);
-      color: #fecaca;
+      color: #991b1b;
+      font-weight: 600;
     }
     .yks-konu-alert--warn {
       background: rgba(234, 88, 12, 0.12);
       border-color: rgba(251, 146, 60, 0.45);
-      color: #ffedd5;
+      color: #9a3412;
+      font-weight: 600;
     }
     .yks-konu-alert i {
       font-size: 1.25rem;
@@ -1067,7 +1233,7 @@
       font-size: 1.5rem;
       color: #a78bfa;
       margin-bottom: 0.5rem;
-      opacity: 0.85;
+      opacity: 1;
     }
     .kk-books-root {
       display: flex;
@@ -1462,12 +1628,14 @@
       margin: 0 0 0.35rem;
       font-size: 0.85rem;
       font-weight: 800;
-      color: #e9d5ff;
+      color: #f5f3ff;
+      letter-spacing: -0.01em;
     }
     .hp-toolbox__hint {
       margin: 0 0 0.75rem;
       font-size: 0.72rem;
-      color: var(--yks-pro-muted);
+      font-weight: 600;
+      color: #cbd5e1;
     }
     .hp-tool {
       display: flex;
@@ -1476,23 +1644,33 @@
       padding: 0.65rem 0.75rem;
       margin-bottom: 0.5rem;
       border-radius: 12px;
-      border: 1px solid rgba(167, 139, 250, 0.4);
-      background: rgba(124, 58, 237, 0.15);
+      border: 1px solid rgba(109, 40, 217, 0.3);
+      background: linear-gradient(180deg, #faf5ff 0%, #ede9fe 100%);
       cursor: grab;
       font-family: inherit;
       font-size: 0.82rem;
-      font-weight: 700;
-      color: #f5f3ff;
-      transition: transform 0.15s, box-shadow 0.15s;
+      font-weight: 800;
+      color: #1e293b;
+      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
     }
     .hp-tool:last-child { margin-bottom: 0; }
     .hp-tool:hover {
-      box-shadow: 0 6px 20px rgba(124, 58, 237, 0.25);
-      border-color: #a78bfa;
+      box-shadow: 0 6px 20px rgba(124, 58, 237, 0.2);
+      border-color: #7c3aed;
+      color: #0f172a;
     }
     .hp-tool:active { cursor: grabbing; }
+    .hp-tool:focus-visible {
+      outline: 2px solid #7c3aed;
+      outline-offset: 2px;
+    }
     .hp-tool--dragging { opacity: 0.55; }
-    .hp-tool__ico { font-size: 1.25rem; }
+    .hp-tool__ico {
+      font-size: 1.25rem;
+      line-height: 1;
+      opacity: 1;
+      filter: none;
+    }
     .hp-week-wrap {
       background: rgba(22, 16, 38, 0.5);
       border: 1px solid var(--yks-pro-border);
@@ -1568,7 +1746,9 @@
     .hp-week-card__type {
       font-size: 0.7rem;
       margin-bottom: 0.2rem;
-      opacity: 0.95;
+      opacity: 1;
+      font-weight: 700;
+      color: #e0e7ff;
     }
     .hp-week-card__title {
       display: block;
@@ -1868,7 +2048,125 @@
     .sd-fin-kpi__lbl { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: #c4b5fd; font-weight: 700; }
     .sd-fin-kpi__val { font-size: 1.25rem; font-weight: 800; color: #fff; margin-top: 0.25rem; }
     /* Deneme Analizi modülü — Global Takvim & iskeletler */
-    .dana-deneme-root { padding: 0 0 2rem; max-width: 1200px; margin: 0 auto; }
+    .dana-deneme-root { padding: 0 0 2rem; margin: 0 auto; }
+    .dana-takvim-layout {
+      display: flex; align-items: flex-start; gap: 1.35rem; max-width: 1480px; margin: 0 auto;
+    }
+    .dana-takvim-main {
+      flex: 7; min-width: 0;
+    }
+    .dana-takvim-cal-sidebar {
+      flex: 3; min-width: 0; max-width: 380px;
+      background: #ffffff;
+      border-radius: 20px;
+      border: 1px solid rgba(124, 58, 237, 0.12);
+      box-shadow: 0 16px 48px rgba(30, 27, 75, 0.1), 0 4px 14px rgba(91, 33, 182, 0.08);
+      padding: 1rem 1rem 1.15rem;
+      position: sticky; top: 0.85rem;
+      align-self: flex-start;
+      overflow: visible;
+      z-index: 2;
+    }
+    @media (max-width: 1100px) {
+      .dana-takvim-layout { flex-direction: column; align-items: stretch; }
+      .dana-takvim-cal-sidebar { max-width: none; position: static; width: 100%; }
+    }
+    /* Aylık mini takvim (saf CSS Grid) */
+    .dana-cal { display: flex; flex-direction: column; gap: 0.65rem; }
+    .dana-cal__head {
+      display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+      padding-bottom: 0.5rem; border-bottom: 1px solid rgba(124, 58, 237, 0.1);
+    }
+    .dana-cal__title {
+      margin: 0; font-size: 0.98rem; font-weight: 800; color: #312e81;
+      letter-spacing: -0.02em; text-align: center; flex: 1;
+    }
+    .dana-cal__nav {
+      width: 34px; height: 34px; border-radius: 11px; border: 1px solid rgba(124, 58, 237, 0.22);
+      background: #faf5ff; color: #5b21b6; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 0.85rem; transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+      flex-shrink: 0;
+    }
+    .dana-cal__nav:hover { background: linear-gradient(135deg, #ede9fe, #f5f3ff); box-shadow: 0 4px 12px rgba(124, 58, 237, 0.2); color: #4c1d95; }
+    .dana-cal__dow {
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+      text-align: center; margin-top: 0.15rem;
+    }
+    .dana-cal__dow span {
+      font-size: 0.62rem; font-weight: 700; color: #94a3b8; text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .dana-cal__grid {
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px;
+    }
+    .dana-cal__cell {
+      min-height: 72px; border-radius: 11px;
+      background: linear-gradient(180deg, #fafafa, #ffffff);
+      border: 1px solid rgba(226, 232, 240, 0.95);
+      padding: 4px 3px 5px; display: flex; flex-direction: column; gap: 3px;
+      position: relative;
+      overflow: visible;
+    }
+    .dana-cal__cell--muted { opacity: 0.38; background: #f8fafc; }
+    .dana-cal__cell--today {
+      border-color: rgba(124, 58, 237, 0.45);
+      background: linear-gradient(180deg, #f5f3ff, #faf5ff);
+      box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.25);
+    }
+    .dana-cal__num {
+      font-size: 0.72rem; font-weight: 800; color: #475569; font-variant-numeric: tabular-nums;
+      line-height: 1.1; padding: 1px 2px 0;
+    }
+    .dana-cal__cell--today .dana-cal__num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 1.35rem; height: 1.35rem; border-radius: 999px;
+      background: linear-gradient(135deg, #7c3aed, #a78bfa); color: #fff;
+      padding: 0;
+    }
+    .dana-cal__badges {
+      display: flex; flex-direction: column; gap: 2px; width: 100%; min-height: 0; flex: 1;
+      max-height: 56px; overflow-x: hidden; overflow-y: auto;
+      scrollbar-width: thin; scrollbar-color: rgba(124, 58, 237, 0.35) transparent;
+    }
+    .dana-cal__cell--empty { min-height: 72px; pointer-events: none; }
+    .dana-cal-badge {
+      display: block; width: 100%; max-width: 100%; padding: 3px 4px;
+      border-radius: 6px; font-size: 10px; font-weight: 800; line-height: 1.2;
+      letter-spacing: 0.01em; cursor: pointer; font-family: inherit; text-align: left;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      position: relative; box-sizing: border-box;
+      border: 1px solid transparent;
+    }
+    .dana-cal-badge--tyt {
+      background: linear-gradient(180deg, #dbeafe, #e0e7ff); color: #1e3a8a;
+      border-color: rgba(59, 130, 246, 0.35);
+    }
+    .dana-cal-badge--ayt {
+      background: linear-gradient(180deg, #ffedd5, #fed7aa); color: #9a3412;
+      border-color: rgba(249, 115, 22, 0.4);
+    }
+    .dana-cal-badge--yks {
+      background: linear-gradient(180deg, #ede9fe, #e9d5ff); color: #5b21b6;
+      border-color: rgba(124, 58, 237, 0.4);
+    }
+    .dana-cal-badge:hover { filter: brightness(1.03); z-index: 2; }
+    .dana-cal-badge[data-dana-tip]::after {
+      content: attr(data-dana-tip); position: absolute; left: 50%; bottom: calc(100% + 8px);
+      transform: translateX(-50%) translateY(4px); padding: 0.45rem 0.6rem;
+      background: #1e1b4b; color: #f1f5f9; font-size: 0.72rem; font-weight: 600;
+      line-height: 1.35; white-space: normal; max-width: 220px; width: max-content;
+      border-radius: 10px; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.35);
+      pointer-events: none; opacity: 0; visibility: hidden;
+      transition: opacity 0.18s, transform 0.18s, visibility 0.18s; z-index: 50;
+      text-align: left;
+    }
+    .dana-cal-badge[data-dana-tip]:hover::after,
+    .dana-cal-badge[data-dana-tip]:focus-visible::after {
+      opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0);
+    }
+    .dana-cal-badge:focus-visible { outline: 2px solid #7c3aed; outline-offset: 1px; }
+    .dana-takvim-empty { margin-left: auto; margin-right: auto; }
     .dana-deneme-hero {
       display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
       margin-bottom: 1.35rem;
@@ -1891,6 +2189,11 @@
       border: 1px solid rgba(124, 58, 237, 0.18); box-shadow: 0 12px 36px rgba(30, 27, 75, 0.1);
       padding: 1.1rem 1.15rem 1.15rem; display: flex; flex-direction: column; gap: 0.85rem;
       min-height: 200px;
+      transition: box-shadow 0.35s ease, border-color 0.35s ease;
+    }
+    .dana-tg-card--flash {
+      border-color: rgba(124, 58, 237, 0.65) !important;
+      box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.55), 0 16px 44px rgba(91, 33, 182, 0.22) !important;
     }
     .dana-tg-card__shine { position: absolute; inset: -40% -20% auto auto; width: 70%; height: 80%; background: radial-gradient(circle, rgba(167, 139, 250, 0.35) 0%, transparent 65%); pointer-events: none; }
     .dana-tg-card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.65rem; position: relative; z-index: 1; }
@@ -1915,6 +2218,87 @@
     .dana-countdown__val { display: block; font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; color: #e9d5ff; line-height: 1.2; }
     .dana-countdown__lbl { font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; margin-top: 0.15rem; }
     .dana-tg-card__meta { font-size: 0.75rem; color: #64748b; margin: 0; position: relative; z-index: 1; }
+    /* Global takvim — sınav türü sekmeleri (sidebar moru ile uyumlu) */
+    .dana-takvim-tabs {
+      display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 0 0 1.15rem;
+      padding: 0.4rem; background: linear-gradient(180deg, #faf5ff 0%, #f3e8ff 100%);
+      border-radius: 14px; border: 1px solid rgba(124, 58, 237, 0.18);
+      box-shadow: 0 2px 12px rgba(91, 33, 182, 0.06);
+    }
+    .dana-takvim-tab {
+      border: 1px solid transparent; background: #fff; color: #64748b;
+      font-family: inherit; font-size: 0.82rem; font-weight: 800; letter-spacing: 0.02em;
+      padding: 0.55rem 1.15rem; border-radius: 11px; cursor: pointer;
+      transition: background 0.18s, color 0.18s, border-color 0.18s, box-shadow 0.18s, transform 0.12s;
+    }
+    .dana-takvim-tab:hover { color: #5b21b6; border-color: rgba(124, 58, 237, 0.25); box-shadow: 0 2px 10px rgba(124, 58, 237, 0.12); }
+    .dana-takvim-tab.is-active {
+      color: #fff;
+      background: linear-gradient(135deg, #5b21b6, #7c3aed);
+      border-color: rgba(196, 181, 253, 0.5);
+      box-shadow: 0 6px 20px rgba(91, 33, 182, 0.35);
+    }
+    .dana-takvim-tab:focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; }
+    .dana-takvim-list-host { min-height: 200px; position: relative; }
+    .dana-takvim-empty {
+      text-align: center; padding: 2.75rem 1.5rem 3rem;
+      border-radius: 20px; border: 1px dashed rgba(124, 58, 237, 0.28);
+      background: linear-gradient(180deg, #faf5ff, #ffffff);
+      max-width: 520px; margin: 0 auto;
+    }
+    .dana-takvim-empty[hidden] { display: none !important; }
+    .dana-takvim-empty__icon {
+      width: 4rem; height: 4rem; margin: 0 auto 1rem;
+      border-radius: 16px; background: linear-gradient(145deg, #ede9fe, #f5f3ff);
+      border: 1px solid rgba(124, 58, 237, 0.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.65rem; color: #7c3aed;
+    }
+    .dana-takvim-empty__title { margin: 0 0 0.45rem; font-size: 1.08rem; font-weight: 800; color: #312e81; letter-spacing: -0.02em; }
+    .dana-takvim-empty__hint { margin: 0; font-size: 0.88rem; color: #64748b; line-height: 1.55; max-width: 38ch; margin-left: auto; margin-right: auto; }
+    /* Global deneme planlama modalı */
+    .modal--dana-gd-plan .modal__head {
+      background: linear-gradient(180deg, #ede9fe 0%, #faf5ff 45%, #ffffff 100%);
+      border-bottom: 1px solid rgba(124, 58, 237, 0.2);
+    }
+    .modal--dana-gd-plan .modal__title { color: #4c1d95; font-weight: 800; letter-spacing: -0.02em; }
+    .dana-gd-form-grid { gap: 1rem 1.25rem; }
+    .dana-gd-uploads {
+      margin-top: 1.35rem; padding-top: 1.25rem;
+      border-top: 1px solid rgba(124, 58, 237, 0.12);
+    }
+    .dana-gd-uploads__lead {
+      margin: 0 0 0.85rem; font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.08em; color: #7c3aed;
+    }
+    .dana-gd-upload-row {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+    }
+    @media (max-width: 720px) { .dana-gd-upload-row { grid-template-columns: 1fr; } }
+    .dana-gd-drop {
+      border: 2px dashed rgba(124, 58, 237, 0.35); border-radius: 16px; padding: 1.15rem 1rem;
+      background: linear-gradient(180deg, #faf5ff, #ffffff); cursor: pointer; text-align: center;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s; min-height: 118px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.35rem;
+    }
+    .dana-gd-drop:hover { border-color: rgba(91, 33, 182, 0.55); box-shadow: 0 8px 28px rgba(124, 58, 237, 0.12); }
+    .dana-gd-drop.is-dragover {
+      border-color: #7c3aed; background: #f5f3ff; box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.22);
+      transform: scale(1.01);
+    }
+    .dana-gd-drop__icon { font-size: 1.55rem; line-height: 1; }
+    .dana-gd-drop__title { margin: 0; font-size: 0.88rem; font-weight: 800; color: #312e81; }
+    .dana-gd-drop__hint { margin: 0; font-size: 0.75rem; color: #64748b; line-height: 1.45; max-width: 22ch; }
+    .dana-gd-drop__file {
+      margin: 0.25rem 0 0; font-size: 0.72rem; font-weight: 700; color: #047857;
+      max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 0.25rem;
+    }
+    .dana-gd-drop__file:empty { display: none; }
+    #danaGdPlanFormErr {
+      margin: 1rem 0 0; padding: 0.65rem 0.85rem; border-radius: 12px; background: #fef2f2;
+      color: #b91c1c; font-size: 0.85rem; font-weight: 600; border: 1px solid #fecaca;
+    }
+    #danaGdPlanFormErr[hidden] { display: none !important; }
     .dana-skel-root { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
     .dana-skel-card {
       border-radius: 20px; border: 1px dashed rgba(124, 58, 237, 0.28); background: linear-gradient(180deg, #faf5ff, #fff);
@@ -1960,6 +2344,56 @@
     }
     .dana-karne-chart-card__canvas canvas { max-height: 100%; }
     .dana-karne-chart-card--wide .dana-karne-chart-card__canvas { height: min(300px, 50vw); min-height: 240px; }
+    .dp-chart-data-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(248, 250, 252, 0.88);
+      color: #64748b;
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-align: center;
+      padding: 1rem 1.25rem;
+      border-radius: 14px;
+      pointer-events: none;
+      z-index: 2;
+      line-height: 1.45;
+    }
+    .net-donut-wrap { position: relative; }
+    .eds-da__chart-wrap { position: relative; min-height: 200px; }
+    .dp-zero-state {
+      text-align: center;
+      padding: 2.25rem 1.25rem;
+      border-radius: 18px;
+      border: 1px dashed rgba(124, 58, 237, 0.28);
+      background: linear-gradient(165deg, rgba(245, 243, 255, 0.65), rgba(248, 250, 252, 0.95));
+    }
+    .dp-zero-state__icon { font-size: 2.25rem; color: #c4b5fd; margin-bottom: 0.65rem; }
+    .dp-zero-state__title { margin: 0; font-size: 1rem; font-weight: 800; color: #312881; }
+    .dp-zero-state__hint { margin: 0.5rem 0 0; font-size: 0.88rem; color: #64748b; line-height: 1.5; }
+    .dp-pro-spinner {
+      width: 36px;
+      height: 36px;
+      margin: 0 auto;
+      border: 3px solid rgba(124, 58, 237, 0.2);
+      border-top-color: #7c3aed;
+      border-radius: 50%;
+      animation: dp-pro-spin 0.75s linear infinite;
+    }
+    @keyframes dp-pro-spin { to { transform: rotate(360deg); } }
+    .visually-hidden {
+      position: absolute !important;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
     .dana-karne-pdf-toolbar { display: flex; flex-wrap: wrap; gap: 0.55rem; align-items: center; justify-content: flex-end; }
     .btn-dana-pdf {
       position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem;
@@ -2447,8 +2881,8 @@
               <button type="button" class="sidebar__sublink" data-nav="karne" title="Sınıf karne özeti ve yazdırma">
                 <i class="fa-solid fa-graduation-cap"></i><span>Karne</span>
               </button>
-              <button type="button" class="sidebar__sublink" data-nav="konu-mr" title="Konu bazlı zayıf alan analizi">
-                <i class="fa-solid fa-x-ray"></i><span>Konu MR'ı (Röntgen)</span>
+              <button type="button" class="sidebar__sublink" data-nav="konu-mr" title="Öğrenci deneme MR — konu bazlı D/Y/B">
+                <i class="fa-solid fa-x-ray"></i><span>Öğrenci Deneme MR'ı</span>
               </button>
             </div>
           </li>
@@ -2509,12 +2943,15 @@
         <button type="button" class="main__menu-btn" id="menuToggle" aria-label="Menüyü aç">
           <i class="fa-solid fa-bars"></i>
         </button>
-        <div class="search-bar">
-          <i class="fa-solid fa-magnifying-glass search-bar__icon"></i>
-          <input type="search" class="search-bar__input" id="searchInput" placeholder="Öğrenci, deneme veya randevu ara..." autocomplete="off" />
-          <button type="button" class="search-bar__filter" id="btnSearchFilter" aria-label="Deneme türü filtresi" title="TYT / AYT / Tümü">
-            <i class="fa-solid fa-sliders"></i>
-          </button>
+        <div class="global-search-wrap" id="globalSearchWrap">
+          <div class="search-bar">
+            <i class="fa-solid fa-magnifying-glass search-bar__icon"></i>
+            <input type="search" class="search-bar__input" id="searchInput" placeholder="Öğrenci, deneme veya randevu ara..." autocomplete="off" aria-controls="globalSearchResults" aria-autocomplete="list" />
+            <button type="button" class="search-bar__filter" id="btnSearchFilter" aria-label="Deneme türü filtresi" title="TYT / AYT / Tümü">
+              <i class="fa-solid fa-sliders"></i>
+            </button>
+          </div>
+          <div id="globalSearchResults" class="global-search-results" role="listbox" aria-label="Arama sonuçları" hidden></div>
         </div>
         <span class="search-filter-label" id="searchFilterLabel" hidden></span>
       </header>
@@ -2646,9 +3083,7 @@
             </div>
           </div>
           <p class="page-desc"><strong>Düzenle</strong> veya <strong>Sil</strong> ile kayıt yönetimi. Finans ve cari özet için sol menüden <strong>Muhasebe</strong> sayfasını kullanın.</p>
-          <div class="student-grid cards-row--wide" id="studentsCardsRoot">
-            <p class="table-empty" style="grid-column: 1 / -1; margin: 0">Yükleniyor…</p>
-          </div>
+          <div class="student-grid cards-row--wide" id="studentsCardsRoot"></div>
         </div>
 
         <div class="main-view" data-view="ogrenci-detay" id="view-ogrenci-detay" hidden>
@@ -3029,32 +3464,28 @@
         </div>
 
         <div class="main-view" data-view="konu-mr" id="view-konu-mr" hidden>
-          <div class="page-head">
-            <h1 class="page-head__title">Konu MR'ı (Röntgen)</h1>
+          <div class="mri-page">
+            <div class="page-head mri-page__head">
+              <h1 class="page-head__title">Öğrenci Deneme MR'ı</h1>
+              <p class="page-desc mri-page__lead">Appwrite’daki deneme kayıtlarındaki branş D/Y/B verilerinin öğrenci bazlı özeti.</p>
+            </div>
+            <div class="mri-search-sticky">
+              <label class="mri-search-wrap" for="mriSearchInput">
+                <span class="mri-search-wrap__icon" aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>
+                <input
+                  type="text"
+                  id="mriSearchInput"
+                  class="mri-search-wrap__input"
+                  placeholder="Öğrenci ara (Ad, Soyad)..."
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+              </label>
+            </div>
+            <section class="mri-section" aria-label="Öğrenci deneme MR listesi">
+              <div id="mriListRoot" class="mri-acc-root"></div>
+            </section>
           </div>
-          <section class="yks-pro-root" aria-label="Konu MR analizi">
-            <div class="yks-pro-hero">
-              <span class="yks-pro-hero__badge">Analitik</span>
-              <h1>Konu röntgeni — zayıf alanlar</h1>
-              <p>Son denemelerde tekrar eden hata paternleri; öğrenci seçimi ve Appwrite bağlantısı sonraki adımda eklenebilir. Aşağıdaki uyarılar örnek arayüzdür.</p>
-            </div>
-            <div class="yks-konu-alert yks-konu-alert--danger" role="alert">
-              <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
-              <div>
-                <strong>Uyarı:</strong> Bu öğrenci son 3 denemedir sürekli <strong>Problemler</strong> konusunu kaçırıyor. Öneri: günlük 15 soru + hata günlüğü.
-              </div>
-            </div>
-            <div class="yks-konu-alert yks-konu-alert--warn" role="status">
-              <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
-              <div>
-                <strong>Dikkat:</strong> <strong>Paragraf</strong> neti son iki denemede düşüş trendinde (ortalama −2,4 net).
-              </div>
-            </div>
-            <div style="margin-top:1rem;padding:1rem;background:rgba(22,16,38,0.85);border:1px solid rgba(139,92,246,0.28);border-radius:12px;color:#94a3b8;font-size:0.85rem">
-              <p style="margin:0 0 0.5rem;color:#e2e8f0;font-weight:700"><i class="fa-solid fa-chart-column"></i> Özet (örnek)</p>
-              <p style="margin:0">Önceki denemelerdeki konu bazlı net dağılımı burada grafik olarak gösterilebilir; veri kaynağı <code style="color:#c4b5fd">yksBranchDetail</code> ile eşleştirilebilir.</p>
-            </div>
-          </section>
         </div>
 
         <div class="main-view" data-view="kutuphanem" id="view-kutuphanem" hidden>
@@ -3159,35 +3590,7 @@
               <h1>1-e-1 görüşme kayıtları</h1>
               <p>Psikolojik ve stratejik gözlemler; yalnızca koç panelinde görünür. Örnek zaman çizelgesi — veri kaydı Appwrite ile bağlanabilir.</p>
             </div>
-            <div class="yks-timeline" id="yksKoclukTimeline">
-              <div class="yks-timeline__item">
-                <div class="yks-timeline__card">
-                  <div class="yks-timeline__date">18 Mart 2026</div>
-                  <div class="yks-timeline__body">
-                    Sınav kaygısı yüksek; önceki hafta uyku düzeni bozulmuş. Pomodoro + haftalık program önerildi. Veli ile görüşme talep edilmedi.
-                  </div>
-                  <span class="yks-timeline__tag">Strateji · motivasyon</span>
-                </div>
-              </div>
-              <div class="yks-timeline__item">
-                <div class="yks-timeline__card">
-                  <div class="yks-timeline__date">10 Mart 2026</div>
-                  <div class="yks-timeline__body">
-                    Paragraf branşında düşüşü kabul etti; günlük 2 paragraf + hata analizi taahhüdü. YDT hedefi netleştirildi.
-                  </div>
-                  <span class="yks-timeline__tag">Akademik</span>
-                </div>
-              </div>
-              <div class="yks-timeline__item">
-                <div class="yks-timeline__card">
-                  <div class="yks-timeline__date">2 Mart 2026</div>
-                  <div class="yks-timeline__body">
-                    İlk görüşme: zaman yönetimi zayıf, telefon kullanımı yüksek. Uygulama önerisi (Odak modu) konuşuldu.
-                  </div>
-                  <span class="yks-timeline__tag">Davranış</span>
-                </div>
-              </div>
-            </div>
+            <div class="yks-timeline" id="yksKoclukTimeline"></div>
           </section>
         </div>
 
@@ -3288,8 +3691,8 @@
               </div>
               <aside class="eds-da__aside">
                 <div class="eds-da__chart-card">
-                  <h3><i class="fa-solid fa-chart-line"></i> Net trendi (yerel)</h3>
-                  <p class="eds-da__hint">Seçili öğrenci için bu cihazda saklanan TYT/AYT toplam net çizgileri.</p>
+                  <h3><i class="fa-solid fa-chart-line"></i> Net trendi</h3>
+                  <p class="eds-da__hint">Seçili öğrencinin Appwrite’daki TYT / AYT deneme kayıtlarından üretilir.</p>
                   <div class="eds-da__chart-wrap">
                     <canvas id="denemeAnalizChart" aria-label="Net trend grafiği"></canvas>
                   </div>
@@ -3337,7 +3740,6 @@
             </div>
 
             <div class="eds-da__actions">
-              <button type="button" class="btn btn--purple btn-eds-primary" id="btnDaSaveLocal"><i class="fa-solid fa-chart-line"></i> Grafiğe ekle (yerel trend)</button>
               <button type="button" class="btn btn--purple btn-eds-primary" id="btnDaSaveFirestore"><i class="fa-solid fa-cloud-arrow-up"></i> Appwrite’a kaydet</button>
               <button type="button" class="btn btn--ghost btn-eds-secondary" id="btnDaResetForm" title="Formu temizle"><i class="fa-solid fa-rotate-left"></i> Formu sıfırla</button>
             </div>
@@ -3640,53 +4042,34 @@
               </div>
               <button type="button" class="btn--dana-cta" id="btnDanaNewExamPlan"><i class="fa-solid fa-plus"></i> Yeni Deneme Planla</button>
             </div>
-            <h2 class="page-head__title" style="margin:0 0 1rem;font-size:1.05rem;font-weight:800;color:#4c1d95">Yaklaşan Türkiye Geneli Denemeler</h2>
-            <div class="dana-tg-grid" aria-label="Yaklaşan denemeler">
-              <article class="dana-tg-card" data-dana-countdown="2026-04-15T10:00:00+03:00">
-                <div class="dana-tg-card__shine" aria-hidden="true"></div>
-                <div class="dana-tg-card__top">
-                  <div class="dana-tg-card__logo" title="Kurum logosu"><i class="fa-solid fa-cube"></i></div>
-                  <span class="dana-tg-card__badge">TG</span>
+            <div class="dana-takvim-layout">
+              <div class="dana-takvim-main">
+                <div class="dana-takvim-tabs" role="tablist" aria-label="Sınav türü filtresi">
+                  <button type="button" class="dana-takvim-tab" id="danaTabFilterTyt" data-dana-takvim-filter="TYT" role="tab" aria-selected="false">TYT</button>
+                  <button type="button" class="dana-takvim-tab" id="danaTabFilterAyt" data-dana-takvim-filter="AYT" role="tab" aria-selected="false">AYT</button>
+                  <button type="button" class="dana-takvim-tab is-active" id="danaTabFilterYks" data-dana-takvim-filter="YKS" role="tab" aria-selected="true">YKS (Tümü)</button>
                 </div>
-                <h3 class="dana-tg-card__name">3D Yayınları — TYT Genel Deneme</h3>
-                <div class="dana-countdown" aria-label="Geri sayım">
-                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="d">0</span><span class="dana-countdown__lbl">Gün</span></div>
-                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="h">00</span><span class="dana-countdown__lbl">Saat</span></div>
-                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="m">00</span><span class="dana-countdown__lbl">Dk</span></div>
-                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="s">00</span><span class="dana-countdown__lbl">Sn</span></div>
+                <h2 class="page-head__title" style="margin:0 0 1rem;font-size:1.05rem;font-weight:800;color:#4c1d95">Yaklaşan Türkiye Geneli Denemeler</h2>
+                <div id="danaTakvimCardsGrid" class="dana-tg-grid" aria-label="Yaklaşan denemeler"></div>
+                <div id="danaTakvimEmpty" class="dana-takvim-empty" hidden>
+                  <div class="dana-takvim-empty__icon" aria-hidden="true"><i class="fa-solid fa-calendar-plus"></i></div>
+                  <p id="danaTakvimEmptyTitle" class="dana-takvim-empty__title">Henüz Planlanmış Deneme Yok</p>
+                  <p id="danaTakvimEmptyHint" class="dana-takvim-empty__hint">Türkiye geneli denemeler eklendiğinde burada görünecek.</p>
                 </div>
-                <p class="dana-tg-card__meta">15 Nisan 2026 · 10:00 · Türkiye geneli</p>
-              </article>
-              <article class="dana-tg-card" data-dana-countdown="2026-05-01T09:30:00+03:00">
-                <div class="dana-tg-card__shine" aria-hidden="true"></div>
-                <div class="dana-tg-card__top">
-                  <div class="dana-tg-card__logo" title="Kurum logosu"><i class="fa-solid fa-shapes"></i></div>
-                  <span class="dana-tg-card__badge">TG</span>
+              </div>
+              <aside class="dana-takvim-cal-sidebar" aria-label="Aylık takvim">
+                <div class="dana-cal" id="danaMonthlyCalRoot">
+                  <div class="dana-cal__head">
+                    <button type="button" class="dana-cal__nav" id="danaCalPrev" aria-label="Önceki ay"><i class="fa-solid fa-chevron-left"></i></button>
+                    <h3 class="dana-cal__title" id="danaCalTitle">—</h3>
+                    <button type="button" class="dana-cal__nav" id="danaCalNext" aria-label="Sonraki ay"><i class="fa-solid fa-chevron-right"></i></button>
+                  </div>
+                  <div class="dana-cal__dow" aria-hidden="true">
+                    <span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span>
+                  </div>
+                  <div class="dana-cal__grid" id="danaCalGrid" role="grid" aria-label="Ay günleri"></div>
                 </div>
-                <h3 class="dana-tg-card__name">Paraf Yayınları — AYT Sayısal</h3>
-                <div class="dana-countdown" aria-label="Geri sayım">
-                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="d">0</span><span class="dana-countdown__lbl">Gün</span></div>
-                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="h">00</span><span class="dana-countdown__lbl">Saat</span></div>
-                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="m">00</span><span class="dana-countdown__lbl">Dk</span></div>
-                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="s">00</span><span class="dana-countdown__lbl">Sn</span></div>
-                </div>
-                <p class="dana-tg-card__meta">1 Mayıs 2026 · 09:30 · Türkiye geneli</p>
-              </article>
-              <article class="dana-tg-card" data-dana-countdown="2026-05-22T14:00:00+03:00">
-                <div class="dana-tg-card__shine" aria-hidden="true"></div>
-                <div class="dana-tg-card__top">
-                  <div class="dana-tg-card__logo" title="Kurum logosu"><i class="fa-solid fa-layer-group"></i></div>
-                  <span class="dana-tg-card__badge">TG</span>
-                </div>
-                <h3 class="dana-tg-card__name">ÖSYM Tarzı — TYT Deneme</h3>
-                <div class="dana-countdown" aria-label="Geri sayım">
-                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="d">0</span><span class="dana-countdown__lbl">Gün</span></div>
-                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="h">00</span><span class="dana-countdown__lbl">Saat</span></div>
-                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="m">00</span><span class="dana-countdown__lbl">Dk</span></div>
-                  <div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="s">00</span><span class="dana-countdown__lbl">Sn</span></div>
-                </div>
-                <p class="dana-tg-card__meta">22 Mayıs 2026 · 14:00 · Türkiye geneli</p>
-              </article>
+              </aside>
             </div>
           </div>
         </div>
@@ -3710,9 +4093,13 @@
           </div>
           <div class="dana-karne-dash" id="danaKarneDashRoot">
             <div class="dana-karne-dash__head">
-              <p class="dana-karne-dash__meta">
-                YKS 2026 müfredatına göre kazanım görünümü · <strong id="danaKarneStudentLabel">Demo profili</strong>
-              </p>
+              <div class="dana-karne-dash__meta-row" style="display:flex;flex-wrap:wrap;gap:0.75rem 1.25rem;align-items:center;justify-content:space-between;width:100%">
+                <p class="dana-karne-dash__meta" style="margin:0">
+                  Kazanım özeti · <strong id="danaKarneStudentLabel">Öğrenci seçin</strong>
+                </p>
+                <label class="visually-hidden" for="danaKarneStudentSelect">Öğrenci</label>
+                <select id="danaKarneStudentSelect" class="input" style="max-width:min(320px,100%);margin:0"></select>
+              </div>
               <div class="dana-karne-pdf-toolbar" role="group" aria-label="PDF raporları">
                 <button type="button" class="btn-dana-pdf" id="btnDanaPdfBulkRank" title="Sıralı liste PDF">
                   <span class="btn-dana-pdf__spin" aria-hidden="true"></span>
@@ -3736,7 +4123,7 @@
               <div class="dana-karne-dash__grid">
                 <div class="dana-karne-chart-card">
                   <h3 class="dana-karne-chart-card__title"><i class="fa-solid fa-chart-line"></i> Son 5 Deneme · Net yükselişi</h3>
-                  <p class="dana-karne-chart-card__sub">TYT toplam net — örnek seri</p>
+                  <p class="dana-karne-chart-card__sub">TYT denemelerinden otomatik net serisi</p>
                   <div class="dana-karne-chart-card__canvas"><canvas id="trendChart" aria-label="Net trendi grafiği"></canvas></div>
                 </div>
                 <div class="dana-karne-chart-card">
@@ -6010,6 +6397,89 @@
       </div>
     </div>
 
+    <!-- Global deneme takvimi — yeni plan (Appwrite DB + Storage) -->
+    <div class="modal modal--xl modal--dana-gd-plan" id="danaGlobalDenemePlanModal" role="dialog" aria-labelledby="danaGdPlanTitle" hidden>
+      <div class="modal__head">
+        <div>
+          <h2 class="modal__title" id="danaGdPlanTitle"><i class="fa-solid fa-earth-europe"></i> Yeni Global Deneme Planla</h2>
+          <p class="modal__subtitle">Türkiye geneli denemeyi kaydedin; geri sayım uygulama tarihi ve saatine göre çalışır. PDF ve cevap anahtarı isteğe bağlıdır.</p>
+        </div>
+        <button type="button" class="modal__close" data-close-modal aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form class="modal__body" id="formDanaGlobalDenemePlan" autocomplete="on">
+        <div class="form-grid form-grid--2 dana-gd-form-grid">
+          <div class="form-group form-group--full">
+            <label class="form-required" for="danaGdAdi">Deneme adı</label>
+            <input id="danaGdAdi" name="adi" type="text" required maxlength="500" placeholder="Örn. 3D Türkiye Geneli-1" />
+          </div>
+          <div class="form-group form-group--full">
+            <label class="form-required" for="danaGdYayinevi">Yayınevi / kurum adı</label>
+            <input id="danaGdYayinevi" name="yayinevi" type="text" required maxlength="300" placeholder="Örn. 3D Yayınları, Özdebir" />
+          </div>
+          <div class="form-group">
+            <label class="form-required" for="danaGdSinavTuru">Sınav türü</label>
+            <select id="danaGdSinavTuru" name="sinavTuru" required>
+              <option value="">— Seçin —</option>
+              <option value="TYT">TYT</option>
+              <option value="AYT">AYT</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-required" for="danaGdUygulamaTarih">Uygulama tarihi</label>
+            <input id="danaGdUygulamaTarih" name="uygulamaTarih" type="date" required />
+          </div>
+          <div class="form-group">
+            <label class="form-required" for="danaGdUygulamaSaat">Uygulama saati</label>
+            <input id="danaGdUygulamaSaat" name="uygulamaSaat" type="time" required step="60" />
+          </div>
+          <div class="form-group">
+            <label for="danaGdSonucTarih">Sonuç açıklama tarihi <span style="font-weight:600;color:#94a3b8">(opsiyonel)</span></label>
+            <input id="danaGdSonucTarih" name="sonucTarih" type="date" />
+          </div>
+        </div>
+        <div class="dana-gd-uploads">
+          <p class="dana-gd-uploads__lead">Dosya ekleri · İsteğe bağlı</p>
+          <div class="dana-gd-upload-row">
+            <div class="dana-gd-upload-cell">
+              <div
+                class="dana-gd-drop"
+                id="danaGdDropPdf"
+                tabindex="0"
+                role="button"
+                aria-label="Deneme PDF yükle"
+              >
+                <span class="dana-gd-drop__icon" aria-hidden="true">📄</span>
+                <p class="dana-gd-drop__title">Deneme sınavı PDF’i</p>
+                <p class="dana-gd-drop__hint">Sürükleyip bırakın veya tıklayın · Yalnızca PDF</p>
+                <p class="dana-gd-drop__file" id="danaGdPdfLabel"></p>
+              </div>
+              <input type="file" id="danaGdFilePdf" accept=".pdf,application/pdf" hidden />
+            </div>
+            <div class="dana-gd-upload-cell">
+              <div
+                class="dana-gd-drop"
+                id="danaGdDropCevap"
+                tabindex="0"
+                role="button"
+                aria-label="Cevap anahtarı yükle"
+              >
+                <span class="dana-gd-drop__icon" aria-hidden="true">🔑</span>
+                <p class="dana-gd-drop__title">Cevap anahtarı</p>
+                <p class="dana-gd-drop__hint">PDF veya görsel (PNG, JPEG…) · İsteğe bağlı</p>
+                <p class="dana-gd-drop__file" id="danaGdCevapLabel"></p>
+              </div>
+              <input type="file" id="danaGdFileCevap" accept=".pdf,image/*,application/pdf" hidden />
+            </div>
+          </div>
+        </div>
+        <p id="danaGdPlanFormErr" hidden></p>
+        <div class="modal__foot" style="margin: 1.25rem -1.5rem -1.5rem;">
+          <button type="button" class="btn-modal-secondary" data-close-modal>Vazgeç</button>
+          <button type="submit" class="btn-modal-primary" id="btnDanaGdPlanSubmit"><i class="fa-solid fa-rocket"></i> Planı kaydet</button>
+        </div>
+      </form>
+    </div>
+
     <!-- Yeni kaynak ata — Appwrite kütüphanesi -->
     <div class="modal modal--lg modal--kk" id="kkModalAta" role="dialog" aria-labelledby="kkModalAtaTitle" hidden>
       <div class="modal__head">
@@ -6110,59 +6580,95 @@
       </div>
     </div>
 
-    <div class="modal modal--lg" id="profileSettingsModal" role="dialog" aria-labelledby="profileSettingsTitle" hidden>
+    <div class="modal modal--xl modal--erp" id="profileSettingsModal" role="dialog" aria-labelledby="profileSettingsTitle" hidden>
       <div class="modal__head">
         <div>
-          <h2 class="modal__title" id="profileSettingsTitle"><i class="fa-solid fa-user-gear"></i> Profil ayarları</h2>
-          <p class="modal__subtitle">Adınız, e-posta ve şifre Appwrite hesabınızda güncellenir.</p>
+          <h2 class="modal__title" id="profileSettingsTitle"><i class="fa-solid fa-user-gear"></i> Profil ve Hesap Ayarları</h2>
+          <p class="modal__subtitle">Kişisel bilgi, şifre ve avatar Appwrite hesabınızla senkron tutulur.</p>
         </div>
         <button type="button" class="modal__close" data-close-modal aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <form class="modal__body" id="formProfileSettings" novalidate>
-        <div class="form-group">
-          <label for="profileDisplayName">Ad soyad</label>
-          <input type="text" id="profileDisplayName" maxlength="128" autocomplete="name" placeholder="Görünen adınız" />
+      <form class="modal__body modal__body--flush" id="formProfileSettings" novalidate>
+        <div class="student-erp-tabs" role="tablist" aria-label="Profil ayarları sekmeleri">
+          <button type="button" class="student-erp-tab is-active" role="tab" id="profileTabBtn0" aria-selected="true" aria-controls="profileTabPanel0" data-profile-tab="0">👤 Kişisel Bilgiler</button>
+          <button type="button" class="student-erp-tab" role="tab" id="profileTabBtn1" aria-selected="false" aria-controls="profileTabPanel1" data-profile-tab="1">🔒 Güvenlik (Şifre)</button>
+          <button type="button" class="student-erp-tab" role="tab" id="profileTabBtn2" aria-selected="false" aria-controls="profileTabPanel2" data-profile-tab="2">🎨 Görünüm ve Avatar</button>
         </div>
-        <div class="form-group">
-          <label for="profileEmail">E-posta</label>
-          <input type="email" id="profileEmail" maxlength="320" autocomplete="email" placeholder="ornek@sistem.com" />
-        </div>
-        <p class="modal__subtitle" style="margin:0.5rem 0 0.25rem;font-size:0.8rem">E-posta veya şifre değişikliği için mevcut şifrenizi girin.</p>
-        <div class="form-group">
-          <label for="profileCurrentPassword">Mevcut şifre</label>
-          <div class="form-pw-wrap">
-            <input class="form-pw-wrap__input" type="password" id="profileCurrentPassword" autocomplete="current-password" placeholder="Zorunlu (e-posta / şifre değişince)" />
-            <button type="button" class="form-pw-toggle" aria-label="Şifreyi göster" aria-pressed="false">
-              <span class="form-pw-toggle__icon form-pw-toggle__icon--plain" aria-hidden="true"><i class="fa-solid fa-eye"></i></span>
-              <span class="form-pw-toggle__icon form-pw-toggle__icon--slashed" hidden aria-hidden="true"><i class="fa-solid fa-eye-slash"></i></span>
-            </button>
+        <div class="student-erp-panels">
+          <div class="student-erp-panel" role="tabpanel" id="profileTabPanel0" aria-labelledby="profileTabBtn0" data-profile-panel="0">
+            <div class="student-erp-grid">
+              <p class="student-erp-section-title">Kimlik</p>
+              <div class="form-group" style="grid-column: 1 / -1;">
+                <label for="profileDisplayName">Ad Soyad</label>
+                <input class="profile-settings-outline-input" type="text" id="profileDisplayName" maxlength="128" autocomplete="name" placeholder="Görünen adınız" />
+              </div>
+              <div class="form-group" style="grid-column: 1 / -1;">
+                <label for="profileEmail">Kullanıcı adı / E-posta</label>
+                <input class="profile-settings-outline-input profile-email-disabled" type="text" id="profileEmail" maxlength="320" autocomplete="username" readonly disabled title="Giriş e-postası burada salt okunur" />
+              </div>
+            </div>
+          </div>
+          <div class="student-erp-panel" role="tabpanel" id="profileTabPanel1" aria-labelledby="profileTabBtn1" data-profile-panel="1" hidden>
+            <div class="student-erp-grid">
+              <p class="student-erp-section-title">Şifre</p>
+              <p class="modal__subtitle" style="grid-column:1/-1;margin:0;font-size:0.82rem;">Şifrenizi değiştirmek için alanları doldurun. Sadece ad veya avatar güncelliyorsanız bu sekmeyi atlayabilirsiniz.</p>
+              <div class="form-group" style="grid-column: 1 / -1;">
+                <label for="profileCurrentPassword">Mevcut şifre</label>
+                <div class="form-pw-wrap">
+                  <input class="form-pw-wrap__input profile-settings-outline-input" type="password" id="profileCurrentPassword" autocomplete="current-password" placeholder="Şifre değişiminde zorunlu" />
+                  <button type="button" class="form-pw-toggle" aria-label="Şifreyi göster" aria-pressed="false">
+                    <span class="form-pw-toggle__icon form-pw-toggle__icon--plain" aria-hidden="true"><i class="fa-solid fa-eye"></i></span>
+                    <span class="form-pw-toggle__icon form-pw-toggle__icon--slashed" hidden aria-hidden="true"><i class="fa-solid fa-eye-slash"></i></span>
+                  </button>
+                </div>
+              </div>
+              <div class="form-group" style="grid-column: 1 / -1;">
+                <label for="profileNewPassword">Yeni şifre</label>
+                <div class="form-pw-wrap">
+                  <input class="form-pw-wrap__input profile-settings-outline-input" type="password" id="profileNewPassword" autocomplete="new-password" minlength="8" placeholder="En az 8 karakter" />
+                  <button type="button" class="form-pw-toggle" aria-label="Şifreyi göster" aria-pressed="false">
+                    <span class="form-pw-toggle__icon form-pw-toggle__icon--plain" aria-hidden="true"><i class="fa-solid fa-eye"></i></span>
+                    <span class="form-pw-toggle__icon form-pw-toggle__icon--slashed" hidden aria-hidden="true"><i class="fa-solid fa-eye-slash"></i></span>
+                  </button>
+                </div>
+              </div>
+              <div class="form-group" style="grid-column: 1 / -1;">
+                <label for="profileNewPassword2">Yeni şifre tekrar</label>
+                <div class="form-pw-wrap">
+                  <input class="form-pw-wrap__input profile-settings-outline-input" type="password" id="profileNewPassword2" autocomplete="new-password" minlength="8" placeholder="Yeni şifreyi tekrar yazın" />
+                  <button type="button" class="form-pw-toggle" aria-label="Şifreyi göster" aria-pressed="false">
+                    <span class="form-pw-toggle__icon form-pw-toggle__icon--plain" aria-hidden="true"><i class="fa-solid fa-eye"></i></span>
+                    <span class="form-pw-toggle__icon form-pw-toggle__icon--slashed" hidden aria-hidden="true"><i class="fa-solid fa-eye-slash"></i></span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="student-erp-panel" role="tabpanel" id="profileTabPanel2" aria-labelledby="profileTabBtn2" data-profile-panel="2" hidden>
+            <div class="student-erp-grid">
+              <p class="student-erp-section-title">Profil fotoğrafı</p>
+              <div class="form-group" style="grid-column: 1 / -1;">
+                <div class="coach-profile-avatar-preview-wrap">
+                  <img id="coachProfileAvatarPreview" class="coach-profile-avatar-preview" src="" alt="Avatar önizleme" width="140" height="140" decoding="async" />
+                </div>
+                <label style="display:block;margin-bottom:0.35rem;font-weight:600;color:#4c1d95;">Yeni fotoğraf</label>
+                <div class="coach-profile-avatar-dropzone" id="coachProfileAvatarDropzone" tabindex="0" role="button" aria-label="Sürükleyip bırakın veya tıklayın">
+                  <p style="margin:0;font-weight:700;color:#4c1d95;font-size:0.9rem;"><i class="fa-solid fa-cloud-arrow-up"></i> Yeni fotoğraf yükle</p>
+                  <p style="margin:0.35rem 0 0;font-size:0.8rem;color:#64748b;">Görseli buraya sürükleyin veya tıklayın (JPEG, PNG, WebP)</p>
+                </div>
+                <input id="coachProfileAvatarFile" type="file" accept="image/*" hidden />
+                <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.75rem;">
+                  <button type="button" class="btn-modal-secondary" id="btnCoachProfileAvatarGallery"><i class="fa-solid fa-border-all"></i> Avatar havuzundan seç</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="form-group">
-          <label for="profileNewPassword">Yeni şifre</label>
-          <div class="form-pw-wrap">
-            <input class="form-pw-wrap__input" type="password" id="profileNewPassword" autocomplete="new-password" minlength="8" placeholder="Değiştirmeyecekseniz boş bırakın" />
-            <button type="button" class="form-pw-toggle" aria-label="Şifreyi göster" aria-pressed="false">
-              <span class="form-pw-toggle__icon form-pw-toggle__icon--plain" aria-hidden="true"><i class="fa-solid fa-eye"></i></span>
-              <span class="form-pw-toggle__icon form-pw-toggle__icon--slashed" hidden aria-hidden="true"><i class="fa-solid fa-eye-slash"></i></span>
-            </button>
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="profileNewPassword2">Yeni şifre (tekrar)</label>
-          <div class="form-pw-wrap">
-            <input class="form-pw-wrap__input" type="password" id="profileNewPassword2" autocomplete="new-password" minlength="8" placeholder="Tekrar" />
-            <button type="button" class="form-pw-toggle" aria-label="Şifreyi göster" aria-pressed="false">
-              <span class="form-pw-toggle__icon form-pw-toggle__icon--plain" aria-hidden="true"><i class="fa-solid fa-eye"></i></span>
-              <span class="form-pw-toggle__icon form-pw-toggle__icon--slashed" hidden aria-hidden="true"><i class="fa-solid fa-eye-slash"></i></span>
-            </button>
-          </div>
-        </div>
-        <p id="profileSettingsMsg" class="form-msg" role="alert" style="display:none;margin-top:0.5rem"></p>
+        <p id="profileSettingsMsg" class="form-msg" role="alert" style="display:none;margin:0.75rem 1.5rem 0.5rem"></p>
       </form>
-      <div class="modal__foot">
+      <div class="modal__foot modal__foot--sticky">
         <button type="button" class="btn-modal-secondary" data-close-modal>İptal</button>
-        <button type="button" class="btn-modal-primary" id="btnProfileSettingsSave"><i class="fa-solid fa-floppy-disk"></i> Kaydet</button>
+        <button type="button" class="btn-modal-primary" id="btnProfileSettingsSave"><i class="fa-solid fa-floppy-disk"></i> Değişiklikleri Kaydet</button>
       </div>
     </div>
 
@@ -6300,6 +6806,6 @@
   <script type="module" src="js/yks-hedef-uni-picker.js"></script>
   <script type="module" src="js/form-password-toggle.js"></script>
   <script type="module" src="js/sorun-bildir.js"></script>
-  <script type="module" src="js/koc-panel.js?v=20260327-hata-karne"></script>
+  <script type="module" src="js/koc-panel.js"></script>
 </body>
 </html>

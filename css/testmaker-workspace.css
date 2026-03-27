@@ -634,6 +634,10 @@
   display: flex; align-items: center; justify-content: center;
   background: rgba(15, 23, 42, 0.45); backdrop-filter: blur(4px);
 }
+/* [hidden] — display:flex üstünde kalmasın; aksi halde sayfa açılışında overlay hep görünür */
+.tm-auto-crop-saving-overlay[hidden] {
+  display: none !important;
+}
 .tm-auto-crop-saving-overlay__box {
   background: #fff; border: 1px solid #e9d5ff; border-radius: 16px;
   padding: 1.35rem 2rem; text-align: center; box-shadow: 0 20px 50px rgba(76, 29, 149, 0.18);

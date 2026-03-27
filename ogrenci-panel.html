@@ -22,6 +22,26 @@
   <link rel="stylesheet" href="css/site-credit.css" />
   <link rel="stylesheet" href="css/derece-interactive-modules.css" />
   <link rel="stylesheet" href="css/sorun-bildir.css" />
+  <style>
+    .osp-dash2-chart-card__canvas { position: relative; }
+    .osp-chart-data-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(250, 245, 255, 0.96);
+      color: #334155;
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-align: center;
+      padding: 1rem;
+      border-radius: 14px;
+      pointer-events: none;
+      z-index: 2;
+      line-height: 1.45;
+    }
+  </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous"></script>
 </head>
 <body class="osp-body has-site-credit">
@@ -304,8 +324,8 @@
         <section class="osp-view" data-osp-view="gelisim" id="ospViewGelisim" hidden>
           <div class="osp-chart-placeholder">
             <i class="fa-solid fa-chart-area fa-2x" style="opacity:0.5;margin-bottom:0.75rem;"></i>
-            <p style="margin:0;color:var(--osp-text);font-weight:600;">Deneme analizi özeti (demo)</p>
-            <p style="margin:0.5rem 0 0;font-size:0.85rem;">Gerçek projede burada TYT/AYT net grafikleri ve konu MR haritası yer alır.</p>
+            <p style="margin:0;color:var(--osp-text);font-weight:600;">Gelişim özeti</p>
+            <p style="margin:0.5rem 0 0;font-size:0.85rem;">Ana sayfadaki grafikler Appwrite’daki deneme kayıtlarınızdan üretilir.</p>
             <div class="osp-stat-inline" id="ospGelisimStats"></div>
           </div>
         </section>
@@ -336,8 +356,8 @@
             </div>
           </div>
           <div class="osp-hedef-hero">
-            <p class="osp-hedef-hero__uni" id="ospHedefUni">Boğaziçi Üniversitesi</p>
-            <p class="osp-hedef-hero__bolum" id="ospHedefBolum">Bilgisayar Mühendisliği — Hedef net</p>
+            <p class="osp-hedef-hero__uni" id="ospHedefUni">—</p>
+            <p class="osp-hedef-hero__bolum" id="ospHedefBolum">Hedef üniversite ve bölüm — Koç panelinden güncellenir</p>
           </div>
           <div class="osp-hedef-chart-wrap osp-hedef-chart-wrap--radar">
             <canvas id="ospHedefRadarCanvas" height="280" width="400" aria-label="Branş netleri radar grafiği"></canvas>
@@ -763,81 +783,32 @@
   "use strict";
 
   var OSP = {
-    studentName: "Mustafa",
-    targetNetGap: 15,
-    weekCompletionPct: 80,
-    lastExamNet: 38.5,
-    totalSolved: 12450,
-    nextTaskId: "task-daily-1",
+    studentName: "Öğrenci",
+    targetNetGap: 0,
+    weekCompletionPct: 0,
+    lastExamNet: null,
+    totalSolved: 0,
+    nextTaskId: "",
     nextTask: {
-      title: "Matematik — Problemler",
-      detail: "50 soru · Bugünün programından",
+      title: "Koçun henüz görev eklemediği görünüyor",
+      detail: "Haftalık plan güncellendiğinde burada görünür.",
       done: false
     },
-    week: [
-      {
-        key: "mon",
-        day: "Pazartesi",
-        date: "17 Mart",
-        tasks: [
-          { id: "task-daily-1", title: "Matematik — Problemler", detail: "50 soru", done: false },
-          { id: "t2", title: "Türkçe — Paragraf", detail: "20 soru", done: true }
-        ]
-      },
-      {
-        key: "tue",
-        day: "Salı",
-        date: "18 Mart",
-        tasks: [
-          { id: "t3", title: "Fizik — Elektrik", detail: "15 soru + konu özeti", done: false }
-        ]
-      },
-      {
-        key: "wed",
-        day: "Çarşamba",
-        date: "19 Mart",
-        tasks: [
-          { id: "t4", title: "Kimya — Organik", detail: "25 soru", done: false },
-          { id: "t5", title: "Geometri — Üçgenler", detail: "40 soru", done: false }
-        ]
-      },
-      {
-        key: "thu",
-        day: "Perşembe",
-        date: "20 Mart",
-        tasks: [{ id: "t6", title: "Biyoloji — Hücre", detail: "30 soru", done: false }]
-      },
-      {
-        key: "fri",
-        day: "Cuma",
-        date: "21 Mart",
-        tasks: [{ id: "t7", title: "TYT deneme", detail: "Genel", done: false }]
-      }
-    ],
-    books: [
-      { id: "b1", name: "345 TYT Matematik", currentPage: 150, totalPages: 456 },
-      { id: "b2", name: "Paragrafın Kitabı", currentPage: 88, totalPages: 220 },
-      { id: "b3", name: "Foton TYT Fizik", currentPage: 42, totalPages: 380 }
-    ],
+    week: [],
+    books: [],
     payment: {
-      totalAgreement: 120000,
-      remaining: 45000,
-      overdueInstallments: 1,
-      overdueText: "1 taksitin vadesi geçti — koçunla iletişime geç.",
-      rows: [
-        { no: 1, due: "01.02.2026", amount: 15000, status: "Ödendi" },
-        { no: 2, due: "01.03.2026", amount: 15000, status: "Ödendi" },
-        { no: 3, due: "01.04.2026", amount: 15000, status: "Bekliyor" },
-        { no: 4, due: "01.05.2026", amount: 15000, status: "Gecikmiş" }
-      ]
+      totalAgreement: 0,
+      remaining: 0,
+      overdueInstallments: 0,
+      overdueText: "",
+      rows: []
     },
-    gelisim: {
-      nets: [32, 33.5, 35, 37, 38.5]
-    },
+    gelisim: { nets: [] },
     targetUniversity: "",
     targetDepartment: "",
     coachCurrentTytNet: null,
-    coachTargetTytNet: null
+    coachTargetTytNet: null,
+    lastFetchedExams: []
   };
 
   window.OSP = OSP;
@@ -1186,11 +1157,31 @@
 
   function renderDashboardHero() {
     var msg = document.getElementById("ospDash2AiMessage");
+    if (!msg) return;
     var name = OSP.studentName || "Öğrenci";
-    var sample =
-      name +
-      ", son denemede Fonksiyonlar konunda düşüş var. Bugün planında 2 Pomodoro Matematik tekrarı ve 1 Telafi Testi bulunuyor. Hemen başla!";
-    if (msg) msg.textContent = sample;
+    var ex = OSP.lastFetchedExams || [];
+    var lastTyt = null;
+    var i;
+    for (i = ex.length - 1; i >= 0; i--) {
+      if (String((ex[i].examType || ex[i].type || ex[i].tur || "").toUpperCase()) === "TYT") {
+        var nn = parseFloat(String(ex[i].net != null ? ex[i].net : "").replace(",", "."));
+        if (!isNaN(nn)) {
+          lastTyt = nn;
+          break;
+        }
+      }
+    }
+    if (lastTyt != null) {
+      msg.textContent =
+        name +
+        ", son kayıtlı TYT deneme netin " +
+        lastTyt +
+        ". Haftalık planındaki görevleri işaretleyerek tempoyu koru.";
+    } else {
+      msg.textContent =
+        name +
+        ", koçunun girdiği deneme ve haftalık plan verileri burada birikecek. Şimdilik hedeflerine odaklan.";
+    }
   }
 
   var ospDash2LineChart = null;
@@ -1211,6 +1202,68 @@
     }
   }
 
+  function ospSetChartOverlay(canvas, show, text) {
+    if (!canvas) return;
+    var wrap = canvas.closest(".osp-dash2-chart-card__canvas");
+    if (!wrap) return;
+    if (window.getComputedStyle(wrap).position === "static") wrap.style.position = "relative";
+    var o = wrap.querySelector(".osp-chart-data-overlay");
+    if (!show) {
+      if (o) o.remove();
+      return;
+    }
+    if (!o) {
+      o = document.createElement("div");
+      o.className = "osp-chart-data-overlay";
+      o.setAttribute("role", "status");
+      wrap.appendChild(o);
+    }
+    o.textContent = text || "Grafik için yeterli veri yok";
+  }
+
+  function ospParseExamNet(v) {
+    if (v == null) return null;
+    var n = parseFloat(String(v).replace(",", "."));
+    return isNaN(n) ? null : n;
+  }
+
+  function ospTyBucket(key) {
+    var k = String(key || "");
+    if (k.indexOf("turkce") === 0 || k === "turkce") return 0;
+    if (k.indexOf("matematik") === 0 || k === "matematik") return 1;
+    if (k.indexOf("fen_") === 0 || k === "fen") return 2;
+    if (k.indexOf("sosyal_") === 0 || k === "sosyal") return 3;
+    return -1;
+  }
+
+  function ospRadarFromBranchDetail(detail) {
+    if (!detail || !detail.rows || typeof detail.rows !== "object") return null;
+    var totals = [0, 0, 0, 0];
+    var counts = [0, 0, 0, 0];
+    Object.keys(detail.rows).forEach(function (key) {
+      var row = detail.rows[key];
+      if (!row || row.soru == null) return;
+      var ix = ospTyBucket(key);
+      if (ix < 0) return;
+      var soru = Number(row.soru) || 0;
+      var d = Number(row.d) || 0;
+      var y = Number(row.y) || 0;
+      if (soru <= 0) return;
+      var net = d - y / 4;
+      var pct = Math.min(100, Math.max(0, Math.round((net / soru) * 100)));
+      totals[ix] += pct;
+      counts[ix]++;
+    });
+    var data = counts.map(function (c, i) {
+      return c ? Math.round(totals[i] / c) : 0;
+    });
+    if (!data.some(function (x) {
+      return x > 0;
+    }))
+      return null;
+    return data;
+  }
+
   function initOspDashboard2Charts() {
     if (typeof Chart === "undefined") return;
     var lineEl = document.getElementById("ospDash2LineCanvas");
@@ -1218,127 +1271,174 @@
     if (!lineEl || !radarEl) return;
 
     destroyOspDashboard2Charts();
+    ospSetChartOverlay(lineEl, false);
+    ospSetChartOverlay(radarEl, false);
 
-    var mockLine = [32.5, 34.2, 35.8, 37.1, 38.6];
-    var ctxL = lineEl.getContext("2d");
-    var wrap = lineEl.closest(".osp-dash2-chart-card__canvas");
-    var gh = wrap && wrap.clientHeight ? wrap.clientHeight : 260;
-    var grad = ctxL.createLinearGradient(0, 0, 0, gh);
-    grad.addColorStop(0, "rgba(124, 58, 237, 0.48)");
-    grad.addColorStop(0.45, "rgba(109, 40, 217, 0.15)");
-    grad.addColorStop(1, "rgba(124, 58, 237, 0)");
+    var exams = OSP.lastFetchedExams || [];
+    var tytPts = [];
+    exams.forEach(function (e) {
+      var tur = String(e.examType || e.type || e.tur || "").toUpperCase();
+      if (tur !== "TYT") return;
+      var n = ospParseExamNet(e.net);
+      if (n == null) return;
+      tytPts.push({
+        label: ((e.date || "").slice(0, 10) || e.examName || "TYT").trim(),
+        net: n,
+      });
+    });
+    if (tytPts.length > 5) tytPts = tytPts.slice(tytPts.length - 5);
+    var lineVals = tytPts.map(function (p) {
+      return p.net;
+    });
+    var lineLabels = tytPts.map(function (p) {
+      return p.label;
+    });
 
     var commonFont = { family: "'Plus Jakarta Sans', 'Inter', system-ui, sans-serif", size: 11 };
 
-    ospDash2LineChart = new Chart(ctxL, {
-      type: "line",
-      data: {
-        labels: ["D-4", "D-3", "D-2", "D-1", "Son"],
-        datasets: [
-          {
-            label: "TYT net",
-            data: mockLine,
-            borderColor: "#7c3aed",
-            backgroundColor: grad,
-            borderWidth: 2.5,
-            tension: 0.42,
-            fill: true,
-            pointBackgroundColor: "#6d28d9",
-            pointBorderColor: "#fff",
-            pointBorderWidth: 2,
-            pointRadius: 5,
-            pointHoverRadius: 7,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: { duration: 900, easing: "easeOutQuart" },
-        interaction: { mode: "index", intersect: false },
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            backgroundColor: "rgba(15, 23, 42, 0.92)",
-            titleFont: commonFont,
-            bodyFont: commonFont,
-            padding: 12,
-            cornerRadius: 12,
-          },
+    if (lineVals.length >= 2) {
+      var ctxL = lineEl.getContext("2d");
+      var wrap = lineEl.closest(".osp-dash2-chart-card__canvas");
+      var gh = wrap && wrap.clientHeight ? wrap.clientHeight : 260;
+      var grad = ctxL.createLinearGradient(0, 0, 0, gh);
+      grad.addColorStop(0, "rgba(124, 58, 237, 0.48)");
+      grad.addColorStop(0.45, "rgba(109, 40, 217, 0.15)");
+      grad.addColorStop(1, "rgba(124, 58, 237, 0)");
+      var tMin = Math.min.apply(null, lineVals);
+      var tMax = Math.max.apply(null, lineVals);
+      ospDash2LineChart = new Chart(ctxL, {
+        type: "line",
+        data: {
+          labels: lineLabels,
+          datasets: [
+            {
+              label: "TYT net",
+              data: lineVals,
+              borderColor: "#7c3aed",
+              backgroundColor: grad,
+              borderWidth: 2.5,
+              tension: 0.42,
+              fill: true,
+              pointBackgroundColor: "#6d28d9",
+              pointBorderColor: "#fff",
+              pointBorderWidth: 2,
+              pointRadius: 5,
+              pointHoverRadius: 7,
+            },
+          ],
         },
-        scales: {
-          y: {
-            beginAtZero: false,
-            suggestedMin: Math.max(0, Math.min.apply(null, mockLine) - 2),
-            suggestedMax: Math.max.apply(null, mockLine) + 2,
-            grid: { color: "rgba(148, 163, 184, 0.2)" },
-            ticks: { font: commonFont, color: "#64748b" },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 900, easing: "easeOutQuart" },
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: "rgba(15, 23, 42, 0.92)",
+              titleFont: commonFont,
+              bodyFont: commonFont,
+              padding: 12,
+              cornerRadius: 12,
+            },
           },
-          x: {
-            grid: { display: false },
-            ticks: { font: commonFont, color: "#64748b" },
-          },
-        },
-      },
-    });
-
-    var mockRadar = [76, 84, 72, 86];
-    ospDash2RadarChart = new Chart(radarEl.getContext("2d"), {
-      type: "radar",
-      data: {
-        labels: ["Matematik", "Türkçe", "Fen", "Sosyal"],
-        datasets: [
-          {
-            label: "Son deneme",
-            data: mockRadar,
-            borderColor: "#7c3aed",
-            backgroundColor: "rgba(124, 58, 237, 0.22)",
-            borderWidth: 2,
-            pointBackgroundColor: "#6d28d9",
-            pointBorderColor: "#fff",
-            pointRadius: 4,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: { duration: 900, easing: "easeOutQuart" },
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            backgroundColor: "rgba(15, 23, 42, 0.92)",
-            bodyFont: commonFont,
-            titleFont: commonFont,
-            padding: 12,
-            cornerRadius: 12,
-            callbacks: {
-              label: function (ctx) {
-                return ctx.label + ": %" + ctx.raw;
-              },
+          scales: {
+            y: {
+              beginAtZero: false,
+              suggestedMin: Math.max(0, tMin - 2),
+              suggestedMax: tMax + 2,
+              grid: { color: "rgba(148, 163, 184, 0.2)" },
+              ticks: { font: commonFont, color: "#64748b" },
+            },
+            x: {
+              grid: { display: false },
+              ticks: { font: commonFont, color: "#64748b" },
             },
           },
         },
-        scales: {
-          r: {
-            min: 0,
-            max: 100,
-            ticks: { stepSize: 20, color: "#94a3b8", backdropColor: "transparent" },
-            grid: { color: "rgba(124, 58, 237, 0.12)" },
-            angleLines: { color: "rgba(124, 58, 237, 0.14)" },
-            pointLabels: { font: commonFont, color: "#475569" },
+      });
+    } else {
+      ospSetChartOverlay(lineEl, true);
+    }
+
+    var radarVals = null;
+    var ri;
+    for (ri = exams.length - 1; ri >= 0; ri--) {
+      radarVals = ospRadarFromBranchDetail(exams[ri].yksBranchDetail);
+      if (radarVals) break;
+    }
+
+    if (radarVals) {
+      ospDash2RadarChart = new Chart(radarEl.getContext("2d"), {
+        type: "radar",
+        data: {
+          labels: ["Türkçe", "Matematik", "Fen", "Sosyal"],
+          datasets: [
+            {
+              label: "Branş başarı %",
+              data: radarVals,
+              borderColor: "#7c3aed",
+              backgroundColor: "rgba(124, 58, 237, 0.22)",
+              borderWidth: 2,
+              pointBackgroundColor: "#6d28d9",
+              pointBorderColor: "#fff",
+              pointRadius: 4,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 900, easing: "easeOutQuart" },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: "rgba(15, 23, 42, 0.92)",
+              bodyFont: commonFont,
+              titleFont: commonFont,
+              padding: 12,
+              cornerRadius: 12,
+              callbacks: {
+                label: function (ctx) {
+                  return ctx.label + ": %" + ctx.raw;
+                },
+              },
+            },
+          },
+          scales: {
+            r: {
+              min: 0,
+              max: 100,
+              ticks: { stepSize: 20, color: "#94a3b8", backdropColor: "transparent" },
+              grid: { color: "rgba(124, 58, 237, 0.12)" },
+              angleLines: { color: "rgba(124, 58, 237, 0.14)" },
+              pointLabels: { font: commonFont, color: "#475569" },
+            },
           },
         },
-      },
-    });
+      });
+    } else {
+      ospSetChartOverlay(radarEl, true);
+    }
   }
 
   OSP.initDashboard2Charts = initOspDashboard2Charts;
+
+  OSP.refreshDashboardAfterExams = function () {
+    renderDashboardHero();
+    var dash = document.getElementById("ospViewDashboard");
+    if (dash && !dash.hidden) initOspDashboard2Charts();
+  };
 
   function renderWeek() {
     var c = document.getElementById("ospWeekContainer");
     if (!c) return;
     c.innerHTML = "";
+    if (!OSP.week || !OSP.week.length) {
+      c.innerHTML =
+        '<p class="osp-zero-hint" style="margin:0;padding:1.25rem;color:var(--osp-muted);text-align:center">Koçunuz haftalık plan paylaştığında günler burada listelenir.</p>';
+      return;
+    }
     OSP.week.forEach(function (day) {
       var card = document.createElement("div");
       card.className = "osp-day-card";
@@ -1384,6 +1484,11 @@
     var c = document.getElementById("ospBookList");
     if (!c) return;
     c.innerHTML = "";
+    if (!OSP.books || !OSP.books.length) {
+      c.innerHTML =
+        '<p class="osp-zero-hint" style="margin:0;padding:1.25rem;color:var(--osp-muted);text-align:center">Atanmış kaynak yok. Koçunuz kitap atadığında burada görünür.</p>';
+      return;
+    }
     OSP.books.forEach(function (book) {
       var pct = Math.min(100, Math.round((book.currentPage / book.totalPages) * 100));
       var card = document.createElement("div");
@@ -1452,9 +1557,7 @@
     });
     if (book) {
       book.currentPage = Math.min(v, book.totalPages);
-      ospToast(
-        "Sayfa bilgisi koça iletildi (demo): " + book.name + " → " + book.currentPage + ". sayfa"
-      );
+      ospToast("Sayfa bilgisi yerelde güncellendi: " + book.name + " → " + book.currentPage + ". sayfa");
       renderBooks();
     }
     closePageModal();
@@ -1483,7 +1586,13 @@
     var tb = document.getElementById("ospPayTableBody");
     if (tb) {
       tb.innerHTML = "";
-      p.rows.forEach(function (r) {
+      if (!p.rows || !p.rows.length) {
+        var tr0 = document.createElement("tr");
+        tr0.innerHTML =
+          '<td colspan="4" style="text-align:center;color:var(--osp-muted);padding:0.85rem">Taksit kaydı yok — veriler koç panelinden yansır.</td>';
+        tb.appendChild(tr0);
+      }
+      (p.rows || []).forEach(function (r) {
         var tr = document.createElement("tr");
         tr.innerHTML =
           "<td>#" +
@@ -1503,15 +1612,21 @@
   function renderGelisim() {
     var el = document.getElementById("ospGelisimStats");
     if (!el) return;
-    var last = OSP.gelisim.nets[OSP.gelisim.nets.length - 1];
-    var first = OSP.gelisim.nets[0];
+    var nets = (OSP.gelisim && OSP.gelisim.nets) || [];
+    if (!nets.length) {
+      el.innerHTML =
+        '<span style="font-size:0.85rem;color:var(--osp-muted)">Deneme kaydı geldikçe özet burada güncellenir.</span>';
+      return;
+    }
+    var last = nets[nets.length - 1];
+    var first = nets[0];
     el.innerHTML =
       '<div class="osp-stat-inline__item"><strong>' +
       last +
       '</strong><span style="font-size:0.78rem;color:var(--osp-muted)">Son TYT net</span></div>' +
       '<div class="osp-stat-inline__item"><strong>+' +
       (last - first).toFixed(1) +
-      '</strong><span style="font-size:0.78rem;color:var(--osp-muted)">Son 5 deneme artış</span></div>';
+      '</strong><span style="font-size:0.78rem;color:var(--osp-muted)">Dönem artışı</span></div>';
   }
 
   function renderOspHedefSimulator() {
