@@ -10,8 +10,6 @@ import {
   netFromDyWithRule,
   clampDy,
 } from "./yks-exam-structure.js";
-import { initExamDefinitionProfessionalUI } from "./exam-definition-module.js";
-import { initOptikAdvancedBindings } from "./optik-advanced-module.js";
 import { yksMufredatDatasi } from "./mufredat-data.js";
 import { YKS2026_Mufredat, yks2026KonuOptionsForDers } from "./yks-mufredat.js";
 import { YKS_CARTOON_AVATAR_MALE, YKS_CARTOON_AVATAR_FEMALE } from "./yks-cartoon-avatars.js";
@@ -85,23 +83,16 @@ import {
 import {
   client,
   storage,
-  databases,
-  APPWRITE_DATABASE_ID,
   APPWRITE_COLLECTION_ATANAN_KAYNAKLAR,
   APPWRITE_BUCKET_DENEME_DEPOSU,
   APPWRITE_COLLECTION_GLOBAL_DENEMELER,
   APPWRITE_BUCKET_AVATARLAR,
 } from "./appwrite-config.js";
-import { Query, ID } from "./appwrite-browser.js";
+import { ID } from "./appwrite-browser.js";
 
-/** Aktif görünüme göre deneme/optik net kuralı (ÖSYM / Y3). */
+/** Aktif görünüme göre deneme net kuralı (ÖSYM / Y3) — TestMaker / genel şablon select. */
 function coachNetFromBranchDy(d, y) {
-  var optikView = document.getElementById("view-optik-okuyucu");
-  var daView = document.getElementById("view-deneme-analiz");
-  var el = null;
-  if (optikView && !optikView.hidden) el = document.getElementById("optikScoringRule");
-  else if (daView && !daView.hidden) el = document.getElementById("daScoringRule");
-  if (!el) el = document.querySelector(".js-yks-scoring-rule");
+  var el = document.querySelector(".js-yks-scoring-rule");
   return netFromDyWithRule(d, y, el && el.value ? el.value : "osym");
 }
 
@@ -718,7 +709,6 @@ var tmAiAppendModalBound = false;
 var kocAiGenStayInPanel = false;
 var danaKarneLastTopics = null;
 var danaTelafiModalBound = false;
-var optikHataTelafiModalBound = false;
 
 /** Test tasarımı: havuz soruları — F5 sonrası geri yükleme (sessionStorage ile uyumlu) */
 var KOC_LS_CURRENT_TEST_QUESTIONS = "koc_currentTestQuestions";
@@ -3342,7 +3332,6 @@ let apptCarouselOffset = 0;
 let randevuChartInstance = null;
 let netBasariChartInstance = null;
 let examTypeFilter = "all";
-let examsPageFilter = "all";
 let searchQuery = "";
 let globalSearchDropdownTimer = null;
 let globalSearchUiInitialized = false;
@@ -4178,20 +4167,8 @@ function handleGlobalSearchResultAction(type, id) {
     return;
   }
   if (type === "exam") {
-    navigateTo("denemeler");
+    navigateTo("dashboard");
     requestAnimationFrame(function () {
-      var ex = cachedExams.find(function (x) {
-        return String(x.id) === cleanId;
-      });
-      var sid = ex ? ex.studentId || ex.student_id || "" : "";
-      sid = String(sid || "").trim();
-      var sel = document.getElementById("daStudentSelect");
-      if (sel && sid && Array.prototype.some.call(sel.options, function (o) { return o.value === sid; })) {
-        sel.value = sid;
-        try {
-          sel.dispatchEvent(new Event("change", { bubbles: true }));
-        } catch (_e) {}
-      }
       openExamModalEdit(cleanId);
     });
     return;
@@ -4299,61 +4276,6 @@ function renderDashboardExams() {
   }).join("");
 }
 
-function renderExamsFullPage() {
-  const tbody = document.getElementById("examsPageBody");
-  if (!tbody) return;
-  const plain = cachedExams.slice().sort(function (a, b) {
-    return examDateSort(b) - examDateSort(a);
-  });
-  let filtered = plain;
-  if (examsPageFilter === "TYT") filtered = plain.filter(function (r) {
-    return (r.examType || r.type || r.tur || "TYT").toUpperCase() === "TYT";
-  });
-  else if (examsPageFilter === "AYT") filtered = plain.filter(function (r) {
-    return (r.examType || r.type || r.tur || "").toUpperCase() === "AYT";
-  });
-  if (filtered.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Deneme kaydı yok.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = filtered
-    .map(function (row) {
-      const ogrenci = row.studentName || row.ogrenciAdi || row.name || "—";
-      const tur = (row.examType || row.type || row.tur || "TYT").toUpperCase();
-      const badgeClass = tur === "TYT" ? "badge-tyt" : "badge-ayt";
-      const net = row.net != null ? String(row.net) : "—";
-      const d = toDate(row.examDate) || toDate(row.date);
-      const tarih = d && !isNaN(d.getTime()) ? d.toLocaleDateString("tr-TR") : "—";
-      const durum = row.status || row.durum || "—";
-      const eid = escapeHtml(row.id);
-      const actions =
-        '<span class="crud-cell">' +
-        '<button type="button" class="btn-crud btn-crud--edit" data-edit-exam="' +
-        eid +
-        '"><i class="fa-solid fa-pen"></i> Düzenle</button>' +
-        '<button type="button" class="btn-crud btn-crud--del" data-del-exam="' +
-        eid +
-        '"><i class="fa-solid fa-trash"></i> Sil</button></span>';
-      return (
-        "<tr><td><strong>" +
-        escapeHtml(ogrenci) +
-        "</strong></td><td><span class=\"" +
-        badgeClass +
-        "\">" +
-        escapeHtml(tur) +
-        "</span></td><td>" +
-        escapeHtml(net) +
-        "</td><td>" +
-        escapeHtml(tarih) +
-        "</td><td>" +
-        escapeHtml(durum) +
-        "</td><td>" +
-        actions +
-        "</td></tr>"
-      );
-    })
-    .join("");
-}
 
 function sumPaymentsForStudent(studentId) {
   return cachedPayments
@@ -5234,95 +5156,6 @@ function karneExamStableKey(e) {
   return tur + "|" + d + "|" + n;
 }
 
-function karneGetFilters() {
-  var st = document.getElementById("karneSelectStudent");
-  var ex = document.getElementById("karneSelectExam");
-  return {
-    studentId: st && st.value ? st.value : "all",
-    examKey: ex && ex.value ? ex.value : "all",
-  };
-}
-
-function karneFilterExamList(list, examKey) {
-  if (!examKey || examKey === "all") return list;
-  return list.filter(function (e) {
-    return karneExamStableKey(e) === examKey;
-  });
-}
-
-function populateKarneStudentSelect() {
-  var sel = document.getElementById("karneSelectStudent");
-  if (!sel) return;
-  var keep = sel.value;
-  sel.innerHTML = '<option value="all">Tüm öğrenciler</option>';
-  cachedStudents.forEach(function (s) {
-    var o = document.createElement("option");
-    o.value = s.id;
-    o.textContent = s.name || s.studentName || "Öğrenci (" + s.id.slice(0, 6) + ")";
-    sel.appendChild(o);
-  });
-  if (keep && Array.prototype.some.call(sel.options, function (opt) {
-    return opt.value === keep;
-  })) {
-    sel.value = keep;
-  }
-}
-
-function populateKarneExamSelect() {
-  var sel = document.getElementById("karneSelectExam");
-  if (!sel) return;
-  var keep = sel.value;
-  var keys = {};
-  cachedExams.forEach(function (e) {
-    var tur = (e.examType || e.type || e.tur || "TYT").toUpperCase();
-    if (tur !== "TYT" && tur !== "AYT") return;
-    var k = karneExamStableKey(e);
-    if (!keys[k]) {
-      keys[k] = {
-        key: k,
-        label: (tur === "AYT" ? "AYT" : "TYT") + " · " + (e.date || "—") + " · " + (e.examName || "Deneme"),
-      };
-    }
-  });
-  var arr = Object.keys(keys).map(function (k) {
-    return keys[k];
-  });
-  arr.sort(function (a, b) {
-    return String(b.key).localeCompare(String(a.key));
-  });
-  sel.innerHTML = '<option value="all">Tüm denemeler</option>';
-  arr.forEach(function (item) {
-    var o = document.createElement("option");
-    o.value = item.key;
-    o.textContent = item.label;
-    sel.appendChild(o);
-  });
-  if (keep && Array.prototype.some.call(sel.options, function (opt) {
-    return opt.value === keep;
-  })) {
-    sel.value = keep;
-  }
-}
-
-function populateKarneSelects() {
-  populateKarneStudentSelect();
-  populateKarneExamSelect();
-}
-
-var karneFiltersBound = false;
-function bindKarneFilters() {
-  if (karneFiltersBound) return;
-  var ss = document.getElementById("karneSelectStudent");
-  var se = document.getElementById("karneSelectExam");
-  if (!ss || !se) return;
-  karneFiltersBound = true;
-  ss.addEventListener("change", function () {
-    renderKarneReport();
-  });
-  se.addEventListener("change", function () {
-    renderKarneReport();
-  });
-}
 
 /** Her deneme anahtarı için öğrenci → sıra (aynı nette aynı sıra) */
 function buildKarnePerExamRankMap() {
@@ -5668,1303 +5501,6 @@ function buildKarneStudentSummaries(opt) {
   return rows;
 }
 
-function karneHtmlMiniBranchTable(title, kind, list) {
-  var h = "";
-  h += '<div class="karne-branch-panel karne-branch-panel--' + kind + '">';
-  h += '<div class="karne-branch-panel__head">' + title + "</div>";
-  if (!list.length) {
-    h += '<p class="karne-branch-panel__empty">Bu türde branş kaydı yok (deneme analizi / optik ile ders bazlı girilmiş deneme yok).</p>';
-  } else {
-    h += '<table class="karne-branch-table">';
-    h += "<thead><tr><th>Ders / alan</th><th>Ort. net</th><th>Deneme #</th><th>Sınıf sırası</th></tr></thead><tbody>";
-    list.forEach(function (b) {
-      h +=
-        "<tr><td>" +
-        escapeHtml(b.label) +
-        "</td><td>" +
-        b.avg.toFixed(2) +
-        "</td><td>" +
-        b.n +
-        "</td><td>" +
-        escapeHtml(b.rankDisp) +
-        "</td></tr>";
-    });
-    h += "</tbody></table>";
-  }
-  h += "</div>";
-  return h;
-}
-
-function karneHtmlExamBranchMini(list, kind) {
-  if (!list.length) return "";
-  var lab = kind === "tyt" ? "TYT dersleri" : "AYT dersleri";
-  var h = '<div class="karne-exam-branches karne-exam-branches--' + kind + '">';
-  h += '<span class="karne-exam-branches__label">' + lab + "</span>";
-  h += "<table class=\"karne-branch-table karne-branch-table--compact\"><thead><tr><th>Ders</th><th>Net</th></tr></thead><tbody>";
-  list.forEach(function (b) {
-    h += "<tr><td>" + escapeHtml(b.label) + "</td><td>" + b.net.toFixed(2) + "</td></tr>";
-  });
-  h += "</tbody></table></div>";
-  return h;
-}
-
-/** yksBranchDetail.rows → D/Y/B tablosu (konu hiyerarşisi şablonda; satır bazlı D/Y ayrı kayıt gerektirir). */
-function karneHtmlDyTableFromDetail(detail) {
-  if (!detail || !detail.rows || typeof detail.rows !== "object") return "";
-  var examMode = String(detail.examMode || "TYT").toUpperCase();
-  var tytMap = karneBuildTytBranchLabelMap();
-  var aytMap = karneBuildAytBranchLabelMap(detail.aytAlan || "sayisal");
-  var h =
-    '<div class="karne-dyb-block"><h5 class="karne-dyb-block__title">Branş bazlı doğru / yanlış / boş</h5>';
-  h += '<table class="karne-branch-table karne-branch-table--dyb"><thead><tr><th>Alan</th><th>D</th><th>Y</th><th>B</th><th>Net</th></tr></thead><tbody>';
-  Object.keys(detail.rows).forEach(function (k) {
-    var row = detail.rows[k];
-    if (!row || row.soru == null) return;
-    var cl = clampDy(row.soru, row.d, row.y);
-    var b = Math.max(0, row.soru - cl.d - cl.y);
-    var lab =
-      examMode === "AYT"
-        ? aytMap[k] || String(k).replace(/^ayt_/, "")
-        : tytMap[k] || k;
-    var nn = netFromDy(cl.d, cl.y);
-    h +=
-      "<tr><td>" +
-      escapeHtml(lab) +
-      "</td><td>" +
-      cl.d +
-      "</td><td>" +
-      cl.y +
-      "</td><td>" +
-      b +
-      "</td><td>" +
-      nn.toFixed(2) +
-      "</td></tr>";
-  });
-  h += "</tbody></table>";
-  h +=
-    '<p class="karne-dyb-block__note">Konu bazlı D/Y/B için deneme şablonu (<code>exam_definitions</code>) ve soru numaralı cevap kaydı kullanılabilir.</p></div>';
-  return h;
-}
-
-function buildKarneBulkExamLeaderboardHtml(filt) {
-  if (!filt || filt.examKey === "all" || filt.studentId !== "all") return "";
-  var examKey = filt.examKey;
-  var rankMap = buildKarnePerExamRankMap();
-  var rows = [];
-  cachedStudents.forEach(function (s) {
-    var exList = examsForStudent(s.id).filter(function (e) {
-      return karneExamStableKey(e) === examKey;
-    });
-    if (!exList.length) return;
-    var e = exList[0];
-    var net = parseTrNum(e.net);
-    if (isNaN(net)) return;
-    var rr = rankMap[examKey] && rankMap[examKey][s.id];
-    var parts = karneExtractBranchesFromYksDetail(e.yksBranchDetail);
-    var sub = [];
-    parts.tyt.forEach(function (b) {
-      sub.push(b.label.slice(0, 10) + " " + b.net.toFixed(1));
-    });
-    parts.ayt.forEach(function (b) {
-      sub.push(b.label.slice(0, 10) + " " + b.net.toFixed(1));
-    });
-    rows.push({
-      name: s.name || s.studentName,
-      net: net,
-      rank: rr ? rr.rank : "—",
-      total: rr ? rr.total : "—",
-      subj: sub.join(" · "),
-    });
-  });
-  rows.sort(function (a, b) {
-    return b.net - a.net;
-  });
-  if (!rows.length) return '<p class="karne-empty">Bu deneme için kayıtlı öğrenci yok.</p>';
-  var h = '<div class="karne-bulk-card"><h3 class="karne-bulk__title">Deneme bazlı toplu liste (kurum içi)</h3>';
-  h +=
-    '<table class="karne-table karne-table--bulk"><thead><tr><th>Sıra</th><th>Öğrenci</th><th>Toplam net</th><th>Sıra (sınıf)</th><th>Ders netleri</th></tr></thead><tbody>';
-  rows.forEach(function (r, idx) {
-    h +=
-      "<tr><td>" +
-      (idx + 1) +
-      "</td><td><strong>" +
-      escapeHtml(r.name) +
-      "</strong></td><td>" +
-      r.net.toFixed(2) +
-      "</td><td>" +
-      escapeHtml(String(r.rank)) +
-      " / " +
-      escapeHtml(String(r.total)) +
-      '</td><td style="font-size:0.78rem;line-height:1.35">' +
-      escapeHtml(r.subj || "—") +
-      "</td></tr>";
-  });
-  h += "</tbody></table></div>";
-  return h;
-}
-
-var karneTrendChartInst = null;
-
-function karneRenderStudentTrendChart(studentId, filt) {
-  var canvas = document.getElementById("karneStudentTrendCanvas");
-  if (!canvas || typeof Chart === "undefined") return;
-  if (karneTrendChartInst) {
-    karneTrendChartInst.destroy();
-    karneTrendChartInst = null;
-  }
-  var rows = buildKarneStudentSummaries({ studentId: studentId, examKey: filt && filt.examKey ? filt.examKey : "all" });
-  if (!rows.length) return;
-  var hist = rows[0].examHistory || [];
-  var pts = hist
-    .filter(function (x) {
-      return x.net != null;
-    })
-    .slice()
-    .sort(function (a, b) {
-      return String(a.date || "").localeCompare(String(b.date || ""));
-    });
-  if (pts.length < 2) return;
-  var labels = pts.map(function (p) {
-    return (p.date || "").slice(0, 10) || p.examName;
-  });
-  var data = pts.map(function (p) {
-    return p.net;
-  });
-  karneTrendChartInst = new Chart(canvas, {
-    type: "line",
-    data: {
-      labels: labels,
-      datasets: [
-        {
-          label: "Toplam net (TYT/AYT satırı)",
-          data: data,
-          borderColor: "#7c3aed",
-          backgroundColor: "rgba(124, 58, 237, 0.12)",
-          tension: 0.35,
-          fill: true,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: true } },
-      scales: {
-        y: { beginAtZero: true },
-      },
-    },
-  });
-}
-
-function karneMountBulkAndTrend(filt) {
-  var bulkEl = document.getElementById("karneBulkExamMount");
-  if (bulkEl) bulkEl.innerHTML = buildKarneBulkExamLeaderboardHtml(filt || karneGetFilters());
-  var trendWrap = document.getElementById("karneStudentTrendMount");
-  var f = filt || karneGetFilters();
-  var one = f.studentId && f.studentId !== "all";
-  if (trendWrap) trendWrap.hidden = !one;
-  if (one) karneRenderStudentTrendChart(f.studentId, f);
-}
-
-function downloadKarneBulkPdf() {
-  var bulk = document.getElementById("karneBulkExamMount");
-  if (!bulk || !bulk.querySelector(".karne-bulk-card")) {
-    showToast("Önce «Karnı yenile» yapın; deneme filtresi «Tümü» olmamalı ve öğrenci «Tüm öğrenciler» seçili olmalı.");
-    return;
-  }
-  var h2p = window.html2pdf;
-  if (typeof h2p !== "function") {
-    showToast("PDF kütüphanesi yüklenemedi.");
-    return;
-  }
-  var wrap = document.createElement("div");
-  wrap.className = "karne-pdf-export-root";
-  wrap.style.cssText =
-    "position:absolute;left:-12000px;top:0;width:900px;opacity:1;background:#fff;padding:16px;color:#0f172a;";
-  wrap.innerHTML = bulk.innerHTML;
-  document.body.appendChild(wrap);
-  var fname = "deneme-toplu-" + new Date().toISOString().slice(0, 10) + ".pdf";
-  h2p()
-    .set({
-      margin: 8,
-      filename: fname,
-      html2canvas: { scale: 1.2, useCORS: true },
-      jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
-    })
-    .from(wrap)
-    .save()
-    .then(function () {
-      if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
-      showToast("Toplu liste PDF indirildi.");
-    })
-    .catch(function () {
-      if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
-      showToast("PDF oluşturulamadı.");
-    });
-}
-
-function buildKarneReportHtml() {
-  var filt = karneGetFilters();
-  var rows = buildKarneStudentSummaries(filt);
-  var stamp = new Date().toLocaleString("tr-TR");
-  var examLabel = "Tüm denemeler";
-  var exSel = document.getElementById("karneSelectExam");
-  if (exSel && exSel.options && exSel.selectedIndex >= 0) {
-    examLabel = exSel.options[exSel.selectedIndex].textContent || examLabel;
-  }
-  var studentLabel = "Tüm öğrenciler";
-  var stSel = document.getElementById("karneSelectStudent");
-  if (stSel && stSel.options && stSel.selectedIndex >= 0) {
-    studentLabel = stSel.options[stSel.selectedIndex].textContent || studentLabel;
-  }
-  var oneStudent = filt.studentId && filt.studentId !== "all";
-  var mainTitle = oneStudent ? "Karne raporu" : "Sınıf karne raporu";
-  if (oneStudent && rows.length) {
-    mainTitle = "Karne — " + rows[0].name;
-  }
-  var h = "";
-  h += '<div class="karne-report karne-report--template">';
-  h += '<div class="karne-report__hero">';
-  h += '<div class="karne-report__hero-inner">';
-  h += '<p class="karne-report__badge">YKS Koçluk</p>';
-  h += "<h2>" + escapeHtml(mainTitle) + "</h2>";
-  h +=
-    '<p class="karne-report__lead">TYT ve AYT ayrı ortalamalar; ders bazlı özetler; seçilen deneme kapsamına göre ortalamalar ve sıralar güncellenir.</p>';
-  h +=
-    '<p class="karne-report__filters"><strong>Filtre:</strong> Öğrenci: ' +
-    escapeHtml(studentLabel) +
-    " · Deneme: " +
-    escapeHtml(examLabel) +
-    "</p>";
-  h += '<p class="karne-report__meta">Oluşturulma: ' + escapeHtml(stamp) + "</p>";
-  h += "</div></div>";
-  if (!rows.length) {
-    h += '<section class="karne-section"><p class="karne-empty karne-empty--big">Seçime uygun öğrenci veya deneme kaydı bulunamadı.</p></section>';
-    h += '<footer class="karne-report__footer">YKS Koçluk · Karne</footer></div>';
-    return h;
-  }
-
-  h += '<section class="karne-section karne-section--summary">';
-  h += "<h3><span class=\"karne-sec-num\">1</span> Genel özet</h3>";
-  h += '<div class="karne-table-wrap">';
-  h += "<table class=\"karne-table karne-table--summary\">";
-  h += "<thead><tr>";
-  h += "<th>Sıra</th><th>Öğrenci</th>";
-  h += '<th colspan="3" class="karne-th-group karne-th-tyt">TYT</th>';
-  h += '<th colspan="3" class="karne-th-group karne-th-ayt">AYT</th>';
-  h += "<th>Toplam ort.</th>";
-  h += "</tr><tr>";
-  h += "<th></th><th></th>";
-  h += "<th>#</th><th>Ort.</th><th>Sıra</th>";
-  h += "<th>#</th><th>Ort.</th><th>Sıra</th>";
-  h += "<th>TYT+AYT</th>";
-  h += "</tr></thead><tbody>";
-  rows.forEach(function (r) {
-    h +=
-      "<tr>" +
-      "<td>" +
-      r.rankOverall +
-      "</td><td><strong>" +
-      escapeHtml(r.name) +
-      "</strong></td>" +
-      "<td>" +
-      r.nTyt +
-      "</td><td>" +
-      r.avgTyt +
-      "</td><td>" +
-      r.rankTytDisp +
-      "</td>" +
-      "<td>" +
-      r.nAyt +
-      "</td><td>" +
-      r.avgAyt +
-      "</td><td>" +
-      r.rankAytDisp +
-      "</td>" +
-      "<td>" +
-      (r.total > 0 ? r.total.toFixed(2) : "—") +
-      "</td></tr>";
-  });
-  h += "</tbody></table></div>";
-  h +=
-    '<p class="karne-footnote">Genel sıra: TYT ve AYT ortalama net toplamına göre. Ders sıraları yalnızca ilgili branşta verisi olan öğrenciler arasında hesaplanır.</p>';
-  h += "</section>";
-
-  h += '<section class="karne-section karne-section--detail">';
-  h +=
-    "<h3><span class=\"karne-sec-num\">2</span> " +
-    (oneStudent ? "Branş özeti ve denemeler" : "Öğrenci kartları — branş ortalamaları ve denemeler") +
-    "</h3>";
-  h +=
-    '<p class="karne-footnote karne-footnote--block">' +
-    (filt.examKey !== "all"
-      ? "Seçilen deneme kapsamındaki kayıtlara göre ortalamalar ve sıralar hesaplanmıştır."
-      : "Her öğrenci için TYT ve AYT panelleri ayrıdır. Branş ortalamaları ders bazlı kayıtlı denemelerden gelir.") +
-    " Aşağıda toplam net ve varsa ders dökümü listelenir.</p>";
-  rows.forEach(function (r) {
-    h += '<article class="karne-student-card">';
-    h += '<div class="karne-student-card__head">';
-    h += "<h4>" + escapeHtml(r.name) + "</h4>";
-    h +=
-      '<p class="karne-student-meta">Genel: ' +
-      r.rankOverall +
-      " · TYT: " +
-      r.rankTytDisp +
-      " · AYT: " +
-      r.rankAytDisp +
-      "</p>";
-    h += "</div>";
-    h += '<div class="karne-student-split">';
-    h += karneHtmlMiniBranchTable("TYT — ders ortalamaları", "tyt", r.tytBranches);
-    h += karneHtmlMiniBranchTable(studentAytTableSectionTitle(r.studentAlanKey || "sayisal"), "ayt", r.aytBranches);
-    h += "</div>";
-    if (!r.examHistory.length) {
-      h += '<p class="karne-empty">Kayıtlı deneme yok.</p>';
-    } else {
-      h += '<div class="karne-table-wrap karne-table-wrap--exam"><table class="karne-table karne-table--exams">';
-      h +=
-        "<thead><tr><th>Tarih</th><th>Deneme</th><th>Tür</th><th>Toplam net</th><th>Deneme sırası (sınıf)</th></tr></thead><tbody>";
-      r.examHistory.forEach(function (ex) {
-        var rankCell =
-          ex.rank !== "" && ex.totalInClass
-            ? escapeHtml(String(ex.rank)) + " / " + escapeHtml(String(ex.totalInClass))
-            : "—";
-        h +=
-          "<tr class=\"karne-exam-row\">" +
-          "<td>" +
-          escapeHtml(ex.date || "—") +
-          "</td><td>" +
-          escapeHtml(ex.examName) +
-          "</td><td><span class=\"karne-tag karne-tag--" +
-          (ex.type === "AYT" ? "ayt" : "tyt") +
-          "\">" +
-          escapeHtml(ex.type) +
-          "</span></td><td><strong>" +
-          escapeHtml(ex.netStr) +
-          "</strong></td><td>" +
-          rankCell +
-          "</td></tr>";
-        if (ex.hasDetail || ex.branchDetail) {
-          h += '<tr class="karne-exam-detail"><td colspan="5">';
-          h += '<div class="karne-exam-detail__box">';
-          h += karneHtmlExamBranchMini(ex.detailTyt, "tyt");
-          h += karneHtmlExamBranchMini(ex.detailAyt, "ayt");
-          h += karneHtmlDyTableFromDetail(ex.branchDetail);
-          h += "</div></td></tr>";
-        }
-      });
-      h += "</tbody></table></div>";
-    }
-    h += "</article>";
-  });
-  h += "</section>";
-
-  h += '<footer class="karne-report__footer">YKS Koçluk · Karne şablonu · TYT / AYT ve ders bazlı özet</footer>';
-  h += "</div>";
-  return h;
-}
-
-function renderKarneReport() {
-  populateKarneSelects();
-  bindKarneFilters();
-  var el = document.getElementById("karnePrintArea");
-  if (el) el.innerHTML = buildKarneReportHtml();
-  refreshKarneKpis();
-  try {
-    karneMountBulkAndTrend(karneGetFilters());
-  } catch (e) {
-    console.warn("[karne bulk/trend]", e);
-  }
-}
-
-function buildKarneTsv() {
-  var rows = buildKarneStudentSummaries(karneGetFilters());
-  var lines = [
-    "#\tÖğrenci\tGenel sıra\tTYT #\tTYT ort\tTYT sıra\tAYT #\tAYT ort\tAYT sıra\tToplam ort",
-  ];
-  rows.forEach(function (r, idx) {
-    lines.push(
-      idx +
-        1 +
-        "\t" +
-        String(r.name).replace(/\t/g, " ") +
-        "\t" +
-        r.rankOverall +
-        "\t" +
-        r.nTyt +
-        "\t" +
-        String(r.avgTyt).replace(/\t/g, "") +
-        "\t" +
-        r.rankTytDisp +
-        "\t" +
-        r.nAyt +
-        "\t" +
-        String(r.avgAyt).replace(/\t/g, "") +
-        "\t" +
-        r.rankAytDisp +
-        "\t" +
-        (r.total > 0 ? r.total.toFixed(2) : "")
-    );
-  });
-  return lines.join("\n");
-}
-
-function downloadKarnePdf() {
-  var source = document.getElementById("karnePrintArea");
-  if (!source || !source.querySelector(".karne-report")) {
-    showToast("Önce raporu oluşturun (filtre seçip «Karnı yenile»).");
-    return;
-  }
-  var h2p = window.html2pdf;
-  if (typeof h2p !== "function") {
-    showToast("PDF kütüphanesi yüklenemedi; sayfayı yenileyin.");
-    return;
-  }
-  var btnPdf = document.getElementById("btnKarnePdf");
-  if (btnPdf) btnPdf.disabled = true;
-  var fname = "karne-yks-" + new Date().toISOString().slice(0, 10) + ".pdf";
-  var wrap = document.createElement("div");
-  wrap.className = "karne-pdf-export-root";
-  wrap.setAttribute("aria-hidden", "true");
-  /* html2canvas düşük opacity'de beyaz sayfa üretir; ekran dışı + opak 1 kullan */
-  wrap.style.cssText =
-    "position:absolute;left:-14000px;top:0;width:1120px;max-width:1120px;min-height:200px;opacity:1;visibility:visible;overflow:visible;background:#ffffff;color:#0f172a;box-sizing:border-box;padding:16px;pointer-events:none;z-index:0;";
-  wrap.innerHTML = source.innerHTML;
-  document.body.appendChild(wrap);
-
-  function karnePdfCleanup() {
-    try {
-      if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
-    } catch (e) {}
-    if (btnPdf) btnPdf.disabled = false;
-  }
-
-  function karneTwoRaf() {
-    return new Promise(function (resolve) {
-      requestAnimationFrame(function () {
-        requestAnimationFrame(resolve);
-      });
-    });
-  }
-
-  (async function karnePdfRun() {
-    try {
-      if (document.fonts && document.fonts.ready) {
-        await document.fonts.ready.catch(function () {});
-      }
-      await tmWaitForImagesDeep(wrap, 8000);
-      await karneTwoRaf();
-      var opt = {
-        margin: [6, 6, 6, 6],
-        filename: fname,
-        image: { type: "jpeg", quality: 0.86 },
-        html2canvas: {
-          scale: 1.4,
-          useCORS: true,
-          allowTaint: true,
-          logging: false,
-          scrollY: 0,
-          scrollX: 0,
-          windowWidth: Math.max(wrap.scrollWidth, 800),
-          windowHeight: Math.max(wrap.scrollHeight, 400),
-        },
-        jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
-        pagebreak: { mode: ["css", "legacy"] },
-      };
-      showToast("PDF hazırlanıyor…");
-      var worker = h2p().set(opt).from(wrap).save();
-      if (worker && typeof worker.then === "function") {
-        await worker;
-      } else {
-        await karneTwoRaf();
-      }
-      showToast("PDF indirildi.");
-    } catch (err) {
-      console.error("[karne-pdf]", err);
-      showToast("PDF oluşturulamadı. Bağlantınızı kontrol edip tekrar deneyin.");
-    } finally {
-      karnePdfCleanup();
-    }
-  })();
-}
-
-function refreshKarneKpis() {
-  var ks = document.getElementById("karneKpiStudents");
-  var ke = document.getElementById("karneKpiExams");
-  if (ks) ks.textContent = String(cachedStudents.length);
-  if (ke) ke.textContent = String(cachedExams.length);
-}
-
-/* --- Optik okuyucu — elle giriş (ders bazlı D/Y) --- */
-var optikManualBound = false;
-var optikManualState = {
-  examMode: "TYT",
-  aytAlan: "sayisal",
-  rows: {},
-};
-
-function optikManualEnsureRow(key, soru) {
-  if (!optikManualState.rows[key]) optikManualState.rows[key] = { d: 0, y: 0, soru: soru };
-  optikManualState.rows[key].soru = soru;
-  return optikManualState.rows[key];
-}
-
-function optikManualSyncRowInput(key, soru) {
-  var r = optikManualEnsureRow(key, soru);
-  var cl = clampDy(soru, r.d, r.y);
-  r.d = cl.d;
-  r.y = cl.y;
-  return r;
-}
-
-function optikManualClearRows() {
-  optikManualState.rows = {};
-}
-
-function optikManualComputeTotals() {
-  var totalNet = 0;
-  var totalD = 0;
-  var totalY = 0;
-  var totalSoru = 0;
-  Object.keys(optikManualState.rows).forEach(function (k) {
-    var r = optikManualState.rows[k];
-    if (!r || !r.soru) return;
-    var cl = clampDy(r.soru, r.d, r.y);
-    r.d = cl.d;
-    r.y = cl.y;
-    totalD += cl.d;
-    totalY += cl.y;
-    totalSoru += r.soru;
-    totalNet += coachNetFromBranchDy(cl.d, cl.y);
-  });
-  var totalB = Math.max(0, totalSoru - totalD - totalY);
-  return { totalNet: totalNet, totalD: totalD, totalY: totalY, totalB: totalB, totalSoru: totalSoru };
-}
-
-function optikManualBranchNetForKey(key) {
-  var r = optikManualState.rows[key];
-  if (!r || !r.soru) return 0;
-  var cl = clampDy(r.soru, r.d, r.y);
-  return coachNetFromBranchDy(cl.d, cl.y);
-}
-
-function optikManualHtmlDyRow(label, rowKey, soru) {
-  optikManualSyncRowInput(rowKey, soru);
-  var r = optikManualState.rows[rowKey];
-  var b = Math.max(0, soru - r.d - r.y);
-  var n = coachNetFromBranchDy(r.d, r.y);
-  return (
-    "<tr><td style=\"text-align:left;font-weight:600\">" +
-    escapeHtml(label) +
-    "</td><td>" +
-    soru +
-    '</td><td><input type="number" min="0" max="' +
-    soru +
-    '" data-optik-key="' +
-    rowKey +
-    '" data-field="d" value="' +
-    r.d +
-    '" /></td><td><input type="number" min="0" max="' +
-    soru +
-    '" data-optik-key="' +
-    rowKey +
-    '" data-field="y" value="' +
-    r.y +
-    '" /></td><td>' +
-    b +
-    "</td><td><strong>" +
-    n.toFixed(2) +
-    "</strong></td></tr>"
-  );
-}
-
-function optikManualUpdateKpi() {
-  var t = optikManualComputeTotals();
-  var netEl = document.getElementById("optikManualKpiNet");
-  var dEl = document.getElementById("optikManualKpiD");
-  var yEl = document.getElementById("optikManualKpiY");
-  var bEl = document.getElementById("optikManualKpiB");
-  if (netEl) netEl.textContent = t.totalSoru ? t.totalNet.toFixed(2) : "—";
-  if (dEl) dEl.textContent = t.totalSoru ? String(t.totalD) : "—";
-  if (yEl) yEl.textContent = t.totalSoru ? String(t.totalY) : "—";
-  if (bEl) bEl.textContent = t.totalSoru ? String(t.totalB) : "—";
-  document.querySelectorAll("#optikManualBranchRoot [data-optik-net-sum]").forEach(function (el) {
-    var keys = el.getAttribute("data-optik-keys");
-    if (!keys) return;
-    var sum = 0;
-    keys.split(",").forEach(function (k) {
-      sum += optikManualBranchNetForKey(k.trim());
-    });
-    el.textContent = sum.toFixed(2) + " net";
-  });
-  try {
-    yksRenderOptikHataKarnesi();
-  } catch (eHk) {
-    console.warn("[hata-karne] optik:", eHk);
-  }
-}
-
-function renderOptikManualBranchRoot() {
-  var root = document.getElementById("optikManualBranchRoot");
-  if (!root) return;
-  var html = "";
-  if (optikManualState.examMode === "TYT") {
-    YKS_TYT_BRANCHES.forEach(function (br) {
-      if (br.alt && br.alt.length) {
-        var keys = br.alt
-          .map(function (a) {
-            return br.id + "_" + a.id;
-          })
-          .join(",");
-        html += '<details class="eds-da__branch" open><summary>' + escapeHtml(br.label);
-        html += ' <span class="eds-da__branch-net" data-optik-net-sum="' + br.id + '" data-optik-keys="' + keys + '"></span>';
-        html += "</summary><table class=\"eds-da__dy-table\"><thead><tr><th>Alan</th><th>S</th><th>D</th><th>Y</th><th>B</th><th>Net</th></tr></thead><tbody>";
-        br.alt.forEach(function (a) {
-          var rk = br.id + "_" + a.id;
-          html += optikManualHtmlDyRow(a.label, rk, a.soru);
-        });
-        html += "</tbody></table></details>";
-      } else {
-        var rowSingle = optikManualHtmlDyRow(br.label, br.id, br.soru);
-        html += '<details class="eds-da__branch" open><summary>' + escapeHtml(br.label);
-        html += ' <span class="eds-da__branch-net">' + optikManualBranchNetForKey(br.id).toFixed(2) + " net</span>";
-        html += "</summary><table class=\"eds-da__dy-table\"><thead><tr><th>Alan</th><th>S</th><th>D</th><th>Y</th><th>B</th><th>Net</th></tr></thead><tbody>";
-        html += rowSingle;
-        html += "</tbody></table></details>";
-      }
-    });
-  } else {
-    var alan = YKS_AYT_BY_ALAN[optikManualState.aytAlan];
-    if (alan) {
-      alan.branches.forEach(function (br) {
-        var rk = "ayt_" + br.id;
-        var rowAyt = optikManualHtmlDyRow(br.label, rk, br.soru);
-        html += '<details class="eds-da__branch" open><summary>' + escapeHtml(br.label);
-        html += ' <span class="eds-da__branch-net">' + optikManualBranchNetForKey(rk).toFixed(2) + " net</span>";
-        html += "</summary><table class=\"eds-da__dy-table\"><thead><tr><th>Alan</th><th>S</th><th>D</th><th>Y</th><th>B</th><th>Net</th></tr></thead><tbody>";
-        html += rowAyt;
-        html += "</tbody></table></details>";
-      });
-    }
-  }
-  root.innerHTML = html;
-  optikManualUpdateKpi();
-}
-
-function optikManualRecomputeFromDom() {
-  document.querySelectorAll("#optikManualBranchRoot [data-optik-key]").forEach(function (inp) {
-    var key = inp.getAttribute("data-optik-key");
-    var field = inp.getAttribute("data-field");
-    var r = optikManualState.rows[key];
-    if (!r) return;
-    var n = parseInt(inp.value, 10);
-    if (field === "d") r.d = isNaN(n) ? 0 : n;
-    if (field === "y") r.y = isNaN(n) ? 0 : n;
-    var cl = clampDy(r.soru, r.d, r.y);
-    r.d = cl.d;
-    r.y = cl.y;
-    inp.value = field === "d" ? cl.d : cl.y;
-  });
-  optikManualUpdateKpi();
-}
-
-function optikManualBuildBranchDetailObject() {
-  return {
-    examMode: optikManualState.examMode,
-    aytAlan: optikManualState.examMode === "AYT" ? optikManualState.aytAlan : null,
-    rows: JSON.parse(JSON.stringify(optikManualState.rows)),
-    weakTopics: [],
-    computed: optikManualComputeTotals(),
-  };
-}
-
-function optikManualBuildSubjectBreakdownText() {
-  var o = optikManualBuildBranchDetailObject();
-  var lines = [];
-  lines.push(o.examMode + (o.examMode === "AYT" ? " · " + o.aytAlan : ""));
-  Object.keys(o.rows).forEach(function (k) {
-    var r = o.rows[k];
-    var cl = clampDy(r.soru, r.d, r.y);
-    lines.push(k + ": D" + cl.d + " Y" + cl.y + " → " + coachNetFromBranchDy(cl.d, cl.y).toFixed(2) + " net");
-  });
-  return lines.join("\n");
-}
-
-function optikManualSetExamMode(mode) {
-  optikManualState.examMode = mode;
-  optikManualClearRows();
-  document.querySelectorAll("[data-optik-manual-exam]").forEach(function (b) {
-    var on = b.getAttribute("data-optik-manual-exam") === mode;
-    b.classList.toggle("is-active", on);
-    b.setAttribute("aria-selected", on ? "true" : "false");
-  });
-  var wrap = document.getElementById("optikManualAytAlanWrap");
-  if (wrap) wrap.hidden = mode !== "AYT";
-  renderOptikManualBranchRoot();
-}
-
-function initOptikManualPage() {
-  fillStudentSelects();
-  var d = document.getElementById("optikManualExamDate");
-  if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
-  var alan = document.getElementById("optikManualAytAlan");
-  if (alan) optikManualState.aytAlan = alan.value || "sayisal";
-  renderOptikManualBranchRoot();
-}
-
-function bindOptikManualForm() {
-  if (optikManualBound) return;
-  var rootPanel = document.getElementById("optikManualBranchPanel");
-  var sel = document.getElementById("optikManualStudent");
-  if (!rootPanel || !sel) return;
-  optikManualBound = true;
-
-  rootPanel.addEventListener(
-    "change",
-    function (e) {
-      var t = e.target;
-      if (!t || !t.getAttribute || !t.getAttribute("data-optik-key")) return;
-      optikManualRecomputeFromDom();
-      renderOptikManualBranchRoot();
-    },
-    true
-  );
-
-  document.querySelectorAll("[data-optik-manual-exam]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      optikManualSetExamMode(btn.getAttribute("data-optik-manual-exam") || "TYT");
-    });
-  });
-
-  var alanSel = document.getElementById("optikManualAytAlan");
-  if (alanSel) {
-    alanSel.addEventListener("change", function () {
-      optikManualState.aytAlan = alanSel.value || "sayisal";
-      optikManualClearRows();
-      renderOptikManualBranchRoot();
-    });
-  }
-
-  document.getElementById("btnOptikManualReset") &&
-    document.getElementById("btnOptikManualReset").addEventListener("click", function () {
-      optikManualClearRows();
-      var t = document.getElementById("optikManualExamName");
-      if (t) t.value = "";
-      var d = document.getElementById("optikManualExamDate");
-      if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
-      var out = document.getElementById("optikManualResult");
-      if (out) out.textContent = "";
-      renderOptikManualBranchRoot();
-      showToast("Form sıfırlandı.");
-    });
-
-  document.getElementById("btnOptikManualSave") &&
-    document.getElementById("btnOptikManualSave").addEventListener("click", async function () {
-      var sid = sel.value;
-      if (!sid) {
-        showToast("Öğrenci seçin.");
-        return;
-      }
-      var st = cachedStudents.find(function (x) {
-        return x.id === sid;
-      });
-      if (!st) {
-        showToast("Öğrenci bulunamadı.");
-        return;
-      }
-      var tot = optikManualComputeTotals();
-      if (!tot.totalSoru) {
-        showToast("Branşlara D/Y girin.");
-        return;
-      }
-      var titleEl = document.getElementById("optikManualExamName");
-      var dateEl = document.getElementById("optikManualExamDate");
-      var examName = (titleEl && titleEl.value.trim()) || "Optik elle giriş";
-      var exD = dateEl && dateEl.value;
-      var examDateTs = exD ? Timestamp.fromDate(new Date(exD)) : null;
-      var examType = optikManualState.examMode;
-      var odef = document.getElementById("optikLinkExamDef");
-      var oid = odef && odef.value ? String(odef.value).trim() : "";
-      var payload = {
-        studentId: sid,
-        studentName: st.name || st.studentName || "",
-        examType: examType,
-        tur: examType,
-        net: String(tot.totalNet.toFixed(2)),
-        examDate: examDateTs,
-        date: exD || "",
-        examName: examName,
-        subjectBreakdown: optikManualBuildSubjectBreakdownText(),
-        status: "Kayıt girildi",
-        coachExamNote: "",
-        yksBranchDetail: optikManualBuildBranchDetailObject(),
-      };
-      if (oid) payload.examDefinitionId = oid;
-      var orule = document.getElementById("optikScoringRule");
-      if (orule && orule.value) payload.scoringRule = orule.value;
-      try {
-        payload.createdAt = serverTimestamp();
-        payload.coach_id = getCoachId();
-        await addDoc(collection(db, "exams"), payload);
-        showToast("Deneme Appwrite veritabanına kaydedildi.");
-        var out = document.getElementById("optikManualResult");
-        if (out) out.textContent = "Kayıt oluşturuldu: " + examName + " — toplam net " + tot.totalNet.toFixed(2);
-        renderExamsFullPage();
-        renderDashboardExams();
-      } catch (err) {
-        console.error(err);
-        alert(err.message || err);
-      }
-    });
-
-  var optRule = document.getElementById("optikScoringRule");
-  if (optRule && !optRule.dataset.karneBound) {
-    optRule.dataset.karneBound = "1";
-    optRule.addEventListener("change", function () {
-      optikManualRecomputeFromDom();
-      renderOptikManualBranchRoot();
-    });
-  }
-}
-
-/* --- Optik toplu içe aktarma — format seçimi --- */
-function optikBulkFirestoreType(mode) {
-  if (mode === "simple") {
-    var s = document.getElementById("optikBulkSimpleExamType");
-    return (s && s.value) || "TYT";
-  }
-  if (mode === "tyt_brans") return "TYT";
-  return "AYT";
-}
-
-function optikBulkAytAlanFromMode(mode) {
-  if (mode === "ayt_sayisal") return "sayisal";
-  if (mode === "ayt_ea") return "esit_agirlik";
-  if (mode === "ayt_sozel") return "sozel";
-  if (mode === "ayt_dil") return "dil";
-  return "sayisal";
-}
-
-function optikBulkBuildYksDetail(mode, nets) {
-  if (mode === "simple") return null;
-  var total = 0;
-  nets.forEach(function (n) {
-    total += n;
-  });
-  if (mode === "tyt_brans") {
-    return {
-      examMode: "TYT",
-      bulkImport: true,
-      bulkMode: "tyt_brans",
-      branchNets: {
-        turkce: nets[0],
-        matematik: nets[1],
-        fen: nets[2],
-        sosyal: nets[3],
-      },
-      computed: { totalNet: total },
-    };
-  }
-  var alan = optikBulkAytAlanFromMode(mode);
-  var def = YKS_AYT_BY_ALAN[alan];
-  if (!def || !def.branches) return { examMode: "AYT", aytAlan: alan, bulkImport: true, computed: { totalNet: total } };
-  var branchNets = {};
-  def.branches.forEach(function (br, i) {
-    if (nets[i] != null && !isNaN(nets[i])) branchNets[br.id] = nets[i];
-  });
-  return {
-    examMode: "AYT",
-    aytAlan: alan,
-    bulkImport: true,
-    bulkMode: mode,
-    branchNets: branchNets,
-    computed: { totalNet: total },
-  };
-}
-
-function optikBulkSubjectLines(mode, detail) {
-  if (!detail || !detail.branchNets) return "";
-  var lines = [];
-  Object.keys(detail.branchNets).forEach(function (k) {
-    lines.push(k + ": " + Number(detail.branchNets[k]).toFixed(2) + " net");
-  });
-  return lines.join("\n");
-}
-
-function optikBulkExpectedColumnCount(mode) {
-  if (mode === "simple") return 2;
-  if (mode === "tyt_brans") return 5;
-  if (mode === "ayt_sayisal" || mode === "ayt_ea") return 5;
-  if (mode === "ayt_sozel") return 8;
-  if (mode === "ayt_dil") return 2;
-  return 2;
-}
-
-function optikBulkParseNets(mode, parts) {
-  var n0 = optikBulkExpectedColumnCount(mode);
-  if (parts.length < n0) return { err: "Beklenen sütun: " + n0 + ", gelen: " + parts.length };
-  var nets = [];
-  var i;
-  if (mode === "simple") {
-    var v = parseTrNum(parts[1]);
-    if (isNaN(v)) return { err: "Net okunamadı" };
-    return { nets: [v] };
-  }
-  for (i = 1; i < n0; i++) {
-    var x = parseTrNum(parts[i]);
-    if (isNaN(x)) return { err: "Sütun " + (i + 1) + " net okunamadı" };
-    nets.push(x);
-  }
-  return { nets: nets };
-}
-
-function optikBulkResolveStudent(key) {
-  return (
-    cachedStudents.find(function (s) {
-      return s.id === key;
-    }) ||
-    cachedStudents.find(function (s) {
-      return normName(s.name || s.studentName) === normName(key);
-    })
-  );
-}
-
-function optikBulkUpdateHint() {
-  var host = document.getElementById("optikBulkHint");
-  var mode = (document.getElementById("optikBulkMode") || {}).value || "simple";
-  var simpleWrap = document.getElementById("optikBulkSimpleExamWrap");
-  var autoP = document.getElementById("optikBulkTypeAuto");
-  if (simpleWrap) simpleWrap.style.display = mode === "simple" ? "" : "none";
-  if (autoP) {
-    autoP.style.display = mode === "simple" ? "none" : "block";
-  }
-  if (!host) return;
-  var h = {
-    simple:
-      "<strong>Tek NET:</strong> Her satır: <code>öğrenciID veya ad soyad</code> + sekme + <code>net</code> (ör. <code>abc123Tab32,5</code>).",
-    tyt_brans:
-      "<strong>TYT 4 branş:</strong> <code>öğrenci</code> + 4 sütun: Türkçe net, Matematik net, Fen net, Sosyal net (ayırıcı tab veya noktalı virgül).",
-    ayt_sayisal:
-      "<strong>AYT Sayısal:</strong> öğrenci + Mat, Fizik, Kimya, Biyo netleri (4 sütun).",
-    ayt_ea: "<strong>AYT EA:</strong> öğrenci + Mat, Edebiyat, Tarih-1, Coğrafya-1 netleri.",
-    ayt_sozel:
-      "<strong>AYT Sözel:</strong> öğrenci + 7 ders neti (sıra: Edebiyat, Tarih-1, Tarih-2, Coğ-1, Coğ-2, Felsefe, Din).",
-    ayt_dil: "<strong>AYT Dil:</strong> öğrenci + YDT neti (tek sütun).",
-  };
-  host.innerHTML = '<p class="eds-da__hint" style="margin:0.5rem 0 0">' + (h[mode] || h.simple) + "</p>";
-}
-
-function initOptikKarneTools() {
-  bindOptikManualForm();
-  initOptikManualPage();
-
-  var modeSel = document.getElementById("optikBulkMode");
-  if (modeSel && !modeSel.dataset.boundHint) {
-    modeSel.dataset.boundHint = "1";
-    modeSel.addEventListener("change", optikBulkUpdateHint);
-    optikBulkUpdateHint();
-  }
-
-  var tabManual = document.getElementById("optikTabManual");
-  var tabBulk = document.getElementById("optikTabBulk");
-  var tabAdv = document.getElementById("optikTabAdvanced");
-  var panelManual = document.getElementById("optikPanelManual");
-  var panelBulk = document.getElementById("optikPanelBulk");
-  var panelAdv = document.getElementById("optikPanelAdvanced");
-  function setOptikMain(which) {
-    if (panelManual) panelManual.hidden = which !== "manual";
-    if (panelBulk) panelBulk.hidden = which !== "bulk";
-    if (panelAdv) panelAdv.hidden = which !== "adv";
-    if (tabManual) {
-      tabManual.classList.toggle("is-active", which === "manual");
-      tabManual.setAttribute("aria-selected", which === "manual" ? "true" : "false");
-    }
-    if (tabBulk) {
-      tabBulk.classList.toggle("is-active", which === "bulk");
-      tabBulk.setAttribute("aria-selected", which === "bulk" ? "true" : "false");
-    }
-    if (tabAdv) {
-      tabAdv.classList.toggle("is-active", which === "adv");
-      tabAdv.setAttribute("aria-selected", which === "adv" ? "true" : "false");
-    }
-    if (which === "manual") initOptikManualPage();
-  }
-  if (tabManual && !tabManual.dataset.bound) {
-    tabManual.dataset.bound = "1";
-    tabManual.addEventListener("click", function () {
-      setOptikMain("manual");
-    });
-  }
-  if (tabBulk && !tabBulk.dataset.bound) {
-    tabBulk.dataset.bound = "1";
-    tabBulk.addEventListener("click", function () {
-      setOptikMain("bulk");
-    });
-  }
-  if (tabAdv && !tabAdv.dataset.bound) {
-    tabAdv.dataset.bound = "1";
-    tabAdv.addEventListener("click", function () {
-      setOptikMain("adv");
-    });
-  }
-
-  try {
-    initOptikAdvancedBindings({ showToast: showToast });
-  } catch (e) {
-    console.warn("[optik_advanced]", e);
-  }
-
-  var dIn = document.getElementById("optikImportExamDate");
-  if (dIn && !dIn.value) dIn.value = new Date().toISOString().slice(0, 10);
-  var btnO = document.getElementById("btnOptikImportRun");
-  if (btnO && !btnO.dataset.bound) {
-    btnO.dataset.bound = "1";
-    btnO.addEventListener("click", async function () {
-      var ta = document.getElementById("optikBulkTextarea");
-      var out = document.getElementById("optikImportResult");
-      var mode = (document.getElementById("optikBulkMode") || {}).value || "simple";
-      var examType = optikBulkFirestoreType(mode);
-      var examName = ((document.getElementById("optikImportExamName") || {}).value || "").trim() || "Toplu optik";
-      var dateStr = ((document.getElementById("optikImportExamDate") || {}).value || "").trim();
-      var examDateTs = dateStr ? Timestamp.fromDate(new Date(dateStr)) : null;
-      if (!ta || !ta.value.trim()) {
-        if (out) out.textContent = "Metin alanı boş.";
-        return;
-      }
-      var lines = ta.value.split(/\r?\n/);
-      var ok = 0;
-      var fail = [];
-      for (var i = 0; i < lines.length; i++) {
-        var line = lines[i].trim();
-        if (!line || line.charAt(0) === "#") continue;
-        var parts = line.split(/\t|;/).map(function (x) {
-          return x.trim();
-        });
-        var need = optikBulkExpectedColumnCount(mode);
-        if (parts.length < need) {
-          fail.push("Satır " + (i + 1) + ": en az " + need + " sütun gerekli");
-          continue;
-        }
-        var key = parts[0];
-        var parsed = optikBulkParseNets(mode, parts);
-        if (parsed.err) {
-          fail.push("Satır " + (i + 1) + ": " + parsed.err);
-          continue;
-        }
-        var stud = optikBulkResolveStudent(key);
-        if (!stud) {
-          fail.push(key + ": eşleşen öğrenci yok");
-          continue;
-        }
-        var detail = optikBulkBuildYksDetail(mode, parsed.nets);
-        var totalNet = 0;
-        parsed.nets.forEach(function (x) {
-          totalNet += x;
-        });
-        var subj =
-          mode === "simple"
-            ? "Optik toplu içe aktarma (tek net)"
-            : "Optik toplu — " + mode + "\n" + optikBulkSubjectLines(mode, detail);
-        try {
-          var row = {
-            studentId: stud.id,
-            studentName: stud.name || stud.studentName || "",
-            examType: examType,
-            tur: examType,
-            net: String(totalNet.toFixed(2)),
-            examDate: examDateTs,
-            date: dateStr || "",
-            examName: examName,
-            subjectBreakdown: subj,
-            status: "Kayıt girildi",
-            coachExamNote: "",
-            createdAt: serverTimestamp(),
-            coach_id: getCoachId(),
-          };
-          if (detail) row.yksBranchDetail = detail;
-          await addDoc(collection(db, "exams"), row);
-          ok++;
-        } catch (err) {
-          fail.push((stud.name || key) + ": " + (err.message || err));
-        }
-      }
-      if (out) {
-        out.textContent =
-          "Tamam: " + ok + " kayıt." + (fail.length ? " Uyarı: " + fail.slice(0, 12).join(" | ") : "");
-      }
-      showToast("Optik aktarım: " + ok + " kayıt.");
-      renderExamsFullPage();
-      renderDashboardExams();
-    });
-  }
-  var btnK = document.getElementById("btnKarneBuild");
-  if (btnK && !btnK.dataset.bound) {
-    btnK.dataset.bound = "1";
-    btnK.addEventListener("click", function () {
-      var el = document.getElementById("karnePrintArea");
-      renderKarneReport();
-      showToast("Karne raporu güncellendi.");
-    });
-  }
-  var btnPdf = document.getElementById("btnKarnePdf");
-  if (btnPdf && !btnPdf.dataset.bound) {
-    btnPdf.dataset.bound = "1";
-    btnPdf.addEventListener("click", function () {
-      downloadKarnePdf();
-    });
-  }
-  var btnBulkPdf = document.getElementById("btnKarneBulkPdf");
-  if (btnBulkPdf && !btnBulkPdf.dataset.bound) {
-    btnBulkPdf.dataset.bound = "1";
-    btnBulkPdf.addEventListener("click", function () {
-      downloadKarneBulkPdf();
-    });
-  }
-  var btnP = document.getElementById("btnKarnePrint");
-  if (btnP && !btnP.dataset.bound) {
-    btnP.dataset.bound = "1";
-    btnP.addEventListener("click", function () {
-      window.print();
-    });
-  }
-  var btnCopy = document.getElementById("btnKarneCopyTsv");
-  if (btnCopy && !btnCopy.dataset.bound) {
-    btnCopy.dataset.bound = "1";
-    btnCopy.addEventListener("click", function () {
-      var tsv = buildKarneTsv();
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(tsv).then(
-          function () {
-            showToast("TSV panoya kopyalandı (Excel’e yapıştırın).");
-          },
-          function () {
-            showToast("Kopyalanamadı.");
-          }
-        );
-      } else {
-        showToast("Panoya kopyalama desteklenmiyor.");
-      }
-    });
-  }
-  var btnClr = document.getElementById("btnOptikClear");
-  if (btnClr && !btnClr.dataset.bound) {
-    btnClr.dataset.bound = "1";
-    btnClr.addEventListener("click", function () {
-      var ta = document.getElementById("optikBulkTextarea");
-      var out = document.getElementById("optikImportResult");
-      if (ta) ta.value = "";
-      if (out) out.textContent = "";
-    });
-  }
-  var btnDemo = document.getElementById("btnOptikDemoFill");
-  if (btnDemo && !btnDemo.dataset.bound) {
-    btnDemo.dataset.bound = "1";
-    btnDemo.addEventListener("click", function () {
-      var ta = document.getElementById("optikBulkTextarea");
-      if (!ta) return;
-      var mode = (document.getElementById("optikBulkMode") || {}).value || "simple";
-      var lines = [];
-      function rnd(a, b) {
-        return a + Math.random() * (b - a);
-      }
-      cachedStudents.slice(0, 3).forEach(function (s) {
-        if (mode === "simple") {
-          lines.push(s.id + "\t" + rnd(70, 88).toFixed(1).replace(".", ","));
-        } else if (mode === "tyt_brans") {
-          lines.push(
-            s.id +
-              "\t" +
-              rnd(32, 38).toFixed(1).replace(".", ",") +
-              "\t" +
-              rnd(28, 36).toFixed(1).replace(".", ",") +
-              "\t" +
-              rnd(12, 18).toFixed(1).replace(".", ",") +
-              "\t" +
-              rnd(14, 19).toFixed(1).replace(".", ",")
-          );
-        } else if (mode === "ayt_sayisal") {
-          lines.push(
-            s.id +
-              "\t" +
-              rnd(30, 38).toFixed(1).replace(".", ",") +
-              "\t" +
-              rnd(8, 13).toFixed(1).replace(".", ",") +
-              "\t" +
-              rnd(8, 12).toFixed(1).replace(".", ",") +
-              "\t" +
-              rnd(8, 12).toFixed(1).replace(".", ",")
-          );
-        } else if (mode === "ayt_ea") {
-          lines.push(
-            s.id +
-              "\t" +
-              rnd(28, 36).toFixed(1).replace(".", ",") +
-              "\t" +
-              rnd(18, 22).toFixed(1).replace(".", ",") +
-              "\t" +
-              rnd(7, 9).toFixed(1).replace(".", ",") +
-              "\t" +
-              rnd(4, 6).toFixed(1).replace(".", ",")
-          );
-        } else if (mode === "ayt_sozel") {
-          lines.push(
-            s.id +
-              "\t" +
-              rnd(18, 22).toFixed(1).replace(".", ",") +
-              "\t" +
-              rnd(8, 10).toFixed(1).replace(".", ",") +
-              "\t" +
-              rnd(8, 10).toFixed(1).replace(".", ",") +
-              "\t" +
-              rnd(4, 5).toFixed(1).replace(".", ",") +
-              "\t" +
-              rnd(8, 10).toFixed(1).replace(".", ",") +
-              "\t" +
-              rnd(8, 10).toFixed(1).replace(".", ",") +
-              "\t" +
-              rnd(4, 5).toFixed(1).replace(".", ",")
-          );
-        } else if (mode === "ayt_dil") {
-          lines.push(s.id + "\t" + rnd(75, 92).toFixed(1).replace(".", ","));
-        }
-      });
-      if (lines.length === 0) {
-        lines.push("# Önce öğrenci ekleyin veya satırı elle düzenleyin");
-      }
-      ta.value = lines.join("\n");
-      showToast("Örnek şablon yazıldı (seçilen formata göre).");
-    });
-  }
-  var csvInp = document.getElementById("optikCsvFile");
-  if (csvInp && !csvInp.dataset.bound) {
-    csvInp.dataset.bound = "1";
-    csvInp.addEventListener("change", function () {
-      var f = csvInp.files && csvInp.files[0];
-      csvInp.value = "";
-      if (!f) return;
-      var reader = new FileReader();
-      reader.onload = function () {
-        var ta = document.getElementById("optikBulkTextarea");
-        if (ta && typeof reader.result === "string") {
-          ta.value = reader.result.replace(/\r\n/g, "\n");
-          showToast("Dosya metin alanına yüklendi.");
-        }
-      };
-      reader.readAsText(f, "UTF-8");
-    });
-  }
-  var btnN = document.getElementById("btnStudentDetailSaveNote");
-  if (btnN && !btnN.dataset.bound) {
-    btnN.dataset.bound = "1";
-    btnN.addEventListener("click", function () {
-      var sid = currentStudentDetailId;
-      var el = document.getElementById("studentDetailCoachNote");
-      if (!sid || !el) return;
-      sdSaveNote(sid, el.value);
-      showToast("Not kaydedildi (tarayıcı).");
-    });
-  }
-}
 
 function renderAppointmentsPage() {
   const row = document.getElementById("appointmentsPageRow");
@@ -7890,11 +6426,8 @@ function onExamsSnap(snap) {
     return { ...d.data(), id: d.id };
   });
   renderDashboardExams();
-  renderExamsFullPage();
   refreshDashboardAnalytics();
   refreshStudentDetailIfOpen();
-  if (currentView === "karne") renderKarneReport();
-  refreshMriIfVisible();
 }
 
 function onStudentsSnap(snap) {
@@ -7919,7 +6452,6 @@ function onStudentsSnap(snap) {
     return;
   }
   refreshStudentDetailIfOpen();
-  if (currentView === "karne") renderKarneReport();
   if (currentView === "kaynak-kitap") refreshKaynakKitapView();
   if (currentView === "kutuphanem") refreshKutuphanemList();
   if (currentView === "haftalik-program") refreshHpView();
@@ -8505,8 +7037,6 @@ function fillStudentSelects() {
     "ap_student",
     "pay_student",
     "ex_student",
-    "daStudentSelect",
-    "optikManualStudent",
     "gorevSelectStudent",
     "gorevFilterStudent",
     "kkStudentSelect",
@@ -8521,8 +7051,6 @@ function fillStudentSelects() {
         : sid === "gorevSelectStudent"
           ? '<option value="">— Opsiyonel (genel ödev) —</option>'
           : sid === "ap_student" ||
-              sid === "daStudentSelect" ||
-              sid === "optikManualStudent" ||
               sid === "kkStudentSelect" || sid === "hpStudentSelect"
             ? '<option value="">— Öğrenci seçin —</option>'
             : '<option value="">— Seçin —</option>';
@@ -8534,32 +7062,6 @@ function fillStudentSelects() {
     });
     if (keep) sel.value = keep;
   });
-}
-
-/* --- Deneme Analizleri: EDS tarzı branş + yerel trend + Appwrite --- */
-var edsDenemeBound = false;
-
-var edsDaState = {
-  examMode: "TYT",
-  aytAlan: "sayisal",
-  rows: {},
-  weakTopics: {},
-};
-
-/** Son çizilen Hata Karnesi satırları (AI telafi): { soruNo, dersKonu, durum, sure }[] */
-var yksHataKarnesiLastList = [];
-
-function yksNormTr(s) {
-  return String(s || "")
-    .toLowerCase()
-    .replace(/ğ/g, "g")
-    .replace(/ü/g, "u")
-    .replace(/ş/g, "s")
-    .replace(/ı/g, "i")
-    .replace(/ö/g, "o")
-    .replace(/ç/g, "c")
-    .replace(/̇/g, "")
-    .replace(/İ/g, "i");
 }
 
 function yksTyTSegmentMeta() {
@@ -8614,722 +7116,6 @@ function yksAytSegmentMeta(aytAlan) {
   return segs;
 }
 
-/**
- * D/Y/B branş toplamlarından soru numaralı hata listesi (MVP: yanlış/boşlar ünite içinde sırayla konuya dağıtılır).
- */
-function yksBuildHataKarnesiList(rowsDict, examMode, aytAlan) {
-  var segs = examMode === "TYT" ? yksTyTSegmentMeta() : yksAytSegmentMeta(aytAlan);
-  var out = [];
-  segs.forEach(function (seg) {
-    var r = rowsDict[seg.key];
-    if (!r) r = { d: 0, y: 0, soru: seg.soru };
-    var cl = clampDy(seg.soru, r.d, r.y);
-    var yN = cl.y;
-    var bN = Math.max(0, seg.soru - cl.d - cl.y);
-    var topicIx = 0;
-    var i;
-    for (i = 0; i < yN; i++) {
-      var topic = seg.konular[topicIx % seg.konular.length];
-      topicIx++;
-      var dk = seg.sub ? seg.ders + " (" + seg.sub + ") > " + topic : seg.ders + " > " + topic;
-      out.push({ soruNo: seg.globalStart + i, dersKonu: dk, durum: "Yanlış", sure: "—" });
-    }
-    for (var j = 0; j < bN; j++) {
-      var topic2 = seg.konular[topicIx % seg.konular.length];
-      topicIx++;
-      var dk2 = seg.sub ? seg.ders + " (" + seg.sub + ") > " + topic2 : seg.ders + " > " + topic2;
-      out.push({ soruNo: seg.globalStart + yN + j, dersKonu: dk2, durum: "Boş", sure: "—" });
-    }
-  });
-  out.sort(function (a, b) {
-    return a.soruNo - b.soruNo;
-  });
-  return out;
-}
-
-/**
- * "Ders > konu" görünen etiketi yksAiCurriculum satırına (exam, subject, topic) yaklaştırır.
- */
-function yksResolveDisplayKonuToAi(dersKonu) {
-  var parts = String(dersKonu)
-    .split(">")
-    .map(function (x) {
-      return x.trim();
-    })
-    .filter(Boolean);
-  var tail = parts.length ? parts[parts.length - 1] : "";
-  var head = parts.length > 1 ? parts[0] : "";
-  var pack = yksNormTr(tail + " " + head);
-  var words = pack.split(/[^a-z0-9]+/i).filter(function (w) {
-    return w.length > 2;
-  });
-  if (!words.length) words = [yksNormTr(tail)];
-  var best = null;
-  var bestScore = 0;
-  ["TYT", "AYT"].forEach(function (ex) {
-    var bag = yksAiCurriculum[ex];
-    if (!bag || typeof bag !== "object") return;
-    Object.keys(bag).forEach(function (subj) {
-      var list = bag[subj];
-      if (!Array.isArray(list)) return;
-      for (var i = 0; i < list.length; i++) {
-        var line = list[i];
-        var ln = yksNormTr(line);
-        var sc = 0;
-        var w;
-        for (w = 0; w < words.length; w++) {
-          if (ln.indexOf(words[w]) !== -1) sc += 14;
-        }
-        if (head && yksNormTr(subj).indexOf(yksNormTr(head).slice(0, 3)) !== -1) sc += 6;
-        if (sc > bestScore) {
-          bestScore = sc;
-          best = { exam: ex, subject: subj, topic: line };
-        }
-      }
-    });
-  });
-  if (best && bestScore >= 20) return best;
-  return null;
-}
-
-function yksRenderHataKarnesiTbody(tbodyId, list) {
-  var tb = document.getElementById(tbodyId);
-  if (!tb) return;
-  if (!list.length) {
-    tb.innerHTML =
-      '<tr><td colspan="4" class="optik-hata-karne__empty">Bu girişte yanlış veya boş soru yok.</td></tr>';
-    return;
-  }
-  tb.innerHTML = list
-    .map(function (row) {
-      var cls = row.durum === "Yanlış" ? "is-wrong" : "is-empty";
-      return (
-        "<tr class=\"" +
-        cls +
-        "\"><td data-label=\"No\">" +
-        row.soruNo +
-        '</td><td data-label="Konu">' +
-        escapeHtml(row.dersKonu) +
-        '</td><td data-label="Durum"><span class="optik-hata-karne__badge">' +
-        escapeHtml(row.durum) +
-        '</span></td><td data-label="Süre">' +
-        escapeHtml(row.sure) +
-        "</td></tr>"
-      );
-    })
-    .join("");
-}
-
-function yksRenderOptikHataKarnesi() {
-  var list = yksBuildHataKarnesiList(optikManualState.rows, optikManualState.examMode, optikManualState.aytAlan);
-  yksHataKarnesiLastList = list;
-  yksRenderHataKarnesiTbody("optikHataKarneTbody", list);
-}
-
-function yksRenderEdsHataKarnesi() {
-  var list = yksBuildHataKarnesiList(edsDaState.rows, edsDaState.examMode, edsDaState.aytAlan);
-  yksHataKarnesiLastList = list;
-  yksRenderHataKarnesiTbody("edsHataKarneTbody", list);
-}
-
-function daGetSeries(studentId) {
-  if (!studentId) return [];
-  var ex = examsForStudent(studentId)
-    .filter(function (e) {
-      var tur = (e.examType || e.type || e.tur || "").toUpperCase();
-      return tur === "TYT" || tur === "AYT";
-    })
-    .sort(function (a, b) {
-      return String(a.date || "").localeCompare(String(b.date || ""));
-    });
-  return ex.map(function (e) {
-    var tur = (e.examType || e.type || e.tur || "TYT").toUpperCase();
-    var net = parseTrNum(e.net);
-    return {
-      label:
-        ((e.date || "").slice(0, 10) || e.examName || "Deneme").trim() || "Kayıt",
-      tyt: tur === "TYT" && !isNaN(net) ? net : null,
-      ayt: tur === "AYT" && !isNaN(net) ? net : null,
-    };
-  });
-}
-
-function edsEnsureRow(key, soru) {
-  if (!edsDaState.rows[key]) edsDaState.rows[key] = { d: 0, y: 0, soru: soru };
-  edsDaState.rows[key].soru = soru;
-  return edsDaState.rows[key];
-}
-
-function edsSyncRowInput(key, soru) {
-  var r = edsEnsureRow(key, soru);
-  var cl = clampDy(soru, r.d, r.y);
-  r.d = cl.d;
-  r.y = cl.y;
-  return r;
-}
-
-function edsClearRows() {
-  edsDaState.rows = {};
-  edsDaState.weakTopics = {};
-}
-
-function denemeAnalizChartBaseOptions() {
-  return {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: { mode: "index", intersect: false },
-    plugins: {
-      legend: {
-        position: "top",
-        labels: {
-          color: "#334155",
-          font: { size: 12, weight: "600" },
-          usePointStyle: true,
-          padding: 14,
-        },
-      },
-      tooltip: {
-        backgroundColor: "rgba(15, 23, 42, 0.94)",
-        titleColor: "#f8fafc",
-        bodyColor: "#e2e8f0",
-        borderColor: "rgba(37, 99, 235, 0.45)",
-        borderWidth: 1,
-        padding: 12,
-      },
-    },
-    scales: {
-      x: {
-        ticks: { color: "#64748b", maxRotation: 45, minRotation: 0 },
-        grid: { color: "rgba(148, 163, 184, 0.2)" },
-      },
-      y: {
-        beginAtZero: true,
-        ticks: { color: "#64748b" },
-        grid: { color: "rgba(148, 163, 184, 0.15)" },
-      },
-    },
-  };
-}
-
-function edsComputeTotals() {
-  var totalNet = 0;
-  var totalD = 0;
-  var totalY = 0;
-  var totalSoru = 0;
-  Object.keys(edsDaState.rows).forEach(function (k) {
-    var r = edsDaState.rows[k];
-    if (!r || !r.soru) return;
-    var cl = clampDy(r.soru, r.d, r.y);
-    r.d = cl.d;
-    r.y = cl.y;
-    var b = Math.max(0, r.soru - cl.d - cl.y);
-    totalD += cl.d;
-    totalY += cl.y;
-    totalSoru += r.soru;
-    totalNet += coachNetFromBranchDy(cl.d, cl.y);
-  });
-  var totalB = Math.max(0, totalSoru - totalD - totalY);
-  return { totalNet: totalNet, totalD: totalD, totalY: totalY, totalB: totalB, totalSoru: totalSoru };
-}
-
-function edsBranchNetForKey(key) {
-  var r = edsDaState.rows[key];
-  if (!r || !r.soru) return 0;
-  var cl = clampDy(r.soru, r.d, r.y);
-  return coachNetFromBranchDy(cl.d, cl.y);
-}
-
-function edsTytRadarArrays() {
-  var tNet = edsBranchNetForKey("turkce");
-  var mNet = edsBranchNetForKey("matematik");
-  var fenNet = edsBranchNetForKey("fen_fizik") + edsBranchNetForKey("fen_kimya") + edsBranchNetForKey("fen_biyo");
-  var sosNet =
-    edsBranchNetForKey("sosyal_tarih") +
-    edsBranchNetForKey("sosyal_cografya") +
-    edsBranchNetForKey("sosyal_felsefe") +
-    edsBranchNetForKey("sosyal_din");
-  return {
-    labels: ["Türkçe", "Matematik", "Fen", "Sosyal"],
-    data: [tNet, mNet, fenNet, sosNet],
-  };
-}
-
-function edsAytRadarArrays() {
-  var alan = YKS_AYT_BY_ALAN[edsDaState.aytAlan];
-  if (!alan) return { labels: [], data: [] };
-  var labels = [];
-  var data = [];
-  alan.branches.forEach(function (br) {
-    labels.push(br.label);
-    data.push(edsBranchNetForKey("ayt_" + br.id));
-  });
-  return { labels: labels, data: data };
-}
-
-function renderDenemeAnalizChart() {
-  var canvas = document.getElementById("denemeAnalizChart");
-  if (!canvas || typeof Chart === "undefined") return;
-  var existing = Chart.getChart(canvas);
-  if (existing) existing.destroy();
-  dpSetCanvasChartOverlay(canvas, false);
-  var sel = document.getElementById("daStudentSelect");
-  var sid = sel && sel.value;
-  var series = daGetSeries(sid);
-  var hasTyt = series.some(function (p) {
-    return p.tyt != null && p.tyt !== "" && !isNaN(Number(p.tyt));
-  });
-  var hasAyt = series.some(function (p) {
-    return p.ayt != null && p.ayt !== "" && !isNaN(Number(p.ayt));
-  });
-  if (!series.length || (!hasTyt && !hasAyt)) {
-    dpSetCanvasChartOverlay(canvas, true);
-    return;
-  }
-  var labels = series.map(function (p) {
-    return (p.label && String(p.label).trim()) || "Kayıt";
-  });
-  var tytData = series.map(function (p) {
-    return p.tyt != null && p.tyt !== "" ? Number(p.tyt) : null;
-  });
-  var aytData = series.map(function (p) {
-    return p.ayt != null && p.ayt !== "" ? Number(p.ayt) : null;
-  });
-  new Chart(canvas, {
-    type: "line",
-    data: {
-      labels: labels,
-      datasets: [
-        {
-          label: "TYT toplam net",
-          data: tytData,
-          borderColor: "#2563eb",
-          backgroundColor: "rgba(37, 99, 235, 0.12)",
-          borderWidth: 2.5,
-          tension: 0.35,
-          fill: true,
-          spanGaps: false,
-          pointRadius: 4,
-        },
-        {
-          label: "AYT toplam net",
-          data: aytData,
-          borderColor: "#0d9488",
-          backgroundColor: "rgba(13, 148, 136, 0.1)",
-          borderWidth: 2.5,
-          tension: 0.35,
-          fill: true,
-          spanGaps: false,
-          pointRadius: 4,
-        },
-      ],
-    },
-    options: denemeAnalizChartBaseOptions(),
-  });
-}
-
-function renderDenemeRadarChart() {
-  var canvas = document.getElementById("denemeRadarChart");
-  if (!canvas || typeof Chart === "undefined") return;
-  var existing = Chart.getChart(canvas);
-  if (existing) existing.destroy();
-  var pack = edsDaState.examMode === "TYT" ? edsTytRadarArrays() : edsAytRadarArrays();
-  var maxV = 0;
-  pack.data.forEach(function (v) {
-    if (v > maxV) maxV = v;
-  });
-  var sugMax = Math.max(10, Math.ceil(maxV / 5) * 5 + 5);
-  new Chart(canvas, {
-    type: "radar",
-    data: {
-      labels: pack.labels,
-      datasets: [
-        {
-          label: "Branş net",
-          data: pack.data,
-          borderColor: "#1e40af",
-          backgroundColor: "rgba(30, 64, 175, 0.22)",
-          borderWidth: 2,
-          pointBackgroundColor: "#2563eb",
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: {
-        r: {
-          min: 0,
-          max: sugMax,
-          ticks: { color: "#64748b", backdropColor: "transparent" },
-          grid: { color: "rgba(148, 163, 184, 0.25)" },
-          pointLabels: { color: "#334155", font: { size: 11 } },
-        },
-      },
-      plugins: {
-        legend: { display: false },
-      },
-    },
-  });
-}
-
-function edsUpdateKpi() {
-  var t = edsComputeTotals();
-  var netEl = document.getElementById("edsDaKpiNet");
-  var dEl = document.getElementById("edsDaKpiD");
-  var yEl = document.getElementById("edsDaKpiY");
-  var bEl = document.getElementById("edsDaKpiB");
-  var rateEl = document.getElementById("edsDaKpiRate");
-  if (netEl) netEl.textContent = t.totalSoru ? t.totalNet.toFixed(2) : "—";
-  if (dEl) dEl.textContent = t.totalSoru ? String(t.totalD) : "—";
-  if (yEl) yEl.textContent = t.totalSoru ? String(t.totalY) : "—";
-  if (bEl) bEl.textContent = t.totalSoru ? String(t.totalB) : "—";
-  if (rateEl) {
-    rateEl.textContent =
-      t.totalSoru > 0 ? "Net / soru: " + (t.totalNet / t.totalSoru).toFixed(3) : "Net / soru üstünden";
-  }
-  document.querySelectorAll("[data-eds-net-sum]").forEach(function (el) {
-    var id = el.getAttribute("data-eds-net-sum");
-    if (!id) return;
-    var sum = 0;
-    el.getAttribute("data-eds-keys").split(",").forEach(function (k) {
-      sum += edsBranchNetForKey(k.trim());
-    });
-    el.textContent = sum.toFixed(2) + " net";
-  });
-  yksRenderEdsHataKarnesi();
-}
-
-function edsHtmlDyRow(label, rowKey, soru) {
-  edsSyncRowInput(rowKey, soru);
-  var r = edsDaState.rows[rowKey];
-  var b = Math.max(0, soru - r.d - r.y);
-  var n = coachNetFromBranchDy(r.d, r.y);
-  return (
-    "<tr><td style=\"text-align:left;font-weight:600\">" +
-    escapeHtml(label) +
-    "</td><td>" +
-    soru +
-    '</td><td><input type="number" min="0" max="' +
-    soru +
-    '" data-eds-key="' +
-    rowKey +
-    '" data-field="d" value="' +
-    r.d +
-    '" /></td><td><input type="number" min="0" max="' +
-    soru +
-    '" data-eds-key="' +
-    rowKey +
-    '" data-field="y" value="' +
-    r.y +
-    '" /></td><td>' +
-    b +
-    "</td><td><strong>" +
-    n.toFixed(2) +
-    "</strong></td></tr>"
-  );
-}
-
-function renderEdsBranchRoot() {
-  var root = document.getElementById("edsDaBranchRoot");
-  if (!root) return;
-  var html = "";
-  if (edsDaState.examMode === "TYT") {
-    YKS_TYT_BRANCHES.forEach(function (br) {
-      if (br.alt && br.alt.length) {
-        var keys = br.alt
-          .map(function (a) {
-            return br.id + "_" + a.id;
-          })
-          .join(",");
-        html += '<details class="eds-da__branch" open><summary>' + escapeHtml(br.label);
-        html += ' <span class="eds-da__branch-net" data-eds-net-sum="' + br.id + '" data-eds-keys="' + keys + '"></span>';
-        html += "</summary><table class=\"eds-da__dy-table\"><thead><tr><th>Alan</th><th>S</th><th>D</th><th>Y</th><th>B</th><th>Net</th></tr></thead><tbody>";
-        br.alt.forEach(function (a) {
-          var rk = br.id + "_" + a.id;
-          html += edsHtmlDyRow(a.label, rk, a.soru);
-        });
-        html += "</tbody></table></details>";
-      } else {
-        var rowSingle = edsHtmlDyRow(br.label, br.id, br.soru);
-        html += '<details class="eds-da__branch" open><summary>' + escapeHtml(br.label);
-        html += ' <span class="eds-da__branch-net">' + edsBranchNetForKey(br.id).toFixed(2) + " net</span>";
-        html += "</summary><table class=\"eds-da__dy-table\"><thead><tr><th>Alan</th><th>S</th><th>D</th><th>Y</th><th>B</th><th>Net</th></tr></thead><tbody>";
-        html += rowSingle;
-        html += "</tbody></table></details>";
-      }
-    });
-  } else {
-    var alan = YKS_AYT_BY_ALAN[edsDaState.aytAlan];
-    if (alan) {
-      alan.branches.forEach(function (br) {
-        var rk = "ayt_" + br.id;
-        var rowAyt = edsHtmlDyRow(br.label, rk, br.soru);
-        html += '<details class="eds-da__branch" open><summary>' + escapeHtml(br.label);
-        html += ' <span class="eds-da__branch-net">' + edsBranchNetForKey(rk).toFixed(2) + " net</span>";
-        html += "</summary><table class=\"eds-da__dy-table\"><thead><tr><th>Alan</th><th>S</th><th>D</th><th>Y</th><th>B</th><th>Net</th></tr></thead><tbody>";
-        html += rowAyt;
-        html += "</tbody></table></details>";
-      });
-    }
-  }
-  root.innerHTML = html;
-  edsUpdateKpi();
-  renderDenemeRadarChart();
-}
-
-function edsCollectTopicList() {
-  var list = [];
-  if (edsDaState.examMode === "TYT") {
-    YKS_TYT_BRANCHES.forEach(function (br) {
-      (br.konular || []).forEach(function (k) {
-        if (list.indexOf(k) === -1) list.push(k);
-      });
-    });
-  } else {
-    var alan = YKS_AYT_BY_ALAN[edsDaState.aytAlan];
-    if (alan) {
-      alan.branches.forEach(function (br) {
-        (br.konular || []).forEach(function (k) {
-          if (list.indexOf(k) === -1) list.push(k);
-        });
-      });
-    }
-  }
-  return list.sort();
-}
-
-function renderEdsTopicChips() {
-  var host = document.getElementById("edsDaTopicTags");
-  if (!host) return;
-  var topics = edsCollectTopicList();
-  host.innerHTML = topics
-    .map(function (t) {
-      var on = edsDaState.weakTopics[t] ? " is-on" : "";
-      return (
-        '<button type="button" class="eds-da__topic-chip' +
-        on +
-        '" data-topic="' +
-        escapeHtml(t) +
-        '">' +
-        escapeHtml(t) +
-        "</button>"
-      );
-    })
-    .join("");
-}
-
-function edsRecomputeFromDom() {
-  document.querySelectorAll("#edsDaBranchRoot [data-eds-key]").forEach(function (inp) {
-    var key = inp.getAttribute("data-eds-key");
-    var field = inp.getAttribute("data-field");
-    var r = edsDaState.rows[key];
-    if (!r) return;
-    var n = parseInt(inp.value, 10);
-    if (field === "d") r.d = isNaN(n) ? 0 : n;
-    if (field === "y") r.y = isNaN(n) ? 0 : n;
-    var cl = clampDy(r.soru, r.d, r.y);
-    r.d = cl.d;
-    r.y = cl.y;
-    inp.value = field === "d" ? cl.d : cl.y;
-  });
-  edsUpdateKpi();
-  renderDenemeRadarChart();
-}
-
-function edsInitDefaultDate() {
-  var d = document.getElementById("daExamDate");
-  if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
-}
-
-function edsBuildBranchDetailObject() {
-  var weak = [];
-  Object.keys(edsDaState.weakTopics).forEach(function (k) {
-    if (edsDaState.weakTopics[k]) weak.push(k);
-  });
-  return {
-    examMode: edsDaState.examMode,
-    aytAlan: edsDaState.aytAlan,
-    rows: JSON.parse(JSON.stringify(edsDaState.rows)),
-    weakTopics: weak,
-    computed: edsComputeTotals(),
-  };
-}
-
-function edsBuildSubjectBreakdownText() {
-  var o = edsBuildBranchDetailObject();
-  var lines = [];
-  lines.push(o.examMode + (o.examMode === "AYT" ? " · " + o.aytAlan : ""));
-  Object.keys(o.rows).forEach(function (k) {
-    var r = o.rows[k];
-    var cl = clampDy(r.soru, r.d, r.y);
-    lines.push(k + ": D" + cl.d + " Y" + cl.y + " → " + coachNetFromBranchDy(cl.d, cl.y).toFixed(2) + " net");
-  });
-  if (o.weakTopics.length) lines.push("İşaretlenen konular: " + o.weakTopics.join(", "));
-  return lines.join("\n");
-}
-
-function initDenemeAnalizPage() {
-  fillStudentSelects();
-  edsInitDefaultDate();
-  var alan = document.getElementById("daAytAlan");
-  if (alan) alan.value = edsDaState.aytAlan;
-  renderEdsBranchRoot();
-  renderEdsTopicChips();
-  renderDenemeAnalizChart();
-  try {
-    initExamDefinitionProfessionalUI({
-      getCoachId: getCoachId,
-      showToast: showToast,
-      onListChanged: function () {},
-    });
-  } catch (e) {
-    console.warn("[exam_definition_ui]", e);
-  }
-}
-
-function bindDenemeAnalizForm() {
-  if (edsDenemeBound) return;
-  var root = document.getElementById("edsDaBranchRoot");
-  var sel = document.getElementById("daStudentSelect");
-  if (!root || !sel) return;
-  edsDenemeBound = true;
-
-  document.getElementById("edsDaBranchPanel") &&
-    document.getElementById("edsDaBranchPanel").addEventListener(
-      "change",
-      function (e) {
-        var t = e.target;
-        if (!t || !t.getAttribute || !t.getAttribute("data-eds-key")) return;
-        edsRecomputeFromDom();
-        renderEdsBranchRoot();
-      },
-      true
-    );
-
-  document.getElementById("edsDaTopicTags") &&
-    document.getElementById("edsDaTopicTags").addEventListener("click", function (e) {
-      var btn = e.target.closest(".eds-da__topic-chip");
-      if (!btn) return;
-      var topic = btn.getAttribute("data-topic");
-      if (!topic) return;
-      edsDaState.weakTopics[topic] = !edsDaState.weakTopics[topic];
-      btn.classList.toggle("is-on", edsDaState.weakTopics[topic]);
-    });
-
-  function setExamMode(mode) {
-    edsDaState.examMode = mode;
-    edsClearRows();
-    document.querySelectorAll("[data-da-exam]").forEach(function (b) {
-      var on = b.getAttribute("data-da-exam") === mode;
-      b.classList.toggle("is-active", on);
-      b.setAttribute("aria-selected", on ? "true" : "false");
-    });
-    var wrap = document.getElementById("daAytAlanWrap");
-    if (wrap) wrap.hidden = mode !== "AYT";
-    renderEdsBranchRoot();
-    renderEdsTopicChips();
-  }
-
-  document.querySelectorAll("[data-da-exam]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      setExamMode(btn.getAttribute("data-da-exam") || "TYT");
-    });
-  });
-
-  var alanSel = document.getElementById("daAytAlan");
-  if (alanSel) {
-    alanSel.addEventListener("change", function () {
-      edsDaState.aytAlan = alanSel.value || "sayisal";
-      edsClearRows();
-      renderEdsBranchRoot();
-      renderEdsTopicChips();
-    });
-  }
-
-  document.getElementById("btnDaResetForm") &&
-    document.getElementById("btnDaResetForm").addEventListener("click", function () {
-      edsClearRows();
-      var t = document.getElementById("daExamTitle");
-      if (t) t.value = "";
-      edsInitDefaultDate();
-      renderEdsBranchRoot();
-      renderEdsTopicChips();
-      showToast("Form sıfırlandı.");
-    });
-
-  document.getElementById("btnDaSaveFirestore") &&
-    document.getElementById("btnDaSaveFirestore").addEventListener("click", async function () {
-      var sid = sel.value;
-      if (!sid) {
-        showToast("Öğrenci seçin.");
-        return;
-      }
-      var st = cachedStudents.find(function (x) {
-        return x.id === sid;
-      });
-      if (!st) {
-        showToast("Öğrenci bulunamadı.");
-        return;
-      }
-      var tot = edsComputeTotals();
-      if (!tot.totalSoru) {
-        showToast("Branş verisi girilmedi.");
-        return;
-      }
-      var titleEl = document.getElementById("daExamTitle");
-      var dateEl = document.getElementById("daExamDate");
-      var examName = (titleEl && titleEl.value.trim()) || "Deneme analizi";
-      var exD = dateEl && dateEl.value;
-      var examDateTs = exD ? Timestamp.fromDate(new Date(exD)) : null;
-      var examType = edsDaState.examMode;
-      var defSel = document.getElementById("daLinkExamDef");
-      var defId = defSel && defSel.value ? String(defSel.value).trim() : "";
-      var payload = {
-        studentId: sid,
-        studentName: st.name || st.studentName || "",
-        examType: examType,
-        tur: examType,
-        net: String(tot.totalNet.toFixed(2)),
-        examDate: examDateTs,
-        date: exD || "",
-        examName: examName,
-        subjectBreakdown: edsBuildSubjectBreakdownText(),
-        status: "Analiz tamamlandı",
-        coachExamNote: "",
-        yksBranchDetail: edsBuildBranchDetailObject(),
-      };
-      if (defId) payload.examDefinitionId = defId;
-      var daRule = document.getElementById("daScoringRule");
-      if (daRule && daRule.value) payload.scoringRule = daRule.value;
-      try {
-        payload.createdAt = serverTimestamp();
-        payload.coach_id = getCoachId();
-        await addDoc(collection(db, "exams"), payload);
-        showToast("Deneme Appwrite veritabanına kaydedildi.");
-        renderExamsFullPage();
-        renderDashboardExams();
-        renderDenemeAnalizChart();
-      } catch (err) {
-        console.error(err);
-        alert(err.message || err);
-      }
-    });
-
-  sel.addEventListener("change", function () {
-    renderDenemeAnalizChart();
-    renderDenemeRadarChart();
-  });
-
-  var daRule = document.getElementById("daScoringRule");
-  if (daRule && !daRule.dataset.karneBound) {
-    daRule.dataset.karneBound = "1";
-    daRule.addEventListener("change", function () {
-      edsRecomputeFromDom();
-      renderEdsBranchRoot();
-      edsUpdateKpi();
-    });
-  }
-}
 
 /* --- Haftalık program + mockTasks (Görev Takibi ile senkron) --- */
 var mockTasks = [];
@@ -9520,7 +7306,6 @@ async function saveOgrenciVerisiBridge(opts) {
         nextTask: payload.nextTask,
         gorevSnapshot: payload.gorevSnapshot,
         taskDoneMap: prevDone,
-        updatedAt: serverTimestamp(),
         coachId: cid || null,
       },
       { merge: true }
@@ -9738,7 +7523,6 @@ async function migrateLocalGorevTasksToFirestoreOnce() {
           subject: t.subject,
           column: col,
           createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
         });
       }
     }
@@ -9903,7 +7687,7 @@ function moveGorevKanbanTask(taskId, toCol) {
     return;
   }
   var fireCol = toCol === "late" ? "late" : toCol;
-  updateDoc(doc(db, "coach_tasks", taskId), { column: fireCol, updatedAt: serverTimestamp() }).catch(function (e) {
+  updateDoc(doc(db, "coach_tasks", taskId), { column: fireCol }).catch(function (e) {
     console.error(e);
     showToast("Taşınamadı.");
   });
@@ -9969,7 +7753,6 @@ function addGorevKanbanTaskFromForm(payload) {
     subject: String((payload && payload.subject) || "").trim(),
     column: "todo",
     createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
   })
     .then(function () {
       showToast("Ödev eklendi.");
@@ -10937,7 +8720,6 @@ async function submitStudentEditForm(e) {
     studentEditAvatarState.mode === "custom" && studentEditAvatarState.customDataUrl
       ? studentEditAvatarState.customDataUrl
       : studentEditAvatarState.url || getAvatarByGender(data.gender || gender);
-  data.updatedAt = serverTimestamp();
   try {
     await updateDoc(doc(db, "students", editId), data);
     showToast("Öğrenci başarıyla güncellendi.");
@@ -11033,7 +8815,6 @@ async function submitAppointmentForm(e) {
   };
   try {
     if (editAppt) {
-      payload.updatedAt = serverTimestamp();
       await updateDoc(doc(db, "appointments", editAppt), payload);
       showToast("Randevu güncellendi.");
     } else {
@@ -11162,7 +8943,6 @@ async function onPdfTaslakClick() {
         ...payload,
         module: "TestMakerPro",
         pdfDraft: true,
-        updatedAt: serverTimestamp(),
       });
       showToast("Test güncellendi.");
     } else {
@@ -11251,7 +9031,6 @@ async function submitPaymentForm(e) {
   };
   try {
     if (editPay) {
-      payload.updatedAt = serverTimestamp();
       await updateDoc(doc(db, "payments", editPay), payload);
       showToast("Tahsilat güncellendi.");
     } else {
@@ -11339,7 +9118,6 @@ async function submitExamForm(e) {
   };
   try {
     if (editEx) {
-      payload.updatedAt = serverTimestamp();
       await updateDoc(doc(db, "exams", editEx), payload);
       showToast("Deneme kaydı güncellendi.");
     } else {
@@ -15988,20 +13766,47 @@ function danaGlobalTakvimBuildMeta(item) {
 
 async function danaGlobalTakvimLoadFromAppwrite() {
   try {
-    var res = await databases.listDocuments(APPWRITE_DATABASE_ID, APPWRITE_COLLECTION_GLOBAL_DENEMELER, [
-      Query.limit(250),
-    ]);
-    var docs = (res && res.documents) || [];
+    var snap = await getDocs(collection(db, APPWRITE_COLLECTION_GLOBAL_DENEMELER));
     var out = [];
-    docs.forEach(function (d) {
+    snap.docs.forEach(function (docSnap) {
+      var d = typeof docSnap.data === "function" ? docSnap.data() : docSnap;
       var m = danaGlobalTakvimMapDoc(d);
       if (m) out.push(m);
     });
     return danaGlobalTakvimSortByDate(out);
   } catch (e) {
-    console.warn("[dana-takvim] listDocuments:", e && e.message ? e.message : e);
+    console.warn("[dana-takvim] load:", e && e.message ? e.message : e);
     return [];
   }
+}
+
+/** Appwrite istemci hataları — şema / bucket eksikliğinde kullanıcıya net metin */
+function kocAppwriteUserFacingError(err) {
+  var msg = (err && err.message) || String(err || "");
+  if (/Collection with the requested ID|collection.*could not be found/i.test(msg)) {
+    return (
+      "Veritabanında «" +
+      APPWRITE_COLLECTION_GLOBAL_DENEMELER +
+      "» koleksiyonu yok. Appwrite Console → Databases → derece_panel → Create collection → Collection ID tam olarak: " +
+      APPWRITE_COLLECTION_GLOBAL_DENEMELER +
+      ". Alanlar için js/appwrite-config.js dosyasındaki yorumlara bakın."
+    );
+  }
+  if (/Bucket with the requested ID could not be found|bucket.*could not be found|Invalid bucket/i.test(msg)) {
+    return (
+      "Depolama kovası bulunamadı. Console’da bucket ID’sinin «" +
+      APPWRITE_BUCKET_DENEME_DEPOSU +
+      "» olduğundan ve oturumunuza dosya yükleme izni verildiğinden emin olun."
+    );
+  }
+  if (/Unknown attribute|Invalid document structure/i.test(msg)) {
+    return (
+      "Belge şeması uyuşmuyor: " +
+      msg +
+      " — Appwrite’da ilgili koleksiyonda bu attribute tanımlı mı kontrol edin."
+    );
+  }
+  return msg;
 }
 
 function danaGlobalTakvimRender() {
@@ -16392,7 +14197,7 @@ async function submitDanaGlobalDenemePlanForm(ev) {
     if (sonucIso) payload.sonucTarihi = sonucIso;
     if (pdfId) payload.pdfId = pdfId;
     if (cevapAnahtariId) payload.cevapAnahtariId = cevapAnahtariId;
-    await databases.createDocument(APPWRITE_DATABASE_ID, APPWRITE_COLLECTION_GLOBAL_DENEMELER, ID.unique(), payload);
+    await addDoc(collection(db, APPWRITE_COLLECTION_GLOBAL_DENEMELER), payload);
     resetDanaGlobalDenemePlanModal();
     closeModal("danaGlobalDenemePlanModal");
     await danaGlobalTakvimAfterMutation();
@@ -16413,7 +14218,7 @@ async function submitDanaGlobalDenemePlanForm(ev) {
         return storage.deleteFile(APPWRITE_BUCKET_DENEME_DEPOSU, fid).catch(function () {});
       })
     );
-    var msg = (err && err.message) || String(err);
+    var msg = kocAppwriteUserFacingError(err);
     if (errEl) {
       errEl.hidden = false;
       errEl.textContent = msg || "Kayıt oluşturulamadı. Appwrite izin ve şema kontrolü yapın.";
@@ -16560,91 +14365,6 @@ function danaKarneTrendFromSummary(summary) {
   return { labels: labels, vals: vals };
 }
 
-function mriSubjectTitleFromRowKey(rowKey, examMode, tytMap, aytMap) {
-  var k = String(rowKey || "");
-  var em = String(examMode || "TYT").toUpperCase();
-  if (em === "AYT") {
-    return String(aytMap[k] || k.replace(/^ayt_/, "") || "AYT dersi").trim();
-  }
-  if (k.indexOf("turkce") === 0 || k === "turkce") return "Türkçe";
-  if (k.indexOf("matematik") === 0 || k === "matematik") return "Matematik";
-  if (k.indexOf("fen_") === 0 || k === "fen") return "Fen Bilimleri";
-  if (k.indexOf("sosyal_") === 0 || k === "sosyal") return "Sosyal Bilimler";
-  return String(tytMap[k] || k || "Ders").trim();
-}
-
-function buildMriRowsFromCache() {
-  var out = [];
-  cachedStudents.forEach(function (s) {
-    var agg = Object.create(null);
-    examsForStudent(s.id).forEach(function (e) {
-      var det = e.yksBranchDetail;
-      if (!det || !det.rows || typeof det.rows !== "object") return;
-      var examMode = String(det.examMode || "TYT").toUpperCase();
-      var tytMap = karneBuildTytBranchLabelMap();
-      var aytMap = karneBuildAytBranchLabelMap(det.aytAlan || "sayisal");
-      Object.keys(det.rows).forEach(function (rowKey) {
-        var row = det.rows[rowKey];
-        if (!row || row.soru == null) return;
-        var cl = clampDy(row.soru, row.d, row.y);
-        var b = Math.max(0, row.soru - cl.d - cl.y);
-        var subj = mriSubjectTitleFromRowKey(rowKey, examMode, tytMap, aytMap);
-        var topicLabel =
-          examMode === "AYT"
-            ? aytMap[rowKey] || String(rowKey).replace(/^ayt_/, "")
-            : tytMap[rowKey] || rowKey;
-        var gk = subj + "\u0000" + topicLabel;
-        if (!agg[gk]) agg[gk] = { subject: subj, topic: topicLabel, d: 0, y: 0, b: 0 };
-        agg[gk].d += cl.d;
-        agg[gk].y += cl.y;
-        agg[gk].b += b;
-      });
-    });
-    var bySubject = Object.create(null);
-    Object.keys(agg).forEach(function (gk) {
-      var a = agg[gk];
-      if (!bySubject[a.subject]) bySubject[a.subject] = [];
-      bySubject[a.subject].push({ name: a.topic, d: a.d, y: a.y, b: a.b });
-    });
-    var subjects = Object.keys(bySubject)
-      .sort(function (a, b) {
-        return a.localeCompare(b, "tr");
-      })
-      .map(function (sub) {
-        return {
-          name: sub,
-          topics: bySubject[sub].sort(function (a, b) {
-            return String(a.name).localeCompare(String(b.name), "tr");
-          }),
-        };
-      });
-    if (!subjects.length) return;
-    var full = String(s.name || s.studentName || "").trim();
-    var parts = full ? full.split(/\s+/) : [];
-    var fn = parts[0] || "";
-    var ln = parts.slice(1).join(" ");
-    out.push({ id: s.id, firstName: fn, lastName: ln, subjects: subjects });
-  });
-  return out;
-}
-
-var mriDataCache = [];
-
-function refreshMriDataCache() {
-  try {
-    mriDataCache = buildMriRowsFromCache();
-  } catch (e) {
-    console.warn("[mri] rebuild", e);
-    mriDataCache = [];
-  }
-}
-
-function refreshMriIfVisible() {
-  refreshMriDataCache();
-  if (currentView !== "konu-mr") return;
-  var inp = document.getElementById("mriSearchInput");
-  renderMriList(filterMriStudents(mriDataCache, inp ? inp.value : ""));
-}
 
 function danaKarnePctToColor(pct) {
   var p = Number(pct) || 0;
@@ -16766,93 +14486,6 @@ function initDanaTelafiConfirmModal() {
 /**
  * Ultra-Detaylı Karne: %50 altı (kırmızı) konuları toplar, onay sonrası AI Üreticiyi doldurup üretimi başlatır.
  */
-function yksHataTelafiModalSetOpen(open) {
-  var root = document.getElementById("optikHataTelafiModal");
-  if (!root) return;
-  if (open) {
-    root.removeAttribute("hidden");
-    root.setAttribute("aria-hidden", "false");
-  } else {
-    root.setAttribute("hidden", "");
-    root.setAttribute("aria-hidden", "true");
-  }
-}
-
-function initOptikHataTelafiModal() {
-  if (optikHataTelafiModalBound) return;
-  var root = document.getElementById("optikHataTelafiModal");
-  if (!root) return;
-  optikHataTelafiModalBound = true;
-  var cancel = document.getElementById("optikHataTelafiModalCancel");
-  var confirm = document.getElementById("optikHataTelafiModalConfirm");
-  root.addEventListener("click", function (ev) {
-    var t = ev.target;
-    if (t && t.getAttribute && t.getAttribute("data-optik-hata-telafi-close") != null) yksHataTelafiModalSetOpen(false);
-  });
-  if (cancel)
-    cancel.addEventListener("click", function () {
-      yksHataTelafiModalSetOpen(false);
-    });
-  if (confirm)
-    confirm.addEventListener("click", function () {
-      var plan = window.__optikHataTelafiPendingPlan;
-      window.__optikHataTelafiPendingPlan = null;
-      yksHataTelafiModalSetOpen(false);
-      kocExecuteAiTelafiPlan(plan);
-    });
-}
-
-/**
- * Hata karnesindeki yanlış/boş satırlardan konuları toplayıp AI Üretici telafisini başlatır (20 soru).
- */
-function generateHataKarnesiTelafiTest() {
-  initOptikHataTelafiModal();
-  var raw =
-    yksHataKarnesiLastList && yksHataKarnesiLastList.length
-      ? yksHataKarnesiLastList
-      : [];
-  var weak = raw.filter(function (r) {
-    return r.durum === "Yanlış" || r.durum === "Boş";
-  });
-  if (!weak.length) {
-    showToast("Telafi için yanlış veya boş satır yok.");
-    return;
-  }
-  var seen = {};
-  var mapped = [];
-  var mappedLabels = [];
-  for (var i = 0; i < weak.length; i++) {
-    var dk = weak[i].dersKonu;
-    if (!dk || seen[dk]) continue;
-    seen[dk] = 1;
-    var m = yksResolveDisplayKonuToAi(dk);
-    if (m) {
-      mapped.push(m);
-      mappedLabels.push(dk);
-    }
-  }
-  if (!mapped.length) {
-    showToast("Konular havuz müfredatı ile eşleştirilemedi; ders/konu adlarını kontrol edin.");
-    return;
-  }
-  var primary = mapped[0];
-  var uniqLabelStr = mappedLabels.join(", ");
-  var bodyEl = document.getElementById("optikHataTelafiModalBody");
-  if (bodyEl) {
-    bodyEl.innerHTML =
-      "<strong>Tespit edilen konular:</strong> " +
-      escapeHtml(uniqLabelStr) +
-      ".<br><br>Şu konulardan <strong>20 soruluk</strong> telafi PDF'i (havuzdan test tasarımına) hazırlanacak; ilk tarama <strong>" +
-      escapeHtml(primary.topic) +
-      "</strong> için yapılacak. Onaylıyor musunuz?";
-  }
-  window.__optikHataTelafiPendingPlan = {
-    primary: { exam: primary.exam, subject: primary.subject, topic: primary.topic },
-    questionCount: 20,
-    difficulty: "Orta",
-  };
-  yksHataTelafiModalSetOpen(true);
-}
 
 function generateAITelafiTest() {
   initDanaTelafiConfirmModal();
@@ -17442,134 +15075,6 @@ function bindDanaPdfExportOnce() {
   });
 }
 
-function filterMriStudents(data, q) {
-  var list = data || [];
-  var needle = (q || "").trim().toLowerCase();
-  if (!needle) return list.slice();
-  return list.filter(function (s) {
-    var a = String(s.firstName || "").toLowerCase();
-    var b = String(s.lastName || "").toLowerCase();
-    var full = (a + " " + b).trim();
-    return full.indexOf(needle) !== -1 || a.indexOf(needle) !== -1 || b.indexOf(needle) !== -1;
-  });
-}
-
-function renderMriList(data, searchQuery) {
-  var root = document.getElementById("mriListRoot");
-  if (!root) return;
-  var list = data || [];
-  if (!list.length) {
-    var q = (searchQuery || "").trim();
-    if (q) {
-      root.innerHTML = '<p class="mri-empty" role="status">Eşleşen öğrenci bulunamadı.</p>';
-    } else {
-      root.innerHTML =
-        '<div class="dp-zero-state dp-zero-state--mri" role="status">' +
-        '<div class="dp-zero-state__icon" aria-hidden="true"><i class="fa-solid fa-chart-simple"></i></div>' +
-        "<p class=\"dp-zero-state__title\">Analiz edilecek deneme verisi bulunamadı.</p>" +
-        '<p class="dp-zero-state__hint">Öğrenciler deneme çözdükçe ve koç panelinde branş D/Y/B girildikçe MR raporları burada belirecektir.</p></div>';
-    }
-    return;
-  }
-  root.innerHTML = list
-    .map(function (stu) {
-      var fullName = danaEscapeHtml(String(stu.firstName || "").trim() + " " + String(stu.lastName || "").trim());
-      var subjects = stu.subjects || [];
-      var subjCount = subjects.length;
-      var topicCount = subjects.reduce(function (n, s) {
-        return n + (s.topics ? s.topics.length : 0);
-      }, 0);
-      var subjectsHtml = subjects
-        .map(function (sub) {
-          var subName = danaEscapeHtml(sub.name || "");
-          var rows = (sub.topics || [])
-            .map(function (t) {
-              return (
-                "<tr><td>" +
-                danaEscapeHtml(t.name || "") +
-                "</td><td>" +
-                danaEscapeHtml(String(t.d != null ? t.d : "—")) +
-                "</td><td>" +
-                danaEscapeHtml(String(t.y != null ? t.y : "—")) +
-                "</td><td>" +
-                danaEscapeHtml(String(t.b != null ? t.b : "—")) +
-                "</td></tr>"
-              );
-            })
-            .join("");
-          return (
-            '<div class="mri-sub-acc">' +
-            '<button type="button" class="mri-sub-acc__trigger">' +
-            "<span>" +
-            subName +
-            "</span>" +
-            '<i class="fa-solid fa-chevron-right mri-sub-acc__chev" aria-hidden="true"></i>' +
-            "</button>" +
-            '<div class="mri-sub-acc__panel"><div class="mri-sub-acc__inner">' +
-            '<div class="mri-topic-table-wrap"><table class="mri-topic-table">' +
-            "<thead><tr><th>Konu</th><th>D</th><th>Y</th><th>B</th></tr></thead>" +
-            "<tbody>" +
-            rows +
-            "</tbody></table></div></div></div></div>"
-          );
-        })
-        .join("");
-      return (
-        '<div class="mri-acc">' +
-        '<button type="button" class="mri-acc__trigger">' +
-        "<span>" +
-        '<span class="mri-acc__name">' +
-        fullName +
-        "</span>" +
-        '<span class="mri-acc__meta">' +
-        subjCount +
-        " ders · " +
-        topicCount +
-        " konu</span></span>" +
-        '<i class="fa-solid fa-chevron-right mri-acc__chev" aria-hidden="true"></i>' +
-        "</button>" +
-        '<div class="mri-acc__panel"><div class="mri-acc__panel-inner">' +
-        '<div class="mri-acc__body">' +
-        subjectsHtml +
-        "</div></div></div></div>"
-      );
-    })
-    .join("");
-}
-
-function initMriAccordionDelegationOnce() {
-  var root = document.getElementById("mriListRoot");
-  if (!root || root.dataset.mriAccBound) return;
-  root.dataset.mriAccBound = "1";
-  root.addEventListener("click", function (ev) {
-    var subTr = ev.target.closest && ev.target.closest(".mri-sub-acc__trigger");
-    if (subTr && root.contains(subTr)) {
-      ev.preventDefault();
-      var sub = subTr.closest(".mri-sub-acc");
-      if (sub) sub.classList.toggle("is-open");
-      return;
-    }
-    var tr = ev.target.closest && ev.target.closest(".mri-acc__trigger");
-    if (tr && root.contains(tr)) {
-      ev.preventDefault();
-      var acc = tr.closest(".mri-acc");
-      if (acc) acc.classList.toggle("is-open");
-    }
-  });
-}
-
-function initMriPage() {
-  refreshMriDataCache();
-  initMriAccordionDelegationOnce();
-  var inp = document.getElementById("mriSearchInput");
-  if (inp && !inp.dataset.mriLiveBound) {
-    inp.dataset.mriLiveBound = "1";
-    inp.addEventListener("input", function () {
-      renderMriList(filterMriStudents(mriDataCache, inp.value), inp.value);
-    });
-  }
-  renderMriList(filterMriStudents(mriDataCache, inp ? inp.value : ""), inp ? inp.value : "");
-}
 
 function navigateTo(view) {
   if (!view) return;
@@ -17635,15 +15140,6 @@ function navigateTo(view) {
     var snv = btn.getAttribute("data-nav");
     btn.classList.toggle("is-active", snv === view);
   });
-  var daLi = document.querySelector(".sidebar__item--deneme");
-  var daAcc = document.getElementById("sidebarDaToggle");
-  if (daLi && daAcc) {
-    var inDa =
-      view === "denemeler" || view === "optik-okuyucu" || view === "karne" || view === "konu-mr";
-    daLi.classList.toggle("sidebar__item--da-open", inDa);
-    daAcc.classList.toggle("sidebar__link--active", inDa);
-    daAcc.setAttribute("aria-expanded", inDa ? "true" : "false");
-  }
   var ogrLi = document.querySelector(".sidebar__item--ogrenci");
   var ogrAcc = document.getElementById("sidebarOgrToggle");
   if (ogrLi && ogrAcc) {
@@ -17734,23 +15230,6 @@ function navigateTo(view) {
     overlay.classList.remove("is-open");
     document.body.style.overflow = "";
   }
-  if (view === "denemeler") {
-    renderExamsFullPage();
-    initDenemeAnalizPage();
-    bindDenemeAnalizForm();
-  }
-  if (view === "optik-okuyucu" || view === "karne") {
-    initOptikKarneTools();
-  }
-  if (view === "optik-okuyucu") {
-    var od = document.getElementById("optikImportExamDate");
-    if (od && !od.value) od.value = new Date().toISOString().slice(0, 10);
-  }
-  if (view === "karne") {
-    refreshKarneKpis();
-    renderKarneReport();
-  }
-  if (view === "konu-mr") initMriPage();
   if (view === "ogrenciler") renderStudentsPage();
   if (view === "ogrenci-detay") {
     renderStudentDetailPage();
@@ -18458,7 +15937,6 @@ function initSidebar() {
 function closeSidebarAccordionsExcept(exceptLi) {
   var pairs = [
     [".sidebar__item--testmaker", "sidebar__item--tm-open", "sidebarTmToggle"],
-    [".sidebar__item--deneme", "sidebar__item--da-open", "sidebarDaToggle"],
     [".sidebar__item--deneme-analizi", "sidebar__item--dana-open", "sidebarDanaToggle"],
     [".sidebar__item--ogrenci", "sidebar__item--ogr-open", "sidebarOgrToggle"],
     [".sidebar__item--randevu", "sidebar__item--rv-open", "sidebarRvToggle"],
@@ -18516,7 +15994,6 @@ function initNavigation() {
   (function initSidebarAccordions() {
     var items = [
       { liSel: ".sidebar__item--testmaker", openClass: "sidebar__item--tm-open", btnId: "sidebarTmToggle" },
-      { liSel: ".sidebar__item--deneme", openClass: "sidebar__item--da-open", btnId: "sidebarDaToggle" },
       { liSel: ".sidebar__item--deneme-analizi", openClass: "sidebar__item--dana-open", btnId: "sidebarDanaToggle" },
       { liSel: ".sidebar__item--ogrenci", openClass: "sidebar__item--ogr-open", btnId: "sidebarOgrToggle" },
       { liSel: ".sidebar__item--randevu", openClass: "sidebar__item--rv-open", btnId: "sidebarRvToggle" },
@@ -19673,17 +17150,6 @@ function cycleExamFilter() {
   renderDashboardAppointments();
 }
 
-function cycleExamsPageFilter() {
-  if (examsPageFilter === "all") examsPageFilter = "TYT";
-  else if (examsPageFilter === "TYT") examsPageFilter = "AYT";
-  else examsPageFilter = "all";
-  const labels = { all: "Tümü", TYT: "TYT", AYT: "AYT" };
-  const btn = document.getElementById("btnExamsFilter");
-  if (btn) btn.innerHTML = '<i class="fa-solid fa-filter"></i> Filtre: ' + labels[examsPageFilter];
-  renderExamsFullPage();
-  showToast("Sayfa filtresi: " + labels[examsPageFilter]);
-}
-
 function initAllButtons() {
   function openApptModal() {
     openAppointmentModalNew();
@@ -19751,10 +17217,8 @@ function initAllButtons() {
 
   document.getElementById("btnSeeAllExams") &&
     document.getElementById("btnSeeAllExams").addEventListener("click", function () {
-      navigateTo("denemeler");
+      navigateTo("dashboard");
     });
-  document.getElementById("btnExamsFilter") &&
-    document.getElementById("btnExamsFilter").addEventListener("click", cycleExamsPageFilter);
   var elAddEx = document.getElementById("btnAddExamRecord");
   if (elAddEx) elAddEx.addEventListener("click", openExamModalNew);
 
@@ -19789,22 +17253,22 @@ function initAllButtons() {
     });
   }
 
-  initDanaTelafiConfirmModal();
-  initOptikHataTelafiModal();
-  var btnOptikHataAi = document.getElementById("btnOptikHataTelafiAi");
-  if (btnOptikHataAi && !btnOptikHataAi.dataset.hataTelafiBound) {
-    btnOptikHataAi.dataset.hataTelafiBound = "1";
-    btnOptikHataAi.addEventListener("click", generateHataKarnesiTelafiTest);
-  }
-  var btnEdsHataAi = document.getElementById("btnEdsHataTelafiAi");
-  if (btnEdsHataAi && !btnEdsHataAi.dataset.hataTelafiBound) {
-    btnEdsHataAi.dataset.hataTelafiBound = "1";
-    btnEdsHataAi.addEventListener("click", generateHataKarnesiTelafiTest);
-  }
   var btnDanaTelafi = document.getElementById("btnDanaAiTelafiTest");
   if (btnDanaTelafi && !btnDanaTelafi.dataset.danaTelafiBound) {
     btnDanaTelafi.dataset.danaTelafiBound = "1";
     btnDanaTelafi.addEventListener("click", generateAITelafiTest);
+  }
+
+  var btnSaveCoachNote = document.getElementById("btnStudentDetailSaveNote");
+  if (btnSaveCoachNote && !btnSaveCoachNote.dataset.bound) {
+    btnSaveCoachNote.dataset.bound = "1";
+    btnSaveCoachNote.addEventListener("click", function () {
+      var sid = currentStudentDetailId;
+      var el = document.getElementById("studentDetailCoachNote");
+      if (!sid || !el) return;
+      sdSaveNote(sid, el.value);
+      showToast("Not kaydedildi (tarayıcı).");
+    });
   }
 
   (function initStudentDetailErpTabs() {
@@ -20004,7 +17468,6 @@ window.YKSPanel = {
   downloadBulkResultPdf: danaPdfDownloadBulkRanking,
   downloadStudentKarnePdf: danaPdfDownloadStudentKarne,
   generateAITelafiTest: generateAITelafiTest,
-  generateHataKarnesiTelafiTest: generateHataKarnesiTelafiTest,
   toast: showToast,
   openStudentForm: openStudentModal,
   openAppointmentForm: openAppointmentModalNew,
@@ -20014,7 +17477,6 @@ window.YKSPanel = {
 
 try {
   window.generateAITelafiTest = generateAITelafiTest;
-  window.generateHataKarnesiTelafiTest = generateHataKarnesiTelafiTest;
 } catch (eGenTel) {}
 
 function showLoadTimeoutWarning() {

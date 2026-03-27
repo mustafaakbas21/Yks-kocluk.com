@@ -436,10 +436,6 @@
       width: 1.35rem;
       min-width: 1.35rem;
     }
-    .app--sidebar-readable .sidebar--elite .sidebar__item--deneme .sidebar__sublink span {
-      font-weight: 700;
-      font-size: 0.78rem !important;
-    }
     button.sidebar__sublink.is-active {
       background: rgba(124, 58, 237, 0.1) !important;
       color: #5b21b6 !important;
@@ -487,7 +483,6 @@
         opacity 0.28s ease;
     }
     .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--tm-open > .sidebar__submenu,
-    .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--da-open > .sidebar__submenu,
     .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--ogr-open > .sidebar__submenu,
     .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--rv-open > .sidebar__submenu,
     .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--sim-open > .sidebar__submenu,
@@ -554,7 +549,6 @@
       opacity: 0.8;
     }
     .sidebar__item--testmaker.sidebar__item--tm-open .sidebar__tm-chevron,
-    .sidebar__item--deneme.sidebar__item--da-open .sidebar__tm-chevron,
     .sidebar__item--ogrenci.sidebar__item--ogr-open .sidebar__tm-chevron,
     .sidebar__item--randevu.sidebar__item--rv-open .sidebar__tm-chevron,
     .sidebar__item--simulasyon.sidebar__item--sim-open .sidebar__tm-chevron,
@@ -562,10 +556,9 @@
     .sidebar__item--deneme-analizi.sidebar__item--dana-open .sidebar__tm-chevron {
       transform: rotate(180deg);
     }
-    /* Öğrenciler / Deneme / Randevu: açıkken sütun listesi */
+    /* Öğrenciler / Randevu / … : açıkken sütun listesi */
     .sidebar__item--ogrenci.sidebar__item--ogr-open .sidebar__submenu--ogr-nested,
     .sidebar__item--randevu.sidebar__item--rv-open .sidebar__submenu--rv-nested,
-    .sidebar__item--deneme.sidebar__item--da-open .sidebar__submenu--da-nested,
     .sidebar__item--simulasyon.sidebar__item--sim-open .sidebar__submenu--sim-nested,
     .sidebar__item--gelen.sidebar__item--gelen-open .sidebar__submenu--gelen-nested,
     .sidebar__item--deneme-analizi.sidebar__item--dana-open .sidebar__submenu--dana-nested {
@@ -2315,6 +2308,112 @@
     }
     .dana-karne-dash__meta { margin: 0; font-size: 0.82rem; color: #64748b; }
     .dana-karne-dash__meta strong { color: #5b21b6; font-weight: 800; }
+    .dana-karne-dash__meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.85rem 1.25rem;
+      align-items: flex-end;
+      justify-content: space-between;
+      width: 100%;
+    }
+    /* Ultra-Detaylı Karne — öğrenci seçici (native select, lüks mor kabuk) */
+    .dana-student-picker {
+      display: flex;
+      flex-direction: column;
+      gap: 0.32rem;
+      min-width: min(100%, 280px);
+      max-width: 380px;
+    }
+    .dana-student-picker__eyebrow {
+      font-size: 0.65rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #6d28d9;
+      padding-left: 0.2rem;
+      line-height: 1.2;
+    }
+    .dana-student-picker__control {
+      display: flex;
+      align-items: stretch;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1.5px solid rgba(124, 58, 237, 0.38);
+      background: linear-gradient(165deg, #ffffff 0%, #faf5ff 55%, #f5f3ff 100%);
+      box-shadow: 0 6px 24px rgba(91, 33, 182, 0.11), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .dana-student-picker__control:hover {
+      border-color: rgba(124, 58, 237, 0.52);
+      box-shadow: 0 8px 28px rgba(91, 33, 182, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    }
+    .dana-student-picker__control:focus-within {
+      border-color: #7c3aed;
+      box-shadow:
+        0 0 0 3px rgba(167, 139, 250, 0.35),
+        0 10px 32px rgba(91, 33, 182, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 1);
+    }
+    .dana-student-picker__ico {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.85rem;
+      flex-shrink: 0;
+      background: linear-gradient(180deg, #ede9fe 0%, #e9d5ff 100%);
+      color: #5b21b6;
+      font-size: 1.02rem;
+      border-right: 1px solid rgba(124, 58, 237, 0.22);
+    }
+    .dana-student-picker__shell {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+    }
+    .dana-student-picker__shell::after {
+      content: "";
+      position: absolute;
+      right: 0.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 0;
+      height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 6px solid #4c1d95;
+      pointer-events: none;
+      opacity: 0.88;
+    }
+    .dana-student-picker__select {
+      display: block;
+      width: 100%;
+      margin: 0;
+      padding: 0.7rem 2.35rem 0.7rem 0.75rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #1e1b4b;
+      line-height: 1.35;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+    }
+    .dana-student-picker__select option {
+      font-weight: 600;
+      color: #1e1b4b;
+      background: #fff;
+    }
+    @media (max-width: 640px) {
+      .dana-student-picker {
+        max-width: none;
+        width: 100%;
+      }
+    }
     .dana-karne-dash__grid {
       display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem;
     }
@@ -2856,33 +2955,6 @@
               </button>
               <button type="button" class="sidebar__sublink" data-nav="gelen-kutusu" title="info@derecepanel.com gelen kutusu (Zoho)">
                 <i class="fa-solid fa-envelope-open-text"></i><span>📩 Gelen Kutusu</span>
-              </button>
-            </div>
-          </li>
-          <li class="sidebar__item--deneme has-submenu">
-            <button
-              type="button"
-              class="sidebar__link sidebar__link--tm-accordion"
-              id="sidebarDaToggle"
-              aria-expanded="false"
-              aria-controls="sidebarDaSubmenu"
-              title="Deneme menüsünü aç/kapat"
-            >
-              <i class="fa-solid fa-chart-line"></i><span>Deneme Analizleri</span>
-              <span class="sidebar__tm-chevron" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
-            </button>
-            <div class="sidebar__submenu sidebar__submenu--da-nested" id="sidebarDaSubmenu" role="group" aria-label="Deneme alt menü">
-              <button type="button" class="sidebar__sublink" data-nav="denemeler" title="Branş analizi ve kayıtlar">
-                <i class="fa-solid fa-table-list"></i><span>Denemeler</span>
-              </button>
-              <button type="button" class="sidebar__sublink" data-nav="optik-okuyucu" title="Toplu optik / Excel aktarımı">
-                <i class="fa-solid fa-barcode"></i><span>Optik okuyucu</span>
-              </button>
-              <button type="button" class="sidebar__sublink" data-nav="karne" title="Sınıf karne özeti ve yazdırma">
-                <i class="fa-solid fa-graduation-cap"></i><span>Karne</span>
-              </button>
-              <button type="button" class="sidebar__sublink" data-nav="konu-mr" title="Öğrenci deneme MR — konu bazlı D/Y/B">
-                <i class="fa-solid fa-x-ray"></i><span>Öğrenci Deneme MR'ı</span>
               </button>
             </div>
           </li>
@@ -3463,31 +3535,6 @@
           </section>
         </div>
 
-        <div class="main-view" data-view="konu-mr" id="view-konu-mr" hidden>
-          <div class="mri-page">
-            <div class="page-head mri-page__head">
-              <h1 class="page-head__title">Öğrenci Deneme MR'ı</h1>
-              <p class="page-desc mri-page__lead">Appwrite’daki deneme kayıtlarındaki branş D/Y/B verilerinin öğrenci bazlı özeti.</p>
-            </div>
-            <div class="mri-search-sticky">
-              <label class="mri-search-wrap" for="mriSearchInput">
-                <span class="mri-search-wrap__icon" aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>
-                <input
-                  type="text"
-                  id="mriSearchInput"
-                  class="mri-search-wrap__input"
-                  placeholder="Öğrenci ara (Ad, Soyad)..."
-                  autocomplete="off"
-                  spellcheck="false"
-                />
-              </label>
-            </div>
-            <section class="mri-section" aria-label="Öğrenci deneme MR listesi">
-              <div id="mriListRoot" class="mri-acc-root"></div>
-            </section>
-          </div>
-        </div>
-
         <div class="main-view" data-view="kutuphanem" id="view-kutuphanem" hidden>
           <div class="page-head">
             <h1 class="page-head__title">📚 Kütüphanem</h1>
@@ -3594,435 +3641,6 @@
           </section>
         </div>
 
-        <div class="main-view" data-view="denemeler" id="view-deneme-analiz" hidden>
-          <div class="page-head">
-            <h1 class="page-head__title">Deneme Analizleri</h1>
-            <div class="page-head__actions">
-              <button type="button" class="btn btn--sm btn--purple" id="btnAddExamRecord"><i class="fa-solid fa-plus"></i> Hızlı deneme kaydı</button>
-              <button type="button" class="btn btn--sm btn--purple" id="btnExamsFilter"><i class="fa-solid fa-filter"></i> Filtre: Tümü</button>
-            </div>
-          </div>
-
-          <section class="eds-da yks-features-root" aria-label="YKS deneme performans analizi">
-            <header class="eds-da__masthead">
-              <div class="eds-da__breadcrumb">
-                <i class="fa-solid fa-house-chimney"></i> Panel <span>/</span> Öğrenci işlemleri <span>/</span> Deneme performans analizi
-              </div>
-              <h1>Deneme performans analizi</h1>
-              <p class="eds-da__sub">MEB YKS · TYT / AYT branş bazlı doğru–yanlış–boş ve konu takibi (ÖSYM net: D − Y/4)</p>
-            </header>
-
-            <div class="eds-da__toolbar">
-              <label>
-                <span>Öğrenci</span>
-                <select id="daStudentSelect">
-                  <option value="">— Öğrenci seçin —</option>
-                </select>
-              </label>
-              <label>
-                <span>Deneme adı</span>
-                <input type="text" id="daExamTitle" placeholder="Örn. TÖDER TYT-3" maxlength="120" autocomplete="off" />
-              </label>
-              <label>
-                <span>Tarih</span>
-                <input type="date" id="daExamDate" />
-              </label>
-              <div>
-                <span style="display:block;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:0.35rem">Sınav</span>
-                <div class="eds-da__exam-tabs" role="tablist" aria-label="TYT veya AYT">
-                  <button type="button" id="daTabTYT" class="is-active" data-da-exam="TYT" role="tab" aria-selected="true">TYT</button>
-                  <button type="button" id="daTabAYT" data-da-exam="AYT" role="tab" aria-selected="false">AYT</button>
-                </div>
-              </div>
-              <label id="daAytAlanWrap" hidden>
-                <span>AYT alan</span>
-                <select id="daAytAlan" aria-label="AYT alan seçimi">
-                  <option value="sayisal">Sayısal</option>
-                  <option value="esit_agirlik">Eşit ağırlık</option>
-                  <option value="sozel">Sözel</option>
-                  <option value="dil">Dil</option>
-                </select>
-              </label>
-              <label>
-                <span>Deneme şablonu</span>
-                <select id="daLinkExamDef" aria-label="Kayıtlı deneme şablonu">
-                  <option value="">— Yok —</option>
-                </select>
-              </label>
-              <label>
-                <span>Net kuralı</span>
-                <select class="js-yks-scoring-rule" id="daScoringRule" aria-label="Net hesaplama kuralı" title="ÖSYM: D − Y/4">
-                  <option value="osym">ÖSYM (4Y → 1D)</option>
-                  <option value="y3">3 yanlış = 1 doğru (D − Y/3)</option>
-                  <option value="y3floor">3 yanlış = 1D (tam sayı)</option>
-                </select>
-              </label>
-            </div>
-
-            <div id="examDefProRoot" class="exam-def-pro-mount" aria-live="polite"></div>
-
-            <div class="eds-da__kpi-row" id="edsDaKpiRow">
-              <div class="eds-da__kpi">
-                <div class="eds-da__kpi-label">Toplam net</div>
-                <div class="eds-da__kpi-value" id="edsDaKpiNet">—</div>
-                <div class="eds-da__kpi-hint">Seçili sınav tipine göre</div>
-              </div>
-              <div class="eds-da__kpi">
-                <div class="eds-da__kpi-label">Toplam doğru</div>
-                <div class="eds-da__kpi-value" id="edsDaKpiD">—</div>
-                <div class="eds-da__kpi-hint">Branşlar toplamı</div>
-              </div>
-              <div class="eds-da__kpi">
-                <div class="eds-da__kpi-label">Toplam yanlış</div>
-                <div class="eds-da__kpi-value" id="edsDaKpiY">—</div>
-                <div class="eds-da__kpi-hint">Branşlar toplamı</div>
-              </div>
-              <div class="eds-da__kpi">
-                <div class="eds-da__kpi-label">Boş / başarı</div>
-                <div class="eds-da__kpi-value" id="edsDaKpiB">—</div>
-                <div class="eds-da__kpi-hint" id="edsDaKpiRate">Net / soru üstünden</div>
-              </div>
-            </div>
-
-            <div class="eds-da__layout">
-              <div class="eds-da__panel" id="edsDaBranchPanel">
-                <div class="eds-da__panel-head"><i class="fa-solid fa-table-list"></i> Branş ve dersler — D / Y / B</div>
-                <div id="edsDaBranchRoot"></div>
-              </div>
-              <aside class="eds-da__aside">
-                <div class="eds-da__chart-card">
-                  <h3><i class="fa-solid fa-chart-line"></i> Net trendi</h3>
-                  <p class="eds-da__hint">Seçili öğrencinin Appwrite’daki TYT / AYT deneme kayıtlarından üretilir.</p>
-                  <div class="eds-da__chart-wrap">
-                    <canvas id="denemeAnalizChart" aria-label="Net trend grafiği"></canvas>
-                  </div>
-                </div>
-                <div class="eds-da__chart-card">
-                  <h3><i class="fa-solid fa-chart-pie"></i> Branş dengesi (radar)</h3>
-                  <p class="eds-da__hint">Anlık branş netlerinin göreli karşılaştırması.</p>
-                  <div class="eds-da__chart-wrap eds-da__chart-wrap--radar">
-                    <canvas id="denemeRadarChart" aria-label="Branş radar grafiği"></canvas>
-                  </div>
-                </div>
-                <div class="eds-da__chart-card">
-                  <h3><i class="fa-solid fa-tags"></i> Gelişim için işaretlenen konular</h3>
-                  <p class="eds-da__hint">Zayıf olduğunu düşündüğünüz konuları seçin; kayıtta saklanır.</p>
-                  <div class="eds-da__topics" id="edsDaTopicTags"></div>
-                </div>
-              </aside>
-            </div>
-
-            <div class="optik-hata-karne eds-hata-karne" id="edsHataKarneWrap" aria-label="Hata karnesi">
-              <div class="optik-hata-karne__head">
-                <div>
-                  <h3 class="optik-hata-karne__title"><i class="fa-solid fa-triangle-exclamation"></i> Hata Karnesi</h3>
-                  <p class="optik-hata-karne__sub">Yanlış ve boş sorular soru numarasıyla listelenir; çözüm süresi Faz 2’de optik zaman damgasıyla doldurulacak.</p>
-                </div>
-              </div>
-              <div class="optik-hata-karne__table-wrap">
-                <table class="optik-hata-karne__table">
-                  <thead>
-                    <tr>
-                      <th>Soru No</th>
-                      <th>Ders &gt; Konu</th>
-                      <th>Durum</th>
-                      <th>Çözüm süresi</th>
-                    </tr>
-                  </thead>
-                  <tbody id="edsHataKarneTbody"></tbody>
-                </table>
-              </div>
-              <div class="optik-hata-karne__cta">
-                <button type="button" class="optik-hata-karne__ai-btn" id="btnEdsHataTelafiAi" title="AI Üretici ile telafı testi">
-                  <span aria-hidden="true">✨</span> AI ile Telafi Testi Üret
-                </button>
-              </div>
-            </div>
-
-            <div class="eds-da__actions">
-              <button type="button" class="btn btn--purple btn-eds-primary" id="btnDaSaveFirestore"><i class="fa-solid fa-cloud-arrow-up"></i> Appwrite’a kaydet</button>
-              <button type="button" class="btn btn--ghost btn-eds-secondary" id="btnDaResetForm" title="Formu temizle"><i class="fa-solid fa-rotate-left"></i> Formu sıfırla</button>
-            </div>
-            <p class="eds-da__hint">Appwrite kaydı, öğrenci listesindeki deneme kayıtları tablosunda görünür; ayrıca <code>yksBranchDetail</code> alanında branş ve konu detayı tutulur.</p>
-
-            <div class="eds-da__table-wrap">
-              <h2 class="deneme-analiz-table-heading">Deneme kayıtları</h2>
-              <div class="table-wrap">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Öğrenci</th>
-                      <th>Tür</th>
-                      <th>Net</th>
-                      <th>Tarih</th>
-                      <th>Durum</th>
-                      <th>İşlem</th>
-                    </tr>
-                  </thead>
-                  <tbody id="examsPageBody"></tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <div class="main-view" data-view="optik-okuyucu" id="view-optik-okuyucu" hidden>
-          <div class="page-head">
-            <h1 class="page-head__title">Optik okuyucu</h1>
-          </div>
-          <section class="eds-da yks-features-root" aria-label="Optik toplu içe aktarma">
-            <header class="eds-da__masthead">
-              <div class="eds-da__breadcrumb">
-                <i class="fa-solid fa-house-chimney"></i> Panel <span>/</span> Deneme analizleri <span>/</span> Optik okuyucu
-              </div>
-              <h1>Optik sonuçları — ders bazlı</h1>
-              <p class="eds-da__sub">Elle girişte her branş için D/Y/B; toplu modda sütun düzenini seçerek Excel’den aktarın.</p>
-            </header>
-
-            <div class="optik-main-tabs" role="tablist" aria-label="Giriş türü">
-              <button type="button" class="is-active" id="optikTabManual" data-optik-main="manual" role="tab" aria-selected="true">
-                <i class="fa-solid fa-keyboard"></i> Elle giriş (ders bazlı form)
-              </button>
-              <button type="button" id="optikTabBulk" data-optik-main="bulk" role="tab" aria-selected="false">
-                <i class="fa-solid fa-paste"></i> Toplu optik / yapıştır
-              </button>
-              <button type="button" id="optikTabAdvanced" data-optik-main="adv" role="tab" aria-selected="false">
-                <i class="fa-solid fa-eye"></i> OCR / dosya
-              </button>
-            </div>
-
-            <div id="optikPanelManual">
-              <div class="da-tool-card" style="border:1px solid #cbd5e1;border-radius:10px;padding:1.15rem;margin-bottom:1rem">
-                <h3 style="margin:0 0 0.75rem;font-size:1rem;color:#1e3a5f"><i class="fa-solid fa-user-pen"></i> Deneme bilgisi</h3>
-                <div class="eds-da__toolbar" style="border:none;padding:0;margin:0;flex-wrap:wrap">
-                  <label>
-                    <span>Öğrenci</span>
-                    <select id="optikManualStudent">
-                      <option value="">— Öğrenci seçin —</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>Deneme adı</span>
-                    <input type="text" id="optikManualExamName" placeholder="Örn. TÖDER TYT-4" maxlength="120" />
-                  </label>
-                  <label>
-                    <span>Tarih</span>
-                    <input type="date" id="optikManualExamDate" />
-                  </label>
-                  <div>
-                    <span style="display:block;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:0.35rem">Sınav</span>
-                    <div class="eds-da__exam-tabs" role="tablist">
-                      <button type="button" class="is-active" id="optikManualTabTYT" data-optik-manual-exam="TYT">TYT</button>
-                      <button type="button" id="optikManualTabAYT" data-optik-manual-exam="AYT">AYT</button>
-                    </div>
-                  </div>
-                  <label id="optikManualAytAlanWrap" hidden>
-                    <span>AYT alan</span>
-                    <select id="optikManualAytAlan">
-                      <option value="sayisal">Sayısal</option>
-                      <option value="esit_agirlik">Eşit ağırlık</option>
-                      <option value="sozel">Sözel</option>
-                      <option value="dil">Dil</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>Deneme şablonu</span>
-                    <select id="optikLinkExamDef" aria-label="Şablon bağla">
-                      <option value="">— Yok —</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>Net kuralı</span>
-                    <select class="js-yks-scoring-rule" id="optikScoringRule" aria-label="Net kuralı">
-                      <option value="osym">ÖSYM (D − Y/4)</option>
-                      <option value="y3">D − Y/3</option>
-                      <option value="y3floor">Tam sayı (floor Y/3)</option>
-                    </select>
-                  </label>
-                </div>
-              </div>
-              <div class="eds-da__kpi-row" id="optikManualKpiRow">
-                <div class="eds-da__kpi">
-                  <div class="eds-da__kpi-label">Toplam net</div>
-                  <div class="eds-da__kpi-value" id="optikManualKpiNet">—</div>
-                </div>
-                <div class="eds-da__kpi">
-                  <div class="eds-da__kpi-label">Doğru</div>
-                  <div class="eds-da__kpi-value" id="optikManualKpiD">—</div>
-                </div>
-                <div class="eds-da__kpi">
-                  <div class="eds-da__kpi-label">Yanlış</div>
-                  <div class="eds-da__kpi-value" id="optikManualKpiY">—</div>
-                </div>
-                <div class="eds-da__kpi">
-                  <div class="eds-da__kpi-label">Boş</div>
-                  <div class="eds-da__kpi-value" id="optikManualKpiB">—</div>
-                </div>
-              </div>
-              <div class="eds-da__panel" id="optikManualBranchPanel" style="margin-bottom:1rem">
-                <div class="eds-da__panel-head"><i class="fa-solid fa-table-list"></i> Branşlar — doğru / yanlış / boş</div>
-                <div id="optikManualBranchRoot"></div>
-              </div>
-
-              <div class="optik-hata-karne" id="optikHataKarneWrap" aria-label="Hata karnesi">
-                <div class="optik-hata-karne__head">
-                  <div>
-                    <h3 class="optik-hata-karne__title"><i class="fa-solid fa-triangle-exclamation"></i> Hata Karnesi</h3>
-                    <p class="optik-hata-karne__sub">Branş toplamlarından türetilen soru–konu eşlemesi (MVP). Çözüm süresi sütunu şimdilik «—».</p>
-                  </div>
-                </div>
-                <div class="optik-hata-karne__table-wrap">
-                  <table class="optik-hata-karne__table">
-                    <thead>
-                      <tr>
-                        <th>Soru No</th>
-                        <th>Ders &gt; Konu</th>
-                        <th>Durum</th>
-                        <th>Çözüm süresi</th>
-                      </tr>
-                    </thead>
-                    <tbody id="optikHataKarneTbody"></tbody>
-                  </table>
-                </div>
-                <div class="optik-hata-karne__cta">
-                  <button type="button" class="optik-hata-karne__ai-btn" id="btnOptikHataTelafiAi" title="AI Üretici ile telafı testi">
-                    <span aria-hidden="true">✨</span> AI ile Telafi Testi Üret
-                  </button>
-                </div>
-              </div>
-
-              <div class="eds-da__actions">
-                <button type="button" class="btn btn--purple btn-eds-primary" id="btnOptikManualSave"><i class="fa-solid fa-cloud-arrow-up"></i> Appwrite’a kaydet</button>
-                <button type="button" class="btn btn-eds-secondary" id="btnOptikManualReset"><i class="fa-solid fa-rotate-left"></i> Formu sıfırla</button>
-              </div>
-              <p id="optikManualResult" class="eds-da__hint"></p>
-            </div>
-
-            <div id="optikPanelBulk" hidden>
-              <div class="da-tool-card" style="border:1px solid #cbd5e1;border-radius:10px;padding:1.15rem;max-width:960px">
-                <h3 style="margin:0 0 0.5rem;font-size:1rem;color:#1e3a5f"><i class="fa-solid fa-file-csv"></i> Toplu aktarım</h3>
-                <label class="eds-da__hint" style="display:block;margin:0 0 0.5rem;font-weight:700">Aktarım formatı</label>
-                <select id="optikBulkMode" class="optik-bulk-mode-select" aria-label="Toplu aktarım formatı">
-                  <option value="simple">Tek NET (hızlı) — öğrenci + tek net</option>
-                  <option value="tyt_brans">TYT — 4 ana branş neti (Türkçe, Mat, Fen, Sosyal)</option>
-                  <option value="ayt_sayisal">AYT Sayısal — 4 ders neti</option>
-                  <option value="ayt_ea">AYT Eşit ağırlık — 4 ders neti</option>
-                  <option value="ayt_sozel">AYT Sözel — 7 ders neti</option>
-                  <option value="ayt_dil">AYT Dil — YDT neti</option>
-                </select>
-                <div id="optikBulkHint"></div>
-                <div class="eds-da__toolbar" style="margin-top:0.85rem;border:none;padding:0;flex-wrap:wrap">
-                  <label id="optikBulkSimpleExamWrap">
-                    <span>TYT / AYT (tek net modu)</span>
-                    <select id="optikBulkSimpleExamType">
-                      <option value="TYT">TYT</option>
-                      <option value="AYT">AYT</option>
-                    </select>
-                  </label>
-                  <p id="optikBulkTypeAuto" class="eds-da__hint" style="margin:0;align-self:flex-end;display:none">Sınav tipi seçilen formata göre otomatik ayarlanır.</p>
-                  <label>
-                    <span>Deneme adı</span>
-                    <input type="text" id="optikImportExamName" placeholder="Örn. Okul denemesi 3" maxlength="120" />
-                  </label>
-                  <label>
-                    <span>Tarih</span>
-                    <input type="date" id="optikImportExamDate" />
-                  </label>
-                </div>
-                <div style="margin-top:0.65rem;display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center">
-                  <label class="btn btn--sm btn--ghost" style="cursor:pointer;margin:0">
-                    <i class="fa-solid fa-folder-open"></i> CSV seç
-                    <input type="file" id="optikCsvFile" accept=".csv,text/csv,text/plain" hidden />
-                  </label>
-                  <button type="button" class="btn btn--sm" id="btnOptikClear" style="background:var(--gray-200);color:var(--gray-700)">Metni temizle</button>
-              </div>
-                <textarea id="optikBulkTextarea" rows="12" placeholder="Formatı yukarıdan seçin; örnek için «Örnek şablon»a tıklayın."></textarea>
-                <div class="eds-da__actions" style="margin-top:0.65rem">
-                  <button type="button" class="btn btn--purple btn-eds-primary" id="btnOptikImportRun"><i class="fa-solid fa-cloud-arrow-up"></i> Appwrite’a aktar</button>
-                  <button type="button" class="btn btn-eds-secondary" id="btnOptikDemoFill"><i class="fa-solid fa-flask"></i> Örnek şablon</button>
-                </div>
-                <p id="optikImportResult" class="eds-da__hint" style="margin-top:0.65rem"></p>
-              </div>
-            </div>
-
-            <div id="optikPanelAdvanced" hidden>
-              <div class="da-tool-card" style="border:1px solid #cbd5e1;border-radius:10px;padding:1.15rem;max-width:960px">
-                <h3 style="margin:0 0 0.5rem;font-size:1rem;color:#1e3a5f"><i class="fa-solid fa-scanner-image"></i> Gelişmiş OCR (Tesseract)</h3>
-                <p class="eds-da__hint" style="margin:0 0 0.75rem">Tarayıcı/yazıcı çıktısı yükleyin; görüntü gri ton + siyah-beyaz eşikle hazırlanır. Ağ gerekir (Tesseract WASM).</p>
-                <label class="btn btn--sm btn--ghost" style="cursor:pointer">
-                  <i class="fa-solid fa-image"></i> Görüntü seç
-                  <input type="file" id="optikOcrFile" accept="image/*" hidden />
-                </label>
-                <button type="button" class="btn btn--purple btn--sm" id="optikOcrRun"><i class="fa-solid fa-wand-magic-sparkles"></i> Metin oku</button>
-                <div style="margin:0.75rem 0;overflow:auto;max-height:280px;border:1px solid #e2e8f0;border-radius:8px;background:#0f172a">
-                  <canvas id="optikOcrPreview" style="display:block;max-width:100%;height:auto"></canvas>
-                </div>
-                <pre id="optikOcrOutput" class="optik-ocr-output" style="max-height:140px;overflow:auto;font-size:0.75rem;background:#f8fafc;padding:0.65rem;border-radius:8px"></pre>
-                <h4 style="margin:1rem 0 0.35rem;font-size:0.9rem">DAT / CSV birleştir</h4>
-                <p class="eds-da__hint" style="margin:0 0 0.35rem">Satır: <code>öğrenci_no veya ad [tab veya ;] cevaplar</code> — harfler toplu alana eklenir.</p>
-                <textarea id="optikDatPaste" rows="4" placeholder="Örn: 1001	ABCDEABCDE..." style="width:100%;box-sizing:border-box;border-radius:8px;border:1px solid #e2e8f0;padding:0.5rem;font-family:inherit"></textarea>
-                <button type="button" class="btn btn--sm" id="optikDatMerge" style="margin-top:0.5rem">Toplu alana aktar</button>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <div class="main-view" data-view="karne" id="view-karne" hidden>
-          <div class="page-head">
-            <h1 class="page-head__title">Toplu karne</h1>
-          </div>
-          <section class="eds-da yks-features-root" aria-label="Toplu karne">
-            <header class="eds-da__masthead">
-              <div class="eds-da__breadcrumb">
-                <i class="fa-solid fa-house-chimney"></i> Panel <span>/</span> Deneme analizleri <span>/</span> Karne
-              </div>
-              <h1>Sınıf karne özeti</h1>
-              <p class="eds-da__sub">Öğrenci ve deneme seçerek raporu daraltın; tüm sınıf veya tek öğrenci; PDF ve yazdırma.</p>
-            </header>
-            <div class="da-tool-card karne-tool-card" style="border:1px solid #cbd5e1;border-radius:10px;padding:1.15rem">
-              <div class="karne-filters eds-da__toolbar" style="border:none;padding:0;margin:0 0 1rem;flex-wrap:wrap;gap:0.75rem;align-items:flex-end">
-                <label style="min-width:200px">
-                  <span>Öğrenci</span>
-                  <select id="karneSelectStudent" class="karne-filter-select" aria-label="Karne için öğrenci">
-                    <option value="all">Tüm öğrenciler</option>
-                  </select>
-                </label>
-                <label style="min-width:260px">
-                  <span>Deneme kapsamı</span>
-                  <select id="karneSelectExam" class="karne-filter-select" aria-label="Karne için deneme filtresi">
-                    <option value="all">Tüm denemeler</option>
-                  </select>
-                </label>
-              </div>
-              <div class="eds-da__kpi-row" style="margin-bottom:1rem">
-                <div class="eds-da__kpi">
-                  <div class="eds-da__kpi-label">Kayıtlı öğrenci</div>
-                  <div class="eds-da__kpi-value" id="karneKpiStudents">—</div>
-                </div>
-                <div class="eds-da__kpi">
-                  <div class="eds-da__kpi-label">Toplam deneme kaydı</div>
-                  <div class="eds-da__kpi-value" id="karneKpiExams">—</div>
-                </div>
-              </div>
-              <div class="eds-da__actions" style="margin-bottom:0.75rem">
-                <button type="button" class="btn btn--purple btn-eds-primary" id="btnKarneBuild"><i class="fa-solid fa-rotate"></i> Karnı yenile</button>
-                <button type="button" class="btn btn-eds-secondary" id="btnKarnePrint"><i class="fa-solid fa-print"></i> Yazdır</button>
-                <button type="button" class="btn btn-eds-secondary" id="btnKarneCopyTsv"><i class="fa-solid fa-copy"></i> Excel (TSV)</button>
-                <button type="button" class="btn btn-eds-secondary" id="btnKarnePdf"><i class="fa-solid fa-file-pdf"></i> PDF indir</button>
-                <button type="button" class="btn btn-eds-secondary" id="btnKarneBulkPdf"><i class="fa-solid fa-file-lines"></i> Toplu liste PDF</button>
-              </div>
-              <div id="karneBulkExamMount" class="karne-bulk-mount" aria-live="polite"></div>
-              <div id="karneStudentTrendMount" class="karne-trend-mount" hidden>
-                <h3 class="karne-trend-mount__title">Önceki denemeler — net trendi</h3>
-                <div class="karne-chart-wrap"><canvas id="karneStudentTrendCanvas" height="220" aria-label="Net trend"></canvas></div>
-              </div>
-              <p class="eds-da__hint" style="margin:0 0 0.5rem;font-size:0.8rem">Özet tabloda TYT ve AYT için ayrı deneme sayısı, ortalama net ve sınıf sırası; alt bölümde geçmiş denemeler ve o denemedeki sıra.</p>
-              <div id="karnePrintArea" class="karne-print karne-print--scroll">
-                <p class="muted" style="margin:0">Öğrenci ve deneme seçin; «Karnı yenile» ile güncelleyin.</p>
-              </div>
-            </div>
-          </section>
-        </div>
 
         <div class="main-view" data-view="randevu" id="view-randevu" hidden>
           <div class="page-head">
@@ -4093,12 +3711,20 @@
           </div>
           <div class="dana-karne-dash" id="danaKarneDashRoot">
             <div class="dana-karne-dash__head">
-              <div class="dana-karne-dash__meta-row" style="display:flex;flex-wrap:wrap;gap:0.75rem 1.25rem;align-items:center;justify-content:space-between;width:100%">
-                <p class="dana-karne-dash__meta" style="margin:0">
+              <div class="dana-karne-dash__meta-row">
+                <p class="dana-karne-dash__meta">
                   Kazanım özeti · <strong id="danaKarneStudentLabel">Öğrenci seçin</strong>
                 </p>
-                <label class="visually-hidden" for="danaKarneStudentSelect">Öğrenci</label>
-                <select id="danaKarneStudentSelect" class="input" style="max-width:min(320px,100%);margin:0"></select>
+                <div class="dana-student-picker" role="group" aria-label="Karne için öğrenci seçimi">
+                  <span class="dana-student-picker__eyebrow">Aktif öğrenci</span>
+                  <div class="dana-student-picker__control">
+                    <span class="dana-student-picker__ico" aria-hidden="true"><i class="fa-solid fa-user-graduate"></i></span>
+                    <div class="dana-student-picker__shell">
+                      <label class="visually-hidden" for="danaKarneStudentSelect">Öğrenci seçin</label>
+                      <select id="danaKarneStudentSelect" class="dana-student-picker__select"></select>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div class="dana-karne-pdf-toolbar" role="group" aria-label="PDF raporları">
                 <button type="button" class="btn-dana-pdf" id="btnDanaPdfBulkRank" title="Sıralı liste PDF">
@@ -4191,7 +3817,7 @@
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor" title="PDF işaretleme"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper" title="Manuel soru kırpma"><i class="fas fa-cut"></i> Soru Kırpma</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="soru-arsivi" title="Soru arşivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler" title="Analiz"><i class="fa-solid fa-chart-line"></i> Analiz</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="deneme-analiz-karne" title="Analiz"><i class="fa-solid fa-chart-line"></i> Analiz</button>
               </nav>
             </header>
 
@@ -4598,7 +4224,7 @@
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fas fa-cut"></i> Soru Kırpma</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="soru-arsivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="deneme-analiz-karne"><i class="fa-solid fa-chart-line"></i> Analiz</button>
               </nav>
             </header>
             <div class="tm-ai-wizard-shell">
@@ -4672,7 +4298,7 @@
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fas fa-cut"></i> Soru Kırpma</button>
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="soru-arsivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="deneme-analiz-karne"><i class="fa-solid fa-chart-line"></i> Analiz</button>
               </nav>
             </header>
             <div class="tm-auto-cropper-shell">
@@ -4740,7 +4366,7 @@
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fas fa-cut"></i> Soru Kırpma</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="soru-arsivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="deneme-analiz-karne"><i class="fa-solid fa-chart-line"></i> Analiz</button>
             </nav>
           </header>
           <div class="tm-library-page">
@@ -4776,7 +4402,7 @@
               <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fas fa-cut"></i> Soru Kırpma</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="soru-arsivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="deneme-analiz-karne"><i class="fa-solid fa-chart-line"></i> Analiz</button>
             </nav>
           </header>
           <div class="tm-library-page">
@@ -4809,7 +4435,7 @@
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
               <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="pdf-cropper"><i class="fas fa-cut"></i> Soru Kırpma</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="soru-arsivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="deneme-analiz-karne"><i class="fa-solid fa-chart-line"></i> Analiz</button>
             </nav>
           </header>
           <div class="tm-pdf-cropper-page">
@@ -4943,7 +4569,7 @@
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
               <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fas fa-cut"></i> Soru Kırpma</button>
               <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="soru-arsivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="denemeler"><i class="fa-solid fa-chart-line"></i> Analiz</button>
+              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="deneme-analiz-karne"><i class="fa-solid fa-chart-line"></i> Analiz</button>
             </nav>
           </header>
           <div class="soru-arsivi-page">
@@ -6706,18 +6332,6 @@
       <div class="modal__foot">
         <button type="button" class="btn-modal-secondary" data-close-modal>Vazgeç</button>
         <button type="button" class="btn-modal-primary" id="tmPageDeleteConfirmBtn"><i class="fa-solid fa-trash"></i> Evet, sil</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="optikHataTelafiModal" class="dana-telafi-modal" hidden aria-hidden="true">
-    <div class="dana-telafi-modal__backdrop" data-optik-hata-telafi-close tabindex="-1" aria-hidden="true"></div>
-    <div class="dana-telafi-modal__panel" role="dialog" aria-modal="true" aria-labelledby="optikHataTelafiModalTitle">
-      <h3 id="optikHataTelafiModalTitle" class="dana-telafi-modal__title"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Hata karnesi — AI telafi</h3>
-      <p id="optikHataTelafiModalBody" class="dana-telafi-modal__body"></p>
-      <div class="dana-telafi-modal__actions">
-        <button type="button" class="dana-telafi-modal__btn dana-telafi-modal__btn--ghost" id="optikHataTelafiModalCancel">Vazgeç</button>
-        <button type="button" class="dana-telafi-modal__btn dana-telafi-modal__btn--primary" id="optikHataTelafiModalConfirm">Onayla</button>
       </div>
     </div>
   </div>

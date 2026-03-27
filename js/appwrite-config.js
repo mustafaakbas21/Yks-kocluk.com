@@ -34,9 +34,13 @@ export const APPWRITE_BUCKET_DENEME_DEPOSU = "deneme_deposu";
 /** Koç / kullanıcı avatarları — Console’da bucket oluşturun (ör. `avatarlar`); oturum açık kullanıcıya dosya oluşturma izni verin. */
 export const APPWRITE_BUCKET_AVATARLAR = "avatarlar";
 /**
- * GlobalDenemeler — önerilen şema: adi, yayinevi, sinavTuru (TYT|AYT), tarihSaat (datetime ISO),
- * sonucTarihi (datetime, opsiyonel), pdfId (string, opsiyonel), cevapAnahtariId (string, opsiyonel).
- * Koleksiyon ID’si Console ile birebir eşleşmeli (varsayılan snake_case).
+ * Global deneme takvimi — Appwrite Console’da `derece_panel` içinde bu ID ile koleksiyon oluşturulmalıdır.
+ * Yoksa «Planı kaydet» ve liste istekleri 404 verir.
+ *
+ * Önerilen attribute’lar (Console → Create attribute):
+ * - adi (string, 500), yayinevi (string, 300), sinavTuru (string, 8), tarihSaat (datetime),
+ * - sonucTarihi (datetime, opsiyonel), pdfId (string, opsiyonel), cevapAnahtariId (string, opsiyonel).
+ * İzinler: oturumlu kullanıcıya okuma/yazma (koç paneli ile uyumlu).
  */
 export const APPWRITE_COLLECTION_GLOBAL_DENEMELER = "global_denemeler";
 
