@@ -43,6 +43,22 @@ export const APPWRITE_BUCKET_AVATARLAR = "avatarlar";
  * İzinler: oturumlu kullanıcıya okuma/yazma (koç paneli ile uyumlu).
  */
 export const APPWRITE_COLLECTION_GLOBAL_DENEMELER = "global_denemeler";
+/** Eski Net Sihirbazı hedef satırları (isteğe bağlı; arayüz artık Programs.rowsJson kullanır) */
+export const APPWRITE_COLLECTION_YKS_NET_TARGETS = "yks_net_sihirbazi_targets";
+/** Üniversite kataloğu (`seed-2026-yok-atlas.js`, import scriptleri) */
+export const APPWRITE_COLLECTION_UNIVERSITIES = "Universities";
+/** Net Sihirbazı V2 — bölümler (`uniId` → Universities.$id) */
+export const APPWRITE_COLLECTION_PROGRAMS = "Programs";
+/** Deneme Analizi — `setup-appwrite.js` ile oluşturulan koleksiyonlar */
+export const APPWRITE_COLLECTION_LESSONS = "Lessons";
+export const APPWRITE_COLLECTION_TOPICS = "Topics";
+export const APPWRITE_COLLECTION_EXAMS = "Exams";
+/**
+ * Akıllı Optik V2 / Karne V2 — deneme sonucu kaydı (`setup-appwrite.js`: koleksiyon + indeksler).
+ * Create payload: `js/exam-results-appwrite.js` → `buildExamResultCreatePayload`.
+ * Karne trend etiketleri: `exam_name`, `saved_at` (Exams zorunlu değil).
+ */
+export const APPWRITE_COLLECTION_EXAM_RESULTS = "ExamResults";
 
 const client = new Client()
   .setEndpoint(APPWRITE_ENDPOINT)

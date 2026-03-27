@@ -16,6 +16,7 @@ import {
   updateDoc,
   verifyAppwriteAccount,
   getAppSettings,
+  logAppwriteError,
 } from "./appwrite-compat.js";
 
 let planUnsub = null;
@@ -35,7 +36,7 @@ async function fetchOspStudentExams(studentDocId) {
     });
     window.OSP.lastFetchedExams = list;
   } catch (err) {
-    console.warn("[öğrenci] sınav listesi", err);
+    logAppwriteError("ogrenci-panel-app.js/fetchOspStudentExams", err);
     window.OSP.lastFetchedExams = [];
   }
 }
@@ -51,7 +52,7 @@ window.OspPortal.updateTaskDone = async function (taskId, done) {
     patch["taskDoneMap." + taskId] = !!done;
     await updateDoc(doc(db, "studentPortalPlans", sid), patch);
   } catch (err) {
-    console.warn("[Öğrenci plan] görev güncellenemedi", err);
+    logAppwriteError("ogrenci-panel-app.js/updateTaskDone", err);
   }
 };
 
@@ -85,7 +86,7 @@ async function loadOspForUser(user) {
         return;
       }
     } catch (se) {
-      console.warn("[öğrenci] settings:", se);
+      logAppwriteError("ogrenci-panel-app.js/loadOspForUser/getAppSettings", se);
     }
     var name = (profile.fullName || profile.username || "Öğrenci").trim();
     try {
@@ -143,11 +144,11 @@ async function loadOspForUser(user) {
           });
         }
       } catch (err) {
-        console.warn("[Öğrenci hedef / plan]", err);
+        logAppwriteError("ogrenci-panel-app.js/loadOspForUser/studentsAndPlan", err);
       }
     }
   } catch (e) {
-    console.error(e);
+    logAppwriteError("ogrenci-panel-app.js/loadOspForUser", e);
     setHeaderMeta("Profil yüklenemedi");
   }
 }

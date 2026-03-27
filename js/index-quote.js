@@ -1,7 +1,7 @@
 /**
  * Vitrin — teklif talebi formu (Appwrite quoteRequests)
  */
-import { addDoc, collection, serverTimestamp, db } from "./appwrite-compat.js";
+import { addDoc, collection, serverTimestamp, db, logAppwriteError } from "./appwrite-compat.js";
 import { APPWRITE_COLLECTION_QUOTE_REQUESTS } from "./appwrite-config.js";
 
 var modal = null;
@@ -122,7 +122,7 @@ function bind() {
           if (msgEl) msgEl.className = "quote-modal__msg";
         }, 2200);
       } catch (err) {
-        console.error(err);
+        logAppwriteError("index-quote.js/formSubmit", err);
         if (msgEl) {
           msgEl.textContent =
             "Gönderilemedi. Bağlantınızı kontrol edin veya daha sonra tekrar deneyin.";

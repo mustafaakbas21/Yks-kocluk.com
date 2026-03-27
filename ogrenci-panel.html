@@ -333,7 +333,7 @@
         <!-- Hedef Simülatörü -->
         <section class="osp-view osp-hedef-page" data-osp-view="hedef" id="ospViewHedef" hidden>
           <p style="font-size:0.88rem;color:var(--osp-muted);margin:0 0 0.75rem;">
-            Üniversite ve bölümü ayrı seçin; listeler A–Z sıralıdır. Arama kutularıyla süzebilirsiniz.
+            Önce üniversite; bölüm listesi yalnızca Appwrite <strong>Programs</strong> kayıtlarından gelir (aynı katalog koç paneli ve Net Sihirbazı ile paylaşılır). Veri kökü YÖK Atlas — örn. <a href="https://github.com/saidsurucu/yokatlas-py" target="_blank" rel="noopener">yokatlas-py</a>.
           </p>
           <div class="osp-hedef-atlas-bar">
             <div class="net-sihirbazi-select-row osp-net-sihirbazi-row">
@@ -350,8 +350,8 @@
                 <input type="search" id="ospHedefDeptFilter" class="net-sihirbazi-search" placeholder="Yazarak filtreleyin…" autocomplete="off" />
               </div>
               <div class="net-sihirbazi-select">
-                <label for="ospHedefDeptSelect">Bölüm / program türü</label>
-                <select id="ospHedefDeptSelect" aria-label="Hedef bölüm veya program şablonu"></select>
+                <label for="ospHedefDeptSelect">Bölüm / program</label>
+                <select id="ospHedefDeptSelect" aria-label="Hedef bölüm veya program (Appwrite)"></select>
               </div>
             </div>
           </div>
@@ -370,7 +370,7 @@
         <!-- TYT-AYT Net Sihirbazı -->
         <section class="osp-view osp-net-sihirbazi-page" data-osp-view="net-sihirbazi" id="ospViewNetSihirbazi" hidden>
           <p class="net-sihirbazi-hint" style="margin:0 0 0.75rem;font-size:0.88rem;color:var(--osp-muted);">
-            Üniversite ve program türünü seçin; hedef netler sunucuda tanımlıysa yüklenir, yoksa taban puanına göre tahmin gösterilir. Arama kutularıyla süzebilirsiniz.
+            Net Sihirbazı V2: yalnızca Appwrite <strong>Universities</strong> / <strong>Programs</strong>. Bölüm listesi seçilen üniversitenin gerçek programlarıdır. Güncel netler deneme kayıtlarınızdaki YKS branş detayından gelir (mock veri yok).
           </p>
           <div class="osp-hedef-atlas-bar">
             <div class="net-sihirbazi-select-row osp-net-sihirbazi-row">
@@ -384,11 +384,11 @@
               </div>
               <div class="net-sihirbazi-select net-sihirbazi-select--search">
                 <label for="ospNsDeptFilter">Bölüm ara</label>
-                <input type="search" id="ospNsDeptFilter" class="net-sihirbazi-search" placeholder="Yazarak filtreleyin…" autocomplete="off" />
+                <input type="search" id="ospNsDeptFilter" class="net-sihirbazi-search" placeholder="Yazarak filtreleyin…" autocomplete="off" disabled />
               </div>
               <div class="net-sihirbazi-select">
-                <label for="ospNsDeptSelect">Bölüm / program türü</label>
-                <select id="ospNsDeptSelect" aria-label="Bölüm seçimi"></select>
+                <label for="ospNsDeptSelect">Bölüm</label>
+                <select id="ospNsDeptSelect" aria-label="Bölüm seçimi" disabled></select>
               </div>
             </div>
           </div>
@@ -995,6 +995,13 @@
             subtitleId: "ospNsTabanSub",
             uniFilterId: "ospNsUniFilter",
             deptFilterId: "ospNsDeptFilter",
+            resolveExams: function () {
+              try {
+                return (window.OSP && window.OSP.lastFetchedExams) || [];
+              } catch (e) {
+                return [];
+              }
+            },
           });
         })
         .catch(function (e) {

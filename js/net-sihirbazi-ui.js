@@ -1,25 +1,32 @@
 /**
- * TYT-AYT Net Sihirbazı — tam üniversite listesi + bölüm şablonları
- * YKS Puan — TYT ders bazlı + AYT alan bazlı (demo gösterge)
- * Konu ağacı: `yks-mufredat.js` (YKS2026_Mufredat).
+ * TYT-AYT Net Sihirbazı V2 — Appwrite Universities + Programs; Türkçe sıralı menüler; güncel net = deneme yksBranchDetail (mock yok).
+ * YKS Puan modülü aşağıda aynı dosyada.
  */
 import { YKS2026_Mufredat } from "./yks-mufredat.js";
+import { wireSearchFilterForSelect } from "./hedef-atlas-helpers.js";
+import { hedefUniDisplayName, hedefProgramDisplayName } from "./hedef-appwrite-catalog.js";
 import {
-  TR_UNIVERSITIES_UNIQUE,
-  PROGRAM_TEMPLATES_UI,
-} from "./yok-atlas-catalog.js";
-import { wireSearchFilterForSelect, sortNamedItemsAlphabeticalTr } from "./hedef-atlas-helpers.js";
-import {
-  resolveNetSihirbaziProgram,
+  buildProgramFromAppwriteV2,
   buildMotorDisplayRows,
-  netSihirbaziMotorTableHtml,
   netSihirbaziSkeletonHtml,
+  netSihirbaziV2ResultHtml,
 } from "./net-sihirbazi-engine.js";
+import {
+  databases,
+  APPWRITE_DATABASE_ID,
+  APPWRITE_COLLECTION_UNIVERSITIES,
+  APPWRITE_COLLECTION_PROGRAMS,
+} from "./appwrite-config.js";
+import { Query } from "./appwrite-browser.js";
+import { createCurrentNetForRowResolver, hasAnyBranchNetData } from "./net-sihirbazi-current-nets.js";
 
 export { YKS2026_Mufredat };
 
+var NS_PAGE = 500;
+
 /**
- * @param {{ uniSelectId: string, deptSelectId: string, tableWrapId: string, uniTitleId?: string, deptTitleId?: string, subtitleId?: string, uniFilterId?: string, deptFilterId?: string }} options
+ * @param {{ uniSelectId: string, deptSelectId: string, tableWrapId: string, uniTitleId?: string, deptTitleId?: string, subtitleId?: string, uniFilterId?: string, deptFilterId?: string, resolveExams?: () => unknown }} options
+ * resolveExams: seçili öğrencinin denemeleri (yksBranchDetail). Dizi veya Promise dönebilir. Yoksa güncel net 0 gösterilir.
  */
 export function initNetSihirbazi(options) {
   var uSel = document.getElementById(options.uniSelectId);
@@ -30,100 +37,298 @@ export function initNetSihirbazi(options) {
   var subEl = options.subtitleId ? document.getElementById(options.subtitleId) : null;
   var uniFilter = options.uniFilterId ? document.getElementById(options.uniFilterId) : null;
   var deptFilter = options.deptFilterId ? document.getElementById(options.deptFilterId) : null;
+  var resolveExams = typeof options.resolveExams === "function" ? options.resolveExams : null;
   if (!uSel || !dSel || !wrap) return;
   if (uSel.dataset.nsBound) return;
   uSel.dataset.nsBound = "1";
 
-  uSel.innerHTML = '<option value="">— Üniversite seçin —</option>';
-  sortNamedItemsAlphabeticalTr(TR_UNIVERSITIES_UNIQUE).forEach(function (u) {
-    var o = document.createElement("option");
-    o.value = u.id;
-    o.textContent = u.name;
-    uSel.appendChild(o);
-  });
+  /** @type {object[]} */
+  var unis = [];
+  /** @type {Record<string, object[]>} */
+  var programsByUni = {};
 
-  dSel.innerHTML = '<option value="">— Bölüm / program türü seçin —</option>';
-  sortNamedItemsAlphabeticalTr(PROGRAM_TEMPLATES_UI).forEach(function (t) {
-    var o = document.createElement("option");
-    o.value = t.id;
-    o.textContent = t.name;
-    dSel.appendChild(o);
-  });
-
-  wireSearchFilterForSelect(uniFilter, uSel);
-  wireSearchFilterForSelect(deptFilter, dSel);
-
-  function renderEmptyState() {
-    if (uniTitle) uniTitle.textContent = "Üniversite ve bölüm seçin";
-    if (deptTitle) deptTitle.textContent = "Net Sihirbazı — ders bazlı hedef tablosu";
-    if (subEl)
-      subEl.textContent =
-        "Hedef netler Appwrite’da tanımlıysa canlı çekilir; yoksa taban puanına göre tahmini dağılım üretilir.";
-    wrap.innerHTML =
-      '<p class="net-sihirbazi-placeholder">Üniversite ve bölüm seçildiğinde tablo oluşturulur.</p>';
-  }
-
-  function render() {
-    var uid = uSel.value;
-    var tid = dSel.value;
-    if (!uid || !tid) {
-      renderEmptyState();
-      return;
+  function renderEmptyState(msg) {
+    try {
+      if (uniTitle) uniTitle.textContent = "Üniversite ve bölüm seçin";
+      if (deptTitle) deptTitle.textContent = "TYT-AYT Net Sihirbazı V2";
+      if (subEl) {
+        subEl.textContent =
+          msg ||
+          "Veri yalnızca Appwrite Universities / Programs koleksiyonlarından gelir. Önce üniversite, sonra yalnızca o üniversiteye ait bölümler.";
+      }
+      wrap.innerHTML =
+        '<p class="net-sihirbazi-placeholder">Üniversite ve bölüm seçildiğinde analiz tablosu oluşturulur.</p>';
+    } catch (e) {
+      console.error("[Net Sihirbazı V2] renderEmptyState:", e);
     }
-    wrap.innerHTML = netSihirbaziSkeletonHtml();
-    resolveNetSihirbaziProgram(uid, tid)
-      .then(function (prog) {
-        try {
-          if (!prog || !prog.rows || !prog.rows.length) {
-            if (uniTitle) uniTitle.textContent = "Üniversite ve bölüm seçin";
-            if (deptTitle) deptTitle.textContent = "Net Sihirbazı";
-            if (subEl) subEl.textContent = "Bu eşleşme için program üretilemedi.";
-            wrap.innerHTML =
-              '<p class="net-sihirbazi-placeholder">Bu bölüm için net verisi bekleniyor veya seçim geçersiz.</p>';
-            return;
-          }
-          if (uniTitle) uniTitle.textContent = prog.university;
-          if (deptTitle) deptTitle.textContent = prog.department;
-          if (subEl) {
-            var src =
-              prog.dataSource === "appwrite"
-                ? "Kaynak: Appwrite hedef netleri · Taban (ref.): "
-                : "Kaynak: taban puanına göre tahmini dağılım · Taban (ref.): ";
-            subEl.textContent =
-              src +
-              prog.baseScore2025 +
-              " · Koleksiyon `yks_net_sihirbazi_targets` ile gerçek netleri bağlayabilirsiniz.";
-          }
-          var display = buildMotorDisplayRows(prog);
-          wrap.innerHTML = netSihirbaziMotorTableHtml(display, {});
-        } catch (inner) {
-          console.error("[Net Sihirbazı] render:", inner);
-          wrap.innerHTML =
-            '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Tablo oluşturulurken bir hata oluştu. Lütfen yeniden deneyin.</p>';
-        }
-      })
-      .catch(function (err) {
-        console.error("[Net Sihirbazı] yükleme:", err);
-        wrap.innerHTML =
-          '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Veri yüklenemedi. Bağlantınızı kontrol edip tekrar deneyin.</p>';
+  }
+
+  function resetDepartmentUi() {
+    try {
+      dSel.innerHTML = '<option value="">— Önce üniversite seçin —</option>';
+      dSel.disabled = true;
+      if (deptFilter) {
+        deptFilter.disabled = true;
+        deptFilter.value = "";
+      }
+    } catch (e) {
+      console.error("[Net Sihirbazı V2] resetDepartmentUi:", e);
+    }
+  }
+
+  function fillUniversitySelect() {
+    try {
+      uSel.innerHTML = '<option value="">— Üniversite seçin —</option>';
+      unis.forEach(function (u) {
+        var o = document.createElement("option");
+        o.value = u.$id;
+        o.textContent = hedefUniDisplayName(u) || u.$id;
+        uSel.appendChild(o);
       });
+    } catch (e) {
+      console.error("[Net Sihirbazı V2] fillUniversitySelect:", e);
+    }
   }
 
-  uSel.addEventListener("change", render);
-  dSel.addEventListener("change", render);
-  try {
-    render();
-  } catch (e) {
-    console.error("[Net Sihirbazı] ilk render:", e);
-    renderEmptyState();
+  function fillDepartmentSelect(list) {
+    try {
+      dSel.innerHTML = '<option value="">— Bölüm seçin —</option>';
+      list.forEach(function (p) {
+        var o = document.createElement("option");
+        o.value = p.$id;
+        o.textContent = hedefProgramDisplayName(p) || p.$id;
+        dSel.appendChild(o);
+      });
+      dSel.disabled = false;
+      if (deptFilter) {
+        deptFilter.disabled = false;
+        deptFilter.value = "";
+        Array.from(dSel.options).forEach(function (opt, i) {
+          if (i === 0) opt.hidden = false;
+          else opt.hidden = false;
+        });
+      }
+    } catch (e) {
+      console.error("[Net Sihirbazı V2] fillDepartmentSelect:", e);
+    }
   }
-}
 
-function readNet(id) {
-  var el = document.getElementById(id);
-  if (!el) return 0;
-  var n = parseFloat(String(el.value || "0").replace(",", "."));
-  return isNaN(n) ? 0 : n;
+  async function fetchAllUniversities() {
+    var all = [];
+    var cursor = null;
+    try {
+      for (;;) {
+        var q = [Query.limit(NS_PAGE)];
+        if (cursor) q.push(Query.cursorAfter(cursor));
+        var res = await databases.listDocuments(APPWRITE_DATABASE_ID, APPWRITE_COLLECTION_UNIVERSITIES, q);
+        var docs = (res && res.documents) || [];
+        all = all.concat(docs);
+        if (docs.length < NS_PAGE) break;
+        cursor = docs[docs.length - 1].$id;
+      }
+      all.sort(function (a, b) {
+        return hedefUniDisplayName(a).localeCompare(hedefUniDisplayName(b), "tr");
+      });
+      return all;
+    } catch (e) {
+      console.error("[Net Sihirbazı V2] fetchAllUniversities:", e);
+      throw e;
+    }
+  }
+
+  async function fetchProgramsForUni(uniId) {
+    var uid = String(uniId || "").trim();
+    if (!uid) return [];
+    if (programsByUni[uid]) return programsByUni[uid];
+    var acc = [];
+    var cursor = null;
+    try {
+      for (;;) {
+        var q = [Query.equal("uniId", uid), Query.limit(NS_PAGE)];
+        if (cursor) q.push(Query.cursorAfter(cursor));
+        var res = await databases.listDocuments(APPWRITE_DATABASE_ID, APPWRITE_COLLECTION_PROGRAMS, q);
+        var docs = (res && res.documents) || [];
+        acc = acc.concat(docs);
+        if (docs.length < NS_PAGE) break;
+        cursor = docs[docs.length - 1].$id;
+      }
+      acc.sort(function (a, b) {
+        return hedefProgramDisplayName(a).localeCompare(hedefProgramDisplayName(b), "tr");
+      });
+      programsByUni[uid] = acc;
+      return acc;
+    } catch (e) {
+      console.error("[Net Sihirbazı V2] fetchProgramsForUni:", e);
+      throw e;
+    }
+  }
+
+  async function loadExamsForResolver() {
+    try {
+      if (!resolveExams) return [];
+      var x = resolveExams();
+      if (x && typeof x.then === "function") x = await x;
+      return Array.isArray(x) ? x : [];
+    } catch (e) {
+      console.error("[Net Sihirbazı V2] loadExamsForResolver:", e);
+      return [];
+    }
+  }
+
+  async function renderTable() {
+    try {
+      var uid = String(uSel.value || "").trim();
+      var pid = String(dSel.value || "").trim();
+      if (!uid || !pid) {
+        renderEmptyState(null);
+        return;
+      }
+      wrap.innerHTML = netSihirbaziSkeletonHtml();
+      var uni = unis.find(function (x) {
+        return x.$id === uid;
+      });
+      var progs = programsByUni[uid] || [];
+      var pdoc = progs.find(function (x) {
+        return x.$id === pid;
+      });
+      if (!uni || !pdoc) {
+        renderEmptyState("Seçilen kayıt bulunamadı.");
+        return;
+      }
+      var prog = buildProgramFromAppwriteV2(uni, pdoc);
+      if (!prog || !prog.rows || !prog.rows.length) {
+        if (uniTitle) uniTitle.textContent = hedefUniDisplayName(uni) || "—";
+        if (deptTitle) deptTitle.textContent = hedefProgramDisplayName(pdoc) || "—";
+        if (subEl) subEl.textContent = "Bu bölüm için geçerli rowsJson üretilemedi.";
+        wrap.innerHTML =
+          '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Program verisi okunamadı veya satır listesi boş.</p>';
+        return;
+      }
+      if (uniTitle) uniTitle.textContent = prog.university || hedefUniDisplayName(uni) || "";
+      if (deptTitle) deptTitle.textContent = prog.department || hedefProgramDisplayName(pdoc) || "";
+
+      var alanKeyStr = String(pdoc.alanKey != null ? pdoc.alanKey : "sayisal");
+      var exams = await loadExamsForResolver();
+      var hasBranch = hasAnyBranchNetData(exams, alanKeyStr);
+      var currentNetForRow = createCurrentNetForRowResolver(exams, alanKeyStr);
+
+      if (subEl) {
+        subEl.textContent = hasBranch
+          ? "Güncel netler: son denemelerinizdeki YKS branş detayı (yksBranchDetail) ile eşleştirildi."
+          : "Branş güncel net bulunamadı — tabloda güncel sütunu 0; deneme kaydınıza YKS detayı ekleyin veya öğrenci seçin.";
+      }
+
+      var display = buildMotorDisplayRows(prog, { currentNetForRow: currentNetForRow });
+      var uiMeta = {
+        currentNetSummary: hasBranch
+          ? "Güncel sütunu gerçek deneme branş netlerinizden türetilir (eşleşmeyen dersler 0)."
+          : "Henüz branş neti yok; güncel değerler 0 gösteriliyor.",
+        tableFootnote:
+          "Kalan = güncel − hedef. Ekside kırmızı, fazlada yeşil. Hedefler Appwrite Programs (rowsJson).",
+      };
+      wrap.innerHTML = netSihirbaziV2ResultHtml(display, prog, uiMeta);
+    } catch (err) {
+      console.error("[Net Sihirbazı V2] renderTable:", err);
+      try {
+        wrap.innerHTML =
+          '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Tablo oluşturulurken hata oluştu. Lütfen tekrar deneyin.</p>';
+        if (subEl) subEl.textContent = err && err.message ? String(err.message) : "Hata.";
+      } catch (_e2) {}
+    }
+  }
+
+  function bindFiltersOnce() {
+    try {
+      if (uniFilter && !uniFilter.dataset.nsV2Wired) {
+        uniFilter.dataset.nsV2Wired = "1";
+        wireSearchFilterForSelect(uniFilter, uSel);
+      }
+      if (deptFilter && !deptFilter.dataset.nsV2Wired) {
+        deptFilter.dataset.nsV2Wired = "1";
+        wireSearchFilterForSelect(deptFilter, dSel);
+      }
+    } catch (e) {
+      console.error("[Net Sihirbazı V2] bindFiltersOnce:", e);
+    }
+  }
+
+  resetDepartmentUi();
+  renderEmptyState("Üniversiteler yükleniyor…");
+  wrap.innerHTML = netSihirbaziSkeletonHtml();
+
+  (async function bootstrap() {
+    try {
+      unis = await fetchAllUniversities();
+      fillUniversitySelect();
+      bindFiltersOnce();
+      if (!unis.length) {
+        renderEmptyState(
+          "Universities koleksiyonunda kayıt yok. setup-appwrite.js sonrası auto-fetch-yokatlas.js veya import-excel-to-appwrite.js çalıştırın."
+        );
+        wrap.innerHTML =
+          '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Liste boş — önce veri aktarımı gerekir.</p>';
+        return;
+      }
+      renderEmptyState(null);
+    } catch (e) {
+      console.error("[Net Sihirbazı V2] bootstrap:", e);
+      try {
+        wrap.innerHTML =
+          '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Appwrite Universities yüklenemedi. Oturum ve koleksiyon adlarını kontrol edin.</p>';
+        if (subEl) subEl.textContent = e && e.message ? String(e.message) : "Yükleme hatası.";
+      } catch (_e2) {}
+    }
+  })();
+
+  uSel.addEventListener("change", function () {
+    try {
+      var uid = String(uSel.value || "").trim();
+      resetDepartmentUi();
+      renderEmptyState(
+        uid ? "Bölümler yükleniyor…" : "Önce üniversite seçin; bölüm listesi yalnızca seçilen üniversitenin uniId değerine göre gelir."
+      );
+      if (!uid) {
+        if (uniTitle) uniTitle.textContent = "Üniversite ve bölüm seçin";
+        return;
+      }
+      wrap.innerHTML = netSihirbaziSkeletonHtml();
+      fetchProgramsForUni(uid)
+        .then(function (list) {
+          try {
+            if (!list.length) {
+              fillDepartmentSelect([]);
+              dSel.disabled = true;
+              wrap.innerHTML =
+                '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Bu üniversite için kayıtlı bölüm yok.</p>';
+              if (subEl) subEl.textContent = "Bu uniId için Programs dökümanı bulunamadı.";
+              return;
+            }
+            fillDepartmentSelect(list);
+            bindFiltersOnce();
+            renderEmptyState(null);
+          } catch (inner) {
+            console.error("[Net Sihirbazı V2] uni change:", inner);
+            renderEmptyState("Bölüm listesi işlenemedi.");
+          }
+        })
+        .catch(function (err) {
+          console.error("[Net Sihirbazı V2] programs fetch:", err);
+          try {
+            wrap.innerHTML =
+              '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Bölümler yüklenemedi.</p>';
+            if (subEl) subEl.textContent = err && err.message ? String(err.message) : "Ağ hatası.";
+          } catch (_e2) {}
+        });
+    } catch (err) {
+      console.error("[Net Sihirbazı V2] uSel change:", err);
+    }
+  });
+
+  dSel.addEventListener("change", function () {
+    renderTable().catch(function (e) {
+      console.error("[Net Sihirbazı V2] renderTable:", e);
+    });
+  });
 }
 
 function demoYerlestirmeDetayli(tytSum, aytSum, obp) {

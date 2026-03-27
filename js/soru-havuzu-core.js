@@ -9,6 +9,7 @@ import {
   APPWRITE_COLLECTION_SORULAR,
   APPWRITE_BUCKET_SORU_HAVUZU,
 } from "./appwrite-config.js";
+import { logAppwriteError } from "./appwrite-compat.js";
 
 const DATABASE_ID = APPWRITE_DATABASE_ID;
 const COLLECTION_ID = APPWRITE_COLLECTION_SORULAR;
@@ -194,7 +195,7 @@ export async function listSoruHavuzuFiltered(coachKey, opts) {
     docs = (res && res.documents) || [];
   } catch (err) {
     if (!isCoachIdUnavailableError(err)) {
-      console.warn("[soru_havuzu] listDocuments:", err);
+      logAppwriteError("soru-havuzu-core.js/listSoruHavuzuFiltered/listDocuments", err);
     }
     try {
       var q2 = buildQueries(false);
@@ -206,7 +207,7 @@ export async function listSoruHavuzuFiltered(coachKey, opts) {
       shuffleInPlace(docs);
       docs = docs.slice(0, fetchLimit);
     } catch (err2) {
-      console.warn("[soru_havuzu] listDocuments (fallback istemci süzgeci):", err2);
+      logAppwriteError("soru-havuzu-core.js/listSoruHavuzuFiltered/listDocuments-fallback", err2);
       var all = await fetchSoruHavuzuForCoach(coachKey);
       docs = (all || []).filter(function (row) {
         if (ders && String(row.ders || "") !== ders) return false;
@@ -261,7 +262,13 @@ async function listAllCoachDocumentsPaged(queries) {
   for (;;) {
     var q = queries.slice();
     if (cursor) q.push(Query.cursorAfter(cursor));
-    var res = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, q);
+    var res;
+    try {
+      res = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, q);
+    } catch (e) {
+      logAppwriteError("soru-havuzu-core.js/listAllCoachDocumentsPaged", e);
+      throw e;
+    }
     var batch = (res && res.documents) || [];
     for (var i = 0; i < batch.length; i++) {
       var m = mapAppwriteDoc(batch[i]);
@@ -284,7 +291,7 @@ async function listAllCoachDocuments(coachKey) {
     return await listAllCoachDocumentsPaged(queries);
   } catch (error) {
     if (!isCoachIdUnavailableError(error)) {
-      console.error("VERI CEKME HATASI:", error);
+      logAppwriteError("soru-havuzu-core.js/listAllCoachDocuments", error);
       throw error;
     }
     var loose = [Query.orderDesc("$createdAt"), Query.limit(PAGE_SIZE)];
@@ -366,7 +373,10 @@ export async function listSoruDocumentsForPdf(coachKey, filters) {
     }
     return rowsOut;
   } catch (e) {
-    if (!isCoachIdUnavailableError(e)) throw e;
+    if (!isCoachIdUnavailableError(e)) {
+      logAppwriteError("soru-havuzu-core.js/listSoruDocumentsForPdf", e);
+      throw e;
+    }
     var res2 = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, build(false));
     var rows = (res2 && res2.documents) || [];
     return rows.filter(function (row) {
@@ -441,14 +451,6 @@ export async function saveSoruHavuzuEntry(p) {
   }
 
   try {
-    var databaseId = DATABASE_ID;
-    var collectionId = COLLECTION_ID;
-    var data = payload;
-    console.log("--- APPWRITE DEBUG ---");
-    console.log("Hedef Database ID:", databaseId);
-    console.log("Hedef Collection ID:", collectionId);
-    console.log("Gönderilen Veri Yapısı:", data);
-    console.log("-----------------------");
     await databases.createDocument(DATABASE_ID, COLLECTION_ID, docId, payload);
   } catch (err) {
     if (payload.coach_id && isCoachIdUnavailableError(err)) {
@@ -460,14 +462,6 @@ export async function saveSoruHavuzuEntry(p) {
           soru_resim_id: payload.soru_resim_id,
           dogru_cevap: payload.dogru_cevap,
         };
-        databaseId = DATABASE_ID;
-        collectionId = COLLECTION_ID;
-        data = payload2;
-        console.log("--- APPWRITE DEBUG ---");
-        console.log("Hedef Database ID:", databaseId);
-        console.log("Hedef Collection ID:", collectionId);
-        console.log("Gönderilen Veri Yapısı:", data);
-        console.log("-----------------------");
         await databases.createDocument(DATABASE_ID, COLLECTION_ID, docId, payload2);
         console.warn("[soru_havuzu] coach_id şemada yok; kayıt coach_id olmadan oluşturuldu.");
         return docId;
@@ -475,11 +469,7 @@ export async function saveSoruHavuzuEntry(p) {
         err = errRetry;
       }
     }
-    var em = err && err.message != null ? String(err.message) : String(err || "");
-    var ec = err && err.code != null ? err.code : err && err.type != null ? err.type : "";
-    console.error("Kayıt Başarısız. Appwrite Hatası:", em, "Hata Kodu:", ec);
-    console.error("[soru_havuzu] createDocument başarısız. Gönderilen anahtarlar:", Object.keys(payload));
-    console.error("[soru_havuzu] Appwrite hata detayı:", err);
+    logAppwriteError("soru-havuzu-core.js/saveSoruHavuzuEntry/createDocument", err);
     var wrap = new Error(
       uploadedFileId
         ? "Görsel depoya yüklendi ancak soru kaydı oluşturulamadı. " +
@@ -541,13 +531,13 @@ export async function deleteSoruHavuzuDoc(docId) {
     img = (doc && (doc.imageUrl || doc.image_url)) || "";
     explicit = (doc && (doc.soru_resim_id || doc.storage_file_id || doc.storageFileId)) || "";
   } catch (e) {
-    console.warn("[soru_havuzu] doküman okunamadı (yine de silme denenir):", e);
+    logAppwriteError("soru-havuzu-core.js/deleteSoruHavuzuDoc/getDocument", e);
   }
   await deleteStorageIfLinked(img, explicit);
   try {
     await databases.deleteDocument(DATABASE_ID, COLLECTION_ID, docId);
   } catch (e) {
-    console.error("[soru_havuzu] deleteDocument:", docId, e);
+    logAppwriteError("soru-havuzu-core.js/deleteSoruHavuzuDoc/deleteDocument", e);
     throw e;
   }
 }
@@ -556,7 +546,7 @@ export async function setSoruHavuzuCozuldu(docId, cozuldu) {
   try {
     await databases.updateDocument(DATABASE_ID, COLLECTION_ID, docId, { cozuldu: !!cozuldu });
   } catch (e) {
-    console.error("[soru_havuzu] cozuldu güncellenemedi:", docId, e);
+    logAppwriteError("soru-havuzu-core.js/setSoruHavuzuCozuldu", e);
     throw e;
   }
 }

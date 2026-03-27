@@ -10,7 +10,7 @@ import {
   APPWRITE_COLLECTION_HATA_BILDIRIMLERI,
   APPWRITE_BUCKET_DESTEK,
 } from "./appwrite-config.js";
-import { auth, verifyAppwriteAccount, doc, getDoc, db } from "./appwrite-compat.js";
+import { auth, verifyAppwriteAccount, doc, getDoc, db, logAppwriteError } from "./appwrite-compat.js";
 
 var TOAST_MS = 4200;
 
@@ -258,7 +258,7 @@ async function submitForm(modal, form) {
     if (fileInput) fileInput.value = "";
     closeModal(modal);
   } catch (err) {
-    console.error("[sorun-bildir]", err);
+    logAppwriteError("sorun-bildir.js/submitForm", err);
     var raw = err && err.message != null ? String(err.message) : "";
     var m =
       /network|fetch|failed to fetch|timeout/i.test(raw)

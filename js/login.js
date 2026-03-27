@@ -13,6 +13,7 @@ import {
   auth,
   verifyAppwriteAccount,
   getAppSettings,
+  logAppwriteError,
 } from "./appwrite-compat.js";
 import "./appwrite-config.js";
 import { Query as AQuery } from "./appwrite-browser.js";
@@ -104,7 +105,7 @@ async function findProfileFromDatabase(authUser, fallbackUsername) {
     var usersById = await databases.listDocuments(APPWRITE_DATABASE_ID, "users", [AQuery.equal("$id", uid), AQuery.limit(1)]);
     if (usersById && usersById.documents && usersById.documents.length) return usersById.documents[0];
   } catch (e) {
-    console.warn("Tablo okuma atlandı:", e && e.message != null ? e.message : String(e));
+    logAppwriteError("login.js/findProfileFromDatabase/usersById", e);
   }
 
   if (uname) {
@@ -115,7 +116,7 @@ async function findProfileFromDatabase(authUser, fallbackUsername) {
       ]);
       if (usersByUsername && usersByUsername.documents && usersByUsername.documents.length) return usersByUsername.documents[0];
     } catch (e2) {
-      console.warn("Tablo okuma atlandı:", e2 && e2.message != null ? e2.message : String(e2));
+      logAppwriteError("login.js/findProfileFromDatabase/usersByUsername", e2);
     }
   }
 
@@ -135,7 +136,7 @@ async function findProfileFromDatabase(authUser, fallbackUsername) {
         };
       }
     } catch (e3) {
-      console.warn("Tablo okuma atlandı:", e3 && e3.message != null ? e3.message : String(e3));
+      logAppwriteError("login.js/findProfileFromDatabase/coachesByUsername", e3);
     }
   }
 
@@ -163,7 +164,7 @@ async function ensureProfileSynchronized(authUser, loginMode, rawUser) {
     await databases.createDocument(APPWRITE_DATABASE_ID, "users", uid, payload);
   } catch (e) {
     var msg = e && e.message != null ? String(e.message) : "";
-    console.error("[login] createDocument (users) hata mesajı:", msg, e);
+    logAppwriteError("login.js/ensureProfileSynchronized/createDocument", e);
     if (!/already exists|document_already_exists/i.test(msg)) throw e;
   }
   var created = await findProfileFromDatabase(authUser, rawUser);
@@ -238,7 +239,7 @@ async function resolveAndRedirectByProfile(user) {
     window.location.replace("/koc-panel");
   } catch (e) {
     var msg = e && e.message != null ? String(e.message) : "";
-    console.error("[login] resolveAndRedirectByProfile hata mesajı:", msg, e);
+    logAppwriteError("login.js/resolveAndRedirectByProfile", e);
     if (/zaman aşımı/i.test(msg)) {
       showError("Profil yüklenemedi (zaman aşımı). Ağı kontrol edip yenileyin.");
     } else {
@@ -376,7 +377,7 @@ loginFormEl.addEventListener("submit", async function (e) {
         return;
       }
     } catch (se) {
-      console.warn("[login] settings:", se);
+      logAppwriteError("login.js/submit/getAppSettings", se);
     }
     if (profile.frozen === true) {
       await signOut(auth);
@@ -404,7 +405,7 @@ loginFormEl.addEventListener("submit", async function (e) {
       try {
         await updateDoc(doc(db, "users", u.uid), { lastLogin: serverTimestamp() });
       } catch (e) {
-        console.warn("[login] student lastLogin:", e);
+        logAppwriteError("login.js/submit/studentLastLogin", e);
       }
       window.location.replace("/ogrenci-panel");
       return;
@@ -425,7 +426,7 @@ loginFormEl.addEventListener("submit", async function (e) {
       try {
         await updateDoc(doc(db, "users", u.uid), { lastLogin: serverTimestamp() });
       } catch (e) {
-        console.warn("[login] lastLogin:", e);
+        logAppwriteError("login.js/submit/coachLastLogin", e);
       }
       try {
         await addDoc(collection(db, "coachLoginLog"), {
@@ -434,7 +435,7 @@ loginFormEl.addEventListener("submit", async function (e) {
           at: serverTimestamp(),
         });
       } catch (e) {
-        console.warn("[login] coachLoginLog:", e);
+        logAppwriteError("login.js/submit/coachLoginLog", e);
       }
       window.location.replace("/koc-panel");
     }

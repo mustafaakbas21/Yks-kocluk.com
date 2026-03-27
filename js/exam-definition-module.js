@@ -10,6 +10,7 @@ import {
   where,
   db,
   serverTimestamp,
+  logAppwriteError,
 } from "./appwrite-compat.js";
 
 export const EXAM_DEFINITIONS_COLLECTION = "exam_definitions";
@@ -121,7 +122,7 @@ export async function loadExamDefinitionsForCoach(getCoachId) {
     });
     return out;
   } catch (e) {
-    console.warn("[exam_definitions] list", e);
+    logAppwriteError("exam-definition-module.js/loadExamDefinitionsForCoach", e);
     return [];
   }
 }
@@ -306,7 +307,7 @@ export function initExamDefinitionProfessionalUI(ctx) {
         if (keyEl) keyEl.value = "";
         await refreshList();
       } catch (e) {
-        console.error(e);
+        logAppwriteError("exam-definition-module.js/examDefSaveBtn", e);
         ctx.showToast("Kayıt başarısız: " + (e.message || e));
       }
     });

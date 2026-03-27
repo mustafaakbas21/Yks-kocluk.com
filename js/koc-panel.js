@@ -14,12 +14,6 @@ import { yksMufredatDatasi } from "./mufredat-data.js";
 import { YKS2026_Mufredat, yks2026KonuOptionsForDers } from "./yks-mufredat.js";
 import { YKS_CARTOON_AVATAR_MALE, YKS_CARTOON_AVATAR_FEMALE } from "./yks-cartoon-avatars.js";
 import {
-  findAtlasProgramById,
-  TR_UNIVERSITIES_UNIQUE,
-  PROGRAM_TEMPLATES_UI,
-  buildProgramFromUniTemplate,
-} from "./yok-atlas-data.js";
-import {
   buildSimulatorRows,
   netTemplateTableHtml,
   sumGap,
@@ -32,6 +26,16 @@ import {
   computeHedefWinProbabilityPercent,
   hedefProbabilityBarClass,
 } from "./hedef-atlas-helpers.js";
+import { buildProgramFromAppwriteV2 } from "./net-sihirbazi-engine.js";
+import {
+  ensureHedefSimulatorAppwriteData,
+  getHedefAppwriteUniversities,
+  loadHedefProgramsForUniversity,
+  getCachedHedefProgramsForUniversity,
+  programPuanGroupFromAlanKey,
+  hedefUniDisplayName,
+  hedefProgramDisplayName,
+} from "./hedef-appwrite-catalog.js";
 import { initNetSihirbazi, initYksPuanHesaplama } from "./net-sihirbazi-ui.js";
 import {
   onAuthStateChanged,
@@ -74,6 +78,9 @@ import {
   normalizeSoruPoolDocForAi,
 } from "./soru-havuzu-core.js";
 import { parseFlexibleDate, formatDateTimeTr } from "./date-format.js";
+import { initSmartOptikPage } from "./smart-optik-page.js";
+import { initDenemelerPage } from "./denemeler-app.js";
+import { renderDanaKarneV2, destroyDanaKarneV2Charts } from "./dana-karne-v2.js";
 import {
   configureZohoInboxPreset,
   loadEmails,
@@ -83,12 +90,16 @@ import {
 import {
   client,
   storage,
+  databases,
+  APPWRITE_DATABASE_ID,
+  APPWRITE_COLLECTION_EXAMS,
   APPWRITE_COLLECTION_ATANAN_KAYNAKLAR,
   APPWRITE_BUCKET_DENEME_DEPOSU,
   APPWRITE_COLLECTION_GLOBAL_DENEMELER,
   APPWRITE_BUCKET_AVATARLAR,
 } from "./appwrite-config.js";
-import { ID } from "./appwrite-browser.js";
+import { logAppwriteError } from "./appwrite-compat.js";
+import { ID, Query } from "./appwrite-browser.js";
 
 /** Aktif görünüme göre deneme net kuralı (ÖSYM / Y3) — TestMaker / genel şablon select. */
 function coachNetFromBranchDy(d, y) {
@@ -256,6 +267,10 @@ function showSaAnalyticsToolBanner() {
 function getInitialKocViewFromUrl() {
   try {
     var p = new URLSearchParams(window.location.search);
+    var viewParam = (p.get("view") || "").trim();
+    if (viewParam && /^[a-z0-9_-]+$/i.test(viewParam)) {
+      if (document.querySelector('.main-view[data-view="' + viewParam + '"]')) return viewParam;
+    }
     var t = (p.get("tool") || "").trim();
     if (t === "net-sihirbazi" || t === "yks-puan") return t;
     var tm = (p.get("tmOpen") || "").trim();
@@ -338,6 +353,8 @@ function filterSnapshotDocsByCoach(snap) {
 
 let firestoreUnsubs = [];
 let cachedAppointments = [];
+/** Randevu modalı: `ap_student` ile eşleşen öğrencinin `phone` değeri (WhatsApp). */
+var __appointmentModalWaPhoneCache = { studentId: "", phone: "" };
 let cachedExams = [];
 let cachedStudents = [];
 let cachedPayments = [];
@@ -3442,19 +3459,6 @@ function dpHedefInferCity(u) {
   return "Diğer / Belirsiz";
 }
 
-function dpHedefTemplatePuanGroup(t) {
-  var n = String((t && t.name) || "").toLocaleLowerCase("tr");
-  if (/dil|ydt|çeviri|i̇ngilizce|ingilizce|almanca|fransızca|fransizca|mütercim/.test(n)) return "dil";
-  if (
-    /hukuk|psikoloji|sosyoloji|siyaset|uluslararası|uluslararasi|i̇letişim|iletisim|gazetecilik|çalışma|calisma|felsefe/.test(
-      n
-    )
-  )
-    return "sozel_ea";
-  if (/i̇ktisat|iktisat|işletme|isletme|yönetim|yonetim|maliye|kamu/.test(n)) return "sozel_ea";
-  return "sayisal";
-}
-
 function dpHedefSumAbsNetDistance(rows) {
   var s = 0;
   (rows || []).forEach(function (r) {
@@ -3463,11 +3467,10 @@ function dpHedefSumAbsNetDistance(rows) {
   return s;
 }
 
-function dpHedefSortTemplatesByCloseness(templates, studentLike, uniIdFallback) {
-  var uid = uniIdFallback || "bogazici";
-  return templates.slice().sort(function (a, b) {
-    var pa = buildProgramFromUniTemplate(uid, a.id);
-    var pb = buildProgramFromUniTemplate(uid, b.id);
+function dpHedefSortProgramsByCloseness(programs, studentLike, uniDoc) {
+  return programs.slice().sort(function (a, b) {
+    var pa = uniDoc && buildProgramFromAppwriteV2(uniDoc, a);
+    var pb = uniDoc && buildProgramFromAppwriteV2(uniDoc, b);
     var da = pa ? dpHedefSumAbsNetDistance(buildSimulatorRows(pa, studentLike)) : 1e9;
     var db = pb ? dpHedefSumAbsNetDistance(buildSimulatorRows(pb, studentLike)) : 1e9;
     return da - db;
@@ -3476,11 +3479,12 @@ function dpHedefSortTemplatesByCloseness(templates, studentLike, uniIdFallback) 
 
 function populateDpHedefCityFilterOnce() {
   var sel = document.getElementById("dpHedefFilterCity");
-  if (!sel || sel.dataset.dpHedefCityInit) return;
+  if (!sel) return;
+  if (sel.dataset.dpHedefCityInit === "1") return;
   sel.dataset.dpHedefCityInit = "1";
   var cities = Object.create(null);
-  TR_UNIVERSITIES_UNIQUE.forEach(function (u) {
-    cities[dpHedefInferCity(u)] = true;
+  getHedefAppwriteUniversities().forEach(function (u) {
+    cities[dpHedefInferCity({ id: u.$id, name: hedefUniDisplayName(u) })] = true;
   });
   var list = Object.keys(cities).sort(function (a, b) {
     return a.localeCompare(b, "tr");
@@ -3546,41 +3550,77 @@ function renderDpHedefSimulator() {
       }
     : null;
 
-  var unisFiltered = TR_UNIVERSITIES_UNIQUE.filter(function (u) {
-    return !cityVal || dpHedefInferCity(u) === cityVal;
+  var atlasProgram = null;
+  var appUnisAll = getHedefAppwriteUniversities();
+  var unisFilteredAw = appUnisAll.filter(function (u) {
+    return !cityVal || dpHedefInferCity({ id: u.$id, name: hedefUniDisplayName(u) }) === cityVal;
   });
-
-  var tmpls = PROGRAM_TEMPLATES_UI.filter(function (t) {
-    return !puanVal || dpHedefTemplatePuanGroup(t) === puanVal;
-  });
-
-  var sortUid = prevUni && unisFiltered.some(function (x) { return x.id === prevUni; }) ? prevUni : "bogazici";
-  if (closeVal === "near" && student) {
-    tmpls = dpHedefSortTemplatesByCloseness(tmpls, studentLike, sortUid);
-  } else {
-    tmpls = sortNamedItemsAlphabeticalTr(tmpls);
-  }
-
   if (uniSel) {
     uniSel.innerHTML = '<option value="">— Üniversite seçin —</option>';
-    sortNamedItemsAlphabeticalTr(unisFiltered).forEach(function (u) {
+    unisFilteredAw.forEach(function (u) {
       var o = document.createElement("option");
-      o.value = u.id;
-      o.textContent = u.name;
+      o.value = u.$id;
+      o.textContent = hedefUniDisplayName(u) || u.$id;
       uniSel.appendChild(o);
     });
-    if (prevUni && unisFiltered.some(function (x) { return x.id === prevUni; })) uniSel.value = prevUni;
+    if (prevUni && unisFilteredAw.some(function (x) { return x.$id === prevUni; })) uniSel.value = prevUni;
   }
-  if (deptSel) {
-    deptSel.innerHTML = '<option value="">— Bölüm / program türü seçin —</option>';
-    tmpls.forEach(function (t) {
-      var o = document.createElement("option");
-      o.value = t.id;
-      o.textContent = t.name;
-      deptSel.appendChild(o);
-    });
-    if (prevDept && tmpls.some(function (x) { return x.id === prevDept; })) deptSel.value = prevDept;
+  var uniPickAw = uniSel && uniSel.value ? String(uniSel.value) : "";
+  var deptFilterEl = document.getElementById("dpHedefDeptFilter");
+  if (!uniPickAw) {
+    if (deptSel) {
+      deptSel.innerHTML = '<option value="">— Önce üniversite seçin —</option>';
+      deptSel.disabled = true;
+    }
+    if (deptFilterEl) deptFilterEl.disabled = true;
+  } else {
+    var cachedAw = getCachedHedefProgramsForUniversity(uniPickAw);
+    if (cachedAw === null) {
+      if (deptSel) {
+        deptSel.innerHTML = '<option value="">— Bölümler yükleniyor… —</option>';
+        deptSel.disabled = true;
+      }
+      if (deptFilterEl) deptFilterEl.disabled = true;
+      loadHedefProgramsForUniversity(uniPickAw).then(function () {
+        renderDpHedefSimulator();
+      });
+    } else {
+      var puanFilteredAw = cachedAw.filter(function (p) {
+        return !puanVal || programPuanGroupFromAlanKey(p.alanKey) === puanVal;
+      });
+      var listAw;
+      if (closeVal === "near" && student) {
+        var uniDocAw = unisFilteredAw.find(function (u) {
+          return u.$id === uniPickAw;
+        });
+        listAw = dpHedefSortProgramsByCloseness(puanFilteredAw, studentLike, uniDocAw);
+      } else {
+        listAw = puanFilteredAw.slice().sort(function (a, b) {
+          return hedefProgramDisplayName(a).localeCompare(hedefProgramDisplayName(b), "tr");
+        });
+      }
+      if (deptSel) {
+        deptSel.disabled = false;
+        deptSel.innerHTML = '<option value="">— Bölüm seçin —</option>';
+        listAw.forEach(function (p) {
+          var o2 = document.createElement("option");
+          o2.value = p.$id;
+          o2.textContent = hedefProgramDisplayName(p) || p.$id;
+          deptSel.appendChild(o2);
+        });
+        if (prevDept && listAw.some(function (x) { return x.$id === prevDept; })) deptSel.value = prevDept;
+      }
+      if (deptFilterEl) deptFilterEl.disabled = false;
+    }
   }
+  var uDocRes = unisFilteredAw.find(function (x) {
+    return x.$id === (uniSel && uniSel.value ? String(uniSel.value) : "");
+  });
+  var pListRes = getCachedHedefProgramsForUniversity(uniSel && uniSel.value ? String(uniSel.value) : "") || [];
+  var pDocRes = pListRes.find(function (x) {
+    return x.$id === (deptSel && deptSel.value ? String(deptSel.value) : "");
+  });
+  atlasProgram = uDocRes && pDocRes ? buildProgramFromAppwriteV2(uDocRes, pDocRes) : null;
 
   if (uniSel && uniFilter && !uniSel.dataset.dpHedefSearchWired) {
     uniSel.dataset.dpHedefSearchWired = "1";
@@ -3601,21 +3641,21 @@ function renderDpHedefSimulator() {
     });
   }
 
-  var uniId = uniSel && uniSel.value ? String(uniSel.value) : "";
-  var tmplId = deptSel && deptSel.value ? String(deptSel.value) : "";
-  var atlasId = uniId && tmplId ? uniId + "__" + tmplId : "";
-  var atlasProgram = atlasId ? findAtlasProgramById(atlasId) : null;
-
   var uniEl = document.getElementById("dpHedefUniTitle");
   var bolEl = document.getElementById("dpHedefBolumSub");
   if (atlasProgram) {
     if (uniEl) uniEl.textContent = atlasProgram.university;
-    if (bolEl)
+    if (bolEl) {
+      var tt = atlasProgram.targetTytNet != null ? Number(atlasProgram.targetTytNet) : 0;
+      var ta = atlasProgram.targetAytNet != null ? Number(atlasProgram.targetAytNet) : 0;
       bolEl.textContent =
         atlasProgram.department +
-        " — Taban (örnek): " +
-        atlasProgram.baseScore2025 +
-        " · YÖK Atlas şablonu";
+        " — Hedef net (Programs): TYT " +
+        (isNaN(tt) ? "—" : tt.toFixed(1)) +
+        " · AYT " +
+        (isNaN(ta) ? "—" : ta.toFixed(1)) +
+        " · Appwrite";
+    }
   } else if (student) {
     var u = (student.targetUniversity || "").trim();
     var b = (student.targetDepartment || "").trim();
@@ -3664,14 +3704,15 @@ function renderDpHedefSimulator() {
       .join("");
   }
   if (gapEl) {
-    gapEl.textContent =
-      "Kalan net farkı (branş toplamı): " +
-      totalGap.toFixed(1) +
-      (atlasProgram
-        ? " — Seçilen YÖK Atlas örnek şablonu."
-        : student && parseStudentNetValAtlas(studentLike.currentTytNet) != null
-          ? " — TYT net alanından ölçeklendirildi."
-          : " — Varsayılan örnek veri (öğrencide güncel/hedef net girilince güncellenir).");
+    var gapNote = "";
+    if (atlasProgram) {
+      gapNote = " — Appwrite Programs.";
+    } else if (student && parseStudentNetValAtlas(studentLike && studentLike.currentTytNet) != null) {
+      gapNote = " — TYT net alanından ölçeklendirildi.";
+    } else {
+      gapNote = " — Program seçin veya öğrenci neti girin.";
+    }
+    gapEl.textContent = "Kalan net farkı (branş toplamı): " + totalGap.toFixed(1) + gapNote;
   }
   if (tableWrap) {
     tableWrap.innerHTML = netTemplateTableHtml(rows, { aytSectionTitle: studentAytTableSectionTitle(alanKey) });
@@ -3714,11 +3755,13 @@ function renderDpHedefSimulator() {
       .join("");
     subGaps.innerHTML = atlasProgram
       ? need
-        ? '<p class="dp-hedef-subgap__title">Net hedefi farkı (şablon)</p><ul class="dp-hedef-subgap__list">' +
+        ? '<p class="dp-hedef-subgap__title">Net hedefi farkı</p><ul class="dp-hedef-subgap__list">' +
           need +
-          '</ul><p class="dp-hedef-subgap__note">Örnek YÖK şablon satırlarına göre; resmî taban net değildir.</p>'
-        : '<p class="dp-hedef-subgap__muted">Bu şablonda tüm satırlarda hedefe ulaşılmış veya üzeri görünüyor.</p>'
-      : '<p class="dp-hedef-subgap__muted">Üniversite ve bölüm şablonu seçince ders bazlı net farkı listelenir.</p>';
+          '</ul><p class="dp-hedef-subgap__note">' +
+          "Hedefler Appwrite Programs kaydındaki rowsJson dağılımına göre; resmî yerleştirme değildir." +
+          "</p>"
+        : '<p class="dp-hedef-subgap__muted">Bu programda tüm satırlarda hedefe ulaşılmış veya üzeri görünüyor.</p>'
+      : '<p class="dp-hedef-subgap__muted">Üniversite ve bölüm seçince ders bazlı net farkı listelenir.</p>';
   }
 
   var ctx = canvas.getContext("2d");
@@ -3739,7 +3782,7 @@ function renderDpHedefSimulator() {
           pointBackgroundColor: "#6c5ce7",
         },
         {
-          label: "Hedef net (şablon)",
+          label: "Hedef net (Programs)",
           data: target,
           borderColor: "#10b981",
           backgroundColor: "rgba(16, 185, 129, 0.18)",
@@ -3771,7 +3814,22 @@ function initDpHedefSimulator() {
       });
     }
   });
-  renderDpHedefSimulator();
+  ensureHedefSimulatorAppwriteData()
+    .then(function () {
+      try {
+        populateDpHedefCityFilterOnce();
+      } catch (e) {
+        console.error("[Hedef Simülatörü] şehir filtresi:", e);
+      }
+      renderDpHedefSimulator();
+    })
+    .catch(function (err) {
+      console.error("[Hedef Simülatörü] Appwrite ön yükleme:", err);
+      try {
+        populateDpHedefCityFilterOnce();
+      } catch (_e) {}
+      renderDpHedefSimulator();
+    });
 }
 
 function renderDpGelenSorular() {
@@ -3895,8 +3953,8 @@ function buildAppointmentList(docs) {
 }
 
 function appointmentCardHtml(ap) {
-  const name = ap.studentName || ap.ogrenciAdi || ap.name || "Öğrenci";
-  const title = ap.title || ap.type || ap.note || "Randevu";
+  const name = appointmentResolvedStudentName(ap) || "Öğrenci";
+  const title = ap.title || ap.type || ap.meetingType || ap.note || "Randevu";
   const id = escapeHtml(ap.id);
   return (
     '<article class="appt-card">' +
@@ -3925,7 +3983,8 @@ function filterApptsBySearch(list) {
   const q = searchQuery.trim().toLowerCase();
   if (!q) return list;
   return list.filter(function (ap) {
-    const name = (ap.studentName || ap.ogrenciAdi || ap.name || "") + " " + (ap.title || ap.type || "");
+    const name =
+      (appointmentResolvedStudentName(ap) || "") + " " + (ap.title || ap.type || ap.meetingType || "");
     return name.toLowerCase().indexOf(q) !== -1;
   });
 }
@@ -4019,9 +4078,20 @@ function globalSearchExamHaystack(e) {
     .toLowerCase();
 }
 
+function appointmentResolvedStudentName(ap) {
+  var n = ap.studentName || ap.ogrenciAdi || ap.name;
+  if (n) return n;
+  var sid = ap.studentId;
+  if (!sid) return "";
+  var s = cachedStudents.find(function (x) {
+    return x.id === sid;
+  });
+  return s ? s.name || s.studentName || "" : "";
+}
+
 function globalSearchApptHaystack(a) {
-  var name = a.studentName || a.ogrenciAdi || a.name || "";
-  var title = a.title || a.type || a.note || "";
+  var name = appointmentResolvedStudentName(a) || "";
+  var title = a.title || a.type || a.meetingType || a.note || "";
   var meta = formatAppointmentMeta(a);
   return (name + " " + title + " " + meta + " " + (a.topic || "")).toLowerCase();
 }
@@ -4114,8 +4184,8 @@ function renderGlobalSearchResultsUi(students, exams, appts) {
     parts.push('<div class="global-search-results__section" role="group" aria-label="Randevular">');
     parts.push('<div class="global-search-results__heading">📅 Randevular</div>');
     apSlice.forEach(function (a) {
-      var name = a.studentName || a.ogrenciAdi || a.name || "Öğrenci";
-      var title = a.title || a.type || a.note || "Randevu";
+      var name = appointmentResolvedStudentName(a) || "Öğrenci";
+      var title = a.title || a.type || a.meetingType || a.note || "Randevu";
       var meta = escapeHtml(formatAppointmentMeta(a));
       var aid = escapeHtml(a.id);
       parts.push(
@@ -5104,7 +5174,7 @@ function renderStudentDetailPage() {
           .map(function (a) {
             return (
               "<li>" +
-              escapeHtml(a.title || a.type || "Randevu") +
+              escapeHtml(a.title || a.type || a.meetingType || "Randevu") +
               " — " +
               escapeHtml(a.date || a.appointmentDate || "") +
               "</li>"
@@ -7062,6 +7132,7 @@ function fillStudentSelects() {
     });
     if (keep) sel.value = keep;
   });
+  syncAppointmentModalStudentPhoneFromSelect();
 }
 
 function yksTyTSegmentMeta() {
@@ -8733,6 +8804,91 @@ async function submitStudentEditForm(e) {
   }
 }
 
+function syncAppointmentModalStudentPhoneFromSelect() {
+  var sel = document.getElementById("ap_student");
+  var vid = sel && sel.value ? String(sel.value) : "";
+  __appointmentModalWaPhoneCache.studentId = vid;
+  if (!vid) {
+    __appointmentModalWaPhoneCache.phone = "";
+    return;
+  }
+  var st = cachedStudents.find(function (x) {
+    return x.id === vid;
+  });
+  __appointmentModalWaPhoneCache.phone =
+    st && st.phone != null && String(st.phone).trim() !== "" ? String(st.phone).trim() : "";
+}
+
+/**
+ * Appwrite `appointments`: studentId, date, time, duration, type, topic, notes, link (+ coach_id).
+ */
+function buildAppointmentAppwritePayload(fd, studentId) {
+  var d = fd.get("appointmentDate");
+  var t = fd.get("appointmentTime");
+  var durationVal = parseInt(fd.get("durationMin"), 10);
+  if (isNaN(durationVal)) durationVal = 45;
+  var payload = {
+    studentId: String(studentId || ""),
+    date: String(d || ""),
+    time: String(t || ""),
+    duration: durationVal,
+    type: String(fd.get("meetingType") || ""),
+    topic: String(fd.get("topic") || ""),
+    notes: String(fd.get("internalNotes") || ""),
+    link: String(fd.get("locationOrLink") || ""),
+  };
+  var cid = getCoachId();
+  if (cid) payload.coach_id = String(cid);
+  return payload;
+}
+
+function digitsOnlyPhoneForWa(s) {
+  return String(s || "").replace(/\D/g, "");
+}
+
+/** wa.me için uluslararası rakam (TR cep: 905xxxxxxxxx, 12 hane). */
+function normalizePhoneDigitsForWhatsAppTr(raw) {
+  var d = digitsOnlyPhoneForWa(raw);
+  if (!d) return "";
+  if (d.length >= 12 && d.slice(0, 2) === "90") return d.slice(0, 12);
+  if (d.length === 11 && d.charAt(0) === "0") return "90" + d.slice(1);
+  if (d.length === 10 && d.charAt(0) === "5") return "90" + d;
+  if (d.slice(0, 2) === "90" && d.length > 12) return d.slice(0, 12);
+  return d;
+}
+
+function isValidTrMobileWhatsAppDigits(digits) {
+  return digits.length === 12 && digits.slice(0, 2) === "90" && digits.charAt(2) === "5";
+}
+
+function openWhatsAppAppointmentCompose(phoneInternationalDigits, plainMessage) {
+  var url =
+    "https://wa.me/" +
+    phoneInternationalDigits +
+    "?text=" +
+    encodeURIComponent(plainMessage);
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+function buildAppointmentWhatsAppBody(studentName, dateStr, timeStr, topic, linkOrAddress) {
+  var loc = String(linkOrAddress || "").trim() || "—";
+  var top = String(topic || "").trim() || "—";
+  var nm = String(studentName || "").trim() || "öğrenci";
+  return (
+    "Merhaba " +
+    nm +
+    ", DerecePanel üzerinden yeni bir görüşme planlanmıştır. 📅 Tarih: " +
+    dateStr +
+    " ⏰ Saat: " +
+    timeStr +
+    " 📌 Konu: " +
+    top +
+    " 📍 Konum/Link: " +
+    loc +
+    ". Görüşmek üzere!"
+  );
+}
+
 function resetAppointmentModalUi() {
   var t = document.getElementById("modalApptTitle");
   if (t) t.innerHTML = '<i class="fa-solid fa-calendar-plus"></i> Randevu oluştur';
@@ -8749,6 +8905,7 @@ function openAppointmentModalNew() {
   if (h) h.value = "";
   resetAppointmentModalUi();
   fillStudentSelects();
+  syncAppointmentModalStudentPhoneFromSelect();
   var d = document.getElementById("ap_date");
   if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
   openModal("appointmentModal");
@@ -8777,11 +8934,14 @@ function openAppointmentModalEdit(docId) {
   }
   if (tm.length >= 5) tm = tm.slice(0, 5);
   document.getElementById("ap_time").value = tm;
-  document.getElementById("ap_duration").value = String(ap.durationMin != null ? ap.durationMin : 45);
-  document.getElementById("ap_type").value = ap.meetingType || "Yüz yüze";
+  document.getElementById("ap_duration").value = String(
+    ap.duration != null ? ap.duration : ap.durationMin != null ? ap.durationMin : 45
+  );
+  document.getElementById("ap_type").value = ap.meetingType || ap.type || "Yüz yüze";
   document.getElementById("ap_topic").value = ap.topic || "";
-  document.getElementById("ap_notes").value = ap.internalNotes || "";
-  document.getElementById("ap_location").value = ap.locationOrLink || "";
+  document.getElementById("ap_notes").value = ap.internalNotes || ap.notes || "";
+  document.getElementById("ap_location").value = ap.locationOrLink || ap.link || "";
+  syncAppointmentModalStudentPhoneFromSelect();
   document.getElementById("modalApptTitle").innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Randevu düzenle';
   document.getElementById("btnApptSubmit").innerHTML = '<i class="fa-solid fa-rotate"></i> Güncelle';
   openModal("appointmentModal");
@@ -8799,39 +8959,58 @@ async function submitAppointmentForm(e) {
     showToast("Öğrenci seçin.");
     return;
   }
+  syncAppointmentModalStudentPhoneFromSelect();
   var d = fd.get("appointmentDate");
   var t = fd.get("appointmentTime");
-  var payload = {
-    studentId: sid,
-    studentName: st.name || st.studentName || "",
-    scheduledAt: Timestamp.fromDate(new Date(d + "T" + t)),
-    date: d,
-    time: t,
-    durationMin: parseInt(fd.get("durationMin"), 10) || 45,
-    meetingType: fd.get("meetingType") || "",
-    topic: fd.get("topic") || "",
-    internalNotes: fd.get("internalNotes") || "",
-    locationOrLink: fd.get("locationOrLink") || "",
-  };
+  var payload = buildAppointmentAppwritePayload(fd, sid);
   try {
     if (editAppt) {
       await updateDoc(doc(db, "appointments", editAppt), payload);
       showToast("Randevu güncellendi.");
     } else {
-      payload.createdAt = serverTimestamp();
-      payload.coach_id = getCoachId();
       await addDoc(collection(db, "appointments"), payload);
       showToast("Randevu kaydedildi.");
     }
     void fetchAndRenderAppointmentChart();
+    if (!editAppt) {
+      var phoneRaw =
+        __appointmentModalWaPhoneCache.studentId === String(sid)
+          ? __appointmentModalWaPhoneCache.phone
+          : st.phone != null
+            ? String(st.phone).trim()
+            : "";
+      var waDigits = normalizePhoneDigitsForWhatsAppTr(phoneRaw);
+      if (isValidTrMobileWhatsAppDigits(waDigits)) {
+        var studentName = st.name || st.studentName || "öğrenci";
+        var waText = buildAppointmentWhatsAppBody(
+          studentName,
+          String(d || ""),
+          String(t || ""),
+          fd.get("topic"),
+          fd.get("locationOrLink")
+        );
+        openWhatsAppAppointmentCompose(waDigits, waText);
+      } else {
+        showToast(
+          "Randevu kaydedildi ancak öğrencinin telefon numarası olmadığı için WhatsApp mesajı gönderilemedi."
+        );
+      }
+    }
     e.target.reset();
     var h = document.getElementById("appointmentEditDocId");
     if (h) h.value = "";
     resetAppointmentModalUi();
     closeAllModals();
   } catch (err) {
+    logAppwriteError("koc-panel.js/submitAppointmentForm", err);
     console.error(err);
-    alert(err.message || err);
+    var em =
+      err && err.message != null
+        ? String(err.message)
+        : err && err.response && err.response.message
+          ? String(err.response.message)
+          : "Randevu kaydedilemedi.";
+    showToast(em, { variant: "danger" });
   }
 }
 
@@ -9173,6 +9352,11 @@ function initModals() {
   if (fsEdit) fsEdit.addEventListener("submit", submitStudentEditForm);
   var fa = document.getElementById("formAppointment");
   if (fa) fa.addEventListener("submit", submitAppointmentForm);
+  var apStudentSel = document.getElementById("ap_student");
+  if (apStudentSel && !apStudentSel.dataset.waPhoneSync) {
+    apStudentSel.dataset.waPhoneSync = "1";
+    apStudentSel.addEventListener("change", syncAppointmentModalStudentPhoneFromSelect);
+  }
   initTestMakerTabs();
   var btnPdf = document.getElementById("btnPdfTaslak");
   if (btnPdf) btnPdf.addEventListener("click", onPdfTaslakClick);
@@ -13487,6 +13671,7 @@ function initDenemeAnalizTakvimCountdowns() {
   if (!root) return;
   clearDenemeAnalizTakvimCountdowns();
   var cards = root.querySelectorAll("[data-dana-countdown]");
+  if (!cards.length) return;
   function tick() {
     var now = Date.now();
     cards.forEach(function (card) {
@@ -13527,19 +13712,26 @@ function danaTakvimValidIso(value) {
   return d.toISOString();
 }
 
-function danaGlobalTakvimMapDoc(d) {
+function danaExamInferSinavTuruFromExamDoc(d) {
+  var name = String((d && (d.examName || d.adi)) || "").toUpperCase();
+  var typ = String((d && d.type) || "").toUpperCase();
+  if (name.indexOf("AYT") >= 0 || typ.indexOf("AYT") >= 0) return "AYT";
+  if (name.indexOf("TYT") >= 0 || typ.indexOf("TYT") >= 0) return "TYT";
+  return "_OTHER";
+}
+
+/** Appwrite `Exams` → takvim / liste (TYT/AYT ad veya tür metninden çıkarım). */
+function danaGlobalTakvimMapExamAppwriteDoc(d) {
   if (!d) return null;
-  var raw = String(d.sinavTuru || d.sinav_turu || "").trim().toUpperCase();
-  var sinav = "_OTHER";
-  if (raw === "TYT" || raw === "AYT") sinav = raw;
+  var id = d.$id || d.id;
+  if (!id) return null;
   return {
-    id: d.$id,
-    baslik:
-      String(d.adi || d.baslik || d.title || "")
-        .trim() || "Deneme",
-    sinavTuru: sinav,
-    tarihSaat: d.tarihSaat != null ? d.tarihSaat : d.tarih_saat != null ? d.tarih_saat : d.date,
-    kurum: String(d.yayinevi || d.kurum || d.publisher || "").trim(),
+    id: id,
+    baslik: (String(d.examName || "").trim() || "Deneme"),
+    sinavTuru: danaExamInferSinavTuruFromExamDoc(d),
+    tarihSaat: d.date,
+    kurum: String(d.type || "").trim() || "—",
+    status: d.status,
   };
 }
 
@@ -13569,6 +13761,8 @@ function danaGlobalTakvimFilterItems(items, filt) {
 /** Aylık mini takvim — görüntülenen ay (yıl, ay 0–11) */
 var danaCalYear = null;
 var danaCalMonth = null;
+/** YYYY-MM-DD — ajanda / başlık */
+var danaCalSelectedDayKey = "";
 
 function danaCalPad2(n) {
   return String(n < 10 ? "0" + n : n);
@@ -13600,34 +13794,6 @@ function danaCalGroupByLocalDay(items) {
   return map;
 }
 
-function danaCalBadgeKind(sinavTuru) {
-  if (sinavTuru === "TYT") return "tyt";
-  if (sinavTuru === "AYT") return "ayt";
-  return "yks";
-}
-
-function danaCalShortBadgeText(item) {
-  var tag = item.sinavTuru === "AYT" ? "AYT" : item.sinavTuru === "TYT" ? "TYT" : "YKS";
-  var raw = String(item.baslik || "Deneme").trim().replace(/\s+/g, " ");
-  if (raw.length > 16) raw = raw.slice(0, 14) + "…";
-  return tag + " - " + raw;
-}
-
-function danaCalTooltipLine(item) {
-  var title = String(item.baslik || "").trim();
-  var pub = String(item.kurum || "").trim();
-  var d = parseFlexibleDate(item.tarihSaat);
-  var timeStr =
-    d && !isNaN(d.getTime())
-      ? d.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
-      : "";
-  var parts = [];
-  if (title) parts.push(title);
-  if (pub) parts.push(pub);
-  if (timeStr) parts.push(timeStr);
-  return parts.join(" · ");
-}
-
 function danaCalQuoteSelectorAttr(s) {
   return String(s == null ? "" : s).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
@@ -13647,6 +13813,164 @@ function danaCalScrollToExamCard(examId) {
   }
 }
 
+function danaCalSyncSelectionToVisibleMonth(y, m) {
+  var key = danaCalSelectedDayKey;
+  var ok = false;
+  if (key && /^(\d{4})-(\d{2})-(\d{2})$/.test(key)) {
+    var p = key.split("-");
+    if (parseInt(p[0], 10) === y && parseInt(p[1], 10) === m + 1) ok = true;
+  }
+  if (!ok) {
+    var t = new Date();
+    if (t.getFullYear() === y && t.getMonth() === m) danaCalSelectedDayKey = danaCalDayKeyFromDate(t);
+    else danaCalSelectedDayKey = y + "-" + danaCalPad2(m + 1) + "-01";
+  }
+}
+
+function danaCalUpdateSelectedDayTitleHtml() {
+  var el = document.getElementById("danaCalSelectedDayTitle");
+  if (!el) return;
+  var key = danaCalSelectedDayKey;
+  var p = (key || "").split("-");
+  if (p.length !== 3) {
+    el.textContent = "Seçili gün: —";
+    return;
+  }
+  var d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+  if (isNaN(d.getTime())) {
+    el.textContent = "Seçili gün: —";
+    return;
+  }
+  el.textContent =
+    "Seçili gün: " +
+    d.toLocaleDateString("tr-TR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+}
+
+function danaAgendaGetExamsForDayKey(dayKey) {
+  var filt = danaGlobalTakvimActiveFilter || "YKS";
+  var items = danaGlobalTakvimFilterItems(danaGlobalTakvimAllDocs || [], filt);
+  var byDay = danaCalGroupByLocalDay(items);
+  var list = byDay[dayKey] || [];
+  return list.slice().sort(function (a, b) {
+    var ta = parseFlexibleDate(a.tarihSaat);
+    var tb = parseFlexibleDate(b.tarihSaat);
+    if (!ta || !tb) return 0;
+    return ta.getTime() - tb.getTime();
+  });
+}
+
+function danaFormatDatetimeLocalForYmd(y, m0, day) {
+  return y + "-" + danaCalPad2(m0 + 1) + "-" + danaCalPad2(day) + "T09:00";
+}
+
+function danaTakvimOpenNewExamForDayKey(dayKey) {
+  var p = (dayKey || "").split("-");
+  if (p.length !== 3) return;
+  var y = parseInt(p[0], 10);
+  var mo = parseInt(p[1], 10) - 1;
+  var d = parseInt(p[2], 10);
+  if (isNaN(y) || isNaN(mo) || isNaN(d)) return;
+  var local = danaFormatDatetimeLocalForYmd(y, mo, d);
+  if (typeof window.__denemelerOpenNewExamModal === "function") {
+    window.__denemelerOpenNewExamModal(local);
+  } else {
+    showToast("Deneme formu henüz hazır değil; Denemeler menüsünü açıp tekrar deneyin.", {
+      variant: "danger",
+    });
+  }
+}
+
+function danaAgendaClose() {
+  var panel = document.getElementById("danaAgendaPanel");
+  if (!panel) return;
+  panel.hidden = true;
+  panel.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = "";
+}
+
+function danaAgendaOpenForDay(dayKey) {
+  var panel = document.getElementById("danaAgendaPanel");
+  var titleEl = document.getElementById("danaAgendaTitle");
+  var body = document.getElementById("danaAgendaBody");
+  if (!panel || !titleEl || !body) return;
+  var p = (dayKey || "").split("-");
+  var titleDate = "—";
+  if (p.length === 3) {
+    var d0 = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+    if (!isNaN(d0.getTime())) {
+      titleDate = d0.toLocaleDateString("tr-TR", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+    }
+  }
+  titleEl.textContent = titleDate;
+  body.innerHTML = "";
+  var exams = danaAgendaGetExamsForDayKey(dayKey);
+  if (!exams.length) {
+    body.innerHTML =
+      '<div class="dana-agenda-empty">' +
+      '<p>Bu tarihte planlanmış bir deneme veya etkinlik bulunmuyor.</p>' +
+      '<button type="button" class="dana-agenda-empty__btn" id="danaAgendaPlanBtn"><i class="fa-solid fa-plus" aria-hidden="true"></i> Bu güne deneme planla</button>' +
+      "</div>";
+    var pb = document.getElementById("danaAgendaPlanBtn");
+    if (pb)
+      pb.addEventListener("click", function () {
+        danaAgendaClose();
+        danaTakvimOpenNewExamForDayKey(dayKey);
+      });
+  } else {
+    exams.forEach(function (ex) {
+      var dt = parseFlexibleDate(ex.tarihSaat);
+      var timeStr =
+        dt && !isNaN(dt.getTime())
+          ? dt.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
+          : "—";
+      var typeLabel =
+        ex.sinavTuru === "TYT"
+          ? "TYT"
+          : ex.sinavTuru === "AYT"
+            ? "AYT"
+            : String(ex.kurum || "Genel");
+      var card = document.createElement("div");
+      card.className = "dana-agenda-card";
+      card.innerHTML =
+        '<p class="dana-agenda-card__time">' +
+        danaEscapeHtml(timeStr) +
+        '</p><h4 class="dana-agenda-card__name">' +
+        danaEscapeHtml(ex.baslik || "Deneme") +
+        '</h4><p class="dana-agenda-card__type">' +
+        danaEscapeHtml(typeLabel) +
+        "</p>";
+      body.appendChild(card);
+    });
+  }
+  panel.hidden = false;
+  panel.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+}
+
+function initDanaAgendaPanelOnce() {
+  var root = document.getElementById("denemeAnalizTakvimRoot");
+  if (!root || root.dataset.danaAgendaBound) return;
+  root.dataset.danaAgendaBound = "1";
+  var panel = document.getElementById("danaAgendaPanel");
+  var bd = document.getElementById("danaAgendaBackdrop");
+  var cx = document.getElementById("danaAgendaClose");
+  if (bd) bd.addEventListener("click", danaAgendaClose);
+  if (cx) cx.addEventListener("click", danaAgendaClose);
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key === "Escape" && panel && !panel.hidden) danaAgendaClose();
+  });
+}
+
 function renderDanaMonthlyCalendar() {
   var titleEl = document.getElementById("danaCalTitle");
   var gridEl = document.getElementById("danaCalGrid");
@@ -13654,6 +13978,8 @@ function renderDanaMonthlyCalendar() {
   danaCalEnsureViewMonth();
   var y = danaCalYear;
   var m = danaCalMonth;
+  danaCalSyncSelectionToVisibleMonth(y, m);
+  danaCalUpdateSelectedDayTitleHtml();
   var monthStart = new Date(y, m, 1);
   titleEl.textContent =
     monthStart.toLocaleDateString("tr-TR", { month: "long", year: "numeric" });
@@ -13676,43 +14002,56 @@ function renderDanaMonthlyCalendar() {
   }
   for (var day = 1; day <= daysInMonth; day++) {
     var cell = document.createElement("div");
-    cell.className = "dana-cal__cell";
+    cell.className = "dana-cal__cell dana-cal__cell--selectable";
     cell.setAttribute("role", "gridcell");
     var key = y + "-" + danaCalPad2(m + 1) + "-" + danaCalPad2(day);
     if (y === today.getFullYear() && m === today.getMonth() && day === today.getDate()) {
       cell.classList.add("dana-cal__cell--today");
     }
+    if (key === danaCalSelectedDayKey) cell.classList.add("dana-cal__cell--selected");
     var num = document.createElement("span");
     num.className = "dana-cal__num";
     num.textContent = String(day);
     cell.appendChild(num);
     var list = byDay[key];
     if (list && list.length) {
-      list = list.slice().sort(function (a, b) {
-        var ta = parseFlexibleDate(a.tarihSaat);
-        var tb = parseFlexibleDate(b.tarihSaat);
-        if (!ta || !tb) return 0;
-        return ta.getTime() - tb.getTime();
-      });
-      var wrap = document.createElement("div");
-      wrap.className = "dana-cal__badges";
+      var hasTyt = false;
+      var hasAyt = false;
+      var hasGen = false;
       list.forEach(function (ex) {
-        var b = document.createElement("button");
-        b.type = "button";
-        b.className = "dana-cal-badge dana-cal-badge--" + danaCalBadgeKind(ex.sinavTuru);
-        var tip = danaCalTooltipLine(ex);
-        if (tip) b.setAttribute("data-dana-tip", tip);
-        b.setAttribute("aria-label", tip || danaCalShortBadgeText(ex));
-        b.textContent = danaCalShortBadgeText(ex);
-        b.addEventListener("click", function (ev) {
-          ev.preventDefault();
-          ev.stopPropagation();
-          danaCalScrollToExamCard(ex.id);
-        });
-        wrap.appendChild(b);
+        if (ex.sinavTuru === "TYT") hasTyt = true;
+        else if (ex.sinavTuru === "AYT") hasAyt = true;
+        else hasGen = true;
       });
-      cell.appendChild(wrap);
+      var dots = document.createElement("div");
+      dots.className = "dana-cal-dots";
+      if (hasTyt) {
+        var d1 = document.createElement("span");
+        d1.className = "dana-cal-dot dana-cal-dot--tyt";
+        d1.title = "TYT";
+        dots.appendChild(d1);
+      }
+      if (hasAyt) {
+        var d2 = document.createElement("span");
+        d2.className = "dana-cal-dot dana-cal-dot--ayt";
+        d2.title = "AYT";
+        dots.appendChild(d2);
+      }
+      if (hasGen && !hasTyt && !hasAyt) {
+        var d3 = document.createElement("span");
+        d3.className = "dana-cal-dot dana-cal-dot--gen";
+        d3.title = "Deneme";
+        dots.appendChild(d3);
+      }
+      cell.appendChild(dots);
     }
+    (function (dayKey) {
+      cell.addEventListener("click", function () {
+        danaCalSelectedDayKey = dayKey;
+        renderDanaMonthlyCalendar();
+        danaAgendaOpenForDay(dayKey);
+      });
+    })(key);
     frag.appendChild(cell);
   }
   var totalUsed = lead + daysInMonth;
@@ -13764,19 +14103,48 @@ function danaGlobalTakvimBuildMeta(item) {
   return parts.join(" · ");
 }
 
-async function danaGlobalTakvimLoadFromAppwrite() {
+async function danaTakvimLoadExamsFromAppwrite() {
+  var cid = String(getCoachId() || "").trim();
   try {
-    var snap = await getDocs(collection(db, APPWRITE_COLLECTION_GLOBAL_DENEMELER));
+    var queries = [Query.orderDesc("date"), Query.limit(500)];
+    if (cid) queries.unshift(Query.equal("coach_id", cid));
+    var res = await databases.listDocuments(APPWRITE_DATABASE_ID, APPWRITE_COLLECTION_EXAMS, queries);
+    var docs = (res && res.documents) || [];
+    if (cid) {
+      docs = docs.filter(function (d) {
+        var x = d.coach_id != null ? d.coach_id : d.coachId;
+        if (x === undefined || x === null || String(x).trim() === "") return false;
+        return String(x).trim() === cid;
+      });
+    }
     var out = [];
-    snap.docs.forEach(function (docSnap) {
-      var d = typeof docSnap.data === "function" ? docSnap.data() : docSnap;
-      var m = danaGlobalTakvimMapDoc(d);
+    docs.forEach(function (doc) {
+      var m = danaGlobalTakvimMapExamAppwriteDoc(doc);
       if (m) out.push(m);
     });
     return danaGlobalTakvimSortByDate(out);
   } catch (e) {
-    console.warn("[dana-takvim] load:", e && e.message ? e.message : e);
-    return [];
+    console.warn("[dana-takvim] Exams load:", e && e.message ? e.message : e);
+    if (!cid) return [];
+    try {
+      var res2 = await databases.listDocuments(APPWRITE_DATABASE_ID, APPWRITE_COLLECTION_EXAMS, [
+        Query.orderDesc("date"),
+        Query.limit(500),
+      ]);
+      var docs2 = ((res2 && res2.documents) || []).filter(function (d) {
+        var x = d.coach_id != null ? d.coach_id : d.coachId;
+        return String(x || "").trim() === cid;
+      });
+      var out2 = [];
+      docs2.forEach(function (doc) {
+        var m2 = danaGlobalTakvimMapExamAppwriteDoc(doc);
+        if (m2) out2.push(m2);
+      });
+      return danaGlobalTakvimSortByDate(out2);
+    } catch (e2) {
+      console.warn("[dana-takvim] Exams fallback:", e2 && e2.message ? e2.message : e2);
+      return [];
+    }
   }
 }
 
@@ -13811,70 +14179,82 @@ function kocAppwriteUserFacingError(err) {
 
 function danaGlobalTakvimRender() {
   initDanaMonthlyCalendarNavOnce();
-  var grid = document.getElementById("danaTakvimCardsGrid");
+  initDanaAgendaPanelOnce();
+  var listEl = document.getElementById("danaTakvimUpcomingList");
+  var skel = document.getElementById("danaTakvimUpcomingSkeleton");
   var empty = document.getElementById("danaTakvimEmpty");
   var emptyTitle = document.getElementById("danaTakvimEmptyTitle");
   var emptyHint = document.getElementById("danaTakvimEmptyHint");
-  if (!grid || !empty || !emptyTitle || !emptyHint) {
+  if (!listEl) {
     renderDanaMonthlyCalendar();
     return;
   }
+  if (skel) skel.hidden = true;
   var all = danaGlobalTakvimAllDocs || [];
   var filt = danaGlobalTakvimActiveFilter || "YKS";
   var items = danaGlobalTakvimFilterItems(all, filt);
-  grid.innerHTML = "";
-  if (!items.length) {
-    empty.hidden = false;
-    if (!all.length) {
-      emptyTitle.textContent = "Planlanmış deneme yok";
-      emptyHint.textContent =
-        "Planlanmış bir deneme bulunmuyor. Yeni bir deneme planlayarak takviminizi oluşturun.";
-    } else {
-      emptyTitle.textContent = "Bu filtrede deneme yok";
-      emptyHint.textContent = "TYT veya AYT sekmesine geçin ya da YKS (Tümü) ile tümünü görün.";
-    }
-    renderDanaMonthlyCalendar();
-    return;
-  }
-  empty.hidden = true;
-  items.forEach(function (item) {
-    var art = document.createElement("article");
-    art.className = "dana-tg-card";
-    if (item.id) art.setAttribute("data-dana-exam-id", String(item.id));
-    var iso = danaTakvimValidIso(item.tarihSaat);
-    if (iso) art.setAttribute("data-dana-countdown", iso);
-    var badge = item.sinavTuru === "AYT" ? "AYT" : item.sinavTuru === "TYT" ? "TYT" : "TG";
-    var iconClass =
-      item.sinavTuru === "AYT" ? "fa-flask" : item.sinavTuru === "TYT" ? "fa-scroll" : "fa-layer-group";
-    var safeTitle = danaEscapeHtml(item.baslik);
-    var safeMeta = danaEscapeHtml(danaGlobalTakvimBuildMeta(item));
-    var countHtml = iso
-      ? '<div class="dana-countdown" aria-label="Geri sayım">' +
-        '<div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="d">0</span><span class="dana-countdown__lbl">Gün</span></div>' +
-        '<div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="h">00</span><span class="dana-countdown__lbl">Saat</span></div>' +
-        '<div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="m">00</span><span class="dana-countdown__lbl">Dk</span></div>' +
-        '<div class="dana-countdown__cell"><span class="dana-countdown__val dana-countdown__unit" data-dana-unit="s">00</span><span class="dana-countdown__lbl">Sn</span></div>' +
-        "</div>"
-      : "";
-    art.innerHTML =
-      '<div class="dana-tg-card__shine" aria-hidden="true"></div>' +
-      '<div class="dana-tg-card__top">' +
-      '<div class="dana-tg-card__logo" title="Sınav türü"><i class="fa-solid ' +
-      iconClass +
-      '"></i></div>' +
-      '<span class="dana-tg-card__badge">' +
-      danaEscapeHtml(badge) +
-      "</span>" +
-      "</div>" +
-      '<h3 class="dana-tg-card__name">' +
-      safeTitle +
-      "</h3>" +
-      countHtml +
-      '<p class="dana-tg-card__meta">' +
-      safeMeta +
-      "</p>";
-    grid.appendChild(art);
+  var startToday = new Date();
+  startToday.setHours(0, 0, 0, 0);
+  var future = items.filter(function (it) {
+    var d = parseFlexibleDate(it.tarihSaat);
+    if (!d || isNaN(d.getTime())) return false;
+    return d.getTime() >= startToday.getTime();
   });
+  future.sort(function (a, b) {
+    var da = parseFlexibleDate(a.tarihSaat);
+    var db = parseFlexibleDate(b.tarihSaat);
+    return da.getTime() - db.getTime();
+  });
+  var top3 = future.slice(0, 3);
+  listEl.innerHTML = "";
+  if (!top3.length) {
+    if (empty) empty.hidden = false;
+    if (!all.length) {
+      if (emptyTitle) emptyTitle.textContent = "Planlanmış deneme yok";
+      if (emptyHint)
+        emptyHint.textContent =
+          "Appwrite Exams koleksiyonunda kayıt yok. Yeni Deneme Planla ile ekleyin.";
+    } else {
+      if (emptyTitle) emptyTitle.textContent = "Yaklaşan deneme yok";
+      if (emptyHint)
+        emptyHint.textContent =
+          filt === "YKS"
+            ? "Gelecek tarihli deneme bulunmuyor veya tümü geçmişte."
+            : "Bu sekmede yaklaşan deneme yok; YKS (Tümü) veya diğer sekmeyi deneyin.";
+    }
+  } else {
+    if (empty) empty.hidden = true;
+    top3.forEach(function (item) {
+      var li = document.createElement("li");
+      li.className = "dana-takvim-upcoming-item";
+      li.setAttribute("data-dana-exam-id", String(item.id));
+      var d = parseFlexibleDate(item.tarihSaat);
+      var dayStr = d && !isNaN(d.getTime()) ? String(d.getDate()) : "—";
+      var monStr =
+        d && !isNaN(d.getTime())
+          ? d.toLocaleDateString("tr-TR", { month: "short" })
+          : "";
+      li.innerHTML =
+        '<div class="dana-takvim-upcoming-item__badge">' +
+        danaEscapeHtml(dayStr) +
+        "<span>" +
+        danaEscapeHtml(monStr) +
+        "</span></div>" +
+        '<p class="dana-takvim-upcoming-item__title">' +
+        danaEscapeHtml(item.baslik || "Deneme") +
+        "</p>";
+      li.addEventListener("click", function () {
+        var d2 = parseFlexibleDate(item.tarihSaat);
+        if (!d2 || isNaN(d2.getTime())) return;
+        danaCalYear = d2.getFullYear();
+        danaCalMonth = d2.getMonth();
+        danaCalSelectedDayKey = danaCalDayKeyFromDate(d2);
+        renderDanaMonthlyCalendar();
+        danaAgendaOpenForDay(danaCalSelectedDayKey);
+      });
+      listEl.appendChild(li);
+    });
+  }
   renderDanaMonthlyCalendar();
 }
 
@@ -13902,35 +14282,50 @@ function danaGlobalTakvimRefresh() {
   clearDenemeAnalizTakvimCountdowns();
   initDanaGlobalTakvimFiltersOnce();
   initDanaMonthlyCalendarNavOnce();
-  var grid = document.getElementById("danaTakvimCardsGrid");
+  initDanaAgendaPanelOnce();
+  var listEl = document.getElementById("danaTakvimUpcomingList");
+  var skel = document.getElementById("danaTakvimUpcomingSkeleton");
   var emptyEl = document.getElementById("danaTakvimEmpty");
-  var emptyTitle = document.getElementById("danaTakvimEmptyTitle");
-  var emptyHint = document.getElementById("danaTakvimEmptyHint");
-  if (grid) grid.innerHTML = "";
-  if (emptyEl && emptyTitle && emptyHint) {
-    emptyEl.hidden = false;
-    emptyTitle.textContent = "Yükleniyor…";
-    emptyHint.textContent = "Deneme takvimi Appwrite ile senkronize ediliyor.";
-  }
-  return danaGlobalTakvimLoadFromAppwrite().then(function (rows) {
-    danaGlobalTakvimAllDocs = rows || [];
-    danaGlobalTakvimRender();
-    initDenemeAnalizTakvimCountdowns();
-  });
-}
-
-/** Kayıt sonrası: liste yenilenir; tam yükleme maskesi yok (takvim sekmesi açıksa grid güncellenir). */
-function danaGlobalTakvimAfterMutation() {
-  return danaGlobalTakvimLoadFromAppwrite().then(function (rows) {
-    danaGlobalTakvimAllDocs = rows || [];
-    var v = document.getElementById("view-deneme-analiz-takvim");
-    if (v && !v.hidden) {
-      clearDenemeAnalizTakvimCountdowns();
+  if (listEl) listEl.innerHTML = "";
+  if (skel) skel.hidden = false;
+  if (emptyEl) emptyEl.hidden = true;
+  return danaTakvimLoadExamsFromAppwrite()
+    .then(function (rows) {
+      danaGlobalTakvimAllDocs = rows || [];
+      if (skel) skel.hidden = true;
       danaGlobalTakvimRender();
       initDenemeAnalizTakvimCountdowns();
-    }
-  });
+    })
+    .catch(function (err) {
+      console.warn("[dana-takvim] refresh", err);
+      if (skel) skel.hidden = true;
+      danaGlobalTakvimAllDocs = [];
+      danaGlobalTakvimRender();
+      showToast(
+        "Exams yüklenemedi: " + (err && err.message ? err.message : String(err)),
+        { variant: "danger" }
+      );
+    });
 }
+
+/** Takvim + yaklaşan liste — Exams yeniden yükler (global plan kaydı sonrası da çağrılabilir). */
+function danaGlobalTakvimAfterMutation() {
+  return danaTakvimLoadExamsFromAppwrite()
+    .then(function (rows) {
+      danaGlobalTakvimAllDocs = rows || [];
+      var v = document.getElementById("view-deneme-analiz-takvim");
+      if (v && !v.hidden) {
+        clearDenemeAnalizTakvimCountdowns();
+        danaGlobalTakvimRender();
+        initDenemeAnalizTakvimCountdowns();
+      }
+    })
+    .catch(function (e) {
+      console.warn("[dana-takvim] afterMutation", e);
+    });
+}
+
+window.__danaTakvimRefreshExams = danaGlobalTakvimAfterMutation;
 
 var DANA_GD_MAX_FILE_MB = 40;
 
@@ -14240,6 +14635,7 @@ function initDanaGlobalDenemePlanModal() {
 }
 
 function destroyDanaKarneCharts() {
+  destroyDanaKarneV2Charts();
   [danaKarneTrendInst, danaKarneRadarInst, danaKarneTopicInst].forEach(function (ch) {
     if (ch && typeof ch.destroy === "function") {
       try {
@@ -14548,14 +14944,79 @@ function generateAITelafiTest() {
 }
 
 /**
- * Ultra-Detaylı Karne grafikleri — yalnızca Appwrite deneme / branş özetleri.
+ * Karne PDF / üst şerit — ExamResults V2 meta.
+ * @param {{ trendVals?: number[], agg?: object[], radar?: object|null }} meta
+ */
+function danaKarneUpdatePdfHeroFromV2(meta) {
+  meta = meta || {};
+  var trendVals = meta.trendVals || [];
+  var agg = meta.agg || [];
+  var radar = meta.radar || {};
+  var dateEl = document.getElementById("danaKarnePdfHeroDate");
+  var studEl = document.getElementById("danaKarnePdfHeroStudent");
+  var labelEl = document.getElementById("danaKarneStudentLabel");
+  if (dateEl) {
+    dateEl.textContent =
+      "Rapor tarihi: " +
+      new Date().toLocaleString("tr-TR", { dateStyle: "long", timeStyle: "short" });
+  }
+  if (studEl && labelEl) studEl.textContent = "Öğrenci: " + labelEl.textContent;
+  var strip = document.getElementById("danaKarneNetSummary");
+  if (!strip) return;
+  function radarAvgNet() {
+    var vals = [];
+    if (radar && radar.matematik != null) vals.push(Number(radar.matematik));
+    if (radar && radar.turkce != null) vals.push(Number(radar.turkce));
+    if (radar && radar.fen != null) vals.push(Number(radar.fen));
+    if (radar && radar.sosyal != null) vals.push(Number(radar.sosyal));
+    if (!vals.length) return null;
+    return Math.round((vals.reduce(function (a, b) { return a + b; }, 0) / vals.length) * 100) / 100;
+  }
+  var avgTopic = null;
+  var withPct = agg.filter(function (x) {
+    return x.successPct != null;
+  });
+  if (withPct.length) {
+    avgTopic =
+      Math.round(
+        (withPct.reduce(function (s, x) {
+          return s + Number(x.successPct);
+        }, 0) /
+          withPct.length) *
+          10
+      ) / 10;
+  }
+  if (trendVals.length) {
+    var last = trendVals[trendVals.length - 1];
+    var first = trendVals[0];
+    var delta = Math.round((last - first) * 10) / 10;
+    var rAvg = radarAvgNet();
+    strip.innerHTML =
+      '<ul class="dana-net-strip__list">' +
+      '<li><span>Son toplam net</span><strong>' +
+      String(last).replace(".", ",") +
+      "</strong></li>" +
+      '<li><span>Seri değişimi (ilk→son)</span><strong>' +
+      (delta >= 0 ? "+" : "") +
+      String(delta).replace(".", ",") +
+      "</strong></li>" +
+      '<li><span>Konu başarı ort. (%)</span><strong>' +
+      (avgTopic != null ? String(avgTopic).replace(".", ",") + "%" : "—") +
+      "</strong></li>" +
+      '<li><span>Ders net ort. (son deneme)</span><strong>' +
+      (rAvg != null ? String(rAvg).replace(".", ",") : "—") +
+      "</strong></li></ul>";
+  } else {
+    strip.innerHTML =
+      '<p class="dana-net-strip__empty" style="margin:0;font-size:0.85rem;color:#64748b">ExamResults kaydı yok; Akıllı Optik ile sonuç kaydedin.</p>';
+  }
+}
+
+/**
+ * Ultra-Detaylı Karne V2 — Appwrite ExamResults (exam_name, saved_at etiket; Exams zorunlu değil); ApexCharts.
  * @param {string} [studentId]
  */
 async function renderKarneCharts(studentId) {
-  if (typeof Chart === "undefined") {
-    console.warn("[dana-karne] Chart.js yüklü değil.");
-    return;
-  }
   var sid = String(studentId || "").trim();
   var st = sid
     ? cachedStudents.find(function (x) {
@@ -14574,242 +15035,30 @@ async function renderKarneCharts(studentId) {
 
   destroyDanaKarneCharts();
 
-  var elTrend = document.getElementById("trendChart");
-  var elRadar = document.getElementById("radarChart");
-  var elTopic = document.getElementById("topicChart");
-  if (!elTrend || !elRadar || !elTopic) return;
-
-  dpSetCanvasChartOverlay(elTrend, false);
-  dpSetCanvasChartOverlay(elRadar, false);
-  dpSetCanvasChartOverlay(elTopic, false);
-
-  if (!sid || !st) {
-    danaKarneLastTopics = [];
-    dpSetCanvasChartOverlay(elTrend, true);
-    dpSetCanvasChartOverlay(elRadar, true);
-    dpSetCanvasChartOverlay(elTopic, true);
-    danaKarneUpdatePdfHero([], [], 0, 0, 0, 0);
+  if (!document.getElementById("danaKarneApexTrend")) {
+    console.warn("[dana-karne] V2 DOM bulunamadı.");
     return;
   }
 
-  var summaryRows = buildKarneStudentSummaries({ studentId: sid, examKey: "all" });
-  var summary = summaryRows[0] || null;
-  var topics = danaKarneTopicsFromSummary(summary);
-  danaKarneLastTopics = topics.slice();
-  var trendPack = danaKarneTrendFromSummary(summary || { examHistory: [] });
-  var trendVals = trendPack.vals;
-  var trendLabels = trendPack.labels;
-  var tMin = trendVals.length ? Math.min.apply(null, trendVals) : 0;
-  var tMax = trendVals.length ? Math.max.apply(null, trendVals) : 0;
-
-  var anim = { duration: 1000, easing: "easeOutQuart" };
-  var commonFont = { family: "'Plus Jakarta Sans', 'Inter', system-ui, sans-serif", size: 11 };
-
-  if (trendVals.length >= 2) {
-    var wrapT = elTrend.closest(".dana-karne-chart-card__canvas");
-    var gh = wrapT && wrapT.clientHeight ? wrapT.clientHeight : 260;
-    var ctxT = elTrend.getContext("2d");
-    var gradT = ctxT.createLinearGradient(0, 0, 0, gh);
-    gradT.addColorStop(0, "rgba(99, 102, 241, 0.45)");
-    gradT.addColorStop(0.42, "rgba(124, 58, 237, 0.2)");
-    gradT.addColorStop(1, "rgba(124, 58, 237, 0)");
-
-    danaKarneTrendInst = new Chart(ctxT, {
-      type: "line",
-      data: {
-        labels: trendLabels,
-        datasets: [
-          {
-            label: "TYT net",
-            data: trendVals,
-            borderColor: "#6366f1",
-            backgroundColor: gradT,
-            borderWidth: 2.5,
-            tension: 0.4,
-            fill: true,
-            pointBackgroundColor: "#4f46e5",
-            pointBorderColor: "#fff",
-            pointBorderWidth: 2,
-            pointRadius: 5,
-            pointHoverRadius: 7,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: anim,
-        interaction: { mode: "index", intersect: false },
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            backgroundColor: "rgba(15, 23, 42, 0.92)",
-            titleFont: commonFont,
-            bodyFont: commonFont,
-            padding: 12,
-            cornerRadius: 12,
-          },
-        },
-        scales: {
-          y: {
-            beginAtZero: false,
-            suggestedMin: Math.max(0, tMin - 2),
-            suggestedMax: tMax + 2,
-            grid: { color: "rgba(148, 163, 184, 0.22)" },
-            ticks: { font: commonFont, color: "#64748b" },
-          },
-          x: {
-            grid: { display: false },
-            ticks: { font: commonFont, color: "#64748b" },
-          },
-        },
+  try {
+    var meta = await renderDanaKarneV2({
+      studentId: sid,
+      student: st,
+      showToast: showToast,
+      getCoachId: getCoachId,
+      onTopicsForTelafi: function (rows) {
+        danaKarneLastTopics = rows.slice();
       },
     });
-  } else {
-    dpSetCanvasChartOverlay(elTrend, true);
+    danaKarneUpdatePdfHeroFromV2(meta);
+  } catch (e) {
+    console.error("[dana-karne-v2]", e);
+    showToast("Karne verisi yüklenirken hata: " + (e && e.message ? e.message : String(e)), {
+      variant: "danger",
+    });
+    danaKarneLastTopics = [];
+    danaKarneUpdatePdfHeroFromV2({ trendVals: [], agg: [], radar: null });
   }
-
-  var topicsRadar = topics.filter(function (t) {
-    return t.branch !== "ayt_extra";
-  });
-  var rMat = danaKarneBranchAvg(topicsRadar, "matematik");
-  var rTur = danaKarneBranchAvg(topicsRadar, "turkce");
-  var rFen = danaKarneBranchAvg(topicsRadar, "fen");
-  var rSos = danaKarneBranchAvg(topicsRadar, "sosyal");
-  var radarSum = rMat + rTur + rFen + rSos;
-
-  if (radarSum > 0) {
-    danaKarneRadarInst = new Chart(elRadar.getContext("2d"), {
-      type: "radar",
-      data: {
-        labels: ["Matematik", "Türkçe", "Fen", "Sosyal"],
-        datasets: [
-          {
-            label: "Yetkinlik %",
-            data: [rMat, rTur, rFen, rSos],
-            borderColor: "#7c3aed",
-            backgroundColor: "rgba(124, 58, 237, 0.24)",
-            borderWidth: 2,
-            pointBackgroundColor: "#6d28d9",
-            pointBorderColor: "#fff",
-            pointHoverBackgroundColor: "#5b21b6",
-            pointRadius: 4,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: anim,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            backgroundColor: "rgba(15, 23, 42, 0.92)",
-            bodyFont: commonFont,
-            titleFont: commonFont,
-            callbacks: {
-              label: function (ctx) {
-                return "Yetkinlik: %" + ctx.raw;
-              },
-            },
-          },
-        },
-        scales: {
-          r: {
-            min: 0,
-            max: 100,
-            ticks: { stepSize: 20, color: "#94a3b8", backdropColor: "transparent" },
-            grid: { color: "rgba(124, 58, 237, 0.12)" },
-            angleLines: { color: "rgba(124, 58, 237, 0.16)" },
-            pointLabels: { font: commonFont, color: "#475569" },
-          },
-        },
-      },
-    });
-  } else {
-    dpSetCanvasChartOverlay(elRadar, true);
-  }
-
-  if (topics.length) {
-    var doughLabels = topics.map(function (t) {
-      return t.shortLabel;
-    });
-    var doughData = topics.map(function (t) {
-      return t.pct;
-    });
-    var doughColors = topics.map(function (t) {
-      return danaKarnePctToColor(t.pct);
-    });
-    var fullLabels = topics.map(function (t) {
-      return t.fullLabel;
-    });
-
-    danaKarneTopicInst = new Chart(elTopic.getContext("2d"), {
-      type: "doughnut",
-      data: {
-        labels: doughLabels,
-        datasets: [
-          {
-            data: doughData,
-            backgroundColor: doughColors,
-            borderColor: "#fff",
-            borderWidth: 2,
-            hoverOffset: 10,
-            fullLabels: fullLabels,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        cutout: "62%",
-        animation: anim,
-        layout: { padding: 10 },
-        plugins: {
-          legend: {
-            position: "bottom",
-            labels: {
-              boxWidth: 11,
-              font: commonFont,
-              color: "#475569",
-              padding: 12,
-              usePointStyle: true,
-            },
-          },
-          tooltip: {
-            backgroundColor: "rgba(15, 23, 42, 0.94)",
-            titleFont: { family: commonFont.family, size: 13, weight: "700" },
-            bodyFont: commonFont,
-            padding: 14,
-            cornerRadius: 12,
-            callbacks: {
-              title: function (items) {
-                if (!items.length) return "";
-                var ds = items[0].dataset;
-                var i = items[0].dataIndex;
-                var fl = ds.fullLabels && ds.fullLabels[i];
-                return fl || items[0].label || "";
-              },
-              label: function (ctx) {
-                return "Başarı: %" + ctx.parsed;
-              },
-            },
-          },
-        },
-        onClick: function (_evt, elements, chart) {
-          if (!elements.length) return;
-          var i = elements[0].index;
-          var ds = chart.data.datasets[0];
-          var full = ds.fullLabels && ds.fullLabels[i];
-          if (full) showToast(full, { variant: "success" });
-        },
-      },
-    });
-  } else {
-    dpSetCanvasChartOverlay(elTopic, true);
-  }
-
-  danaKarneUpdatePdfHero(trendVals, topics, rMat, rTur, rFen, rSos);
 
   await Promise.resolve();
 }
@@ -15177,6 +15426,7 @@ function navigateTo(view) {
   var danaAcc = document.getElementById("sidebarDanaToggle");
   if (danaLi && danaAcc) {
     var inDana =
+      view === "deneme-analiz-denemeler" ||
       view === "deneme-analiz-takvim" ||
       view === "deneme-analiz-optik" ||
       view === "deneme-analiz-karne" ||
@@ -15283,6 +15533,17 @@ function navigateTo(view) {
       subtitleId: "dpNsTabanSub",
       uniFilterId: "dpNsUniFilter",
       deptFilterId: "dpNsDeptFilter",
+      resolveExams: function () {
+        try {
+          var sid =
+            typeof currentStudentDetailId === "string" ? String(currentStudentDetailId).trim() : "";
+          if (!sid) return [];
+          return examsForStudent(sid);
+        } catch (e) {
+          console.error("[Net Sihirbazı] resolveExams:", e);
+          return [];
+        }
+      },
     });
   }
   if (view === "yks-puan") initYksPuanHesaplama();
@@ -15294,6 +15555,12 @@ function navigateTo(view) {
     configureZohoInboxPreset("koc");
     wireZohoInbox();
     loadEmails();
+  }
+  if (view === "deneme-analiz-denemeler" && typeof window.__denemelerPageRefresh === "function") {
+    window.__denemelerPageRefresh();
+  }
+  if (view === "deneme-analiz-optik" && typeof window.__smartOptikOnEnter === "function") {
+    window.__smartOptikOnEnter();
   }
   if (view === "deneme-analiz-takvim") danaGlobalTakvimRefresh();
   if (view === "deneme-analiz-karne") {
@@ -16022,8 +16289,12 @@ function initNavigation() {
   if (btnDanaPlan && !btnDanaPlan.dataset.bound) {
     btnDanaPlan.dataset.bound = "1";
     btnDanaPlan.addEventListener("click", function () {
-      resetDanaGlobalDenemePlanModal();
-      openModal("danaGlobalDenemePlanModal");
+      if (typeof window.__denemelerOpenNewExamModal === "function") {
+        window.__denemelerOpenNewExamModal("");
+      } else {
+        resetDanaGlobalDenemePlanModal();
+        openModal("danaGlobalDenemePlanModal");
+      }
     });
   }
   bindDanaPdfExportOnce();
@@ -17503,6 +17774,14 @@ function bootstrapKocPanelAfterAuth() {
   initTmAiAppendModal();
   initAllButtons();
   initYksFeaturePages();
+  initSmartOptikPage({
+    showToast: showToast,
+    getCoachId: getCoachId,
+    getStudents: function () {
+      return cachedStudents;
+    },
+  });
+  initDenemelerPage({ showToast: showToast, getCoachId: getCoachId });
   initDashboardYksCountdownWidget();
   updateCoachProfile();
   subscribeFirestore();

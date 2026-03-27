@@ -1,22 +1,9 @@
 /**
- * TYT-AYT Net Sihirbazı — hedef motoru: soru üst sınırı, Appwrite hedef netleri, taban bazlı fallback.
- * Appwrite: koleksiyon `yks_net_sihirbazi_targets`, alanlar: programKey (string), rowsJson (string JSON dizi),
- * isteğe bağlı baseScore2025 (double). programKey = "{uniId}__{templateId}"
+ * TYT-AYT Net Sihirbazı — hedef motoru: soru üst sınırı, Appwrite Programs.rowsJson, clamp / filtre.
+ * Program çözümü: `buildProgramFromAppwriteV2` (Universities + Programs).
  */
 
 import { YKS_AYT_BY_ALAN, YKS_TYT_BRANCHES } from "./yks-exam-structure.js";
-import {
-  db,
-  collection,
-  query,
-  where,
-  getDocs,
-} from "./appwrite-compat.js";
-import {
-  buildProgramFromUniTemplate,
-  TR_UNIVERSITIES_UNIQUE,
-  PROGRAM_TEMPLATES,
-} from "./yok-atlas-catalog.js";
 import {
   filterSimulatorRowsForStudentAlan,
   normalizeStudentYksAlanKey,
@@ -49,8 +36,6 @@ export const MAX_QUESTIONS = {
   },
 };
 
-var APPWRITE_NET_COLLECTION = "yks_net_sihirbazi_targets";
-
 function hashStr(s) {
   var h = 0;
   var str = String(s || "");
@@ -72,28 +57,15 @@ function esc(s) {
 /** @typedef {"sayisal"|"ea"|"sozel"|"dil"} PuanGroup */
 
 /**
- * Şablon satırlarına bakarak puan türü (AYT seti) çıkarımı — sayısal şablonda Fizik/Kimya/Biyo vardır.
- * @param {string} templateId
- * @returns {PuanGroup}
+ * Appwrite Programs.alanKey → motor puan grubu.
  */
-export function inferPuanGroupFromTemplateId(templateId) {
-  if (!templateId) return "sayisal";
-  var t = PROGRAM_TEMPLATES.find(function (x) {
-    return x.id === templateId;
-  });
-  if (!t || !t.rows) return "sayisal";
-  var ayt = t.rows.filter(function (r) {
-    return String(r.section || "").toUpperCase() === "AYT";
-  });
-  var blob = ayt
-    .map(function (r) {
-      return r.name;
-    })
-    .join(" ");
-  if (/yabancı|ydt/i.test(blob)) return "dil";
-  if (/Fizik|Kimya|Biyoloji/.test(blob)) return "sayisal";
-  if (/Tarih-2|Coğrafya-2|Felsefe\s*Grubu|Din\s*Kültürü/i.test(blob)) return "sozel";
-  return "ea";
+export function puanGroupFromAlanKey(alanKey) {
+  var raw = String(alanKey || "").trim().toLowerCase();
+  var k = raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (k === "esit_agirlik" || k === "ea" || (k.indexOf("esit") !== -1 && k.indexOf("agir") !== -1)) return "ea";
+  if (k === "sozel" || raw.indexOf("sözel") !== -1) return "sozel";
+  if (k === "dil") return "dil";
+  return "sayisal";
 }
 
 function puanGroupToAlanKey(pg) {
@@ -205,92 +177,40 @@ export function filterRowsByPuanGroup(rows, pg) {
 }
 
 /**
- * Taban puana ve Türkiye ortalamasına yakın profillere göre tahmini branş netleri (şablon satırları kullanılmaz).
- * @param {string} uniId
- * @param {string} templateId
- * @param {number} baseScore2025
- * @param {PuanGroup} pg
+ * Appwrite V2: Universities + Programs dökümanlarından program nesnesi.
+ * @param {{ name?: string, universityName?: string }} uniDoc
+ * @param {object} programDoc — Programs (uniId, name, targetTytNet, targetAytNet, alanKey, rowsJson)
+ * @returns {{ id: string, university: string, department: string, baseScore2025: number, rows: Array, dataSource: string, puanGroup: PuanGroup, targetTytNet: number, targetAytNet: number }|null}
  */
-export function buildFallbackTargetRows(uniId, templateId, baseScore2025, pg) {
-  var alanKey = puanGroupToAlanKey(pg);
-  var norm = (Number(baseScore2025) - 260) / 310;
-  if (isNaN(norm)) norm = 0.45;
-  norm = Math.min(1, Math.max(0, norm));
-  var lift = 0.5 + norm * 0.42;
-
-  var out = [];
-  var tytIds = ["turkce", "sosyal", "matematik", "fen"];
-  for (var ti = 0; ti < tytIds.length; ti++) {
-    var tid = tytIds[ti];
-    var br = YKS_TYT_BRANCHES.find(function (b) {
-      return b.id === tid;
-    });
-    if (!br) continue;
-    var maxS = br.soru;
-    var h = hashStr(uniId + "::tyt::" + br.id);
-    var jitter = 1 + ((h % 23) - 11) * 0.01;
-    var raw = maxS * lift * 0.72 * jitter;
-    var targetNet = Math.round(Math.min(maxS, Math.max(0, raw)) * 10) / 10;
-    var tytName =
-      br.id === "turkce"
-        ? "Türkçe"
-        : br.id === "sosyal"
-          ? "Sosyal Bilimler"
-          : br.id === "matematik"
-            ? "Temel Matematik"
-            : "Fen Bilimleri";
-    out.push({ section: "TYT", name: tytName, targetNet: targetNet });
-  }
-
-  var aytBranches;
-  if (alanKey === "dil") {
-    aytBranches = [
-      { label: "Yabancı Dil", soru: 80 },
-      { label: "Türk Dili ve Edebiyatı", soru: 24 },
-      { label: "Tarih-1", soru: 11 },
-      { label: "Coğrafya-1", soru: 6 },
-    ];
-  } else {
-    aytBranches = (YKS_AYT_BY_ALAN[alanKey] || YKS_AYT_BY_ALAN.sayisal).branches;
-  }
-
-  aytBranches.forEach(function (b) {
-    var h = hashStr(uniId + "::" + templateId + "::ayt::" + b.id);
-    var jitter = 1 + ((h % 27) - 13) * 0.011;
-    var raw = b.soru * lift * 0.68 * jitter;
-    var targetNet = Math.round(Math.min(b.soru, Math.max(0, raw)) * 10) / 10;
-    out.push({ section: "AYT", name: b.label, targetNet: targetNet });
-  });
-
-  out = clampAllRowTargets(out, pg);
-  return filterRowsByPuanGroup(out, pg);
-}
-
-/**
- * Appwrite’dan programKey ile hedef net satırlarını okur.
- * @returns {Promise<{ rows: Array, baseScore2025: number|null, source: string }|null>}
- */
-export async function fetchNetTargetsFromAppwrite(uniId, templateId) {
+export function buildProgramFromAppwriteV2(uniDoc, programDoc) {
   try {
-    var key = String(uniId || "") + "__" + String(templateId || "");
-    if (!key || key === "__") return null;
-    var cRef = collection(db, APPWRITE_NET_COLLECTION);
-    var q = query(cRef, where("programKey", "==", key));
-    var snap = await getDocs(q);
-    if (!snap || !snap.docs || snap.docs.length === 0) return null;
-    var d = snap.docs[0].data();
-    var raw = d.rowsJson != null ? d.rowsJson : d.rows_json != null ? d.rows_json : d.rows;
+    if (!uniDoc || !programDoc) return null;
+    var uniName =
+      uniDoc.uniName != null && String(uniDoc.uniName).trim() !== ""
+        ? String(uniDoc.uniName)
+        : uniDoc.name != null
+          ? String(uniDoc.name)
+          : uniDoc.universityName != null
+            ? String(uniDoc.universityName)
+            : "";
+    var dept =
+      programDoc.programName != null && String(programDoc.programName).trim() !== ""
+        ? String(programDoc.programName)
+        : programDoc.name != null
+          ? String(programDoc.name)
+          : "";
+    var raw = programDoc.rowsJson != null ? programDoc.rowsJson : programDoc.rows_json;
     var rows;
     if (typeof raw === "string") {
       try {
         rows = JSON.parse(raw);
       } catch (_e) {
-        return null;
+        rows = [];
       }
     } else {
       rows = raw;
     }
-    if (!Array.isArray(rows) || !rows.length) return null;
+    if (!Array.isArray(rows)) rows = [];
     var cleaned = [];
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
@@ -303,73 +223,32 @@ export async function fetchNetTargetsFromAppwrite(uniId, templateId) {
       });
     }
     if (!cleaned.length) return null;
-    var bs = d.baseScore2025 != null ? Number(d.baseScore2025) : null;
+    var pg = puanGroupFromAlanKey(programDoc.alanKey);
+    cleaned = clampAllRowTargets(cleaned, pg);
+    cleaned = filterRowsByPuanGroup(cleaned, pg);
+    if (!cleaned.length) return null;
+    var pid = programDoc.$id != null ? String(programDoc.$id) : "";
+    var tt = parseFloat(String(programDoc.targetTytNet != null ? programDoc.targetTytNet : "").replace(",", "."));
+    var ta = parseFloat(String(programDoc.targetAytNet != null ? programDoc.targetAytNet : "").replace(",", "."));
     return {
+      id: pid,
+      university: uniName,
+      department: dept,
+      baseScore2025: 400,
       rows: cleaned,
-      baseScore2025: !isNaN(bs) ? bs : null,
-      source: "appwrite",
-    };
-  } catch (e) {
-    console.warn("[Net Sihirbazı] Appwrite okuma:", e && e.message ? e.message : e);
-    return null;
-  }
-}
-
-/**
- * @returns {Promise<{ id: string, university: string, department: string, baseScore2025: number, rows: Array, dataSource: string }|null>}
- */
-export async function resolveNetSihirbaziProgram(uniId, templateId) {
-  try {
-    var uni = TR_UNIVERSITIES_UNIQUE.find(function (u) {
-      return u.id === uniId;
-    });
-    var tmpl = PROGRAM_TEMPLATES.find(function (t) {
-      return t.id === templateId;
-    });
-    if (!uni || !tmpl) return null;
-
-    var pg = inferPuanGroupFromTemplateId(templateId);
-    var shell = buildProgramFromUniTemplate(uniId, templateId);
-    if (!shell) return null;
-
-    var fromDb = await fetchNetTargetsFromAppwrite(uniId, templateId);
-    var rows;
-    var dataSource;
-    if (fromDb && fromDb.rows && fromDb.rows.length) {
-      rows = fromDb.rows;
-      dataSource = "appwrite";
-      if (fromDb.baseScore2025 != null && !isNaN(fromDb.baseScore2025)) {
-        shell.baseScore2025 = fromDb.baseScore2025;
-      }
-    } else {
-      rows = buildFallbackTargetRows(uniId, templateId, shell.baseScore2025, pg);
-      dataSource = "fallback";
-    }
-
-    rows = clampAllRowTargets(rows, pg);
-    rows = filterRowsByPuanGroup(rows, pg);
-    if (!rows.length) {
-      rows = buildFallbackTargetRows(uniId, templateId, shell.baseScore2025, pg);
-      dataSource = "fallback";
-    }
-
-    return {
-      id: shell.id,
-      university: shell.university,
-      department: shell.department,
-      baseScore2025: shell.baseScore2025,
-      rows: rows,
-      dataSource: dataSource,
+      dataSource: "appwrite-v2",
       puanGroup: pg,
+      targetTytNet: isNaN(tt) ? 0 : tt,
+      targetAytNet: isNaN(ta) ? 0 : ta,
     };
   } catch (e) {
-    console.warn("[Net Sihirbazı] resolveNetSihirbaziProgram:", e && e.message ? e.message : e);
+    console.warn("[Net Sihirbazı] buildProgramFromAppwriteV2:", e && e.message ? e.message : e);
     return null;
   }
 }
 
-function currentNetDemo(target, maxCap, uniId, templateId, rowKey) {
-  var h = hashStr(uniId + "::cur::" + templateId + "::" + rowKey);
+function currentNetDemo(target, maxCap, programId, rowKey) {
+  var h = hashStr(String(programId || "") + "::cur::" + rowKey);
   var ratio = 0.74 + ((h % 19) * 0.01);
   var c = target * ratio;
   return Math.round(Math.min(maxCap, Math.max(0, c)) * 10) / 10;
@@ -377,20 +256,25 @@ function currentNetDemo(target, maxCap, uniId, templateId, rowKey) {
 
 /**
  * @param {{ rows: Array, baseScore2025: number, university: string, department: string, dataSource: string, puanGroup: PuanGroup }} program
+ * @param {{ currentNetForRow?: function(r: object, target: number, cap: number, key: string): number }} [opts]
  */
-export function buildMotorDisplayRows(program) {
+export function buildMotorDisplayRows(program, opts) {
+  opts = opts || {};
   if (!program || !program.rows) return [];
-  var idParts = String(program.id || "").split("__");
-  var uniId = idParts[0] || "";
-  var tmplId = idParts.length > 1 ? idParts.slice(1).join("__") : "";
-  var pg = program.puanGroup || inferPuanGroupFromTemplateId(tmplId);
+  var pg = program.puanGroup || "sayisal";
+  var progId = String(program.id || "");
   return program.rows.map(function (r) {
     var cap = clampRowTargetNet(r, pg);
     var t = Number(r.targetNet);
     if (isNaN(t)) t = 0;
     t = Math.min(cap, t);
     var key = String(r.section) + "_" + String(r.name);
-    var cur = currentNetDemo(t, cap, uniId, tmplId, key);
+    var cur =
+      typeof opts.currentNetForRow === "function"
+        ? opts.currentNetForRow(r, t, cap, key)
+        : currentNetDemo(t, cap, progId, key);
+    if (isNaN(cur)) cur = 0;
+    cur = Math.round(Math.min(cap, Math.max(0, cur)) * 10) / 10;
     var diff = Math.round((cur - t) * 10) / 10;
     return {
       label: String(r.section) + " " + String(r.name),
@@ -401,6 +285,118 @@ export function buildMotorDisplayRows(program) {
       diff: diff,
     };
   });
+}
+
+function sumDisplaySection(displayRows, sectionUpper) {
+  var s = 0;
+  var c = 0;
+  (displayRows || []).forEach(function (r) {
+    if (String(r.section || "").toUpperCase() !== sectionUpper) return;
+    s += Number(r.target) || 0;
+    c += Number(r.current) || 0;
+  });
+  return { target: s, current: c };
+}
+
+/**
+ * Net Sihirbazı V2 — Tailwind özet şeridi + ders tablosu (Kalan: güncel − hedef; eksi → kırmızı, artı → yeşil).
+ * @param {object} [uiMeta] — currentNetSummary (düz metin), tableFootnote (düz metin)
+ */
+export function netSihirbaziV2ResultHtml(displayRows, program, uiMeta) {
+  program = program || {};
+  uiMeta = uiMeta || {};
+  var pctAgg = computeMotorSuccessPercent(displayRows);
+  var tytAgg = sumDisplaySection(displayRows, "TYT");
+  var aytAgg = sumDisplaySection(displayRows, "AYT");
+  var tT = program.targetTytNet != null ? Number(program.targetTytNet) : tytAgg.target;
+  var aT = program.targetAytNet != null ? Number(program.targetAytNet) : aytAgg.target;
+  var denom = tT + aT;
+  var pct = denom > 0 ? Math.min(100, Math.max(0, Math.round((100 * (tytAgg.current + aytAgg.current)) / denom))) : pctAgg;
+  var w = Math.min(100, Math.max(0, pct));
+
+  var currentLine =
+    '<p class="text-xs text-slate-600">Güncel toplam (branş): TYT <span class="font-bold text-slate-800 tabular-nums">' +
+    esc(tytAgg.current.toFixed(1)) +
+    '</span> · AYT <span class="font-bold text-slate-800 tabular-nums">' +
+    esc(aytAgg.current.toFixed(1)) +
+    "</span></p>";
+  if (uiMeta.currentNetSummary) {
+    currentLine +=
+      '<p class="text-xs text-slate-500 mt-1">' + esc(String(uiMeta.currentNetSummary)) + "</p>";
+  }
+
+  var strip =
+    '<div class="mb-5 rounded-2xl border border-violet-200/90 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-4 shadow-md shadow-violet-100/50">' +
+    '<div class="flex flex-wrap items-end justify-between gap-3">' +
+    '<div class="space-y-1">' +
+    '<p class="text-xs font-extrabold uppercase tracking-wider text-violet-600">Hedef netler (Appwrite Programs)</p>' +
+    '<p class="text-sm font-semibold text-slate-700">' +
+    "TYT: <span class=\"text-violet-700 tabular-nums\">" +
+    esc(tT.toFixed(1)) +
+    "</span> · AYT: <span class=\"text-fuchsia-700 tabular-nums\">" +
+    esc(aT.toFixed(1)) +
+    "</span></p>" +
+    currentLine +
+    "</div>" +
+    '<div class="min-w-[200px] flex-1">' +
+    '<div class="mb-1 flex justify-between text-xs font-bold text-slate-600">' +
+    '<span>% Başarı ihtimali</span><span class="text-violet-700 tabular-nums">' +
+    esc(String(pct)) +
+    "%</span></div>" +
+    '<div class="h-2.5 w-full overflow-hidden rounded-full bg-slate-200/80 ring-1 ring-violet-200/60">' +
+    '<div class="h-full rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-500 transition-all duration-500" style="width:' +
+    esc(String(w)) +
+    '%"></div></div>' +
+    '<p class="mt-1 text-[10px] leading-snug text-slate-400">Gösterge: hedef TYT+AYT toplamına göre güncel branş toplamlarınızın oranı; resmî yerleştirme değildir.</p>' +
+    "</div></div></div>";
+
+  if (!displayRows || !displayRows.length) {
+    return strip + '<p class="net-sihirbazi-placeholder">Bu bölüm için satır üretilemedi.</p>';
+  }
+
+  var trs = displayRows
+    .map(function (r) {
+      var diffCls =
+        r.diff < 0 ? "text-rose-600 font-bold" : r.diff > 0 ? "text-emerald-600 font-bold" : "text-slate-600 font-semibold";
+      var diffTxt = r.diff === 0 ? "0" : (r.diff > 0 ? "+" : "") + r.diff.toFixed(1);
+      return (
+        "<tr class=\"border-b border-violet-100/80\">" +
+        '<td class="py-2.5 pr-3 text-sm font-medium text-slate-800">' +
+        esc(r.label) +
+        '</td><td class="py-2.5 px-2 text-center text-sm tabular-nums text-slate-700">' +
+        r.target.toFixed(1) +
+        '</td><td class="py-2.5 px-2 text-center text-sm tabular-nums text-slate-700">' +
+        r.current.toFixed(1) +
+        '</td><td class="py-2.5 pl-2 text-right text-sm tabular-nums ' +
+        diffCls +
+        '">' +
+        esc(diffTxt) +
+        "</td></tr>"
+      );
+    })
+    .join("");
+
+  var foot =
+    uiMeta.tableFootnote != null && String(uiMeta.tableFootnote).trim() !== ""
+      ? String(uiMeta.tableFootnote)
+      : "Hedefler Appwrite Programs.rowsJson kaynağındadır. Kalan = güncel net − hedef net.";
+  var table =
+    '<div class="overflow-hidden rounded-2xl border border-violet-200/80 bg-white shadow-sm">' +
+    '<table class="w-full border-collapse text-left text-sm">' +
+    '<thead><tr class="border-b border-violet-200 bg-gradient-to-r from-violet-100/90 to-fuchsia-50/90">' +
+    '<th class="px-3 py-3 text-xs font-extrabold uppercase tracking-wide text-violet-900">Ders</th>' +
+    '<th class="px-2 py-3 text-center text-xs font-extrabold uppercase tracking-wide text-violet-900">Hedef</th>' +
+    '<th class="px-2 py-3 text-center text-xs font-extrabold uppercase tracking-wide text-violet-900">Güncel</th>' +
+    '<th class="px-3 py-3 text-right text-xs font-extrabold uppercase tracking-wide text-violet-900">Kalan</th>' +
+    "</tr></thead><tbody>" +
+    trs +
+    "</tbody></table>" +
+    '<p class="border-t border-violet-100 px-3 py-2 text-xs text-slate-500">' +
+    esc(foot) +
+    "</p>" +
+    "</div>";
+
+  return strip + table;
 }
 
 export function computeMotorSuccessPercent(displayRows) {

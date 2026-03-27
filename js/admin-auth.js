@@ -12,6 +12,7 @@ import {
   verifyAppwriteAccount,
   getAppSettings,
   serverTimestamp,
+  logAppwriteError,
 } from "./appwrite-compat.js";
 import "./appwrite-config.js";
 import { databases, APPWRITE_DATABASE_ID } from "./appwrite-config.js";
@@ -48,7 +49,7 @@ async function findProfileFromDatabase(authUser, fallbackUsername) {
     ]);
     if (usersById && usersById.documents && usersById.documents.length) return usersById.documents[0];
   } catch (e) {
-    console.warn("[admin-auth] users by id:", e && e.message);
+    logAppwriteError("admin-auth.js/findProfileFromDatabase/usersById", e);
   }
 
   if (uname) {
@@ -61,7 +62,7 @@ async function findProfileFromDatabase(authUser, fallbackUsername) {
         return usersByUsername.documents[0];
       }
     } catch (e2) {
-      console.warn("[admin-auth] users by username:", e2 && e2.message);
+      logAppwriteError("admin-auth.js/findProfileFromDatabase/usersByUsername", e2);
     }
   }
 
@@ -219,7 +220,7 @@ if (form) {
       try {
         await updateDoc(doc(db, "users", u.uid), { lastLogin: serverTimestamp() });
       } catch (e) {
-        console.warn("[admin-auth] lastLogin:", e);
+        logAppwriteError("admin-auth.js/submit/lastLogin", e);
       }
 
       window.location.replace("/super-admin");

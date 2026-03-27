@@ -1,15 +1,22 @@
 /**
- * Öğrenci paneli — Hedef Simülatörü (Chart.js + YÖK Atlas örnek tablosu)
- * Müfredat ağacı merkezi kaynak: `yks-mufredat.js`.
+ * Öğrenci paneli — Hedef Simülatörü (Chart.js + Appwrite Universities / Programs).
+ * Veri: import-excel-to-appwrite.js, auto-fetch-yokatlas.js veya yokatlas-py ile Appwrite’a aktarılır.
  */
 import { YKS2026_Mufredat } from "./yks-mufredat.js";
-import { findAtlasProgramById, TR_UNIVERSITIES_UNIQUE, PROGRAM_TEMPLATES_UI } from "./yok-atlas-data.js";
+import { buildProgramFromAppwriteV2 } from "./net-sihirbazi-engine.js";
+import {
+  ensureHedefSimulatorAppwriteData,
+  getHedefAppwriteUniversities,
+  loadHedefProgramsForUniversity,
+  getCachedHedefProgramsForUniversity,
+  hedefUniDisplayName,
+  hedefProgramDisplayName,
+} from "./hedef-appwrite-catalog.js";
 import {
   buildSimulatorRows,
   netTemplateTableHtml,
   sumGap,
   wireSearchFilterForSelect,
-  sortNamedItemsAlphabeticalTr,
   filterSimulatorRowsForStudentAlan,
   studentAytTableSectionTitle,
   normalizeStudentYksAlanKey,
@@ -28,6 +35,66 @@ function getStudentLike() {
   };
 }
 
+function populateOspHedefSelects() {
+  var uniSel = document.getElementById("ospHedefUniSelect");
+  var deptSel = document.getElementById("ospHedefDeptSelect");
+  if (!uniSel || !deptSel) return;
+  var prevUni = uniSel.value ? String(uniSel.value) : "";
+  var prevDept = deptSel.value ? String(deptSel.value) : "";
+
+  var unis = getHedefAppwriteUniversities();
+  uniSel.innerHTML = '<option value="">— Üniversite seçin —</option>';
+  unis.forEach(function (u) {
+    var o = document.createElement("option");
+    o.value = u.$id;
+    o.textContent = hedefUniDisplayName(u) || u.$id;
+    uniSel.appendChild(o);
+  });
+  if (prevUni && unis.some(function (x) {
+    return x.$id === prevUni;
+  }))
+    uniSel.value = prevUni;
+
+  var uniPick = uniSel.value ? String(uniSel.value) : "";
+  var df = document.getElementById("ospHedefDeptFilter");
+  if (!uniPick) {
+    deptSel.innerHTML = '<option value="">— Önce üniversite seçin —</option>';
+    deptSel.disabled = true;
+    if (df) df.disabled = true;
+    return;
+  }
+
+  var cached = getCachedHedefProgramsForUniversity(uniPick);
+  if (cached === null) {
+    deptSel.innerHTML = '<option value="">— Bölümler yükleniyor… —</option>';
+    deptSel.disabled = true;
+    if (df) df.disabled = true;
+    loadHedefProgramsForUniversity(uniPick).then(function () {
+      try {
+        populateOspHedefSelects();
+        renderOspHedefSimulator();
+      } catch (e) {
+        console.error("[OSP Hedef] programs load:", e);
+      }
+    });
+    return;
+  }
+
+  deptSel.disabled = false;
+  if (df) df.disabled = false;
+  deptSel.innerHTML = '<option value="">— Bölüm seçin —</option>';
+  cached.forEach(function (p) {
+    var o2 = document.createElement("option");
+    o2.value = p.$id;
+    o2.textContent = hedefProgramDisplayName(p) || p.$id;
+    deptSel.appendChild(o2);
+  });
+  if (prevDept && cached.some(function (x) {
+    return x.$id === prevDept;
+  }))
+    deptSel.value = prevDept;
+}
+
 export function renderOspHedefSimulator() {
   var bars = document.getElementById("ospHedefBars");
   var gapEl = document.getElementById("ospHedefGapBanner");
@@ -38,16 +105,39 @@ export function renderOspHedefSimulator() {
   var uniSel = document.getElementById("ospHedefUniSelect");
   var deptSel = document.getElementById("ospHedefDeptSelect");
   var uniId = uniSel && uniSel.value ? String(uniSel.value) : "";
-  var tmplId = deptSel && deptSel.value ? String(deptSel.value) : "";
-  var atlasId = uniId && tmplId ? uniId + "__" + tmplId : "";
+  var deptId = deptSel && deptSel.value ? String(deptSel.value) : "";
 
-  var program = atlasId ? findAtlasProgramById(atlasId) : null;
+  var program = null;
+  try {
+    var uDoc = getHedefAppwriteUniversities().find(function (u) {
+      return u.$id === uniId;
+    });
+    var plist = getCachedHedefProgramsForUniversity(uniId) || [];
+    var pDoc = plist.find(function (p) {
+      return p.$id === deptId;
+    });
+    program = uDoc && pDoc ? buildProgramFromAppwriteV2(uDoc, pDoc) : null;
+  } catch (e) {
+    console.error("[OSP Hedef] program çözümü:", e);
+    program = null;
+  }
+
   var student = getStudentLike();
   var uEl = document.getElementById("ospHedefUni");
   var bEl = document.getElementById("ospHedefBolum");
   if (program) {
     if (uEl) uEl.textContent = program.university;
-    if (bEl) bEl.textContent = program.department + " — Taban (örnek): " + program.baseScore2025;
+    if (bEl) {
+      var tt = program.targetTytNet != null ? Number(program.targetTytNet) : 0;
+      var ta = program.targetAytNet != null ? Number(program.targetAytNet) : 0;
+      bEl.textContent =
+        program.department +
+        " — Hedef TYT/AYT: " +
+        (isNaN(tt) ? "—" : tt.toFixed(1)) +
+        " / " +
+        (isNaN(ta) ? "—" : ta.toFixed(1)) +
+        " (Appwrite)";
+    }
   } else if (window.OSP) {
     var O = window.OSP;
     if (uEl && O.targetUniversity) uEl.textContent = O.targetUniversity;
@@ -55,6 +145,7 @@ export function renderOspHedefSimulator() {
     if (bEl && O.targetDepartment) bEl.textContent = O.targetDepartment + " — Hedef net";
     else if (bEl) bEl.textContent = "Koç kaydından hedef net";
   }
+
   var alanKey = normalizeStudentYksAlanKey(student);
   var rows = filterSimulatorRowsForStudentAlan(buildSimulatorRows(program, student), alanKey);
 
@@ -94,7 +185,7 @@ export function renderOspHedefSimulator() {
     "Kalan net farkı (branş toplamı): " +
     totalGap.toFixed(1) +
     (program
-      ? " — Seçilen program: " + program.university + " · " + program.department + " (taban örnek: " + program.baseScore2025 + ")"
+      ? " — Appwrite Programs."
       : window.OSP &&
           window.OSP.coachCurrentTytNet != null &&
           window.OSP.coachTargetTytNet != null
@@ -125,7 +216,7 @@ export function renderOspHedefSimulator() {
             pointBackgroundColor: "#6c5ce7",
           },
           {
-            label: "Güncel hedef (YÖK şablonu / ölçek)",
+            label: "Hedef net (Programs)",
             data: target,
             borderColor: "#10b981",
             backgroundColor: "rgba(16, 185, 129, 0.18)",
@@ -149,38 +240,48 @@ export function renderOspHedefSimulator() {
 }
 
 export function wireOspHedefSimulator() {
-  var uniSel = document.getElementById("ospHedefUniSelect");
-  var deptSel = document.getElementById("ospHedefDeptSelect");
-  var uniFilter = document.getElementById("ospHedefUniFilter");
-  var deptFilter = document.getElementById("ospHedefDeptFilter");
-  if (uniSel && deptSel && !uniSel.dataset.populated) {
-    uniSel.dataset.populated = "1";
-    uniSel.innerHTML = '<option value="">— Üniversite seçin —</option>';
-    sortNamedItemsAlphabeticalTr(TR_UNIVERSITIES_UNIQUE).forEach(function (u) {
-      var o = document.createElement("option");
-      o.value = u.id;
-      o.textContent = u.name;
-      uniSel.appendChild(o);
-    });
-    deptSel.innerHTML = '<option value="">— Bölüm / program türü seçin —</option>';
-    sortNamedItemsAlphabeticalTr(PROGRAM_TEMPLATES_UI).forEach(function (t) {
-      var o = document.createElement("option");
-      o.value = t.id;
-      o.textContent = t.name;
-      deptSel.appendChild(o);
-    });
-    wireSearchFilterForSelect(uniFilter, uniSel);
-    wireSearchFilterForSelect(deptFilter, deptSel);
-  }
-  if (uniSel && deptSel && !uniSel.dataset.wired) {
-    uniSel.dataset.wired = "1";
-    deptSel.dataset.wired = "1";
-    uniSel.addEventListener("change", function () {
-      renderOspHedefSimulator();
-    });
-    deptSel.addEventListener("change", function () {
-      renderOspHedefSimulator();
-    });
-  }
   window.__ospHedefRender = renderOspHedefSimulator;
+  var uniSel = document.getElementById("ospHedefUniSelect");
+  if (!uniSel || uniSel.dataset.ospHedefWired) return;
+  uniSel.dataset.ospHedefWired = "1";
+
+  ensureHedefSimulatorAppwriteData()
+    .then(function () {
+      try {
+        populateOspHedefSelects();
+        var deptSel = document.getElementById("ospHedefDeptSelect");
+        var uniFilter = document.getElementById("ospHedefUniFilter");
+        var deptFilter = document.getElementById("ospHedefDeptFilter");
+        if (uniSel && deptSel) {
+          wireSearchFilterForSelect(uniFilter, uniSel);
+          wireSearchFilterForSelect(deptFilter, deptSel);
+          uniSel.addEventListener("change", function () {
+            try {
+              populateOspHedefSelects();
+              renderOspHedefSimulator();
+            } catch (e) {
+              console.error("[OSP Hedef] uni change:", e);
+            }
+          });
+          deptSel.addEventListener("change", function () {
+            try {
+              renderOspHedefSimulator();
+            } catch (e2) {
+              console.error("[OSP Hedef] dept change:", e2);
+            }
+          });
+        }
+        renderOspHedefSimulator();
+      } catch (err) {
+        console.error("[OSP Hedef] kurulum:", err);
+        renderOspHedefSimulator();
+      }
+    })
+    .catch(function (err) {
+      console.error("[OSP Hedef] Appwrite:", err);
+      try {
+        populateOspHedefSelects();
+        renderOspHedefSimulator();
+      } catch (_e) {}
+    });
 }

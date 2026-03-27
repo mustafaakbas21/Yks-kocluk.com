@@ -32,6 +32,7 @@ import {
   studentCreatorAuth as tertiaryAuth,
   verifyAppwriteAccount,
   getAppSettings,
+  logAppwriteError,
 } from "./appwrite-compat.js";
 import {
   storage,
@@ -42,6 +43,7 @@ import {
   APPWRITE_DATABASE_ID,
   client,
   APPWRITE_COLLECTION_SORU_HAVUZU,
+  APPWRITE_COLLECTION_EXAM_RESULTS,
   APPWRITE_BUCKET_SORU_HAVUZU,
   APPWRITE_ENDPOINT,
 } from "./appwrite-config.js";
@@ -218,7 +220,7 @@ async function findProfileGateForLogin(authUser, fallbackUsername) {
     ]);
     if (usersById && usersById.documents && usersById.documents.length) return usersById.documents[0];
   } catch (e) {
-    console.warn("[super-admin gate] users by id:", e && e.message);
+    logAppwriteError("super-admin.js/findProfileGateForLogin/usersById", e);
   }
 
   if (uname) {
@@ -231,7 +233,7 @@ async function findProfileGateForLogin(authUser, fallbackUsername) {
         return usersByUsername.documents[0];
       }
     } catch (e2) {
-      console.warn("[super-admin gate] users by username:", e2 && e2.message);
+      logAppwriteError("super-admin.js/findProfileGateForLogin/usersByUsername", e2);
     }
   }
 
@@ -403,7 +405,7 @@ async function waitForProfile(uid, maxTry, delayMs) {
       var data = snap && typeof snap.data === "function" ? snap.data() : null;
       if (data && data.role) return data;
     } catch (e) {
-      console.error("VERI CEKME HATASI:", e);
+      logAppwriteError("super-admin.js/waitForProfile/getDoc", e);
     }
     await new Promise(function (resolve) {
       setTimeout(resolve, delayMs);
@@ -652,7 +654,7 @@ async function deleteStudentAccount(uid, origUsername) {
       await deleteDoc(doc(db, "users", uid));
       docDeleted = true;
     } catch (eDel) {
-      console.warn("[deleteStudent] deleteDoc (kurucu oturumu):", eDel);
+      logAppwriteError("super-admin.js/deleteStudent/deleteDoc-kurucu", eDel);
     }
 
     try {
@@ -665,7 +667,7 @@ async function deleteStudentAccount(uid, origUsername) {
       try {
         await deleteDoc(doc(db, "users", uid));
       } catch (eDel2) {
-        console.warn("[deleteStudent] deleteDoc (öğrenci oturumu):", eDel2);
+        logAppwriteError("super-admin.js/deleteStudent/deleteDoc-ogrenci", eDel2);
       }
     }
 
@@ -856,7 +858,7 @@ async function deleteCoachAccount(uid, origUsername) {
       await deleteDoc(doc(db, "users", uid));
       docDeleted = true;
     } catch (eDel) {
-      console.warn("[deleteCoach] deleteDoc (kurucu oturumu):", eDel);
+      logAppwriteError("super-admin.js/deleteCoach/deleteDoc-kurucu", eDel);
     }
 
     try {
@@ -869,7 +871,7 @@ async function deleteCoachAccount(uid, origUsername) {
       try {
         await deleteDoc(doc(db, "users", uid));
       } catch (eDel2) {
-        console.warn("[deleteCoach] deleteDoc (koç oturumu):", eDel2);
+        logAppwriteError("super-admin.js/deleteCoach/deleteDoc-koc", eDel2);
       }
     }
 
@@ -944,8 +946,7 @@ async function fetchLoginLogByDay() {
       if (dayToCoaches[k] && data.coachId) dayToCoaches[k].add(data.coachId);
     });
   } catch (e) {
-    console.warn("[super-admin] coachLoginLog:", e);
-    /* index yoksa veya koleksiyon boş — grafik sıfırla */
+    logAppwriteError("super-admin.js/buildAdminLoginChartSeries/coachLoginLog", e);
   }
 
   return keys.map(function (k) {
@@ -2527,7 +2528,7 @@ function subscribeQuoteRequests() {
       renderQuotesTable(snap.docs);
     },
     function (err) {
-      console.error(err);
+      logAppwriteError("super-admin.js/subscribeQuoteRequests", err);
       var tb = document.getElementById("quotesTableBody");
       if (tb)
         tb.innerHTML =
@@ -2554,7 +2555,7 @@ document.addEventListener("change", async function (e) {
     await databases.updateDocument(APPWRITE_DATABASE_ID, collId, id, { status: v });
     t.setAttribute("data-was", v);
   } catch (err) {
-    console.error(err);
+    logAppwriteError("super-admin.js/quoteStatusChange", err);
     t.value = was;
     alert((err && err.message) || String(err));
   } finally {
@@ -2578,7 +2579,7 @@ document.addEventListener("click", async function (e) {
   try {
     await databases.deleteDocument(APPWRITE_DATABASE_ID, collId, id);
   } catch (err) {
-    console.error(err);
+    logAppwriteError("super-admin.js/quoteDelete", err);
     alert((err && err.message) || String(err));
   } finally {
     del.disabled = false;
@@ -3185,7 +3186,7 @@ if (saGateFormEl) {
       try {
         await updateDoc(doc(db, "users", u.uid), { lastLogin: serverTimestamp() });
       } catch (e) {
-        console.warn("[super-admin gate] lastLogin:", e);
+        logAppwriteError("super-admin.js/saGateSubmit/lastLogin", e);
       }
 
       var norm = normalizeRoleName(profile.role);
@@ -3245,7 +3246,7 @@ function subscribeMaintenanceSettings() {
       el.style.color = on ? "#fca5a5" : "#34f5c5";
     },
     function (err) {
-      console.error("VERI CEKME HATASI:", err);
+      logAppwriteError("super-admin.js/subscribeMaintenanceSettings", err);
       var el = document.getElementById("saMaintenanceStatus");
       if (el) el.textContent = "Ayarlar okunamadı (Appwrite izinleri / ağ).";
     }
@@ -3262,7 +3263,7 @@ document.getElementById("btnMaintenanceStart") &&
         { merge: true }
       );
     } catch (e) {
-      console.error(e);
+      logAppwriteError("super-admin.js/btnMaintenanceStart", e);
       alert((e && e.message) || String(e));
     }
   });
@@ -3277,7 +3278,7 @@ document.getElementById("btnMaintenanceStop") &&
         { merge: true }
       );
     } catch (e) {
-      console.error(e);
+      logAppwriteError("super-admin.js/btnMaintenanceStop", e);
       alert((e && e.message) || String(e));
     }
   });
@@ -3314,7 +3315,7 @@ async function saListDocumentsTotalSafe(collectionId, queries) {
     });
     return typeof res.total === "number" ? res.total : 0;
   } catch (e) {
-    console.warn("[sa-system] listDocuments", collectionId, e);
+    logAppwriteError("super-admin.js/saListDocumentsTotalSafe/" + collectionId, e);
     return 0;
   }
 }
@@ -3422,6 +3423,7 @@ async function loadSaSystemStatusOnce() {
       saListDocumentsTotalSafe("users", []),
       saListDocumentsTotalSafe("students", []),
       saListDocumentsTotalSafe("exams", []),
+      saListDocumentsTotalSafe(APPWRITE_COLLECTION_EXAM_RESULTS, []),
     ]);
     var nSoru = counts[0];
     var nCoach = counts[1];
@@ -3430,6 +3432,7 @@ async function loadSaSystemStatusOnce() {
     var nUsersAll = counts[4];
     var nStudentsCol = counts[5];
     var nExams = counts[6];
+    var nExamResults = counts[7];
 
     var bucketBytes = await Promise.all([
       saSumBucketBytesSafe(APPWRITE_BUCKET_SORU_HAVUZU),
@@ -3454,6 +3457,8 @@ async function loadSaSystemStatusOnce() {
         " öğrenci (users koleksiyonu)";
     }
     if (elAppt) elAppt.textContent = String(nAppt);
+    var elEr = document.getElementById("saSysTotalExamResults");
+    if (elEr) elEr.textContent = String(nExamResults);
 
     var totalBytes = b1 + b2;
     var storagePct = SA_SYS_STORAGE_CAP_BYTES > 0 ? (totalBytes / SA_SYS_STORAGE_CAP_BYTES) * 100 : 0;
@@ -3466,13 +3471,13 @@ async function loadSaSystemStatusOnce() {
     }
     saSysAnimateBarFill(fillSt, trackSt, pctSt, storagePct, 80);
 
-    var dbDocsTotal = nUsersAll + nSoru + nAppt + nStudentsCol + nExams;
+    var dbDocsTotal = nUsersAll + nSoru + nAppt + nStudentsCol + nExams + nExamResults;
     var dbPct = SA_SYS_DB_DOC_CAP > 0 ? (dbDocsTotal / SA_SYS_DB_DOC_CAP) * 100 : 0;
     if (metaDb) {
       metaDb.textContent =
         "~" +
         dbDocsTotal.toLocaleString("tr-TR") +
-        " belge (users + soru_havuzu + appointments + students + exams) · referans limit " +
+        " belge (users + soru_havuzu + appointments + students + exams + ExamResults) · referans limit " +
         SA_SYS_DB_DOC_CAP.toLocaleString("tr-TR");
     }
     saSysAnimateBarFill(fillDb, trackDb, pctDb, dbPct, 80);

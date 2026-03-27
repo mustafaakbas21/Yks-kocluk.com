@@ -7,6 +7,22 @@ import {
   APPWRITE_BUCKET_AVATARLAR,
 } from "./appwrite-config.js";
 
+/**
+ * Appwrite Databases (ve uyumluluk katmanı) hataları — tek tip konsol çıktısı.
+ * @param {string} where örn. "appwrite-compat.js/getDocs"
+ * @param {unknown} error
+ */
+export function logAppwriteError(where, error) {
+  const code =
+    error && error.code != null
+      ? error.code
+      : error && error.type != null
+        ? error.type
+        : "";
+  const message = error && error.message != null ? String(error.message) : String(error || "");
+  console.error("Appwrite Hatası [" + where + "]:", code, message);
+}
+
 const db = { kind: "appwrite-db" };
 const account = new Account(client);
 
@@ -148,8 +164,13 @@ function compileConstraints(constraints) {
 export async function addDoc(collectionRef, data) {
   const c = parseCollectionRef(collectionRef.pathSegments);
   const payload = normalizeValue(data || {});
-  const res = await databases.createDocument(APPWRITE_DATABASE_ID, c.collectionId, ID.unique(), payload);
-  return { id: res.$id };
+  try {
+    const res = await databases.createDocument(APPWRITE_DATABASE_ID, c.collectionId, ID.unique(), payload);
+    return { id: res.$id };
+  } catch (err) {
+    logAppwriteError("appwrite-compat.js/addDoc", err);
+    throw err;
+  }
 }
 
 export async function setDoc(docRef, data) {
@@ -158,19 +179,34 @@ export async function setDoc(docRef, data) {
   try {
     await databases.updateDocument(APPWRITE_DATABASE_ID, d.collectionId, d.docId, payload);
   } catch (_e) {
-    await databases.createDocument(APPWRITE_DATABASE_ID, d.collectionId, d.docId, payload);
+    try {
+      await databases.createDocument(APPWRITE_DATABASE_ID, d.collectionId, d.docId, payload);
+    } catch (err) {
+      logAppwriteError("appwrite-compat.js/setDoc", err);
+      throw err;
+    }
   }
 }
 
 export async function updateDoc(docRef, data) {
   const d = parseDocRef(docRef.pathSegments);
   const payload = normalizeValue(data || {});
-  await databases.updateDocument(APPWRITE_DATABASE_ID, d.collectionId, d.docId, payload);
+  try {
+    await databases.updateDocument(APPWRITE_DATABASE_ID, d.collectionId, d.docId, payload);
+  } catch (err) {
+    logAppwriteError("appwrite-compat.js/updateDoc", err);
+    throw err;
+  }
 }
 
 export async function deleteDoc(docRef) {
   const d = parseDocRef(docRef.pathSegments);
-  await databases.deleteDocument(APPWRITE_DATABASE_ID, d.collectionId, d.docId);
+  try {
+    await databases.deleteDocument(APPWRITE_DATABASE_ID, d.collectionId, d.docId);
+  } catch (err) {
+    logAppwriteError("appwrite-compat.js/deleteDoc", err);
+    throw err;
+  }
 }
 
 export async function getDoc(docRef) {
@@ -206,7 +242,7 @@ export async function getDoc(docRef) {
     if (is404) {
       __blacklistedDocPaths.add(__docPathKey(d.collectionId, d.docId));
     } else {
-      console.warn("Tablo okuma atlandı:", msg);
+      logAppwriteError("appwrite-compat.js/getDoc", e);
     }
     return {
       id: d.docId,
@@ -237,11 +273,10 @@ export async function getDocs(refOrQuery) {
     const res = await databases.listDocuments(APPWRITE_DATABASE_ID, c.collectionId, queries);
     return makeDocsSnapshot(res.documents || []);
   } catch (e) {
-    const msg = e && e.message != null ? String(e.message) : String(e || "");
     if (__is404ishError(e) || __isCollectionMissingError(e)) {
       __blacklistedCollections.add(c.collectionId);
     } else {
-      console.warn("Tablo okuma atlandı:", msg);
+      logAppwriteError("appwrite-compat.js/getDocs", e);
     }
     return makeDocsSnapshot([]);
   }
@@ -621,13 +656,12 @@ export function onSnapshot(refOrQuery, callback, onError) {
         callback(snap);
       }
     } catch (e) {
-      const msg = e && e.message != null ? String(e.message) : String(e || "");
       if (typeof onError === "function") {
         try {
           onError(e);
         } catch (_e2) {}
       } else {
-        console.warn("Tablo okuma atlandı:", msg);
+        logAppwriteError("appwrite-compat.js/onSnapshot", e);
       }
     }
   }

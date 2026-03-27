@@ -24,6 +24,8 @@ const COLLECTIONS_ORDER = [
   "users",
   "students",
   "exams",
+  /** Firebase’de yok; Appwrite-only (Akıllı Optik / Karne V2). Şema STATIC_SCHEMA_FALLBACK ile oluşur. */
+  "ExamResults",
   "appointments",
   "tests",
   "payments",
@@ -117,6 +119,14 @@ const STATIC_SCHEMA_FALLBACK = {
     storage_file_id: { type: "string", size: 512, array: false },
     soru_resim_id: { type: "string", size: 512, array: false },
     dogru_cevap: { type: "string", size: 8, array: false },
+  },
+  ExamResults: {
+    exam_id: { type: "string", size: 255, array: false },
+    student_id: { type: "string", size: 255, array: false },
+    coach_id: { type: "string", size: 128, array: false },
+    exam_name: { type: "string", size: 512, array: false },
+    detail_json: { type: "string", size: 200000, array: false },
+    saved_at: { type: "datetime", array: false },
   },
 };
 
