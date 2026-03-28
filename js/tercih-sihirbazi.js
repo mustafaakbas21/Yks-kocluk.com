@@ -15,6 +15,134 @@ function formatIntTr(n) {
   return String(Math.round(x)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
+/** JSON'daki sıra (sayı veya "1.234.567" gibi) → tam sayı; geçersizse NaN */
+function parseSiralamaInt(raw) {
+  if (raw == null || raw === "") return NaN;
+  var s = String(raw).trim();
+  if (!s) return NaN;
+  s = s.replace(/\s/g, "").replace(/\./g, "").replace(/,/g, "");
+  if (s === "") return NaN;
+  var n = parseInt(s, 10);
+  return isFinite(n) ? n : NaN;
+}
+
+function sortProgramsBySiralamaAsc(programs) {
+  programs.sort(function (a, b) {
+    var sa = parseSiralamaInt(a.ornekSiralama);
+    var sb = parseSiralamaInt(b.ornekSiralama);
+    var fa = isFinite(sa);
+    var fb = isFinite(sb);
+    if (!fa && !fb) return 0;
+    if (!fa) return 1;
+    if (!fb) return -1;
+    return sa - sb;
+  });
+  return programs;
+}
+
+function trLower(s) {
+  return String(s || "").toLocaleLowerCase("tr");
+}
+
+function getProgramBursNormalized(p) {
+  var raw =
+    p.bursDurumu != null
+      ? String(p.bursDurumu).trim()
+      : p.ucretDurumu != null
+        ? String(p.ucretDurumu).trim()
+        : "";
+  if (!raw) return "";
+  var low = trLower(raw);
+  if (low.indexOf("tam") !== -1 && low.indexOf("burs") !== -1) return "tam_burslu";
+  if (low === "tam_burslu" || low === "tam burslu") return "tam_burslu";
+  if (low.indexOf("50") !== -1 || low.indexOf("yarı") !== -1 || low.indexOf("yari") !== -1 || low.indexOf("indirim") !== -1)
+    return "yari_indirim";
+  if (low.indexOf("ücret") !== -1 || low.indexOf("ucret") !== -1) return "ucretli";
+  return "";
+}
+
+function bursFilterMatches(p, selected) {
+  if (!selected) return true;
+  var got = getProgramBursNormalized(p);
+  if (!got) return true;
+  return got === selected;
+}
+
+function formatKontenjanCell(p) {
+  var v = p.kontenjan != null ? p.kontenjan : p.kontenjanGenel != null ? p.kontenjanGenel : null;
+  if (v == null || v === "") return "-";
+  var n = Number(v);
+  if (!isFinite(n)) return "-";
+  return formatIntTr(n);
+}
+
+function formatTabanCell(p) {
+  var v = p.tabanPuan != null ? p.tabanPuan : p.ornekTabanPuan != null ? p.ornekTabanPuan : null;
+  if (v == null || v === "") return "-";
+  var n;
+  if (typeof v === "number") {
+    n = v;
+  } else {
+    var s = String(v).trim().replace(/\s/g, "");
+    s = s.replace(/\./g, "").replace(",", ".");
+    n = parseFloat(s);
+  }
+  if (!isFinite(n)) return "-";
+  try {
+    return n.toLocaleString("tr-TR", { minimumFractionDigits: 0, maximumFractionDigits: 6 });
+  } catch (e) {
+    return String(n);
+  }
+}
+
+function programBolumBlockHtml(p) {
+  var main = hedefProgramDisplayName(p);
+  var fak = p.fakulte != null ? String(p.fakulte).trim() : "";
+  if (fak) {
+    return (
+      '<div class="ts-prog-name">' +
+      escapeHtml(main) +
+      '</div><div class="ts-fakulte-line">' +
+      escapeHtml(fak) +
+      "</div>"
+    );
+  }
+  return '<span class="ts-prog-name">' + escapeHtml(main) + "</span>";
+}
+
+function programBursBadgesHtml(p) {
+  var k = getProgramBursNormalized(p);
+  if (!k) return "";
+  if (k === "tam_burslu") return '<span class="ts-badge ts-badge--burs-tam">Tam Burslu</span>';
+  if (k === "yari_indirim") return '<span class="ts-badge ts-badge--burs-yari">%50 İndirimli</span>';
+  if (k === "ucretli") return '<span class="ts-badge ts-badge--burs-ucret">Ücretli</span>';
+  return "";
+}
+
+function uniTypeBadgeHtml(udoc) {
+  var ut = udoc && udoc.uniType != null ? String(udoc.uniType).trim() : "";
+  var low = trLower(ut);
+  var isVakif = low === "vakıf" || low === "vakif";
+  var isDevlet = low === "devlet";
+  var isKibris = low === "kibris" || low === "kıbrıs" || low.indexOf("kıbrıs") !== -1 || low.indexOf("kibris") !== -1;
+  var cls = "ts-badge ";
+  if (isVakif) cls += "ts-badge--vakif";
+  else if (isDevlet) cls += "ts-badge--devlet";
+  else if (isKibris) cls += "ts-badge--kibris";
+  else cls += "ts-badge--muted";
+  var label = isVakif ? "Vakıf" : isDevlet ? "Devlet" : isKibris ? "Kıbrıs" : escapeHtml(ut || "—");
+  return '<span class="' + cls + '">' + label + "</span>";
+}
+
+function uniCellBadgesRow(udoc, p) {
+  var parts = [];
+  if (udoc) parts.push(uniTypeBadgeHtml(udoc));
+  var bb = programBursBadgesHtml(p);
+  if (bb) parts.push(bb);
+  if (!parts.length) return "";
+  return '<div class="ts-uni-badges">' + parts.join("") + "</div>";
+}
+
 function buildUniMap(unis) {
   var m = Object.create(null);
   for (var i = 0; i < unis.length; i++) {
@@ -42,12 +170,22 @@ function filterPrograms(programs, uniMap, opts) {
   var puan = opts.puanTuru;
   var city = opts.city;
   var uniType = opts.uniType;
+  var uniSearch = opts.uniSearch;
+  var bolumSearch = opts.bolumSearch;
+  var bursSel = opts.bursDurumu;
   var out = [];
+  var rangeFilter = isFinite(minS) || isFinite(maxS);
+  var uniQ = uniSearch ? trLower(uniSearch) : "";
+  var bolQ = bolumSearch ? trLower(bolumSearch) : "";
+
   for (var i = 0; i < programs.length; i++) {
     var p = programs[i];
-    var os = p.ornekSiralama != null ? Number(p.ornekSiralama) : NaN;
-    if (isFinite(minS) && isFinite(os) && os < minS) continue;
-    if (isFinite(maxS) && isFinite(os) && os > maxS) continue;
+    var os = parseSiralamaInt(p.ornekSiralama);
+    if (rangeFilter) {
+      if (!isFinite(os)) continue;
+      if (isFinite(minS) && os < minS) continue;
+      if (isFinite(maxS) && os > maxS) continue;
+    }
     if (puan && String(p.scoreType || "") !== puan) continue;
     var uid = String(p.uniId || "");
     var udoc = uniMap[uid];
@@ -58,11 +196,24 @@ function filterPrograms(programs, uniMap, opts) {
     }
     if (uniType) {
       var ut = udoc.uniType != null ? String(udoc.uniType).trim() : "";
-      if (ut !== uniType) continue;
+      if (uniType === "kibris") {
+        var luk = trLower(ut);
+        if (luk !== "kibris" && luk !== "kıbrıs") continue;
+      } else if (ut !== uniType) continue;
     }
+    if (uniQ) {
+      var uname = trLower(hedefUniDisplayName(udoc));
+      if (uname.indexOf(uniQ) === -1) continue;
+    }
+    if (bolQ) {
+      var pname = trLower(hedefProgramDisplayName(p));
+      var fak = p.fakulte != null ? trLower(String(p.fakulte)) : "";
+      if (pname.indexOf(bolQ) === -1 && (!fak || fak.indexOf(bolQ) === -1)) continue;
+    }
+    if (!bursFilterMatches(p, bursSel)) continue;
     out.push(p);
   }
-  return out;
+  return sortProgramsBySiralamaAsc(out);
 }
 
 function escapeHtml(s) {
@@ -81,8 +232,9 @@ function paintTablePage(wrap) {
   var page = wrap._tsPage || 1;
 
   if (!rows || !rows.length) {
+    wrap._tsAnimateNext = false;
     wrap.innerHTML =
-      '<p class="net-sihirbazi-placeholder">Kriterlere uyan program bulunamadı. Aralığı veya filtreleri gevşetin.</p>';
+      '<div class="ts-empty-state" role="status"><p class="ts-empty-state__text">Seçtiğiniz kriterlere uygun program bulunamadı.</p></div>';
     return;
   }
 
@@ -97,34 +249,42 @@ function paintTablePage(wrap) {
   var from = start + 1;
   var to = Math.min(start + pageSize, total);
 
+  var anim = wrap._tsAnimateNext;
+  wrap._tsAnimateNext = false;
+  var rootCls = "ts-table-root" + (anim ? " ts-table-root--enter" : "");
+
   var html =
-    '<div class="ts-table-scroll"><table class="ts-table" role="grid"><thead><tr>' +
-    "<th>Sıra (örnek)</th><th>Üniversite</th><th>Program</th><th>Puan türü</th><th>Şehir</th><th>Tür</th>" +
+    '<div class="' +
+    rootCls +
+    '"><table class="ts-table ts-table--premium ts-table--yks" role="grid"><thead><tr>' +
+    "<th>Üniversite</th><th>Bölüm / Fakülte</th><th>Puan Türü</th><th>Kontenjan</th><th>Taban Puan</th><th>Başarı Sırası</th>" +
     "</tr></thead><tbody>";
   for (var i = 0; i < list.length; i++) {
     var p = list[i];
     var u = uniMap[String(p.uniId)];
     var uniName = u ? hedefUniDisplayName(u) : "—";
-    var pname = hedefProgramDisplayName(p);
-    var city = u && u.city != null ? String(u.city) : "—";
-    var ut = u && u.uniType != null ? String(u.uniType) : "—";
-    var os = p.ornekSiralama != null ? formatIntTr(p.ornekSiralama) : "—";
+    var pr = parseSiralamaInt(p.ornekSiralama);
+    var os = formatIntTr(pr);
     html +=
-      "<tr><td>" +
-      escapeHtml(os) +
-      "</td><td>" +
+      '<tr><td class="ts-cell-uni">' +
+      '<div class="ts-uni-stack">' +
+      '<strong class="ts-uni-name">' +
       escapeHtml(uniName) +
+      "</strong>" +
+      uniCellBadgesRow(u, p) +
+      "</div></td><td class="ts-cell-bolum">' +
+      programBolumBlockHtml(p) +
       "</td><td>" +
-      escapeHtml(pname) +
-      "</td><td>" +
-      escapeHtml(String(p.scoreType || "—")) +
-      "</td><td>" +
-      escapeHtml(city) +
-      "</td><td>" +
-      escapeHtml(ut) +
+      escapeHtml(String(p.scoreType || "-")) +
+      "</td><td class="ts-num-cell">" +
+      escapeHtml(formatKontenjanCell(p)) +
+      "</td><td class=\"ts-num-cell\">" +
+      escapeHtml(formatTabanCell(p)) +
+      "</td><td class=\"ts-num-cell\">" +
+      escapeHtml(os) +
       "</td></tr>";
   }
-  html += "</tbody></table></div>";
+  html += "</tbody></table>";
 
   html +=
     '<div class="ts-pager">' +
@@ -145,7 +305,7 @@ function paintTablePage(wrap) {
     '<button type="button" class="ts-pager__btn" data-ts-act="next"' +
     (page >= totalPages ? " disabled" : "") +
     ">Sonraki</button>" +
-    "</div>";
+    "</div></div>";
 
   wrap.innerHTML = html;
 }
@@ -158,6 +318,18 @@ function renderTableWithPagination(wrap, rows, uniMap, pageSize) {
   wrap._tsPageSize = pageSize;
   wrap._tsPage = 1;
   paintTablePage(wrap);
+}
+
+function debounce(fn, ms) {
+  var t = null;
+  return function () {
+    var ctx = this;
+    var args = arguments;
+    if (t) clearTimeout(t);
+    t = setTimeout(function () {
+      fn.apply(ctx, args);
+    }, ms);
+  };
 }
 
 /**
@@ -188,6 +360,9 @@ export function initTercihSihirbazi(options) {
     var puan = (fd.get("puanTuru") || "").toString().trim();
     var city = (fd.get("city") || "").toString().trim();
     var ut = (fd.get("uniType") || "").toString().trim();
+    var uniSearch = (fd.get("uniSearch") || "").toString().trim();
+    var bolumSearch = (fd.get("bolumSearch") || "").toString().trim();
+    var bursDurumu = (fd.get("bursDurumu") || "").toString().trim();
     var programs = getAllHedefPrograms();
     var unis = getHedefAppwriteUniversities();
     var uniMap = buildUniMap(unis);
@@ -197,14 +372,20 @@ export function initTercihSihirbazi(options) {
       puanTuru: puan,
       city: city,
       uniType: ut,
+      uniSearch: uniSearch,
+      bolumSearch: bolumSearch,
+      bursDurumu: bursDurumu,
     });
     setMeta(
       "Toplam " +
         formatIntTr(filtered.length) +
-        " program (yks-data.json). Tablo sayfalama ile gösteriliyor."
+        " program (yks-data.json). Varsayılan sıra: Başarı Sırası (küçükten büyüğe)."
     );
+    wrap._tsAnimateNext = true;
     renderTableWithPagination(wrap, filtered, uniMap, pageSize);
   }
+
+  var debouncedFilter = debounce(runFilter, 220);
 
   function fillCitiesOnce() {
     if (!citySel || citySel.dataset.tsFilled) return;
@@ -212,7 +393,7 @@ export function initTercihSihirbazi(options) {
     var unis = getHedefAppwriteUniversities();
     var cities = uniqueCities(unis);
     var prev = citySel.value;
-    citySel.innerHTML = '<option value="">Tümü</option>';
+    citySel.innerHTML = '<option value="">Tüm şehirler</option>';
     for (var i = 0; i < cities.length; i++) {
       var o = document.createElement("option");
       o.value = cities[i];
@@ -244,15 +425,31 @@ export function initTercihSihirbazi(options) {
       e.preventDefault();
       runFilter();
     });
+    form.addEventListener("input", function (e) {
+      var t = e.target;
+      if (!t || !t.name) return;
+      if (t.name === "uniSearch" || t.name === "bolumSearch") {
+        debouncedFilter();
+        return;
+      }
+      if (t.name === "minSira" || t.name === "maxSira") {
+        debouncedFilter();
+      }
+    });
+    form.addEventListener("change", function (e) {
+      var t = e.target;
+      if (!t) return;
+      if (t.tagName === "SELECT" || t.name === "minSira" || t.name === "maxSira") {
+        runFilter();
+      }
+    });
   }
 
   ensureHedefSimulatorAppwriteData()
     .then(function () {
       fillCitiesOnce();
-      setMeta("Veri hazır. Filtreleri seçip Filtrele’ye basın.");
-      wrap.innerHTML =
-        '<p class="net-sihirbazi-placeholder">Filtrele düğmesine basarak sonuçları tabloda görüntüleyin (sayfalama aktif).</p>';
-      wrap._tsRows = null;
+      setMeta("Veri hazır. Arama kutuları anlık çalışır; liste varsayılan olarak başarı sırasına göre sıralanır.");
+      runFilter();
     })
     .catch(function (e) {
       console.error("[Tercih Sihirbazı]", e);

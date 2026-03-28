@@ -33,8 +33,12 @@ export const APPWRITE_ADMIN_ROSTER_ROLE = "admin_roster";
 export const APPWRITE_COLLECTION_QUOTE_REQUESTS = "quoteRequests";
 /** DenemeDeposu — PDF / cevap anahtarı (create okuma; Console’da bucket ID aynı olmalı) */
 export const APPWRITE_BUCKET_DENEME_DEPOSU = "deneme_deposu";
-/** Koç / kullanıcı avatarları — Console’da bucket oluşturun (ör. `avatarlar`); oturum açık kullanıcıya dosya oluşturma izni verin. */
-export const APPWRITE_BUCKET_AVATARLAR = "avatarlar";
+/**
+ * HD avatar paketi + koç yükleme dosyaları.
+ * Tek kovalı planda paket `soru_havuzu` ile paylaşılabilir (`npm run upload:avatars`);
+ * ayrı `avatarlar` kovası açıldığında bu sabiti Console ID ile güncelleyin.
+ */
+export const APPWRITE_BUCKET_AVATARLAR = "soru_havuzu";
 /**
  * Global deneme takvimi — Appwrite Console’da `derece_panel` içinde bu ID ile koleksiyon oluşturulmalıdır.
  * Yoksa «Planı kaydet» ve liste istekleri 404 verir.
@@ -60,8 +64,12 @@ export const APPWRITE_COLLECTION_EXAMS = "Exams";
  * Karne trend etiketleri: `exam_name`, `saved_at` (Exams zorunlu değil).
  */
 export const APPWRITE_COLLECTION_EXAM_RESULTS = "ExamResults";
+/** MR (Emar) — Konu/Soru ilerleme (öğrenci başına tek belge, JSON alanları) */
+export const APPWRITE_COLLECTION_MR_PROFILES = "mr_student_profiles";
 /** Koç paneli öğrenci listesi — `coach_id` ile Appwrite sorgusu (`koc-panel.js` → coachQuery) */
 export const APPWRITE_COLLECTION_STUDENTS = "students";
+/** Görüşme Odası — koç notları (Quill HTML); setup-appwrite.js ile oluşturulmalı */
+export const APPWRITE_COLLECTION_MEETING_LOGS = "meeting_logs";
 
 const client = new Client()
   .setEndpoint(APPWRITE_ENDPOINT)

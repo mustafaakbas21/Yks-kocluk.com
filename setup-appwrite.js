@@ -106,12 +106,14 @@ const COLLECTION_APPOINTMENTS_ID = "appointments";
 const COLLECTION_TESTS_ID = "tests";
 const COLLECTION_PAYMENTS_ID = "payments";
 const COLLECTION_COACH_TASKS_ID = "coach_tasks";
+const COLLECTION_MEETING_LOGS_ID = "meeting_logs";
 const COLLECTION_KAYNAKLAR_ID = "kaynaklar";
 const COLLECTION_QUOTE_REQUESTS_ID = process.env.APPWRITE_COLLECTION_QUOTE_REQUESTS || "quoteRequests";
 const COLLECTION_COACH_LOGIN_LOG_ID = "coachLoginLog";
 const COLLECTION_SORU_HAVUZU_ID = process.env.APPWRITE_COLLECTION_SORU_HAVUZU || "soru_havuzu";
 const COLLECTION_HATA_BILDIRIMLERI_ID = process.env.APPWRITE_COLLECTION_HATA_BILDIRIMLERI || "hata_bildirimleri";
 const COLLECTION_ATANAN_KAYNAKLAR_ID = process.env.APPWRITE_COLLECTION_ATANAN_KAYNAKLAR || "atanan_kaynaklar";
+const COLLECTION_MR_STUDENT_PROFILES_ID = process.env.APPWRITE_COLLECTION_MR_PROFILES || "mr_student_profiles";
 const COLLECTION_GLOBAL_DENEMELER_ID = process.env.APPWRITE_COLLECTION_GLOBAL_DENEMELER || "global_denemeler";
 const COLLECTION_YKS_NET_TARGETS_ID = process.env.APPWRITE_COLLECTION_YKS_NET_TARGETS || "yks_net_sihirbazi_targets";
 const COLLECTION_STUDENT_PORTAL_PLANS_ID = "studentPortalPlans";
@@ -630,6 +632,14 @@ async function ensureExtendedPlatformSchema(databases) {
   await createDatetimeAttr(databases, COLLECTION_COACH_TASKS_ID, "createdAt", false);
   await createDatetimeAttr(databases, COLLECTION_COACH_TASKS_ID, "updatedAt", false);
 
+  await ensureCollection(databases, COLLECTION_MEETING_LOGS_ID, "Görüşme notları");
+  await createStringAttr(databases, COLLECTION_MEETING_LOGS_ID, "coach_id", 128, true);
+  await createStringAttr(databases, COLLECTION_MEETING_LOGS_ID, "student_id", 255, true);
+  await createStringAttr(databases, COLLECTION_MEETING_LOGS_ID, "student_name", 512, false);
+  await createTextAttr(databases, COLLECTION_MEETING_LOGS_ID, "body_html", false);
+  await createDatetimeAttr(databases, COLLECTION_MEETING_LOGS_ID, "saved_at", true);
+  await ensureKeyIndex(databases, COLLECTION_MEETING_LOGS_ID, "idx_meeting_student", ["student_id"], ["ASC"]);
+
   await ensureCollection(databases, COLLECTION_KAYNAKLAR_ID, "Kütüphane kaynakları");
   await createStringAttr(databases, COLLECTION_KAYNAKLAR_ID, "coach_id", 128, false);
   await createStringAttr(databases, COLLECTION_KAYNAKLAR_ID, "title", 512, false);
@@ -691,6 +701,14 @@ async function ensureExtendedPlatformSchema(databases) {
   await createStringAttr(databases, COLLECTION_ATANAN_KAYNAKLAR_ID, "difficulty", 64, false);
   await createDatetimeAttr(databases, COLLECTION_ATANAN_KAYNAKLAR_ID, "assignedAt", false);
   await ensureKeyIndex(databases, COLLECTION_ATANAN_KAYNAKLAR_ID, "idx_atanan_student", ["student_id"], ["ASC"]);
+
+  await ensureCollection(databases, COLLECTION_MR_STUDENT_PROFILES_ID, "MR (Emar) öğrenci profili");
+  await createStringAttr(databases, COLLECTION_MR_STUDENT_PROFILES_ID, "student_id", 255, true);
+  await createStringAttr(databases, COLLECTION_MR_STUDENT_PROFILES_ID, "coach_id", 128, true);
+  await createTextAttr(databases, COLLECTION_MR_STUDENT_PROFILES_ID, "konu_json", false);
+  await createTextAttr(databases, COLLECTION_MR_STUDENT_PROFILES_ID, "soru_json", false);
+  await createDatetimeAttr(databases, COLLECTION_MR_STUDENT_PROFILES_ID, "updatedAt", false);
+  await ensureKeyIndex(databases, COLLECTION_MR_STUDENT_PROFILES_ID, "idx_mr_student", ["student_id"], ["ASC"]);
 
   await ensureCollection(databases, COLLECTION_GLOBAL_DENEMELER_ID, "Global deneme takvimi");
   await createStringAttr(databases, COLLECTION_GLOBAL_DENEMELER_ID, "adi", 500, false);

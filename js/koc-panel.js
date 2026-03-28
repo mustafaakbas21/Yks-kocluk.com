@@ -13,6 +13,7 @@ import {
 import { initExamDefinitionProfessionalUI } from "./exam-definition-module.js";
 import { initOptikAdvancedBindings } from "./optik-advanced-module.js";
 import { yksMufredatDatasi } from "./mufredat-data.js";
+import { YKS2026_Mufredat, yks2026DersKeys } from "./yks-mufredat.js";
 import {
   findAtlasProgramById,
   TR_UNIVERSITIES_UNIQUE,
@@ -78,12 +79,26 @@ import {
   wireZohoInbox,
 } from "./zoho-mail-inbox.js";
 
-import { client, storage, APPWRITE_COLLECTION_ATANAN_KAYNAKLAR } from "./appwrite-config.js";
+import {
+  client,
+  storage,
+  APPWRITE_COLLECTION_ATANAN_KAYNAKLAR,
+  APPWRITE_COLLECTION_MEETING_LOGS,
+  APPWRITE_BUCKET_AVATARLAR,
+} from "./appwrite-config.js";
+import { initGorusmeOdasiCockpit } from "./gorusme-odasi-cockpit.js";
+import { initMrCockpit, refreshMrIfActive } from "./mr-cockpit.js";
+import {
+  YKS_AVATAR_MALE_URLS,
+  YKS_AVATAR_FEMALE_URLS,
+  YKS_AVATAR_ALL_40_URLS,
+  getDicebearFallbackForFileId,
+} from "./yks-avatar-pack.js";
 
 /** Aktif görünüme göre deneme/optik net kuralı (ÖSYM / Y3). */
 function coachNetFromBranchDy(d, y) {
-  var optikView = document.getElementById("view-optik-okuyucu");
-  var daView = document.getElementById("view-deneme-analiz");
+  var optikView = document.getElementById("view-deneme-analiz-optik");
+  var daView = document.getElementById("view-deneme-analiz-denemeler");
   var el = null;
   if (optikView && !optikView.hidden) el = document.getElementById("optikScoringRule");
   else if (daView && !daView.hidden) el = document.getElementById("daScoringRule");
@@ -190,6 +205,10 @@ function showSaAnalyticsToolBanner() {
 function getInitialKocViewFromUrl() {
   try {
     var p = new URLSearchParams(window.location.search);
+    var view = (p.get("view") || "").trim();
+    if (view === "gorusme-odasi") return "gorusme-odasi";
+    var h = (window.location.hash || "").replace(/^#\/?/, "").trim();
+    if (h === "gorusme-odasi" || h === "view=gorusme-odasi") return "gorusme-odasi";
     var t = (p.get("tool") || "").trim();
     if (t === "net-sihirbazi" || t === "yks-puan" || t === "tercih-sihirbazi") return t;
     var tm = (p.get("tmOpen") || "").trim();
@@ -3252,6 +3271,54 @@ let currentView = "dashboard";
 /** AI Test Üretici: 1.5s sonra testmaker’a geçiş zamanlayıcısı (iptal / takılma önleme) */
 let tmAiGenNavigateTimer = null;
 
+function dispatchGoCockpitRefresh() {
+  try {
+    if (currentView === "gorusme-odasi") window.dispatchEvent(new CustomEvent("go-cockpit-refresh"));
+  } catch (e) {}
+}
+
+/** Görüşme Odası → AI Test Üretici: sınav/ders/konu ön dolumu */
+function tmApplyGorusmeOdasiAiPrefill() {
+  try {
+    var raw = sessionStorage.getItem("gorusmeOdasiAiPrefill");
+    if (!raw) return;
+    sessionStorage.removeItem("gorusmeOdasiAiPrefill");
+    var o = JSON.parse(raw);
+    var ex = document.getElementById("aiExamType");
+    var sub = document.getElementById("aiSubject");
+    var top = document.getElementById("aiTopic");
+    if (!ex || !sub || !top) return;
+    if (o.exam) ex.value = o.exam;
+    ex.dispatchEvent(new Event("change", { bubbles: true }));
+    window.setTimeout(function () {
+      if (o.subject) {
+        sub.value = o.subject;
+        sub.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      window.setTimeout(function () {
+        if (o.topic) {
+          top.value = o.topic;
+          top.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        if (Array.isArray(o.allTopics) && o.allTopics.length > 1) {
+          try {
+            sessionStorage.setItem("gorusmeOdasiAiPrefillQueue", JSON.stringify(o.allTopics.slice(1)));
+          } catch (e2) {}
+          showToast(
+            "Kanayan " +
+              o.allTopics.length +
+              " konu için sırayla üretim: önce «" +
+              (o.display || o.topic || "") +
+              "» seçildi; diğerleri kuyrukta."
+          );
+        }
+      }, 50);
+    }, 50);
+  } catch (e) {
+    console.warn("[gorusme-odasi] AI prefill:", e);
+  }
+}
+
 function clearFirestoreListeners() {
   firestoreUnsubs.forEach(function (unsub) {
     try {
@@ -5544,7 +5611,13 @@ function downloadKarneBulkPdf() {
     .set({
       margin: 8,
       filename: fname,
-      html2canvas: { scale: 1.2, useCORS: true },
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+      },
       jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
     })
     .from(wrap)
@@ -5813,9 +5886,9 @@ function downloadKarnePdf() {
       var opt = {
         margin: [6, 6, 6, 6],
         filename: fname,
-        image: { type: "jpeg", quality: 0.86 },
+        image: { type: "jpeg", quality: 0.98 },
         html2canvas: {
-          scale: 1.4,
+          scale: 2,
           useCORS: true,
           allowTaint: true,
           logging: false,
@@ -7070,6 +7143,31 @@ function setProfileSettingsMsg(text, isErr) {
   el.textContent = text;
 }
 
+function refreshCoachAvatarPackCountLabel() {
+  var el = document.getElementById("coachAvatarPackCount");
+  if (!el) return;
+  el.innerHTML =
+    'Yüklü avatar sayısı: <strong>40</strong> <span style="opacity:.85">(20 Erkek, 20 Kadın)</span>';
+  try {
+    storage
+      .listFiles({ bucketId: APPWRITE_BUCKET_AVATARLAR, queries: [] })
+      .then(function (res) {
+        var files = (res && res.files) || [];
+        var n = files.filter(function (f) {
+          var name = String((f && f.name) || "");
+          return /^male-\d{2}\.png$/i.test(name) || /^female-\d{2}\.png$/i.test(name);
+        }).length;
+        if (n > 0) {
+          el.innerHTML =
+            'Yüklü avatar sayısı: <strong>' +
+            n +
+            '</strong> <span style="opacity:.85">(20 Erkek, 20 Kadın)</span>';
+        }
+      })
+      .catch(function () {});
+  } catch (_e) {}
+}
+
 async function fillProfileSettingsForm() {
   var n = document.getElementById("profileDisplayName");
   var e = document.getElementById("profileEmail");
@@ -7080,6 +7178,7 @@ async function fillProfileSettingsForm() {
   if (np) np.value = "";
   if (np2) np2.value = "";
   setProfileSettingsMsg("", false);
+  refreshCoachAvatarPackCountLabel();
   profileSettingsInitial = { name: "", email: "" };
   try {
     var r = await verifyAppwriteAccount(6000);
@@ -7333,6 +7432,10 @@ function onExamsSnap(snap) {
   refreshDashboardAnalytics();
   refreshStudentDetailIfOpen();
   if (currentView === "karne") renderKarneReport();
+  dispatchGoCockpitRefresh();
+  try {
+    refreshMrIfActive();
+  } catch (_e) {}
 }
 
 function onStudentsSnap(snap) {
@@ -7361,7 +7464,12 @@ function onStudentsSnap(snap) {
   if (currentView === "kutuphanem") refreshKutuphanemList();
   if (currentView === "haftalik-program") refreshHpView();
   if (currentView === "hedef-simulator") renderDpHedefSimulator();
+  if (currentView === "kocluk-gorusmeleri") refreshKoclukGorusmeList();
   refreshMuhasebeDashboard();
+  dispatchGoCockpitRefresh();
+  try {
+    refreshMrIfActive();
+  } catch (_e) {}
 }
 
 function onPaymentsSnap(snap) {
@@ -7555,26 +7663,19 @@ async function firestoreDeleteConfirmed(collectionName, docId) {
   }
 }
 
-/** 40 pastel çizgi film avatar — cinsiyet havuzlarına ayrılmış (Dicebear avataaars) */
-var YKS_CARTOON_BG = ["b6e3f4", "c0aede", "ffd5dc", "d1d4f9", "ffdfbf", "bae6fd", "bbf7d0", "fde68a"];
-function yksBuildAvatarUrl(index1Based) {
-  var bg = YKS_CARTOON_BG[(index1Based - 1) % YKS_CARTOON_BG.length];
-  return (
-    "https://api.dicebear.com/7.x/avataaars/png?seed=" +
-    encodeURIComponent("yks_pastel_" + index1Based) +
-    "&size=128&backgroundColor=" +
-    bg
-  );
-}
-var erkekAvatarları = [];
-for (var _ei = 1; _ei <= 14; _ei++) erkekAvatarları.push(yksBuildAvatarUrl(_ei));
-var kadinAvatarları = [];
-for (var _ki = 15; _ki <= 27; _ki++) kadinAvatarları.push(yksBuildAvatarUrl(_ki));
-var tesetturAvatarları = [];
-for (var _ti = 28; _ti <= 40; _ti++) tesetturAvatarları.push(yksBuildAvatarUrl(_ti));
-var YKS_CARTOON_AVATAR_POOL = erkekAvatarları.concat(kadinAvatarları, tesetturAvatarları);
-var studentAddAvatarState = { mode: "preset", url: erkekAvatarları[0], customDataUrl: "" };
-var studentEditAvatarState = { mode: "preset", url: erkekAvatarları[0], customDataUrl: "" };
+/** 40 HD avatar — Appwrite Storage `avatarlar` (20 Erkek + 20 Kadın); ayrıntı: js/yks-avatar-pack.js */
+var erkekAvatarları = YKS_AVATAR_MALE_URLS;
+var kadinAvatarları = YKS_AVATAR_FEMALE_URLS;
+var studentAddAvatarState = {
+  mode: "preset",
+  url: erkekAvatarları[0],
+  customDataUrl: "",
+};
+var studentEditAvatarState = {
+  mode: "preset",
+  url: erkekAvatarları[0],
+  customDataUrl: "",
+};
 
 function normalizeGender(gender) {
   // Artık yalnızca Erkek / Kadın destekleniyor.
@@ -7630,13 +7731,15 @@ function updateStudentAvatarMetaText(gender, isCustom) {
     meta.textContent = "Kişisel resim seçildi";
     return;
   }
-  meta.textContent = "YKS adayı avatar — cinsiyete göre havuz (40 çizgi film, pastel)";
+  meta.textContent = "YKS adayı avatar — 40 HD (20 Erkek, 20 Kadın), Appwrite Storage";
 }
 
 function updateEditStudentAvatarMeta(isCustom) {
   var meta = document.getElementById("stEditAvatarMeta");
   if (!meta) return;
-  meta.textContent = isCustom ? "Kişisel resim" : "YKS adayı avatar — cinsiyete göre havuz (40 çizgi film, pastel)";
+  meta.textContent = isCustom
+    ? "Kişisel resim"
+    : "YKS adayı avatar — 40 HD (20 Erkek, 20 Kadın), Appwrite Storage";
 }
 
 function setEditStudentAvatarPreview(url, options) {
@@ -7752,30 +7855,68 @@ function applySpaInitialShellState() {
 
 function openAvatarGallerySheet(target) {
   var stModal = document.getElementById("studentModal");
-  if (!stModal || stModal.hidden) {
-    return;
-  }
-  window.__avatarPickTarget = target === "edit" ? "edit" : "add";
+  var profModal = document.getElementById("profileSettingsModal");
+  var contextOk =
+    (stModal && !stModal.hidden) || (profModal && !profModal.hidden);
+  if (!contextOk) return;
+
+  var pick =
+    target === "edit" ? "edit" : target === "coach" ? "coach" : "add";
+  window.__avatarPickTarget = pick;
+
   var sheet = document.getElementById("avatarGallerySheet");
+  var titleEl = document.getElementById("avatarGalleryTitle");
   var grid = document.getElementById("avatarGalleryGrid");
-  // Tesettür artık yok; avatar seçimi sadece Erkek/Kadın sabit eşleşmesi üzerinden yapılır.
-  var pool =
-    target === "edit"
-      ? [getAvatarByGender(getSelectedEditGender())]
-      : [getAvatarByGender(getSelectedAddGender())];
+
+  var pool;
+  if (pick === "coach") {
+    pool = YKS_AVATAR_ALL_40_URLS.slice();
+    if (titleEl) titleEl.textContent = "HD Avatar seç (40 · 20 Erkek + 20 Kadın)";
+  } else {
+    var g = pick === "edit" ? getSelectedEditGender() : getSelectedAddGender();
+    pool = g === "Kadın" ? kadinAvatarları.slice() : erkekAvatarları.slice();
+    if (titleEl) {
+      titleEl.textContent =
+        g === "Kadın" ? "HD Avatar seç (20 Kadın)" : "HD Avatar seç (20 Erkek)";
+    }
+  }
+
   if (!grid || !pool.length) return;
   window.__avatarGalleryPool = pool;
+
   grid.innerHTML = pool
     .map(function (url, idx) {
+      var fid = "";
+      try {
+        var m = /\/files\/([^/]+)\/view/.exec(String(url));
+        if (m) fid = decodeURIComponent(m[1]);
+      } catch (_e) {}
+      var fb = fid ? getDicebearFallbackForFileId(fid) : "";
       return (
         '<button type="button" class="avatar-gallery__cell" data-avatar-idx="' +
         idx +
         '"><img src="' +
         escapeHtml(url) +
-        '" alt="" loading="lazy" width="72" height="72" decoding="async"/></button>'
+        '" alt="" loading="lazy" width="96" height="96" decoding="async" data-fallback="' +
+        escapeHtml(fb) +
+        '"/></button>'
       );
     })
     .join("");
+
+  grid.querySelectorAll("img[data-fallback]").forEach(function (img) {
+    var fb = img.getAttribute("data-fallback");
+    if (!fb) return;
+    img.addEventListener(
+      "error",
+      function onErr() {
+        img.removeEventListener("error", onErr);
+        img.src = fb;
+      },
+      false
+    );
+  });
+
   if (!grid.dataset.avatarGalleryDelegated) {
     grid.dataset.avatarGalleryDelegated = "1";
     grid.addEventListener("click", function (ev) {
@@ -7785,7 +7926,11 @@ function openAvatarGallerySheet(target) {
       var pl = window.__avatarGalleryPool;
       var u = pl && pl[idx];
       if (!u) return;
-      if (window.__avatarPickTarget === "edit") {
+      if (window.__avatarPickTarget === "coach") {
+        var cprev = document.getElementById("coachProfileAvatarPreview");
+        if (cprev) cprev.src = u;
+        window.__coachGalleryAvatarUrl = u;
+      } else if (window.__avatarPickTarget === "edit") {
         setEditStudentAvatarPreview(u, { mode: "preset" });
       } else {
         setStudentAvatarPreview(u, { mode: "preset" });
@@ -7796,6 +7941,16 @@ function openAvatarGallerySheet(target) {
   if (sheet) {
     sheet.hidden = false;
     sheet.setAttribute("aria-hidden", "false");
+  }
+}
+
+function initCoachProfileAvatarUi() {
+  var btn = document.getElementById("btnCoachProfileAvatarGallery");
+  if (btn && !btn.dataset.boundCoachGal) {
+    btn.dataset.boundCoachGal = "1";
+    btn.addEventListener("click", function () {
+      openAvatarGallerySheet("coach");
+    });
   }
 }
 
@@ -7932,6 +8087,7 @@ function fillStudentSelects() {
     "gorevSelectStudent",
     "gorevFilterStudent",
     "kkStudentSelect",
+    "kglModalStudent",
     "hpStudentSelect",
   ].forEach(function (sid) {
     var sel = document.getElementById(sid);
@@ -7945,7 +8101,9 @@ function fillStudentSelects() {
           : sid === "ap_student" ||
               sid === "daStudentSelect" ||
               sid === "optikManualStudent" ||
-              sid === "kkStudentSelect" || sid === "hpStudentSelect"
+              sid === "kkStudentSelect" ||
+              sid === "kglModalStudent" ||
+              sid === "hpStudentSelect"
             ? '<option value="">— Öğrenci seçin —</option>'
             : '<option value="">— Seçin —</option>';
     cachedStudents.forEach(function (s) {
@@ -8587,41 +8745,131 @@ function bindDenemeAnalizForm() {
   }
 }
 
-/* --- Haftalık program + mockTasks (Görev Takibi ile senkron) --- */
-var mockTasks = [];
-var MOCK_TASKS_STORAGE_KEY = "yks_mock_tasks_v1";
-try {
-  if (typeof globalThis !== "undefined") globalThis.mockTasks = mockTasks;
-} catch (e) {}
+/* --- Haftalık program — Appwrite coach_tasks (Görev Takibi ile tek kaynak) --- */
+/** Merkezi müfredat: `yks-mufredat.js` → YKS2026_Mufredat / yks2026DersKeys */
 
-/** YKS müfredat örnekleri — ders → konu listesi */
-var YKS_HP_MUFRADAT = {
-  "TYT Matematik": ["Üslü Sayılar", "Köklü Sayılar", "Sayma ve Olasılık", "Fonksiyonlar", "Trigonometri", "Limit"],
-  "TYT Türkçe": ["Sözcükte Anlam", "Cümlede Anlam", "Paragraf", "Yazım Kuralları", "Anlatım Bozuklukları"],
-  "TYT Fen": ["Madde ve Endüstri", "Atom", "Kuvvet ve Hareket", "Enerji", "Elektrik"],
-  "AYT Matematik": ["Limit", "Süreklilik", "Türev", "İntegral", "Olasılık"],
-  "AYT Edebiyat": ["Divan Edebiyatı", "Halk Edebiyatı", "Servet-i Fünun", "Milli Edebiyat"],
-  "Paragraf": ["Ana Düşünce", "Yardımcı Düşünce", "Paragraf Tamamlama"],
+var HP_GOREV_TIPI_LABELS = {
+  konu_calisma: "📖 Konu çalışması",
+  soru_cozum: "📝 Soru çözümü",
+  brans_deneme: "🎯 Branş denemesi",
+  genel_tekrar: "🔁 Genel tekrar",
+  video: "▶ Video izleme",
 };
 
-function loadMockTasksFromStorage() {
-  try {
-    var r = localStorage.getItem(MOCK_TASKS_STORAGE_KEY);
-    var next = r ? JSON.parse(r) : [];
-    if (!Array.isArray(next)) next = [];
-    mockTasks.length = 0;
-    next.forEach(function (item) {
-      mockTasks.push(item);
-    });
-  } catch (e) {
-    mockTasks.length = 0;
-  }
+function hpMapLegacyToolToGorevTipi(tool) {
+  var t = String(tool || "konu").toLowerCase();
+  if (t === "soru") return "soru_cozum";
+  if (t === "deneme") return "brans_deneme";
+  return "konu_calisma";
 }
 
-function saveMockTasksToStorage() {
+function hpMapGorevTipiToLegacy(gorevTipi) {
+  var g = String(gorevTipi || "konu_calisma");
+  if (g === "soru_cozum") return "soru";
+  if (g === "brans_deneme") return "deneme";
+  return "konu";
+}
+
+function hpGorevTipiFromMeta(meta) {
+  if (meta && meta.gorevTipi) return meta.gorevTipi;
+  if (meta && meta.taskType) return hpMapLegacyToolToGorevTipi(meta.taskType);
+  return "konu_calisma";
+}
+
+function hpParseMetaFromDescription(description) {
+  var s = String(description || "").trim();
+  if (!s || s.charAt(0) !== "{") return { meta: null };
   try {
-    localStorage.setItem(MOCK_TASKS_STORAGE_KEY, JSON.stringify(mockTasks));
+    var o = JSON.parse(s);
+    if (o && o.v === 1) return { meta: o };
   } catch (e) {}
+  return { meta: null };
+}
+
+function hpSerializeWeeklyMeta(meta) {
+  return JSON.stringify(meta);
+}
+
+/**
+ * Appwrite coach_tasks.description JSON — tek şema (v:1).
+ * @param {object} o
+ */
+function hpBuildTaskMetaFromForm(o) {
+  o = o || {};
+  var n =
+    o.targetQuestions != null && String(o.targetQuestions).trim() !== ""
+      ? parseInt(String(o.targetQuestions).trim(), 10)
+      : NaN;
+  var em =
+    o.estimatedMinutes != null && String(o.estimatedMinutes).trim() !== ""
+      ? parseInt(String(o.estimatedMinutes).trim(), 10)
+      : NaN;
+  var gt = String(o.gorevTipi || "konu_calisma").trim();
+  return {
+    v: 1,
+    gorevTipi: gt,
+    taskType: hpMapGorevTipiToLegacy(gt),
+    topic: String(o.topic || "").trim(),
+    targetQuestions: !isNaN(n) && n > 0 ? n : null,
+    resource: String(o.resource || "").trim(),
+    videoUrl: String(o.videoUrl || "").trim(),
+    notes: String(o.notes || "").trim(),
+    estimatedMinutes: !isNaN(em) && em > 0 ? em : null,
+  };
+}
+
+function hpBuildCoachTaskTitle(subject, meta) {
+  var subj = String(subject || "").trim();
+  var topic = meta && meta.topic ? String(meta.topic).trim() : "";
+  var n = meta && meta.targetQuestions != null && !isNaN(Number(meta.targetQuestions)) && Number(meta.targetQuestions) > 0;
+  var em = meta && meta.estimatedMinutes != null && !isNaN(Number(meta.estimatedMinutes)) && Number(meta.estimatedMinutes) > 0;
+  var parts = [];
+  if (subj) parts.push(subj);
+  if (topic) parts.push(topic);
+  if (n) parts.push(Number(meta.targetQuestions) + " Soru");
+  if (em) parts.push("~" + Number(meta.estimatedMinutes) + " dk");
+  return parts.length ? parts.join(" - ") : "Görev";
+}
+
+function hpCardSummaryLine(t) {
+  var meta = t.hpMeta || hpParseMetaFromDescription(t.description).meta;
+  return hpBuildCoachTaskTitle(t.subject, meta || { topic: "" });
+}
+
+function hpGetSubjectKeysFromMufredat() {
+  var keys = yks2026DersKeys();
+  keys.sort(function (a, b) {
+    return a.localeCompare(b, "tr");
+  });
+  return keys;
+}
+
+function hpTopicsForSubject(dersKey) {
+  for (var ei = 0; ei < 3; ei++) {
+    var ex = ["TYT", "AYT", "YDT"][ei];
+    var arr = (YKS2026_Mufredat[ex] || {})[dersKey];
+    if (Array.isArray(arr) && arr.length) return arr.slice();
+  }
+  return [];
+}
+
+function coachTaskDescriptionForKanban(t) {
+  var meta = t.hpMeta || hpParseMetaFromDescription(t.description).meta;
+  if (meta) {
+    var lines = [];
+    if (meta.gorevTipi && HP_GOREV_TIPI_LABELS[meta.gorevTipi]) {
+      lines.push("Görev tipi: " + HP_GOREV_TIPI_LABELS[meta.gorevTipi]);
+    }
+    if (meta.resource) lines.push("Kaynak: " + meta.resource);
+    if (meta.notes) lines.push(meta.notes);
+    if (meta.videoUrl) lines.push("Video: " + meta.videoUrl);
+    if (meta.targetQuestions != null && meta.targetQuestions > 0) lines.push("Hedef: " + meta.targetQuestions + " soru");
+    if (meta.estimatedMinutes != null && meta.estimatedMinutes > 0) lines.push("Tahmini süre: " + meta.estimatedMinutes + " dk");
+    if (lines.length) return lines.join("\n");
+  }
+  var raw = String(t.description || "").trim();
+  if (raw.charAt(0) === "{") return "";
+  return raw;
 }
 
 /** Koç → öğrenci paneli: Appwrite `studentPortalPlans/{öğrenciId}` */
@@ -8644,7 +8892,6 @@ function getOgrenciVerisiTargetStudentId() {
 }
 
 function buildOgrenciVerisiPayload(studentId) {
-  loadMockTasksFromStorage();
   rebuildGorevKanbanStateFromCache();
   var sid = String(studentId || "").trim();
   var anchorDate = typeof hpWeekAnchor !== "undefined" && hpWeekAnchor ? hpWeekAnchor : new Date();
@@ -8658,7 +8905,7 @@ function buildOgrenciVerisiPayload(studentId) {
     dt.setDate(mon.getDate() + i);
     var iso = hpLocalISODate(dt);
     var dateLabel = dt.toLocaleDateString("tr-TR", { day: "numeric", month: "long" });
-    var tasksForDay = mockTasks
+    var tasksForDay = (cachedCoachTasks || [])
       .filter(function (t) {
         return (
           String(t.studentId || "") === sid &&
@@ -8667,13 +8914,14 @@ function buildOgrenciVerisiPayload(studentId) {
         );
       })
       .map(function (t) {
+        var meta = t.hpMeta || hpParseMetaFromDescription(t.description).meta;
         var det = [];
-        if (t.topic) det.push(String(t.topic));
-        if (t.resource) det.push("Kaynak: " + t.resource);
-        if (t.notes) det.push(t.notes);
+        if (meta && meta.topic) det.push(String(meta.topic));
+        if (meta && meta.resource) det.push("Kaynak: " + meta.resource);
+        if (meta && meta.notes) det.push(meta.notes);
         return {
           id: t.id,
-          title: hpBuildMockTitle(t),
+          title: hpCardSummaryLine(t),
           detail: det.join(" · ") || "—",
           done: false,
         };
@@ -8707,7 +8955,7 @@ function buildOgrenciVerisiPayload(studentId) {
     });
   }
 
-  var pool = mockTasks.filter(function (t) {
+  var pool = (cachedCoachTasks || []).filter(function (t) {
     return String(t.studentId || "") === sid && t.column !== "done";
   });
   pool.sort(function (a, b) {
@@ -8715,11 +8963,12 @@ function buildOgrenciVerisiPayload(studentId) {
   });
   var next = pool[0];
   var nextTaskId = next ? next.id : "";
+  var nextMeta = next ? next.hpMeta || hpParseMetaFromDescription(next.description).meta : null;
   var nextTask = {
-    title: next ? hpBuildMockTitle(next) : "—",
+    title: next ? hpCardSummaryLine(next) : "—",
     detail: next
-      ? (next.resource ? next.resource + " · " : "") +
-        (next.topic || "") +
+      ? (nextMeta && nextMeta.resource ? nextMeta.resource + " · " : "") +
+        (nextMeta && nextMeta.topic ? nextMeta.topic : "") +
         " · Teslim: " +
         String(next.dueDate || "")
       : "Koçtan atanmış haftalık görev yok",
@@ -8741,7 +8990,6 @@ function buildOgrenciVerisiPayload(studentId) {
 
 async function saveOgrenciVerisiBridge(opts) {
   opts = opts || {};
-  loadMockTasksFromStorage();
   var sid = opts.studentIdOverride ? String(opts.studentIdOverride).trim() : getOgrenciVerisiTargetStudentId();
   if (!sid) {
     if (!opts.silent) showToast("Önce bir öğrenci seçin (Haftalık Program veya Görev Takibi filtresi).");
@@ -8790,46 +9038,6 @@ async function saveOgrenciVerisiBridge(opts) {
   }
 }
 
-function hpBuildMockTitle(t) {
-  var typeMap = { konu: "📖 Konu", soru: "📝 Soru", deneme: "🎯 Deneme" };
-  var tl = typeMap[t.taskType] || "Görev";
-  return tl + " · " + String(t.subject || "").trim() + " — " + String(t.topic || "").trim();
-}
-
-function hpBuildMockDesc(t) {
-  var parts = [];
-  if (t.resource) parts.push("Kaynak: " + t.resource);
-  if (t.videoUrl) parts.push("Link: " + t.videoUrl);
-  if (t.notes) parts.push(t.notes);
-  return parts.join("\n");
-}
-
-function hpEffectiveMockKanbanColumn(t) {
-  var c = t.column || "todo";
-  if (c === "done" || c === "doing") return c;
-  var d = String(t.dueDate || "").slice(0, 10);
-  if (!d) return "todo";
-  var today = new Date().toISOString().slice(0, 10);
-  /** Gelecek tarihli haftalık ödevler de Görev Takibi (Yapılacaklar) sütununda görünsün */
-  if (d > today) return "todo";
-  if (d < today && c === "todo") return "late";
-  return "todo";
-}
-
-function normalizeMockTaskForKanban(t) {
-  return {
-    id: t.id,
-    title: hpBuildMockTitle(t),
-    description: hpBuildMockDesc(t),
-    studentId: t.studentId || "",
-    studentName: t.studentName || "",
-    dueDate: t.dueDate || "",
-    priority: "normal",
-    subject: t.subject || "",
-    createdAt: typeof t.createdAt === "number" ? t.createdAt : Date.now(),
-  };
-}
-
 /* --- Görev Takibi — Kanban + HTML5 Drag & Drop --- */
 var GOREV_KANBAN_STORAGE_KEY = "yks_gorev_kanban_v2";
 var GOREV_KANBAN_LEGACY_KEY = "yks_gorev_kanban_v1";
@@ -8865,6 +9073,7 @@ function normalizeGorevTask(t) {
     priority: pr,
     subject: String(t.subject || "").trim(),
     createdAt: gorevTimestampToMs(t.createdAt),
+    hpMeta: t.hpMeta != null ? t.hpMeta : null,
   };
 }
 
@@ -8904,14 +9113,9 @@ function loadGorevKanbanStateRaw() {
 }
 
 function rebuildGorevKanbanStateFromCache() {
-  loadMockTasksFromStorage();
   gorevKanbanState = { todo: [], late: [], doing: [], done: [] };
   var filterEl = document.getElementById("gorevFilterStudent");
   var filterId = filterEl && filterEl.value ? String(filterEl.value).trim() : "";
-
-  function studentMatches(sid) {
-    return !filterId || String(sid || "") === filterId;
-  }
 
   if (cachedCoachTasks && cachedCoachTasks.length) {
     var list = filterId
@@ -8928,14 +9132,6 @@ function rebuildGorevKanbanStateFromCache() {
     });
   }
 
-  mockTasks.forEach(function (t) {
-    if (!studentMatches(t.studentId)) return;
-    var col = hpEffectiveMockKanbanColumn(t);
-    if (col === null) return;
-    var row = normalizeMockTaskForKanban(t);
-    if (row) gorevKanbanState[col].push(row);
-  });
-
   ["todo", "late", "doing", "done"].forEach(function (k) {
     gorevKanbanState[k].sort(function (a, b) {
       return (a.createdAt || 0) - (b.createdAt || 0);
@@ -8951,11 +9147,13 @@ function onCoachTasksSnap(snap) {
   }
   cachedCoachTasks = snap.docs.map(function (d) {
     var data = d.data();
+    var p = hpParseMetaFromDescription(data.description);
     return {
       id: d.id,
       coach_id: data.coach_id,
       title: data.title,
       description: data.description || "",
+      hpMeta: p.meta,
       studentId: data.studentId || "",
       studentName: data.studentName || "",
       dueDate: data.dueDate || "",
@@ -8968,7 +9166,9 @@ function onCoachTasksSnap(snap) {
   });
   rebuildGorevKanbanStateFromCache();
   renderGorevKanbanCards();
+  refreshHpWeekIfVisible();
   refreshStudentDetailIfOpen();
+  dispatchGoCockpitRefresh();
 }
 
 async function migrateLocalGorevTasksToFirestoreOnce() {
@@ -9107,10 +9307,11 @@ function renderGorevKanbanCards() {
       });
       if (chips.length) card.appendChild(meta);
 
-      if (t.description) {
+      var descText = coachTaskDescriptionForKanban(t);
+      if (descText) {
         var desc = document.createElement("p");
         desc.className = "kanban-card__desc";
-        desc.textContent = t.description;
+        desc.textContent = descText;
         card.appendChild(desc);
       }
 
@@ -9138,23 +9339,6 @@ function moveGorevKanbanTask(taskId, toCol) {
   if (!loc) return;
   if (loc.col === toCol) return;
 
-  if (String(taskId).indexOf("mt_") === 0) {
-    var mt = mockTasks.find(function (x) {
-      return x.id === taskId;
-    });
-    if (!mt) return;
-    if (toCol === "late") mt.column = "todo";
-    else mt.column = toCol;
-    if (toCol === "todo" && mt.dueDate) {
-      var today = new Date().toISOString().slice(0, 10);
-      if (mt.dueDate < today) mt.dueDate = today;
-    }
-    saveMockTasksToStorage();
-    rebuildGorevKanbanStateFromCache();
-    renderGorevKanbanCards();
-    return;
-  }
-
   var cid = getCoachId();
   if (!cid) {
     showToast("Oturum bilgisi yok.");
@@ -9169,17 +9353,6 @@ function moveGorevKanbanTask(taskId, toCol) {
 
 function removeGorevKanbanTask(taskId) {
   if (!taskId) return;
-  if (String(taskId).indexOf("mt_") === 0) {
-    for (var mi = mockTasks.length - 1; mi >= 0; mi--) {
-      if (mockTasks[mi].id === taskId) mockTasks.splice(mi, 1);
-    }
-    saveMockTasksToStorage();
-    rebuildGorevKanbanStateFromCache();
-    renderGorevKanbanCards();
-    refreshHpWeekIfVisible();
-    showToast("Görev silindi.");
-    return;
-  }
   var cid = getCoachId();
   if (!cid) {
     showToast("Oturum bilgisi yok.");
@@ -9384,6 +9557,7 @@ var MODAL_IDS = [
   "financeModal",
   "examModal",
   "kkModalAta",
+  "koclukGorusmeModal",
   "hpWeeklyTaskModal",
   "profileSettingsModal",
   "coachInboxModal",
@@ -10202,6 +10376,7 @@ function initModals() {
     initStudentAvatarPicker();
   }
   initAvatarGalleryUi();
+  initCoachProfileAvatarUi();
   initStudentEditAvatarControls();
   var fsEdit = document.getElementById("formStudentEdit");
   if (fsEdit) fsEdit.addEventListener("submit", submitStudentEditForm);
@@ -11752,15 +11927,16 @@ function tmPreparePrintClone(clone, livePaper, widthPx, mm) {
   });
 }
 
-/** PDF/html2canvas: çok büyük bitmap’lerde piksel sayısını düşürür (render süresi ↓). */
-var TM_PDF_MAX_IMAGE_EDGE = 1280;
-var TM_PDF_JPEG_INLINE_QUALITY = 0.76;
-/** html2canvas scale: 1.4 ≈ 2× piksel / 1.0’a göre; hız için 1.0–1.15 aralığı önerilir. */
-var TM_PDF_HTML2_SCALE = 1.0;
+/** PDF/html2canvas: çok büyük bitmap’lerde kenar üst sınırı (aşırı bellek önlemi). */
+var TM_PDF_MAX_IMAGE_EDGE = 2048;
+/** Gömülü img data URL — HD kalite (formül/şekil için düşürme). */
+var TM_PDF_JPEG_INLINE_QUALITY = 0.98;
+/** html2canvas scale: 2 = HD (2× piksel yoğunluğu); 1 düşük kalite, 3+ çok yavaş. */
+var TM_PDF_HTML2_SCALE = 2;
 /** Sayfa yakalamadan önce img bekleme üst sınırı (ms) — düşük = daha hızlı PDF, risk: eksik görsel. */
 var TM_PDF_PAGE_WAIT_MS = 3200;
-/** A4 sayfa görüntüsü JPEG (html2canvas sonrası) — düşük = daha hızlı encode / küçük dosya. */
-var TM_PDF_JPEG_PAGE_QUALITY = 0.78;
+/** A4 sayfa JPEG (html2canvas → toDataURL) — yüksek kalite, matematik netliği. */
+var TM_PDF_JPEG_PAGE_QUALITY = 0.98;
 
 function tmDownscaleDataUrlJpeg(dataUrl, maxEdge, quality) {
   return new Promise(function (resolve) {
@@ -11789,7 +11965,7 @@ function tmDownscaleDataUrlJpeg(dataUrl, maxEdge, quality) {
           return;
         }
         ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "medium";
+        ctx.imageSmoothingQuality = "high";
         ctx.drawImage(img, 0, 0, nw, nh);
         resolve(c.toDataURL("image/jpeg", quality));
       } catch (_e) {
@@ -11833,7 +12009,7 @@ function tmPdfInlineImageViaCrossOriginCanvas(img, src) {
           return;
         }
         ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "medium";
+        ctx.imageSmoothingQuality = "high";
         ctx.drawImage(probe, 0, 0, w, h);
         var du = c.toDataURL("image/jpeg", TM_PDF_JPEG_INLINE_QUALITY);
         img.setAttribute("data-tm-pdf-src-backup", src);
@@ -12015,7 +12191,8 @@ function tmWsDownloadPdf() {
       ".tm-pdf-live-capture.layout-4 .test-column .question-item,.tm-pdf-live-capture.layout-6 .test-column .question-item{flex:0 0 auto!important;height:auto!important;min-height:48mm!important;overflow:visible!important;}" +
       ".tm-pdf-live-capture .question-item,.tm-pdf-live-capture .soru-karti,.tm-pdf-live-capture.tm-a4-block.question-item{page-break-inside:avoid!important;break-inside:avoid!important;-webkit-column-break-inside:avoid!important;background:#fff!important;color:#111!important;}" +
       ".tm-pdf-live-capture .tm-a4-block__imgwrap{display:flex!important;align-items:center!important;justify-content:center!important;overflow:visible!important;min-height:0!important;flex:1 1 auto!important;background:#fff!important;}" +
-      ".tm-pdf-live-capture .tm-a4-block__imgwrap img,.tm-pdf-live-capture .question-item img{width:100%!important;max-width:100%!important;height:auto!important;object-fit:contain!important;display:block!important;}";
+      ".tm-pdf-live-capture .tm-a4-block__imgwrap img,.tm-pdf-live-capture .question-item img{width:100%!important;max-width:100%!important;height:auto!important;object-fit:contain!important;display:block!important;}" +
+      ".tm-pdf-live-capture,.tm-pdf-live-capture *{-webkit-font-smoothing:antialiased!important;-moz-osx-font-smoothing:grayscale!important;text-rendering:geometricPrecision!important;}";
     document.head.appendChild(stCap);
   }
 
@@ -12121,6 +12298,9 @@ function tmWsDownloadPdf() {
               try {
                 if (!el || !el.querySelectorAll) return;
                 try {
+                  el.style.setProperty("-webkit-font-smoothing", "antialiased");
+                  el.style.setProperty("-moz-osx-font-smoothing", "grayscale");
+                  el.style.setProperty("text-rendering", "geometricPrecision");
                   el.style.backgroundColor = "#ffffff";
                   el.style.color = "#111111";
                   el.style.boxShadow = "none";
@@ -14546,6 +14726,19 @@ function navigateTo(view) {
     el.hidden = !on;
   });
   currentView = view;
+  document.body.classList.toggle("body--gorusme-cockpit", view === "gorusme-odasi");
+  try {
+    var appShell = document.querySelector(".app");
+    if (appShell && view === "gorusme-odasi") appShell.classList.add("app--sidebar-readable");
+    var locUrl = new URL(window.location.href);
+    if (view === "gorusme-odasi") {
+      locUrl.searchParams.set("view", "gorusme-odasi");
+      history.replaceState(null, "", locUrl.pathname + locUrl.search + locUrl.hash);
+    } else if (locUrl.searchParams.get("view") === "gorusme-odasi") {
+      locUrl.searchParams.delete("view");
+      history.replaceState(null, "", locUrl.pathname + (locUrl.search || "") + locUrl.hash);
+    }
+  } catch (e) {}
   document.querySelectorAll("button.sidebar__link[data-nav]").forEach(function (btn) {
     var nv = btn.getAttribute("data-nav");
     var on =
@@ -14565,14 +14758,29 @@ function navigateTo(view) {
     var snv = btn.getAttribute("data-nav");
     btn.classList.toggle("is-active", snv === view);
   });
-  var daLi = document.querySelector(".sidebar__item--deneme");
-  var daAcc = document.getElementById("sidebarDaToggle");
+  var daLi = document.querySelector(".sidebar__item--deneme-analizi");
+  var daAcc = document.getElementById("sidebarDanaToggle");
   if (daLi && daAcc) {
     var inDa =
-      view === "denemeler" || view === "optik-okuyucu" || view === "karne" || view === "konu-mr";
-    daLi.classList.toggle("sidebar__item--da-open", inDa);
+      view === "deneme-analiz-denemeler" ||
+      view === "deneme-analiz-takvim" ||
+      view === "deneme-analiz-optik" ||
+      view === "deneme-analiz-karne" ||
+      view === "deneme-analiz-telafi" ||
+      view === "denemeler" ||
+      view === "optik-okuyucu" ||
+      view === "karne";
+    daLi.classList.toggle("sidebar__item--dana-open", inDa);
     daAcc.classList.toggle("sidebar__link--active", inDa);
     daAcc.setAttribute("aria-expanded", inDa ? "true" : "false");
+  }
+  var mrLi = document.querySelector(".sidebar__item--mr");
+  var mrAcc = document.getElementById("sidebarMrToggle");
+  if (mrLi && mrAcc) {
+    var inMr = view === "mr-konu" || view === "mr-soru" || view === "mr-deneme";
+    mrLi.classList.toggle("sidebar__item--mr-open", inMr);
+    mrAcc.classList.toggle("sidebar__link--active", inMr);
+    mrAcc.setAttribute("aria-expanded", inMr ? "true" : "false");
   }
   var ogrLi = document.querySelector(".sidebar__item--ogrenci");
   var ogrAcc = document.getElementById("sidebarOgrToggle");
@@ -14656,21 +14864,35 @@ function navigateTo(view) {
     overlay.classList.remove("is-open");
     document.body.style.overflow = "";
   }
-  if (view === "denemeler") {
+  if (view === "denemeler" || view === "deneme-analiz-denemeler") {
     renderExamsFullPage();
     initDenemeAnalizPage();
     bindDenemeAnalizForm();
   }
-  if (view === "optik-okuyucu" || view === "karne") {
+  if (view === "optik-okuyucu" || view === "karne" || view === "deneme-analiz-optik" || view === "deneme-analiz-karne") {
     initOptikKarneTools();
   }
-  if (view === "optik-okuyucu") {
+  if (view === "optik-okuyucu" || view === "deneme-analiz-optik") {
     var od = document.getElementById("optikImportExamDate");
     if (od && !od.value) od.value = new Date().toISOString().slice(0, 10);
   }
-  if (view === "karne") {
+  if (view === "karne" || view === "deneme-analiz-karne") {
     refreshKarneKpis();
     renderKarneReport();
+  }
+  if (view === "deneme-analiz-karne" && typeof window.initDenemeAnaliziPremium === "function") {
+    try {
+      window.initDenemeAnaliziPremium();
+    } catch (e) {
+      console.warn("[deneme-analizi]", e);
+    }
+  }
+  if (view === "mr-konu" || view === "mr-soru" || view === "mr-deneme") {
+    try {
+      initMrCockpit(view);
+    } catch (e) {
+      console.warn("[mr-cockpit]", e);
+    }
   }
   if (view === "ogrenciler") renderStudentsPage();
   if (view === "ogrenci-detay") {
@@ -14679,6 +14901,7 @@ function navigateTo(view) {
   if (view === "gorev-takibi") initGorevTakibiPage();
   if (view === "haftalik-program") initHaftalikProgramDnD();
   if (view === "randevu") renderAppointmentsPage();
+  if (view === "kocluk-gorusmeleri") refreshKoclukGorusmeList();
   if (
     view === "testmaker" ||
     view === "library" ||
@@ -14699,6 +14922,15 @@ function navigateTo(view) {
         tmTryRehydrateQuestionsFromLocalStorage();
       } catch (e) {
         console.error("[ai-test] consume:", e);
+      }
+    });
+  }
+  if (view === "auto-test") {
+    requestAnimationFrame(function () {
+      try {
+        tmApplyGorusmeOdasiAiPrefill();
+      } catch (e) {
+        console.error("[gorusme-odasi] prefill:", e);
       }
     });
   }
@@ -15236,7 +15468,8 @@ function initSidebar() {
 function closeSidebarAccordionsExcept(exceptLi) {
   var pairs = [
     [".sidebar__item--testmaker", "sidebar__item--tm-open", "sidebarTmToggle"],
-    [".sidebar__item--deneme", "sidebar__item--da-open", "sidebarDaToggle"],
+    [".sidebar__item--deneme-analizi", "sidebar__item--dana-open", "sidebarDanaToggle"],
+    [".sidebar__item--mr", "sidebar__item--mr-open", "sidebarMrToggle"],
     [".sidebar__item--ogrenci", "sidebar__item--ogr-open", "sidebarOgrToggle"],
     [".sidebar__item--randevu", "sidebar__item--rv-open", "sidebarRvToggle"],
     [".sidebar__item--simulasyon", "sidebar__item--sim-open", "sidebarSimToggle"],
@@ -15293,7 +15526,8 @@ function initNavigation() {
   (function initSidebarAccordions() {
     var items = [
       { liSel: ".sidebar__item--testmaker", openClass: "sidebar__item--tm-open", btnId: "sidebarTmToggle" },
-      { liSel: ".sidebar__item--deneme", openClass: "sidebar__item--da-open", btnId: "sidebarDaToggle" },
+      { liSel: ".sidebar__item--deneme-analizi", openClass: "sidebar__item--dana-open", btnId: "sidebarDanaToggle" },
+      { liSel: ".sidebar__item--mr", openClass: "sidebar__item--mr-open", btnId: "sidebarMrToggle" },
       { liSel: ".sidebar__item--ogrenci", openClass: "sidebar__item--ogr-open", btnId: "sidebarOgrToggle" },
       { liSel: ".sidebar__item--randevu", openClass: "sidebar__item--rv-open", btnId: "sidebarRvToggle" },
       { liSel: ".sidebar__item--simulasyon", openClass: "sidebar__item--sim-open", btnId: "sidebarSimToggle" },
@@ -15321,7 +15555,7 @@ function initNavigation() {
 var hpSelectedStudentId = "";
 var hpWeekAnchor = null;
 var hpPendingDrop = null;
-/** Haftalık modal: yeni görev yerine mevcut mockTasks kaydını güncelle */
+/** Haftalık modal: Appwrite coach_tasks düzenleme */
 var hpEditingTaskId = null;
 
 function hpFillStudentSelectOnly() {
@@ -15366,67 +15600,104 @@ function hpRefreshWeekRangeLabel(monday) {
     monday.toLocaleDateString("tr-TR", o1) + " — " + sun.toLocaleDateString("tr-TR", o1);
 }
 
-function hpBuildWeekGridDOM() {
-  var grid = document.getElementById("hpWeekGrid");
-  if (!grid) return;
-  var mon = hpMondayOfWeek(hpWeekAnchor || new Date());
-  hpRefreshWeekRangeLabel(mon);
+function hpRefreshPrevWeekRangeLabel(monday) {
+  var el = document.getElementById("hpPrevWeekRangeLabel");
+  if (!el) return;
+  var sun = new Date(monday);
+  sun.setDate(monday.getDate() + 6);
+  var o1 = { day: "numeric", month: "long", year: "numeric" };
+  el.textContent =
+    monday.toLocaleDateString("tr-TR", o1) + " — " + sun.toLocaleDateString("tr-TR", o1);
+}
+
+function hpBuildOneWeekGrid(gridEl, weekMonday, opts) {
+  opts = opts || {};
+  var readonly = !!opts.readonly;
+  if (!gridEl) return;
+  var mon = new Date(weekMonday.getTime());
+  mon.setHours(12, 0, 0, 0);
   var dayShort = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
-  grid.innerHTML = "";
+  gridEl.innerHTML = "";
   for (var i = 0; i < 7; i++) {
     var dt = new Date(mon.getTime());
     dt.setDate(mon.getDate() + i);
     var iso = hpLocalISODate(dt);
     var sub = dt.toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
     var col = document.createElement("div");
-    col.className = "hp-day";
+    col.className = "hp-day" + (readonly ? " hp-day--readonly" : "");
     col.setAttribute("data-hp-day-iso", iso);
+    var innerDrop = readonly
+      ? '<div class="hp-day__static" data-hp-prev="' +
+        iso +
+        '" data-hp-day-idx="' +
+        i +
+        '"></div>'
+      : '<div class="hp-day__drop" data-hp-drop="' +
+        iso +
+        '" data-hp-day-idx="' +
+        i +
+        '"></div>';
     col.innerHTML =
       '<div class="hp-day__head">' +
       dayShort[i] +
       '<span class="hp-day__num">' +
       sub +
       "</span></div>" +
-      '<div class="hp-day__drop" data-hp-drop="' +
-      iso +
-      '" data-hp-day-idx="' +
-      i +
-      '"></div>';
-    grid.appendChild(col);
+      innerDrop;
+    gridEl.appendChild(col);
   }
+}
+
+function hpBuildWeekGridDOM() {
+  var grid = document.getElementById("hpWeekGrid");
+  var prevGrid = document.getElementById("hpPrevWeekGrid");
+  var mon = hpMondayOfWeek(hpWeekAnchor || new Date());
+  hpRefreshWeekRangeLabel(mon);
+  var prevMon = new Date(mon.getTime());
+  prevMon.setDate(prevMon.getDate() - 7);
+  hpRefreshPrevWeekRangeLabel(prevMon);
+  hpBuildOneWeekGrid(grid, mon, { readonly: false });
+  hpBuildOneWeekGrid(prevGrid, prevMon, { readonly: true });
+}
+
+function hpTaskTypeLabel(meta) {
+  var gt = meta && meta.gorevTipi ? meta.gorevTipi : "";
+  if (gt && HP_GOREV_TIPI_LABELS[gt]) return HP_GOREV_TIPI_LABELS[gt];
+  var tt = meta && meta.taskType ? meta.taskType : "konu";
+  var typeMap = { konu: "📖 Konu", soru: "📝 Soru", deneme: "🎯 Deneme" };
+  return typeMap[tt] || "Görev";
 }
 
 function hpRenderWeekTaskCards() {
   if (!hpSelectedStudentId) return;
-  document.querySelectorAll(".hp-day__drop").forEach(function (drop) {
+  var sid = hpSelectedStudentId;
+
+  document.querySelectorAll("#hpWeekGrid .hp-day__drop").forEach(function (drop) {
     var iso = drop.getAttribute("data-hp-drop");
     drop.innerHTML = "";
-    mockTasks
+    (cachedCoachTasks || [])
       .filter(function (t) {
         return (
-          t.studentId === hpSelectedStudentId &&
+          String(t.studentId) === sid &&
           String(t.dueDate || "").slice(0, 10) === iso &&
           t.column !== "done"
         );
       })
       .forEach(function (t) {
+        var meta = t.hpMeta || hpParseMetaFromDescription(t.description).meta;
         var card = document.createElement("div");
         card.className = "hp-week-card";
         card.setAttribute("data-hp-task-id", t.id);
-        var typeMap = { konu: "📖 Konu", soru: "📝 Soru", deneme: "🎯 Deneme" };
+        var sum = hpCardSummaryLine(t);
+        var resLine = meta && meta.resource ? meta.resource : "";
         card.innerHTML =
           '<div class="hp-week-card__type">' +
-          (typeMap[t.taskType] || "Görev") +
+          hpTaskTypeLabel(meta) +
           "</div>" +
-          '<span class="hp-week-card__title">' +
-          escapeHtml(t.subject || "") +
+          '<span class="hp-week-card__summary">' +
+          escapeHtml(sum) +
           "</span>" +
-          '<span class="hp-week-card__meta">' +
-          escapeHtml(t.topic || "") +
-          "</span>" +
-          (t.resource
-            ? '<span class="hp-week-card__src">' + escapeHtml(t.resource) + "</span>"
-            : "") +
+          (resLine ? '<span class="hp-week-card__src">' + escapeHtml(resLine) + "</span>" : "") +
           '<button type="button" class="hp-week-card__edit" data-hp-task-edit="' +
           escapeHtml(t.id) +
           '" aria-label="Düzenle" title="Düzenle"><i class="fa-solid fa-pen"></i></button>' +
@@ -15436,24 +15707,64 @@ function hpRenderWeekTaskCards() {
         drop.appendChild(card);
       });
   });
+
+  document.querySelectorAll("#hpPrevWeekGrid .hp-day__static").forEach(function (box) {
+    var iso = box.getAttribute("data-hp-prev");
+    box.innerHTML = "";
+    (cachedCoachTasks || [])
+      .filter(function (t) {
+        return String(t.studentId) === sid && String(t.dueDate || "").slice(0, 10) === iso;
+      })
+      .forEach(function (t) {
+        var meta = t.hpMeta || hpParseMetaFromDescription(t.description).meta;
+        var done = (t.column || "") === "done";
+        var card = document.createElement("div");
+        card.className = "hp-week-card hp-week-card--past";
+        card.setAttribute("data-hp-task-id", t.id);
+        var sum = hpCardSummaryLine(t);
+        var resLine = meta && meta.resource ? meta.resource : "";
+        card.innerHTML =
+          '<span class="hp-week-card__status ' +
+          (done ? "hp-week-card__status--ok" : "hp-week-card__status--no") +
+          '" title="' +
+          (done ? "Tamamlandı" : "Yapılmadı") +
+          '">' +
+          (done ? "✓" : "✗") +
+          "</span>" +
+          '<div class="hp-week-card__type">' +
+          hpTaskTypeLabel(meta) +
+          "</div>" +
+          '<span class="hp-week-card__summary">' +
+          escapeHtml(sum) +
+          "</span>" +
+          (resLine ? '<span class="hp-week-card__src">' + escapeHtml(resLine) + "</span>" : "");
+        box.appendChild(card);
+      });
+  });
 }
 
 function hpPopulateSubjectTopics() {
   var sub = document.getElementById("hpMtSubject");
   var top = document.getElementById("hpMtTopic");
   if (!sub || !top) return;
-  var keys = Object.keys(YKS_HP_MUFRADAT);
-  sub.innerHTML = keys.map(function (k) {
-    return "<option value=\"" + escapeHtml(k) + "\">" + escapeHtml(k) + "</option>";
-  }).join("");
-  function fillTopics() {
-    var sk = sub.value;
-    var arr = YKS_HP_MUFRADAT[sk] || [];
-    top.innerHTML = arr
-      .map(function (x) {
-        return "<option value=\"" + escapeHtml(x) + "\">" + escapeHtml(x) + "</option>";
+  var keys = hpGetSubjectKeysFromMufredat();
+  sub.innerHTML =
+    '<option value="">— Ders seçin —</option>' +
+    keys
+      .map(function (k) {
+        return "<option value=\"" + escapeHtml(k) + "\">" + escapeHtml(k) + "</option>";
       })
       .join("");
+  function fillTopics() {
+    var sk = sub.value;
+    var arr = sk ? hpTopicsForSubject(sk) : [];
+    top.innerHTML =
+      '<option value="">— Konu seçin —</option>' +
+      arr
+        .map(function (x) {
+          return "<option value=\"" + escapeHtml(x) + "\">" + escapeHtml(x) + "</option>";
+        })
+        .join("");
   }
   sub.onchange = fillTopics;
   fillTopics();
@@ -15472,46 +15783,61 @@ function hpOpenWeeklyTaskModal(tool, dateIso) {
   hpPendingDrop = { tool: tool, dateIso: dateIso };
   hpPopulateSubjectTopics();
   var toolEl = document.getElementById("hpMtToolType");
+  var gorevTipiEl = document.getElementById("hpMtGorevTipi");
   var dateEl = document.getElementById("hpMtDate");
   var vid = document.getElementById("hpMtVideo");
   var res = document.getElementById("hpMtResource");
   var notes = document.getElementById("hpMtNotes");
+  var tq = document.getElementById("hpMtTargetQuestions");
+  var est = document.getElementById("hpMtEstimatedMinutes");
   var sub = document.getElementById("hpWeeklyTaskModalSubtitle");
   if (toolEl) toolEl.value = tool;
+  if (gorevTipiEl) gorevTipiEl.value = hpMapLegacyToolToGorevTipi(tool);
   if (dateEl) dateEl.value = dateIso;
   if (vid) vid.value = "";
   if (res) res.value = "";
   if (notes) notes.value = "";
-  var labels = { konu: "Konu çalışma", soru: "Soru çözme", deneme: "Deneme çözme" };
-  if (sub) sub.textContent = (labels[tool] || "Görev") + " · " + dateIso;
+  if (tq) tq.value = "";
+  if (est) est.value = "";
+  if (sub) sub.textContent = "Merkezi YKS müfredatı · " + dateIso;
   openModal("hpWeeklyTaskModal");
 }
 
 function hpOpenWeeklyTaskModalForEdit(taskId) {
-  var task = mockTasks.find(function (x) {
+  var task = (cachedCoachTasks || []).find(function (x) {
     return x.id === taskId;
   });
   if (!task || task.studentId !== hpSelectedStudentId) {
     showToast("Görev bulunamadı.");
     return;
   }
+  var meta = task.hpMeta || hpParseMetaFromDescription(task.description).meta;
   hpEditingTaskId = taskId;
-  hpPendingDrop = { tool: task.taskType || "konu", dateIso: String(task.dueDate || "").slice(0, 10) };
+  hpPendingDrop = {
+    tool: meta && meta.taskType ? meta.taskType : "konu",
+    dateIso: String(task.dueDate || "").slice(0, 10),
+  };
   hpPopulateSubjectTopics();
   var toolEl = document.getElementById("hpMtToolType");
+  var gorevTipiEl = document.getElementById("hpMtGorevTipi");
   var dateEl = document.getElementById("hpMtDate");
   var vid = document.getElementById("hpMtVideo");
   var res = document.getElementById("hpMtResource");
   var notes = document.getElementById("hpMtNotes");
+  var tq = document.getElementById("hpMtTargetQuestions");
+  var est = document.getElementById("hpMtEstimatedMinutes");
   var subEl = document.getElementById("hpMtSubject");
   var topEl = document.getElementById("hpMtTopic");
   var subti = document.getElementById("hpWeeklyTaskModalSubtitle");
   var tt = document.getElementById("hpWeeklyTaskModalTitle");
-  if (toolEl) toolEl.value = task.taskType || "konu";
+  if (toolEl) toolEl.value = (meta && meta.taskType) || "konu";
+  if (gorevTipiEl) gorevTipiEl.value = hpGorevTipiFromMeta(meta);
   if (dateEl) dateEl.value = String(task.dueDate || "").slice(0, 10);
-  if (vid) vid.value = task.videoUrl || "";
-  if (res) res.value = task.resource || "";
-  if (notes) notes.value = task.notes || "";
+  if (vid) vid.value = meta && meta.videoUrl ? meta.videoUrl : "";
+  if (res) res.value = meta && meta.resource ? meta.resource : "";
+  if (notes) notes.value = meta && meta.notes ? meta.notes : "";
+  if (tq) tq.value = meta && meta.targetQuestions != null ? String(meta.targetQuestions) : "";
+  if (est) est.value = meta && meta.estimatedMinutes != null ? String(meta.estimatedMinutes) : "";
   if (subEl) {
     subEl.value = task.subject || "";
     try {
@@ -15520,8 +15846,8 @@ function hpOpenWeeklyTaskModalForEdit(taskId) {
       if (typeof subEl.onchange === "function") subEl.onchange();
     }
   }
-  if (topEl && task.topic) {
-    topEl.value = task.topic;
+  if (topEl && meta && meta.topic) {
+    topEl.value = meta.topic;
   }
   if (subti) {
     subti.textContent = "Görevi düzenle · " + String(task.dueDate || "").slice(0, 10);
@@ -15541,6 +15867,11 @@ function hpSaveWeeklyTaskFromModal() {
     showToast("Öğrenci veya tarih eksik.");
     return;
   }
+  var cid = getCoachId();
+  if (!cid) {
+    showToast("Oturum bilgisi yok.");
+    return;
+  }
   var stu = cachedStudents.find(function (x) {
     return x.id === hpSelectedStudentId;
   });
@@ -15550,6 +15881,9 @@ function hpSaveWeeklyTaskFromModal() {
   var res = document.getElementById("hpMtResource");
   var vid = document.getElementById("hpMtVideo");
   var notes = document.getElementById("hpMtNotes");
+  var tq = document.getElementById("hpMtTargetQuestions");
+  var est = document.getElementById("hpMtEstimatedMinutes");
+  var gorevTipiEl = document.getElementById("hpMtGorevTipi");
   var toolEl = document.getElementById("hpMtToolType");
   if (!subj || !top || !dateEl) return;
   var s = String(subj.value || "").trim();
@@ -15563,67 +15897,167 @@ function hpSaveWeeklyTaskFromModal() {
     showToast("Tarih girin.");
     return;
   }
+  var legacyTool = (toolEl && toolEl.value) || (hpPendingDrop && hpPendingDrop.tool) || "konu";
+  if (toolEl && !toolEl.value && hpPendingDrop && hpPendingDrop.tool) toolEl.value = hpPendingDrop.tool;
+  var gorevTipi = gorevTipiEl && String(gorevTipiEl.value || "").trim();
+  if (!gorevTipi) gorevTipi = hpMapLegacyToolToGorevTipi(legacyTool);
+  var meta = hpBuildTaskMetaFromForm({
+    gorevTipi: gorevTipi,
+    topic: k,
+    targetQuestions: tq ? tq.value : "",
+    resource: res ? res.value : "",
+    videoUrl: vid ? vid.value : "",
+    notes: notes ? notes.value : "",
+    estimatedMinutes: est ? est.value : "",
+  });
+  var title = hpBuildCoachTaskTitle(s, meta);
+  var desc = hpSerializeWeeklyMeta(meta);
+  var sname = stu ? String(stu.name || stu.studentName || "").trim() : "";
 
   if (hpEditingTaskId) {
-    var existing = mockTasks.find(function (x) {
-      return x.id === hpEditingTaskId;
-    });
-    if (!existing) {
-      showToast("Görev bulunamadı.");
-      hpResetWeeklyTaskModalChrome();
-      closeModal("hpWeeklyTaskModal");
-      return;
-    }
-    existing.taskType = (toolEl && toolEl.value) || existing.taskType || "konu";
-    existing.subject = s;
-    existing.topic = k;
-    existing.resource = res ? String(res.value || "").trim() : "";
-    existing.videoUrl = vid ? String(vid.value || "").trim() : "";
-    existing.notes = notes ? String(notes.value || "").trim() : "";
-    existing.dueDate = d;
-    if (stu) {
-      existing.studentName = String(stu.name || stu.studentName || "").trim() || existing.studentName;
-    }
-    saveMockTasksToStorage();
-    hpPendingDrop = null;
-    hpResetWeeklyTaskModalChrome();
-    closeModal("hpWeeklyTaskModal");
-    showToast("Görev güncellendi.");
-    hpRenderWeekTaskCards();
-    rebuildGorevKanbanStateFromCache();
-    renderGorevKanbanCards();
-    void saveOgrenciVerisiBridge({ silent: true, studentIdOverride: hpSelectedStudentId }).catch(function (e) {
-      console.warn(e);
-    });
+    updateDoc(doc(db, "coach_tasks", hpEditingTaskId), {
+      title: title,
+      description: desc,
+      subject: s,
+      studentId: hpSelectedStudentId,
+      studentName: sname,
+      dueDate: d,
+      updatedAt: serverTimestamp(),
+    })
+      .then(function () {
+        hpPendingDrop = null;
+        hpResetWeeklyTaskModalChrome();
+        closeModal("hpWeeklyTaskModal");
+        showToast("Görev Appwrite üzerinde güncellendi.");
+        void saveOgrenciVerisiBridge({ silent: true, studentIdOverride: hpSelectedStudentId }).catch(function (e) {
+          console.warn(e);
+        });
+      })
+      .catch(function (e) {
+        console.error(e);
+        showToast("Güncellenemedi.");
+      });
     return;
   }
 
-  var task = {
-    id: "mt_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+  addDoc(collection(db, "coach_tasks"), {
+    coach_id: cid,
+    title: title,
+    description: desc,
     studentId: hpSelectedStudentId,
-    studentName: stu ? String(stu.name || stu.studentName || "").trim() : "",
-    taskType: (toolEl && toolEl.value) || (hpPendingDrop && hpPendingDrop.tool) || "konu",
-    subject: s,
-    topic: k,
-    resource: res ? String(res.value || "").trim() : "",
-    videoUrl: vid ? String(vid.value || "").trim() : "",
-    notes: notes ? String(notes.value || "").trim() : "",
+    studentName: sname,
     dueDate: d,
+    priority: "normal",
+    subject: s,
     column: "todo",
-    createdAt: Date.now(),
-  };
-  loadMockTasksFromStorage();
-  mockTasks.push(task);
-  saveMockTasksToStorage();
-  hpPendingDrop = null;
-  closeModal("hpWeeklyTaskModal");
-  showToast("Görev kaydedildi.");
-  hpRenderWeekTaskCards();
-  rebuildGorevKanbanStateFromCache();
-  renderGorevKanbanCards();
-  void saveOgrenciVerisiBridge({ silent: true, studentIdOverride: hpSelectedStudentId }).catch(function (e) {
-    console.warn(e);
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+    .then(function () {
+      hpPendingDrop = null;
+      closeModal("hpWeeklyTaskModal");
+      showToast("Görev Appwrite'a kaydedildi.");
+      void saveOgrenciVerisiBridge({ silent: true, studentIdOverride: hpSelectedStudentId }).catch(function (e) {
+        console.warn(e);
+      });
+    })
+    .catch(function (e) {
+      console.error(e);
+      showToast("Kayıt başarısız.");
+    });
+}
+
+function hpCarryIncompleteToCurrentWeek() {
+  if (!hpSelectedStudentId) {
+    showToast("Önce öğrenci seçin.");
+    return;
+  }
+  var cid = getCoachId();
+  if (!cid) {
+    showToast("Oturum bilgisi yok.");
+    return;
+  }
+  var sid = hpSelectedStudentId;
+  var curMon = hpMondayOfWeek(hpWeekAnchor || new Date());
+  var prevMon = new Date(curMon.getTime());
+  prevMon.setDate(prevMon.getDate() - 7);
+  var prevEnd = new Date(prevMon.getTime());
+  prevEnd.setDate(prevEnd.getDate() + 6);
+  var prevStartIso = hpLocalISODate(prevMon);
+  var prevEndIso = hpLocalISODate(prevEnd);
+  var prevMonMs = prevMon.getTime();
+
+  var toCopy = (cachedCoachTasks || []).filter(function (t) {
+    if (String(t.studentId || "") !== sid) return false;
+    var d = String(t.dueDate || "").slice(0, 10);
+    if (d < prevStartIso || d > prevEndIso) return false;
+    if ((t.column || "todo") === "done") return false;
+    return true;
   });
+  if (!toCopy.length) {
+    showToast("Aktarılacak yapılmamış görev yok.");
+    return;
+  }
+  var stu = cachedStudents.find(function (x) {
+    return x.id === sid;
+  });
+  var sname = stu ? String(stu.name || stu.studentName || "").trim() : "";
+
+  var chain = Promise.resolve();
+  toCopy.forEach(function (t) {
+    chain = chain.then(function () {
+      var meta = t.hpMeta || hpParseMetaFromDescription(t.description).meta;
+      if (!meta || meta.v !== 1) {
+        meta = hpBuildTaskMetaFromForm({
+          gorevTipi: "konu_calisma",
+          topic: "",
+          targetQuestions: "",
+          resource: "",
+          videoUrl: "",
+          estimatedMinutes: "",
+          notes:
+            String(t.description || "").trim().charAt(0) === "{"
+              ? ""
+              : String(t.description || "").trim(),
+        });
+      } else {
+        meta = Object.assign({}, meta);
+      }
+      var dStr = String(t.dueDate || "").slice(0, 10);
+      var due = new Date(dStr + "T12:00:00");
+      var dayIdx = Math.round((due.getTime() - prevMonMs) / 86400000);
+      if (dayIdx < 0 || dayIdx > 6) dayIdx = 0;
+      var newDt = new Date(curMon.getTime());
+      newDt.setDate(newDt.getDate() + dayIdx);
+      var newIso = hpLocalISODate(newDt);
+      var title = hpBuildCoachTaskTitle(t.subject, meta);
+      var desc = hpSerializeWeeklyMeta(meta);
+      return addDoc(collection(db, "coach_tasks"), {
+        coach_id: cid,
+        title: title,
+        description: desc,
+        studentId: sid,
+        studentName: sname,
+        dueDate: newIso,
+        priority: t.priority || "normal",
+        subject: String(t.subject || "").trim(),
+        column: "todo",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    });
+  });
+  chain
+    .then(function () {
+      showToast(toCopy.length + " görev bu haftaya kopyalandı (Appwrite).");
+      void saveOgrenciVerisiBridge({ silent: true, studentIdOverride: sid }).catch(function (e) {
+        console.warn(e);
+      });
+    })
+    .catch(function (e) {
+      console.error(e);
+      showToast("Aktarım tamamlanamadı.");
+    });
 }
 
 function refreshHpWeekIfVisible() {
@@ -15679,7 +16113,7 @@ function refreshHpView() {
   hpRenderWeekTaskCards();
 }
 
-/** Haftalık program — öğrenci zorunlu, HTML5 DnD, modal, mockTasks senkron */
+/** Haftalık program — öğrenci zorunlu, HTML5 DnD, Appwrite coach_tasks */
 function initHaftalikProgramDnD() {
   var root = document.getElementById("view-haftalik-program");
   if (!root) return;
@@ -15757,15 +16191,15 @@ function initHaftalikProgramDnD() {
       e.preventDefault();
       var id = del.getAttribute("data-hp-task-del");
       if (!id || !confirm("Bu görevi haftalık plandan kaldırmak istiyor musunuz?")) return;
-      for (var hi = mockTasks.length - 1; hi >= 0; hi--) {
-        if (mockTasks[hi].id === id) mockTasks.splice(hi, 1);
-      }
-      saveMockTasksToStorage();
-      hpRenderWeekTaskCards();
-      rebuildGorevKanbanStateFromCache();
-      renderGorevKanbanCards();
-      showToast("Görev kaldırıldı.");
+      removeGorevKanbanTask(id);
     });
+
+    var btnCarry = document.getElementById("hpBtnCarryIncomplete");
+    if (btnCarry) {
+      btnCarry.addEventListener("click", function () {
+        hpCarryIncompleteToCurrentWeek();
+      });
+    }
 
     var sel = document.getElementById("hpStudentSelect");
     if (sel) {
@@ -15797,14 +16231,256 @@ function initHaftalikProgramDnD() {
   refreshHpView();
 }
 
-function initYksFeaturePages() {
+var kglListLoading = false;
+
+function kglSavedAtMs(data) {
+  var raw = data && data.saved_at;
+  if (raw == null) return 0;
+  if (typeof raw === "string") {
+    var t = Date.parse(raw);
+    return isNaN(t) ? 0 : t;
+  }
+  if (typeof raw.toDate === "function") {
+    try {
+      return raw.toDate().getTime();
+    } catch (_e) {}
+  }
+  return 0;
+}
+
+function kglParseBodyForCard(html) {
+  var topic = "";
+  var summary = "";
+  if (!html) return { topic: "—", summary: "" };
+  try {
+    var wrap = document.createElement("div");
+    wrap.innerHTML = html;
+    var tl = wrap.querySelector(".kgl-topic-line");
+    var bd = wrap.querySelector(".kgl-body");
+    if (tl) topic = (tl.textContent || "").replace(/^Konu:\s*/i, "").trim();
+    if (bd) summary = (bd.textContent || "").trim();
+    else summary = (wrap.textContent || "").trim();
+  } catch (_e) {
+    summary = String(html)
+      .replace(/<[^>]+>/g, "")
+      .trim();
+  }
+  if (!topic) topic = "—";
+  return { topic: topic, summary: summary.slice(0, 220) };
+}
+
+function kglFormatDateTr(isoOrDate) {
+  if (!isoOrDate) return "—";
+  var d;
+  if (isoOrDate instanceof Date) d = isoOrDate;
+  else {
+    var t = Date.parse(String(isoOrDate));
+    d = isNaN(t) ? null : new Date(t);
+  }
+  if (!d || isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
+}
+
+function kglBuildBodyHtml(topic, detailPlain) {
+  return (
+    '<p class="kgl-topic-line"><strong>Konu:</strong> ' +
+    escapeHtml(topic) +
+    "</p>" +
+    '<div class="kgl-body">' +
+    escapeHtml(detailPlain).replace(/\n/g, "<br>") +
+    "</div>"
+  );
+}
+
+function kglCollectMeetingRows(snap) {
+  var rows = [];
+  snap.forEach(function (d) {
+    var data = typeof d.data === "function" ? d.data() : {};
+    rows.push({ id: d.id, data: data });
+  });
+  return rows;
+}
+
+function kglDedupeMeetingRows(rows) {
+  var seen = Object.create(null);
+  var out = [];
+  rows.forEach(function (r) {
+    if (seen[r.id]) return;
+    seen[r.id] = true;
+    out.push(r);
+  });
+  return out;
+}
+
+/** coach_id sorgusu indeks yoksa boş dönebilir; o zaman öğrenci başına student_id ile yedeklenir. */
+function kglFetchMeetingLogsByStudents(cid) {
+  if (!cachedStudents || !cachedStudents.length) return Promise.resolve([]);
+  return Promise.all(
+    cachedStudents.map(function (s) {
+      return getDocs(
+        query(collection(db, APPWRITE_COLLECTION_MEETING_LOGS), where("student_id", "==", s.id))
+      );
+    })
+  ).then(function (snaps) {
+    var merged = [];
+    snaps.forEach(function (snap) {
+      snap.forEach(function (d) {
+        var data = typeof d.data === "function" ? d.data() : {};
+        if (String(data.coach_id || "") !== String(cid)) return;
+        merged.push({ id: d.id, data: data });
+      });
+    });
+    return merged;
+  });
+}
+
+function kglRenderMeetingCards(root, rows) {
+  rows.sort(function (a, b) {
+    return kglSavedAtMs(b.data) - kglSavedAtMs(a.data);
+  });
+  if (!rows.length) {
+    root.innerHTML =
+      '<div class="kgl-empty">Henüz kayıtlı görüşme notu yok. <strong>+ Not ekle</strong> ile ilk kaydı oluşturun.</div>';
+    return;
+  }
+  root.innerHTML = rows
+    .map(function (row) {
+      var data = row.data;
+      var parsed = kglParseBodyForCard(String(data.body_html || data.bodyHtml || ""));
+      var name = String(data.student_name || "").trim() || "Öğrenci";
+      var dateLabel = kglFormatDateTr(data.saved_at);
+      return (
+        '<article class="kgl-card" role="article">' +
+        '<div class="kgl-card__top">' +
+        '<strong class="kgl-card__name">' +
+        escapeHtml(name) +
+        "</strong>" +
+        '<span class="kgl-card__date">' +
+        escapeHtml(dateLabel) +
+        "</span>" +
+        "</div>" +
+        '<p class="kgl-card__topic">Konu: ' +
+        escapeHtml(parsed.topic) +
+        "</p>" +
+        '<p class="kgl-card__summary">' +
+        escapeHtml(parsed.summary || "—") +
+        "</p>" +
+        "</article>"
+      );
+    })
+    .join("");
+}
+
+function refreshKoclukGorusmeList() {
+  var root = document.getElementById("yksKoclukTimeline");
+  if (!root) return;
+  var cid = getCoachId();
+  if (!cid) {
+    root.innerHTML = '<p class="kgl-empty">Kullanıcı oturumu yükleniyor…</p>';
+    return;
+  }
+  if (kglListLoading) return;
+  kglListLoading = true;
+  root.innerHTML =
+    '<p class="kgl-empty"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Yükleniyor…</p>';
+  getDocs(query(collection(db, APPWRITE_COLLECTION_MEETING_LOGS), where("coach_id", "==", cid)))
+    .then(function (snap) {
+      var rows = kglCollectMeetingRows(snap);
+      if (rows.length) return rows;
+      return kglFetchMeetingLogsByStudents(cid);
+    })
+    .then(function (rows) {
+      rows = kglDedupeMeetingRows(rows || []);
+      kglRenderMeetingCards(root, rows);
+    })
+    .catch(function (err) {
+      console.error(err);
+      root.innerHTML =
+        '<p class="kgl-empty kgl-empty--err">Görüşme notları yüklenemedi. Lütfen bağlantınızı kontrol edin.</p>';
+    })
+    .finally(function () {
+      kglListLoading = false;
+    });
+}
+
+function kglOpenModal() {
+  fillStudentSelects();
+  var form = document.getElementById("formKoclukGorusme");
+  if (form) form.reset();
+  var di = document.getElementById("kglModalDate");
+  if (di) di.value = new Date().toISOString().slice(0, 10);
+  openModal("koclukGorusmeModal");
+}
+
+function kglSubmitModal(ev) {
+  ev.preventDefault();
+  var cid = getCoachId();
+  var sel = document.getElementById("kglModalStudent");
+  var dateIn = document.getElementById("kglModalDate");
+  var topicIn = document.getElementById("kglModalTopic");
+  var detailIn = document.getElementById("kglModalDetail");
+  if (!cid || !sel || !dateIn || !topicIn || !detailIn) return;
+  var sid = String(sel.value || "").trim();
+  if (!sid) {
+    showToast("Lütfen bir öğrenci seçin.");
+    return;
+  }
+  var topic = String(topicIn.value || "").trim();
+  if (!topic) {
+    showToast("Görüşme konusu zorunludur.");
+    return;
+  }
+  var detail = String(detailIn.value || "").trim();
+  if (!detail) {
+    showToast("Not detayı zorunludur.");
+    return;
+  }
+  var st = cachedStudents.find(function (x) {
+    return x.id === sid;
+  });
+  var sname =
+    st && (st.name || st.studentName)
+      ? String(st.name || st.studentName)
+      : "Öğrenci";
+  var dateStr = dateIn.value || new Date().toISOString().slice(0, 10);
+  var meetingDate = new Date(dateStr + "T12:00:00");
+  if (isNaN(meetingDate.getTime())) meetingDate = new Date();
+  var body_html = kglBuildBodyHtml(topic, detail);
+  addDoc(collection(db, APPWRITE_COLLECTION_MEETING_LOGS), {
+    coach_id: cid,
+    student_id: sid,
+    student_name: sname.slice(0, 500),
+    body_html: body_html,
+    saved_at: meetingDate,
+  })
+    .then(function () {
+      showToast("Görüşme notu kaydedildi.");
+      closeModal("koclukGorusmeModal");
+      refreshKoclukGorusmeList();
+    })
+    .catch(function (err) {
+      console.error(err);
+      showToast(err && err.message ? err.message : "Kayıt başarısız.");
+    });
+}
+
+function initKoclukGorusmelerOnce() {
   var btn = document.getElementById("btnKoclukNotEkle");
-  if (btn && !btn.dataset.bound) {
-    btn.dataset.bound = "1";
+  if (btn && !btn.dataset.boundKgl) {
+    btn.dataset.boundKgl = "1";
     btn.addEventListener("click", function () {
-      showToast("Görüşme notu (taslak): form sonraki sürümde Appwrite ile bağlanacak.");
+      kglOpenModal();
     });
   }
+  var form = document.getElementById("formKoclukGorusme");
+  if (form && !form.dataset.boundKgl) {
+    form.dataset.boundKgl = "1";
+    form.addEventListener("submit", kglSubmitModal);
+  }
+}
+
+function initYksFeaturePages() {
+  initKoclukGorusmelerOnce();
   initKaynakKitapModuleOnce();
 }
 
@@ -16484,7 +17160,7 @@ function initAllButtons() {
 
   document.getElementById("btnSeeAllExams") &&
     document.getElementById("btnSeeAllExams").addEventListener("click", function () {
-      navigateTo("denemeler");
+      navigateTo("deneme-analiz-denemeler");
     });
   document.getElementById("btnExamsFilter") &&
     document.getElementById("btnExamsFilter").addEventListener("click", cycleExamsPageFilter);
@@ -16703,8 +17379,18 @@ function initAllButtons() {
 
 window.YKSPanel = {
   getMockTasks: function () {
-    return mockTasks;
+    return (cachedCoachTasks || []).slice();
   },
+  getCachedStudents: function () {
+    return (cachedStudents || []).slice();
+  },
+  getCachedExams: function () {
+    return (cachedExams || []).slice();
+  },
+  getCachedCoachTasks: function () {
+    return (cachedCoachTasks || []).slice();
+  },
+  getCoachId: getCoachId,
   navigate: navigateTo,
   openStudentDetail: openStudentDetail,
   displayTestmakerView: displayTestmakerView,
@@ -16738,6 +17424,9 @@ function showLoadTimeoutWarning() {
 function bootstrapKocPanelAfterAuth() {
   if (kocPanelBootstrapped) return;
   kocPanelBootstrapped = true;
+  try {
+    localStorage.removeItem("yks_mock_tasks_v1");
+  } catch (e) {}
   applySpaInitialShellState();
   initSidebar();
   initNavigation();
@@ -16749,6 +17438,11 @@ function bootstrapKocPanelAfterAuth() {
   initDashboardYksCountdownWidget();
   updateCoachProfile();
   subscribeFirestore();
+  try {
+    initGorusmeOdasiCockpit();
+  } catch (e) {
+    console.error("[gorusme-odasi]", e);
+  }
   // Snapshot gecikirse dashboard metriklerini ilk yüklemede boş bırakma.
   Promise.resolve()
     .then(function () {

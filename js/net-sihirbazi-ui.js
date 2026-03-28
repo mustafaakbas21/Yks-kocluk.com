@@ -18,9 +18,20 @@ import {
   netSihirbaziSkeletonHtml,
   netSihirbaziV2ResultHtml,
 } from "./net-sihirbazi-engine.js";
-import { createCurrentNetForRowResolver, hasAnyBranchNetData } from "./net-sihirbazi-current-nets.js";
+import { createCurrentNetForRowResolver } from "./net-sihirbazi-current-nets.js";
 
 export { YKS2026_Mufredat };
+
+/** AYT branş eşlemesi için program türü (puanGroup) öncelikli */
+function alanKeyForNetResolver(pdoc, prog) {
+  var pg = prog && prog.puanGroup;
+  if (pg === "ea") return "esit_agirlik";
+  if (pg === "sozel") return "sozel";
+  if (pg === "dil") return "dil";
+  if (pg === "tyt_only") return "sayisal";
+  if (pg === "sayisal") return "sayisal";
+  return String(pdoc && pdoc.alanKey != null ? pdoc.alanKey : "sayisal");
+}
 
 /**
  * @param {{ uniSelectId: string, deptSelectId: string, tableWrapId: string, uniTitleId?: string, deptTitleId?: string, subtitleId?: string, uniFilterId?: string, deptFilterId?: string, resolveExams?: () => unknown }} options
@@ -276,14 +287,58 @@ export function initNetSihirbazi(options) {
   });
 }
 
-function demoYerlestirmeDetayli(tytSum, aytSum, obp) {
-  var t = Math.max(0, Math.min(120, tytSum));
-  var a = Math.max(0, Math.min(120, aytSum));
-  var o = Math.max(0, Math.min(60, obp));
-  return Math.round((100 + t * 1.85 + a * 2.45 + o * 0.72) * 10) / 10;
+/** TYT ham: taban 100 + Özet katsayılar (Türkçe/Mat 3.3, Sosyal/Fen 3.4) */
+function yksHamTyt(ntTr, ntMat, ntSos, ntFen) {
+  return 100 + 3.3 * ntTr + 3.3 * ntMat + 3.4 * ntSos + 3.4 * ntFen;
 }
 
-/** YKS D/Y/B satırları — her biri için soru üst sınırı (ÖSYM soru sayıları) */
+/** AYT ham (alan bazlı, taban 100 + ders katsayıları × net) */
+function yksHamAytSay(nMat, nFiz, nKim, nBio) {
+  return 100 + 3.3 * nMat + 3.0 * nFiz + 3.0 * nKim + 3.0 * nBio;
+}
+function yksHamAytEa(nMat, nEdeb, nTar1, nCog1) {
+  return 100 + 3.3 * nMat + 3.0 * nEdeb + 2.8 * nTar1 + 2.6 * nCog1;
+}
+function yksHamAytSoz(nEdeb, nTar1, nCog1, nTar2, nCog2, nFel, nDkab) {
+  return (
+    100 +
+    3.0 * nEdeb +
+    2.8 * nTar1 +
+    2.6 * nCog1 +
+    2.8 * nTar2 +
+    2.6 * nCog2 +
+    2.7 * nFel +
+    2.5 * nDkab
+  );
+}
+function yksHamAytDil(nYd, nEdeb) {
+  return 100 + 2.9 * nYd + 3.0 * nEdeb;
+}
+
+/** Birleşik ham: %40 TYT + %60 AYT */
+function yksBirlesikHam(tytHam, aytHam) {
+  return 0.4 * tytHam + 0.6 * aytHam;
+}
+
+/**
+ * OBP yerleştirme katkısı.
+ * Diploma 50–100: ×0.6 (kırık: ×0.3).
+ * Ham 30–60: doğrudan (kırık: ÷2).
+ */
+function yksObpPlacementContribution(mode, rawValue, kirik) {
+  var v = Number(rawValue);
+  if (isNaN(v)) return 0;
+  var k = !!kirik;
+  if (mode === "diploma") {
+    if (v < 50 || v > 100) return 0;
+    var c = v * 0.6;
+    return k ? c * 0.5 : c;
+  }
+  if (v < 30 || v > 60) return 0;
+  return k ? v * 0.5 : v;
+}
+
+/** YKS D/Y satırları — her biri için soru üst sınırı (ÖSYM soru sayıları) */
 var YKS_PUAN_SUBJECT_MAX = {
   yksTytTr: 40,
   yksTytSos: 20,
@@ -316,15 +371,15 @@ function parseDyInt(el) {
   return isNaN(n) || n < 0 ? 0 : n;
 }
 
-function dybAllBlank(dEl, yEl, bEl) {
+function dyPairBlank(dEl, yEl) {
   function emp(el) {
     return !el || String(el.value || "").trim() === "";
   }
-  return emp(dEl) && emp(yEl) && emp(bEl);
+  return emp(dEl) && emp(yEl);
 }
 
 /**
- * @param {object} [cfg] — idPrefix: "osp" veya ""; ayrıca alan/tyt/ayt element id'leri
+ * @param {object} [cfg] — idPrefix: "osp" veya ""; formId, btnId, resetBtnId opsiyonel
  */
 export function initYksPuanHesaplama(cfg) {
   cfg = cfg || {};
@@ -339,9 +394,15 @@ export function initYksPuanHesaplama(cfg) {
   form.dataset.yksBound = "1";
 
   var alanSel = document.getElementById(id("yksAlanSelect"));
-  var outEl = document.getElementById(cfg.outId || id("yksPuanSonuc"));
   var hintEl = document.getElementById(cfg.hintId || id("yksPuanHint"));
-  var obpEl = document.getElementById(id("yksInpObp"));
+  var outWrap = document.getElementById(cfg.outWrapId || id("yksPuanOutWrap"));
+  var hamTbody = document.getElementById(cfg.hamTbodyId || id("yksPuanHamTbody"));
+  var yerTbody = document.getElementById(cfg.yerTbodyId || id("yksPuanYerTbody"));
+  var obpModeDiploma = document.getElementById(id("yksObpModeDiploma"));
+  var obpModeObp60 = document.getElementById(id("yksObpModeObp60"));
+  var obpValueEl = document.getElementById(id("yksObpValue"));
+  var obpValueLabel = document.getElementById(id("yksObpValueLabel"));
+  var obpKirik = document.getElementById(id("yksObpKirik"));
 
   var panels = {
     say: document.getElementById(id("yksPanelAytSay")),
@@ -360,11 +421,10 @@ export function initYksPuanHesaplama(cfg) {
     if (panels.dil) panels.dil.hidden = a !== "dil";
   }
 
-  function getTriplet(key) {
+  function getPair(key) {
     return {
       d: document.getElementById(id(key + "D")),
       y: document.getElementById(id(key + "Y")),
-      b: document.getElementById(id(key + "B")),
       net: document.getElementById(id(key + "Net")),
       wrap: document.getElementById(id(key + "Dyb")),
     };
@@ -376,25 +436,23 @@ export function initYksPuanHesaplama(cfg) {
     if (el.value !== raw) el.value = raw;
   }
 
-  function clampTriplet(key, changedEl) {
+  function clampDyPair(key, changedEl) {
     var max = YKS_PUAN_SUBJECT_MAX[key];
     if (max == null) return;
-    var t = getTriplet(key);
-    if (!t.d || !t.y || !t.b) return;
+    var t = getPair(key);
+    if (!t.d || !t.y) return;
     sanitizeDigits(t.d);
     sanitizeDigits(t.y);
-    sanitizeDigits(t.b);
     var d = parseDyInt(t.d);
     var y = parseDyInt(t.y);
-    var b = parseDyInt(t.b);
-    var sum = d + y + b;
+    var sum = d + y;
     if (sum <= max) {
       if (t.wrap) t.wrap.classList.remove("yks-dyb-inputs--invalid");
       return;
     }
     if (changedEl) {
       if (t.wrap) t.wrap.classList.add("yks-dyb-inputs--invalid");
-      var cur = changedEl === t.d ? d : changedEl === t.y ? y : b;
+      var cur = changedEl === t.d ? d : y;
       var other = sum - cur;
       var allowed = Math.max(0, max - other);
       changedEl.value = allowed === 0 ? "" : String(allowed);
@@ -406,12 +464,8 @@ export function initYksPuanHesaplama(cfg) {
     if (t.wrap) t.wrap.classList.add("yks-dyb-inputs--invalid");
     d = parseDyInt(t.d);
     y = parseDyInt(t.y);
-    b = parseDyInt(t.b);
-    while (d + y + b > max) {
-      if (b > 0) {
-        b--;
-        t.b.value = b ? String(b) : "";
-      } else if (y > 0) {
+    while (d + y > max) {
+      if (y > 0) {
         y--;
         t.y.value = y ? String(y) : "";
       } else if (d > 0) {
@@ -424,10 +478,10 @@ export function initYksPuanHesaplama(cfg) {
     }, 320);
   }
 
-  function netFromTriplet(key) {
-    var t = getTriplet(key);
+  function netFromPair(key) {
+    var t = getPair(key);
     if (!t.d || !t.y || !t.net) return 0;
-    if (dybAllBlank(t.d, t.y, t.b)) {
+    if (dyPairBlank(t.d, t.y)) {
       t.net.textContent = "—";
       return 0;
     }
@@ -438,159 +492,237 @@ export function initYksPuanHesaplama(cfg) {
     return net;
   }
 
-  function onDybInput(key, e) {
-    clampTriplet(key, e && e.target);
-    netFromTriplet(key);
+  function onDyInput(key, e) {
+    clampDyPair(key, e && e.target);
+    netFromPair(key);
     calc();
   }
 
-  function readObp() {
-    if (!obpEl) return 0;
-    var s = String(obpEl.value || "").trim().replace(",", ".");
+  function obpMode() {
+    if (obpModeObp60 && obpModeObp60.checked) return "obp60";
+    return "diploma";
+  }
+
+  function syncObpUi() {
+    var m = obpMode();
+    if (obpValueLabel) {
+      obpValueLabel.textContent = m === "diploma" ? "Diploma notu (50–100)" : "OBP puanı (30–60)";
+    }
+    if (obpValueEl) {
+      obpValueEl.min = m === "diploma" ? "0" : "0";
+      obpValueEl.max = m === "diploma" ? "100" : "60";
+      obpValueEl.placeholder = m === "diploma" ? "Örn. 85" : "Örn. 45";
+    }
+  }
+
+  function readObpContribution() {
+    if (!obpValueEl) return 0;
+    var s = String(obpValueEl.value || "").trim().replace(",", ".");
     if (s === "") return 0;
     var n = parseFloat(s);
-    if (isNaN(n)) return 0;
-    return Math.max(0, Math.min(60, n));
+    return yksObpPlacementContribution(obpMode(), n, obpKirik && obpKirik.checked);
   }
 
-  function onObpInput() {
-    if (!obpEl) return;
-    var s = String(obpEl.value || "").trim().replace(",", ".");
-    if (s === "") return;
-    var n = parseFloat(s);
-    if (isNaN(n)) return;
-    if (n > 60) obpEl.value = "60";
-    else if (n < 0) obpEl.value = "0";
-    calc();
+  function tytNets() {
+    return {
+      tr: netFromPair("yksTytTr"),
+      sos: netFromPair("yksTytSos"),
+      mat: netFromPair("yksTytMat"),
+      fen: netFromPair("yksTytFen"),
+    };
   }
 
   function tytNetSum() {
-    return (
-      netFromTriplet("yksTytTr") +
-      netFromTriplet("yksTytSos") +
-      netFromTriplet("yksTytMat") +
-      netFromTriplet("yksTytFen")
-    );
+    var n = tytNets();
+    return n.tr + n.sos + n.mat + n.fen;
   }
 
-  function sumSay() {
-    return (
-      netFromTriplet("yksAytSayMat") +
-      netFromTriplet("yksAytSayFiz") +
-      netFromTriplet("yksAytSayKim") +
-      netFromTriplet("yksAytSayBio")
-    );
-  }
-  function sumEa() {
-    return (
-      netFromTriplet("yksAytEaMat") +
-      netFromTriplet("yksAytEaEdeb") +
-      netFromTriplet("yksAytEaTar1") +
-      netFromTriplet("yksAytEaCog1")
-    );
-  }
-  function sumSoz() {
-    return (
-      netFromTriplet("yksAytSozEdeb") +
-      netFromTriplet("yksAytSozTar1") +
-      netFromTriplet("yksAytSozCog1") +
-      netFromTriplet("yksAytSozTar2") +
-      netFromTriplet("yksAytSozCog2") +
-      netFromTriplet("yksAytSozFel") +
-      netFromTriplet("yksAytSozDkab")
-    );
-  }
-  function sumDil() {
-    return netFromTriplet("yksAytDilYd") + netFromTriplet("yksAytDilEdeb");
+  function aytHamForAlan() {
+    var a = alanSel ? String(alanSel.value || "say") : "say";
+    if (a === "say") {
+      return yksHamAytSay(
+        netFromPair("yksAytSayMat"),
+        netFromPair("yksAytSayFiz"),
+        netFromPair("yksAytSayKim"),
+        netFromPair("yksAytSayBio")
+      );
+    }
+    if (a === "ea") {
+      return yksHamAytEa(
+        netFromPair("yksAytEaMat"),
+        netFromPair("yksAytEaEdeb"),
+        netFromPair("yksAytEaTar1"),
+        netFromPair("yksAytEaCog1")
+      );
+    }
+    if (a === "soz") {
+      return yksHamAytSoz(
+        netFromPair("yksAytSozEdeb"),
+        netFromPair("yksAytSozTar1"),
+        netFromPair("yksAytSozCog1"),
+        netFromPair("yksAytSozTar2"),
+        netFromPair("yksAytSozCog2"),
+        netFromPair("yksAytSozFel"),
+        netFromPair("yksAytSozDkab")
+      );
+    }
+    if (a === "dil") {
+      return yksHamAytDil(netFromPair("yksAytDilYd"), netFromPair("yksAytDilEdeb"));
+    }
+    return 0;
   }
 
   function aytNetSum() {
     var a = alanSel ? String(alanSel.value || "say") : "say";
-    if (a === "say") return sumSay();
-    if (a === "ea") return sumEa();
-    if (a === "soz") return sumSoz();
-    if (a === "dil") return sumDil();
+    if (a === "say") {
+      return (
+        netFromPair("yksAytSayMat") +
+        netFromPair("yksAytSayFiz") +
+        netFromPair("yksAytSayKim") +
+        netFromPair("yksAytSayBio")
+      );
+    }
+    if (a === "ea") {
+      return (
+        netFromPair("yksAytEaMat") +
+        netFromPair("yksAytEaEdeb") +
+        netFromPair("yksAytEaTar1") +
+        netFromPair("yksAytEaCog1")
+      );
+    }
+    if (a === "soz") {
+      return (
+        netFromPair("yksAytSozEdeb") +
+        netFromPair("yksAytSozTar1") +
+        netFromPair("yksAytSozCog1") +
+        netFromPair("yksAytSozTar2") +
+        netFromPair("yksAytSozCog2") +
+        netFromPair("yksAytSozFel") +
+        netFromPair("yksAytSozDkab")
+      );
+    }
+    if (a === "dil") return netFromPair("yksAytDilYd") + netFromPair("yksAytDilEdeb");
     return 0;
   }
 
   function anyUserInput() {
     for (var i = 0; i < subjectKeys.length; i++) {
-      var t = getTriplet(subjectKeys[i]);
+      var t = getPair(subjectKeys[i]);
       if (t.d && String(t.d.value || "").trim() !== "") return true;
       if (t.y && String(t.y.value || "").trim() !== "") return true;
-      if (t.b && String(t.b.value || "").trim() !== "") return true;
     }
-    if (obpEl && String(obpEl.value || "").trim() !== "") return true;
+    if (obpValueEl && String(obpValueEl.value || "").trim() !== "") return true;
     return false;
+  }
+
+  function fmt(n) {
+    return (Math.round(n * 100) / 100).toFixed(2);
+  }
+
+  function row(tb, label, val) {
+    if (!tb) return;
+    var tr = document.createElement("tr");
+    var td1 = document.createElement("td");
+    td1.textContent = label;
+    var td2 = document.createElement("td");
+    td2.textContent = val;
+    td2.className = "yks-puan-out-table__val";
+    tr.appendChild(td1);
+    tr.appendChild(td2);
+    tb.appendChild(tr);
   }
 
   function calc() {
     toggleAytPanels();
     subjectKeys.forEach(function (k) {
-      netFromTriplet(k);
+      netFromPair(k);
     });
+    syncObpUi();
     if (!anyUserInput()) {
-      if (outEl) outEl.textContent = "—";
+      if (outWrap) outWrap.hidden = true;
+      if (hamTbody) hamTbody.innerHTML = "";
+      if (yerTbody) yerTbody.innerHTML = "";
       if (hintEl) hintEl.textContent = "";
       return;
     }
-    var tyt = tytNetSum();
-    var ayt = aytNetSum();
-    var obp = readObp();
-    var g = demoYerlestirmeDetayli(tyt, ayt, obp);
-    if (outEl) outEl.textContent = String(g);
-    var alanLabel = { say: "Sayısal", ea: "Eşit ağırlık", soz: "Sözel", dil: "Dil" };
-    var ak = alanSel ? alanLabel[String(alanSel.value)] || "" : "";
-    if (hintEl)
+    var tn = tytNets();
+    var tytHam = yksHamTyt(tn.tr, tn.mat, tn.sos, tn.fen);
+    var aytHam = aytHamForAlan();
+    var birlesik = yksBirlesikHam(tytHam, aytHam);
+    var obpC = readObpContribution();
+    var yerToplam = birlesik + obpC;
+
+    if (hamTbody) {
+      hamTbody.innerHTML = "";
+      row(hamTbody, "TYT ham puanı (taban 100 + katsayılar)", fmt(tytHam));
+      row(hamTbody, "AYT ham puanı (seçilen alan)", fmt(aytHam));
+      row(hamTbody, "Birleşik ham (%40 TYT + %60 AYT)", fmt(birlesik));
+      row(hamTbody, "TYT toplam net", fmt(tytNetSum()));
+      row(hamTbody, "AYT toplam net", fmt(aytNetSum()));
+    }
+    if (yerTbody) {
+      yerTbody.innerHTML = "";
+      row(yerTbody, "Birleşik ham", fmt(birlesik));
+      row(yerTbody, "OBP yerleştirme katkısı", fmt(obpC));
+      row(yerTbody, "Yerleştirme göstergesi (birleşik + OBP)", fmt(yerToplam));
+    }
+    if (outWrap) outWrap.hidden = false;
+    if (hintEl) {
       hintEl.textContent =
-        "TYT toplam net: " +
-        tyt.toFixed(2) +
-        " · AYT toplam net (" +
-        ak +
-        "): " +
-        ayt.toFixed(2) +
-        " · OBP: " +
-        obp.toFixed(1) +
-        " — gösterge (demo, ÖSYM değil).";
+        "Net formülü: Doğru − Yanlış ÷ 4. Sonuçlar bilgilendirme amaçlıdır; resmî ÖSYM puanı değildir.";
+    }
   }
 
   function resetForm() {
     subjectKeys.forEach(function (k) {
-      var t = getTriplet(k);
+      var t = getPair(k);
       if (t.d) t.d.value = "";
       if (t.y) t.y.value = "";
-      if (t.b) t.b.value = "";
       if (t.net) t.net.textContent = "—";
       if (t.wrap) t.wrap.classList.remove("yks-dyb-inputs--invalid");
     });
-    if (obpEl) obpEl.value = "";
-    if (outEl) outEl.textContent = "—";
+    if (obpValueEl) obpValueEl.value = "";
+    if (obpKirik) obpKirik.checked = false;
+    if (obpModeDiploma) obpModeDiploma.checked = true;
+    if (hamTbody) hamTbody.innerHTML = "";
+    if (yerTbody) yerTbody.innerHTML = "";
+    if (outWrap) outWrap.hidden = true;
     if (hintEl) hintEl.textContent = "";
+    syncObpUi();
     toggleAytPanels();
   }
 
   subjectKeys.forEach(function (k) {
-    var t = getTriplet(k);
-    ["d", "y", "b"].forEach(function (which) {
+    var t = getPair(k);
+    ["d", "y"].forEach(function (which) {
       var el = t[which];
       if (!el) return;
       el.addEventListener("input", function (e) {
-        onDybInput(k, e);
+        onDyInput(k, e);
       });
       el.addEventListener("blur", function () {
-        clampTriplet(k, null);
-        netFromTriplet(k);
+        clampDyPair(k, null);
+        netFromPair(k);
         calc();
       });
     });
   });
 
-  if (obpEl) {
-    obpEl.addEventListener("input", function () {
-      onObpInput();
+  if (obpModeDiploma)
+    obpModeDiploma.addEventListener("change", function () {
+      syncObpUi();
       calc();
     });
+  if (obpModeObp60)
+    obpModeObp60.addEventListener("change", function () {
+      syncObpUi();
+      calc();
+    });
+  if (obpValueEl) {
+    obpValueEl.addEventListener("input", calc);
+    obpValueEl.addEventListener("blur", calc);
   }
+  if (obpKirik) obpKirik.addEventListener("change", calc);
   if (alanSel) alanSel.addEventListener("change", calc);
   var btn = document.getElementById(cfg.btnId || id("yksPuanHesaplaBtn"));
   if (btn)
@@ -604,5 +736,6 @@ export function initYksPuanHesaplama(cfg) {
       e.preventDefault();
       resetForm();
     });
+  syncObpUi();
   calc();
 }

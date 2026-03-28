@@ -1,15 +1,12 @@
 /**
- * TYT-AYT Net Sihirbazı — hedef motoru: soru üst sınırı, rowsJson (yks-data.json), clamp / filtre.
- * Program çözümü: `buildProgramFromAppwriteV2` (statik program dökümanı ile uyumlu).
+ * TYT-AYT Net Sihirbazı — YÖK Atlas (Lisans / Önlisans) hedef modeli.
+ * Hedef satırları: program belgesindeki tyt_* / ayt_* alanları veya yokAtlas alt nesnesi.
+ * Kalan net = Hedef net − Güncel net (negatif → kırmızı, sıfır/pozitif → yeşil).
  */
 
-import { YKS_AYT_BY_ALAN, YKS_TYT_BRANCHES } from "./yks-exam-structure.js";
-import {
-  filterSimulatorRowsForStudentAlan,
-  normalizeStudentYksAlanKey,
-} from "./hedef-atlas-helpers.js";
+import { YKS_AYT_BY_ALAN } from "./yks-exam-structure.js";
 
-/** Soru sayısı üst sınırları — hesaplanan/hedef net asla bunları aşamaz (TYT Fen max 20 vb.). */
+/** Soru üst sınırı — hedef net clamp */
 export const MAX_QUESTIONS = {
   TYT: { Turkce: 40, Sosyal: 20, Matematik: 40, Fen: 20 },
   AYT_SAYISAL: { Matematik: 40, Fizik: 14, Kimya: 13, Biyoloji: 13 },
@@ -36,15 +33,6 @@ export const MAX_QUESTIONS = {
   },
 };
 
-function hashStr(s) {
-  var h = 0;
-  var str = String(s || "");
-  for (var i = 0; i < str.length; i++) {
-    h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
-  }
-  return Math.abs(h);
-}
-
 function esc(s) {
   if (s == null) return "";
   return String(s)
@@ -54,11 +42,44 @@ function esc(s) {
     .replace(/"/g, "&quot;");
 }
 
-/** @typedef {"sayisal"|"ea"|"sozel"|"dil"} PuanGroup */
+function parseAtlasNum(v) {
+  if (v == null || v === "") return null;
+  var n = parseFloat(String(v).replace(/\s/g, "").replace(",", "."));
+  if (isNaN(n)) return null;
+  return Math.round(Math.min(999, Math.max(0, n)) * 10) / 10;
+}
+
+/** @typedef {"sayisal"|"ea"|"sozel"|"dil"|"tyt_only"} PuanGroup */
+
+function normStr(s) {
+  return String(s || "")
+    .trim()
+    .toLocaleLowerCase("tr")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
 
 /**
- * Program alanKey → motor puan grubu.
+ * programTuru: Lisans | Önlisans
+ * puanTuru: SAY | EA | SÖZ | DİL | TYT
  */
+export function puanGroupFromAtlas(programDoc) {
+  var ptRaw = String(programDoc.programTuru || "")
+    .trim()
+    .toLocaleLowerCase("tr");
+  var puRaw = String(programDoc.puanTuru || "")
+    .trim()
+    .toLocaleUpperCase("tr");
+  if (ptRaw.indexOf("önlisans") !== -1 || ptRaw.indexOf("onlisans") !== -1) return "tyt_only";
+  if (puRaw === "TYT") return "tyt_only";
+  var pu = normStr(programDoc.puanTuru);
+  if (pu === "say" || pu.indexOf("sayisal") !== -1) return "sayisal";
+  if (pu === "ea" || pu.indexOf("esit") !== -1 || pu.indexOf("agirlik") !== -1) return "ea";
+  if (pu === "soz" || pu.indexOf("sozel") !== -1) return "sozel";
+  if (pu === "dil") return "dil";
+  return puanGroupFromAlanKey(programDoc.alanKey);
+}
+
 export function puanGroupFromAlanKey(alanKey) {
   var raw = String(alanKey || "").trim().toLowerCase();
   var k = raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -68,24 +89,12 @@ export function puanGroupFromAlanKey(alanKey) {
   return "sayisal";
 }
 
-function puanGroupToAlanKey(pg) {
-  if (pg === "ea") return "esit_agirlik";
-  if (pg === "sozel") return "sozel";
-  if (pg === "dil") return "dil";
-  return "sayisal";
-}
-
-function studentStubForPuanGroup(pg) {
-  var ft = { sayisal: "sayısal", ea: "eşit ağırlık", sozel: "sözel", dil: "dil" }[pg] || "sayısal";
-  return { fieldType: ft };
-}
-
 function maxTytForName(name) {
   var n = String(name || "").toLocaleLowerCase("tr");
   if (n.indexOf("fen") !== -1) return MAX_QUESTIONS.TYT.Fen;
   if (n.indexOf("sosyal") !== -1) return MAX_QUESTIONS.TYT.Sosyal;
   if (n.indexOf("matematik") !== -1 || n.indexOf("temel") !== -1) return MAX_QUESTIONS.TYT.Matematik;
-  if (n.indexOf("türk") !== -1) return MAX_QUESTIONS.TYT.Turkce;
+  if (n.indexOf("türk") !== -1 || n.indexOf("turk") !== -1) return MAX_QUESTIONS.TYT.Turkce;
   return MAX_QUESTIONS.TYT.Turkce;
 }
 
@@ -105,82 +114,150 @@ function maxAytForName(name, pg) {
     if (!Object.prototype.hasOwnProperty.call(map, k)) continue;
     if (low.indexOf(k.toLocaleLowerCase("tr")) !== -1) return map[k];
   }
-  var pack = YKS_AYT_BY_ALAN[puanGroupToAlanKey(pg)] || YKS_AYT_BY_ALAN.sayisal;
-  for (var i = 0; i < pack.branches.length; i++) {
-    var lb = pack.branches[i].label.toLocaleLowerCase("tr");
-    if (low.indexOf(lb) !== -1) return pack.branches[i].soru;
+  var pack = YKS_AYT_BY_ALAN[pg === "sayisal" ? "sayisal" : pg === "ea" ? "esit_agirlik" : pg === "sozel" ? "sozel" : "dil"];
+  if (pack && pack.branches) {
+    for (var i = 0; i < pack.branches.length; i++) {
+      var lb = pack.branches[i].label.toLocaleLowerCase("tr");
+      if (low.indexOf(lb) !== -1) return pack.branches[i].soru;
+    }
   }
   return 40;
 }
 
 /**
- * Tek satır hedef netini soru üst sınırına göre kısar.
- * @param {{ section: string, name: string, targetNet?: number }} row
- * @param {PuanGroup} pg
+ * @param {{ section: string, name: string, targetNet?: number, puanGroup?: PuanGroup }} row
  */
 export function clampRowTargetNet(row, pg) {
   var sec = String(row.section || "").toUpperCase();
   var t = Number(row.targetNet);
   if (isNaN(t) || t < 0) t = 0;
-  var max = sec === "TYT" ? maxTytForName(row.name) : maxAytForName(row.name, pg);
+  var max = sec === "TYT" ? maxTytForName(row.name) : maxAytForName(row.name, pg === "tyt_only" ? "sayisal" : pg);
   return Math.round(Math.min(max, t) * 10) / 10;
 }
 
-/**
- * @param {Array<{ section: string, name: string, targetNet: number }>} rows
- * @param {PuanGroup} pg
- */
-export function clampAllRowTargets(rows, pg) {
-  return (rows || []).map(function (r) {
-    return {
-      section: r.section,
-      name: r.name,
-      targetNet: clampRowTargetNet(r, pg),
-    };
-  });
+function mergeAtlasPayload(programDoc) {
+  var p = programDoc || {};
+  var nested = p.yokAtlas && typeof p.yokAtlas === "object" ? p.yokAtlas : null;
+  var base = nested ? Object.assign({}, p, nested) : Object.assign({}, p);
+  if (!base.puanTuru && base.scoreType) base.puanTuru = base.scoreType;
+  return base;
 }
 
 /**
- * Şablondaki AYT yapısına uygun olmayan satırları çıkarır (sayısalda edebiyat vb. yok).
+ * Atlas anahtarlarından satır listesi (dinamik: Önlisans = yalnızca TYT).
  */
-export function filterRowsByPuanGroup(rows, pg) {
-  if (pg === "dil") {
-    return (rows || []).filter(function (r) {
-      var sec = String(r.section || "").toUpperCase();
-      if (sec !== "AYT") return true;
-      var n = String(r.name || "").toLocaleLowerCase("tr");
-      if (/tarih-2|coğrafya-2|felsefe|din\s*kültür/i.test(n)) return false;
-      return (
-        /yabancı|ydt/.test(n) ||
-        /türk\s*dili|edebiyat/.test(n) ||
-        n.indexOf("tarih-1") !== -1 ||
-        n.indexOf("coğrafya-1") !== -1
-      );
+function buildRowsFromYokAtlasFields(src, pg) {
+  var rows = [];
+
+  function pushTyt(key, displayName, branchId) {
+    var v = parseAtlasNum(src[key]);
+    if (v == null) return;
+    rows.push({
+      section: "TYT",
+      name: displayName,
+      targetNet: v,
+      atlasKey: key,
+      branchId: branchId,
+      label: "TYT " + displayName,
     });
   }
-  var stub = studentStubForPuanGroup(pg);
-  var alan = normalizeStudentYksAlanKey(stub);
-  var shaped = (rows || []).map(function (r) {
-    return {
-      section: r.section,
-      name: r.name,
-      targetNet: r.targetNet,
-      label: String(r.section || "") + " " + String(r.name || ""),
-      current: 0,
-      target: Number(r.targetNet) || 0,
-    };
-  });
-  var filtered = filterSimulatorRowsForStudentAlan(shaped, alan);
-  return filtered.map(function (r) {
-    return { section: r.section, name: r.name, targetNet: r.targetNet };
-  });
+
+  pushTyt("tyt_turkce", "Türkçe", "turkce");
+  pushTyt("tyt_sosyal", "Sosyal Bilimler", "sosyal");
+  pushTyt("tyt_matematik", "Temel Matematik", "matematik");
+  pushTyt("tyt_fen", "Fen Bilimleri", "fen");
+
+  if (pg === "tyt_only") {
+    return rows;
+  }
+
+  function pushAyt(key, displayName, branchId) {
+    var v2 = parseAtlasNum(src[key]);
+    if (v2 == null) return;
+    rows.push({
+      section: "AYT",
+      name: displayName,
+      targetNet: v2,
+      atlasKey: key,
+      branchId: branchId,
+      label: "AYT " + displayName,
+    });
+  }
+
+  if (pg === "sayisal") {
+    pushAyt("ayt_matematik", "Matematik", "mat");
+    pushAyt("ayt_fizik", "Fizik", "fizik");
+    pushAyt("ayt_kimya", "Kimya", "kimya");
+    pushAyt("ayt_biyoloji", "Biyoloji", "biyo");
+  } else if (pg === "ea") {
+    pushAyt("ayt_matematik", "Matematik", "mat");
+    pushAyt("ayt_edebiyat", "Türk Dili ve Edebiyatı", "edebiyat");
+    pushAyt("ayt_tarih1", "Tarih-1", "tarih1");
+    pushAyt("ayt_cografya1", "Coğrafya-1", "cografya1");
+  } else if (pg === "sozel") {
+    pushAyt("ayt_edebiyat", "Türk Dili ve Edebiyatı", "edebiyat");
+    pushAyt("ayt_tarih1", "Tarih-1", "tarih1");
+    pushAyt("ayt_cografya1", "Coğrafya-1", "cografya1");
+    pushAyt("ayt_tarih2", "Tarih-2", "tarih2");
+    pushAyt("ayt_cografya2", "Coğrafya-2", "cografya2");
+    pushAyt("ayt_felsefe", "Felsefe Grubu", "felsefe");
+    pushAyt("ayt_din_kulturu", "Din Kültürü", "din");
+  } else if (pg === "dil") {
+    pushAyt("ayt_yabanci_dil", "Yabancı Dil", "ydt");
+    pushAyt("ayt_edebiyat", "Türk Dili ve Edebiyatı", "edebiyat");
+    pushAyt("ayt_tarih1", "Tarih-1", "tarih1");
+    pushAyt("ayt_cografya1", "Coğrafya-1", "cografya1");
+  }
+
+  return rows;
+}
+
+/** rowsJson → iç motor satırları (geçiş; hedef değerler JSON’daki satırlardan) */
+function buildRowsFromLegacyRowsJson(programDoc, pg) {
+  var raw = programDoc.rowsJson != null ? programDoc.rowsJson : programDoc.rows_json;
+  var arr;
+  if (typeof raw === "string") {
+    try {
+      arr = JSON.parse(raw);
+    } catch (_e) {
+      arr = [];
+    }
+  } else {
+    arr = raw;
+  }
+  if (!Array.isArray(arr) || !arr.length) return [];
+
+  var stubPg = pg === "tyt_only" ? "sayisal" : pg;
+  var cleaned = [];
+  for (var i = 0; i < arr.length; i++) {
+    var r = arr[i];
+    if (!r || r.section == null || r.name == null) continue;
+    var tn = parseFloat(String(r.targetNet != null ? r.targetNet : "").replace(",", "."));
+    cleaned.push({
+      section: String(r.section).trim(),
+      name: String(r.name).trim(),
+      targetNet: isNaN(tn) ? 0 : tn,
+    });
+  }
+  if (!cleaned.length) return [];
+
+  for (var j = 0; j < cleaned.length; j++) {
+    cleaned[j].targetNet = clampRowTargetNet(cleaned[j], stubPg);
+    cleaned[j].label = cleaned[j].section + " " + cleaned[j].name;
+  }
+
+  if (pg === "tyt_only") {
+    return cleaned.filter(function (x) {
+      return String(x.section || "").toUpperCase() === "TYT";
+    });
+  }
+
+  return filterRowsByPuanGroup(cleaned, pg);
 }
 
 /**
- * Statik katalog: üniversite + program dökümanından program nesnesi (eski Appwrite şekliyle uyumlu).
- * @param {{ name?: string, universityName?: string }} uniDoc
- * @param {object} programDoc — uniId, programName, targetTytNet, targetAytNet, alanKey, rowsJson
- * @returns {{ id: string, university: string, department: string, baseScore2025: number, rows: Array, dataSource: string, puanGroup: PuanGroup, targetTytNet: number, targetAytNet: number }|null}
+ * Statik katalog programı — YÖK Atlas alanları veya (geçiş) rowsJson.
+ * @returns {{ id: string, university: string, department: string, rows: Array, dataSource: string, puanGroup: PuanGroup, programTuru?: string, puanTuruRaw?: string, targetTytNet: number, targetAytNet: number }|null}
  */
 export function buildProgramFromAppwriteV2(uniDoc, programDoc) {
   try {
@@ -190,56 +267,58 @@ export function buildProgramFromAppwriteV2(uniDoc, programDoc) {
         ? String(uniDoc.uniName)
         : uniDoc.name != null
           ? String(uniDoc.name)
-          : uniDoc.universityName != null
-            ? String(uniDoc.universityName)
-            : "";
+          : "";
     var dept =
       programDoc.programName != null && String(programDoc.programName).trim() !== ""
         ? String(programDoc.programName)
         : programDoc.name != null
           ? String(programDoc.name)
           : "";
-    var raw = programDoc.rowsJson != null ? programDoc.rowsJson : programDoc.rows_json;
-    var rows;
-    if (typeof raw === "string") {
-      try {
-        rows = JSON.parse(raw);
-      } catch (_e) {
-        rows = [];
-      }
-    } else {
-      rows = raw;
+
+    var src = mergeAtlasPayload(programDoc);
+    var pg = puanGroupFromAtlas(src);
+
+    var rows = buildRowsFromYokAtlasFields(src, pg);
+    var dataSource = "yok-atlas";
+    if (!rows.length) {
+      rows = buildRowsFromLegacyRowsJson(programDoc, pg);
+      dataSource = rows.length ? "legacy-rows-json" : "";
     }
-    if (!Array.isArray(rows)) rows = [];
-    var cleaned = [];
+    if (!rows.length) return null;
+
     for (var i = 0; i < rows.length; i++) {
-      var r = rows[i];
-      if (!r || r.section == null || r.name == null) continue;
-      var tn = parseFloat(String(r.targetNet != null ? r.targetNet : "").replace(",", "."));
-      cleaned.push({
-        section: String(r.section).trim(),
-        name: String(r.name).trim(),
-        targetNet: isNaN(tn) ? 0 : tn,
-      });
+      var g = pg === "tyt_only" ? "sayisal" : pg;
+      rows[i].targetNet = clampRowTargetNet(rows[i], g);
+      if (!rows[i].label) rows[i].label = String(rows[i].section) + " " + String(rows[i].name);
     }
-    if (!cleaned.length) return null;
-    var pg = puanGroupFromAlanKey(programDoc.alanKey);
-    cleaned = clampAllRowTargets(cleaned, pg);
-    cleaned = filterRowsByPuanGroup(cleaned, pg);
-    if (!cleaned.length) return null;
+
     var pid = programDoc.$id != null ? String(programDoc.$id) : "";
-    var tt = parseFloat(String(programDoc.targetTytNet != null ? programDoc.targetTytNet : "").replace(",", "."));
-    var ta = parseFloat(String(programDoc.targetAytNet != null ? programDoc.targetAytNet : "").replace(",", "."));
+    var sumTyt = 0;
+    var sumAyt = 0;
+    rows.forEach(function (r) {
+      var sec = String(r.section || "").toUpperCase();
+      var t = Number(r.targetNet) || 0;
+      if (sec === "TYT") sumTyt += t;
+      else if (sec === "AYT") sumAyt += t;
+    });
+
+    var tt = parseAtlasNum(src.targetTytNet != null ? src.targetTytNet : programDoc.targetTytNet);
+    var ta = parseAtlasNum(src.targetAytNet != null ? src.targetAytNet : programDoc.targetAytNet);
+    if (tt == null) tt = Math.round(sumTyt * 10) / 10;
+    if (ta == null) ta = Math.round(sumAyt * 10) / 10;
+
     return {
       id: pid,
       university: uniName,
       department: dept,
       baseScore2025: 400,
-      rows: cleaned,
-      dataSource: "static-json",
+      rows: rows,
+      dataSource: dataSource,
       puanGroup: pg,
-      targetTytNet: isNaN(tt) ? 0 : tt,
-      targetAytNet: isNaN(ta) ? 0 : ta,
+      programTuru: src.programTuru != null ? String(src.programTuru) : "",
+      puanTuruRaw: src.puanTuru != null ? String(src.puanTuru) : "",
+      targetTytNet: tt != null ? tt : 0,
+      targetAytNet: ta != null ? ta : 0,
     };
   } catch (e) {
     console.warn("[Net Sihirbazı] buildProgramFromAppwriteV2:", e && e.message ? e.message : e);
@@ -247,16 +326,9 @@ export function buildProgramFromAppwriteV2(uniDoc, programDoc) {
   }
 }
 
-function currentNetDemo(target, maxCap, programId, rowKey) {
-  var h = hashStr(String(programId || "") + "::cur::" + rowKey);
-  var ratio = 0.74 + ((h % 19) * 0.01);
-  var c = target * ratio;
-  return Math.round(Math.min(maxCap, Math.max(0, c)) * 10) / 10;
-}
-
 /**
- * @param {{ rows: Array, baseScore2025: number, university: string, department: string, dataSource: string, puanGroup: PuanGroup }} program
- * @param {{ currentNetForRow?: function(r: object, target: number, cap: number, key: string): number }} [opts]
+ * Kalan = Hedef − Güncel (≥0 yeşil, <0 kırmızı).
+ * @param {{ currentNetForRow?: function(object, number, number, string): number }} [opts]
  */
 export function buildMotorDisplayRows(program, opts) {
   opts = opts || {};
@@ -264,7 +336,7 @@ export function buildMotorDisplayRows(program, opts) {
   var pg = program.puanGroup || "sayisal";
   var progId = String(program.id || "");
   return program.rows.map(function (r) {
-    var cap = clampRowTargetNet(r, pg);
+    var cap = clampRowTargetNet(r, pg === "tyt_only" ? "sayisal" : pg);
     var t = Number(r.targetNet);
     if (isNaN(t)) t = 0;
     t = Math.min(cap, t);
@@ -272,17 +344,19 @@ export function buildMotorDisplayRows(program, opts) {
     var cur =
       typeof opts.currentNetForRow === "function"
         ? opts.currentNetForRow(r, t, cap, key)
-        : currentNetDemo(t, cap, progId, key);
+        : 0;
     if (isNaN(cur)) cur = 0;
     cur = Math.round(Math.min(cap, Math.max(0, cur)) * 10) / 10;
-    var diff = Math.round((cur - t) * 10) / 10;
+    var kalan = Math.round((t - cur) * 10) / 10;
     return {
-      label: String(r.section) + " " + String(r.name),
+      label: r.label || String(r.section) + " " + String(r.name),
       section: r.section,
       name: r.name,
       target: t,
       current: cur,
-      diff: diff,
+      diff: kalan,
+      atlasKey: r.atlasKey,
+      branchId: r.branchId,
     };
   });
 }
@@ -299,8 +373,7 @@ function sumDisplaySection(displayRows, sectionUpper) {
 }
 
 /**
- * Net Sihirbazı V2 — Tailwind özet şeridi + ders tablosu (Kalan: güncel − hedef; eksi → kırmızı, artı → yeşil).
- * @param {object} [uiMeta] — currentNetSummary (düz metin), tableFootnote (düz metin)
+ * @param {object} [uiMeta]
  */
 export function netSihirbaziV2ResultHtml(displayRows, program, uiMeta) {
   program = program || {};
@@ -313,6 +386,11 @@ export function netSihirbaziV2ResultHtml(displayRows, program, uiMeta) {
   var denom = tT + aT;
   var pct = denom > 0 ? Math.min(100, Math.max(0, Math.round((100 * (tytAgg.current + aytAgg.current)) / denom))) : pctAgg;
   var w = Math.min(100, Math.max(0, pct));
+
+  var dsNote =
+    program.dataSource === "legacy-rows-json"
+      ? " Geçiş: hedefler eski satır listesinden okundu; yokAtlas alanlarına geçmeniz önerilir."
+      : "";
 
   var currentLine =
     '<p class="text-xs text-slate-600">Güncel toplam (branş): TYT <span class="font-bold text-slate-800 tabular-nums">' +
@@ -329,7 +407,7 @@ export function netSihirbaziV2ResultHtml(displayRows, program, uiMeta) {
     '<div class="mb-5 rounded-2xl border border-violet-200/90 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-4 shadow-md shadow-violet-100/50">' +
     '<div class="flex flex-wrap items-end justify-between gap-3">' +
     '<div class="space-y-1">' +
-    '<p class="text-xs font-extrabold uppercase tracking-wider text-violet-600">Hedef netler (yks-data.json)</p>' +
+    '<p class="text-xs font-extrabold uppercase tracking-wider text-violet-600">YÖK Atlas hedef netler</p>' +
     '<p class="text-sm font-semibold text-slate-700">' +
     "TYT: <span class=\"text-violet-700 tabular-nums\">" +
     esc(tT.toFixed(1)) +
@@ -347,7 +425,9 @@ export function netSihirbaziV2ResultHtml(displayRows, program, uiMeta) {
     '<div class="h-full rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-500 transition-all duration-500" style="width:' +
     esc(String(w)) +
     '%"></div></div>' +
-    '<p class="mt-1 text-[10px] leading-snug text-slate-400">Gösterge: hedef TYT+AYT toplamına göre güncel branş toplamlarınızın oranı; resmî yerleştirme değildir.</p>' +
+    '<p class="mt-1 text-[10px] leading-snug text-slate-400">Gösterge: hedef TYT+AYT toplamına göre güncel branş toplamlarınızın oranı; resmî yerleştirme değildir.' +
+    esc(dsNote) +
+    "</p>" +
     "</div></div></div>";
 
   if (!displayRows || !displayRows.length) {
@@ -356,9 +436,10 @@ export function netSihirbaziV2ResultHtml(displayRows, program, uiMeta) {
 
   var trs = displayRows
     .map(function (r) {
+      var kalan = r.diff;
       var diffCls =
-        r.diff < 0 ? "text-rose-600 font-bold" : r.diff > 0 ? "text-emerald-600 font-bold" : "text-slate-600 font-semibold";
-      var diffTxt = r.diff === 0 ? "0" : (r.diff > 0 ? "+" : "") + r.diff.toFixed(1);
+        kalan < 0 ? "text-rose-600 font-bold" : "text-emerald-600 font-bold";
+      var diffTxt = kalan === 0 ? "0.0" : (kalan > 0 ? "+" : "") + kalan.toFixed(1);
       return (
         "<tr class=\"border-b border-violet-100/80\">" +
         '<td class="py-2.5 pr-3 text-sm font-medium text-slate-800">' +
@@ -379,7 +460,8 @@ export function netSihirbaziV2ResultHtml(displayRows, program, uiMeta) {
   var foot =
     uiMeta.tableFootnote != null && String(uiMeta.tableFootnote).trim() !== ""
       ? String(uiMeta.tableFootnote)
-      : "Hedefler yks-data.json (rowsJson) kaynağındadır. Kalan = güncel net − hedef net.";
+      : "Kalan = Hedef net − Güncel net. Eksi değerler kırmızı; sıfır ve pozitif değerler yeşil.";
+
   var table =
     '<div class="overflow-hidden rounded-2xl border border-violet-200/80 bg-white shadow-sm">' +
     '<table class="w-full border-collapse text-left text-sm">' +
@@ -410,10 +492,6 @@ export function computeMotorSuccessPercent(displayRows) {
   return Math.min(100, Math.max(0, Math.round((100 * sumC) / sumT)));
 }
 
-/**
- * Tablo + üst olasılık çubuğu HTML (5 sütun: Ders, Hedef, Güncel, Hedefe Kalan, durum).
- * Hedefe Kalan = güncel − hedef; negatif → geride (kırmızı), pozitif → fazla (yeşil).
- */
 export function netSihirbaziMotorTableHtml(displayRows, opts) {
   opts = opts || {};
   var pct = computeMotorSuccessPercent(displayRows);
@@ -444,14 +522,13 @@ export function netSihirbaziMotorTableHtml(displayRows, opts) {
     );
   }
 
-  function diffClass(d) {
+  function diffClassKalan(d) {
     if (d < 0) return "ns-motor-diff--behind";
-    if (d > 0) return "ns-motor-diff--ahead";
-    return "ns-motor-diff--ok";
+    return "ns-motor-diff--ahead";
   }
 
   function diffText(d) {
-    if (d === 0) return "0";
+    if (d === 0) return "0.0";
     return (d > 0 ? "+" : "") + d.toFixed(1);
   }
 
@@ -465,7 +542,7 @@ export function netSihirbaziMotorTableHtml(displayRows, opts) {
         "</td><td>" +
         r.current.toFixed(1) +
         '</td><td class="' +
-        diffClass(r.diff) +
+        diffClassKalan(r.diff) +
         '">' +
         esc(diffText(r.diff)) +
         " net</td></tr>"
@@ -477,13 +554,13 @@ export function netSihirbaziMotorTableHtml(displayRows, opts) {
     probBlock +
     '<div class="hedef-atlas-net-wrap">' +
     '<table class="hedef-atlas-net-table net-sihirbazi-motor-table">' +
-    "<thead><tr><th>Ders</th><th>Hedef net</th><th>Güncel net (örnek)</th><th>Hedefe Kalan</th></tr></thead><tbody>" +
+    "<thead><tr><th>Ders</th><th>Hedef net</th><th>Güncel net</th><th>Kalan</th></tr></thead><tbody>" +
     trs +
     "</tbody></table>" +
     '<p class="hedef-atlas-net-footnote">' +
     esc(
       opts.footnote ||
-        "Hedef netler soru üst sınırına göre kısıtlanır. Güncel sütunu örnek profil üretimidir. Resmî ÖSYM verisi değildir."
+        "Kalan = Hedef net − Güncel net. Deneme branş verisi yoksa güncel 0,0 kabul edilir."
     ) +
     "</p>" +
     "</div>"
@@ -501,4 +578,54 @@ export function netSihirbaziSkeletonHtml() {
     '<p class="net-sihirbazi-skeleton__txt">Yükleniyor…</p>' +
     "</div>"
   );
+}
+
+/** Geriye dönük: eski motor yardımcıları */
+export function clampAllRowTargets(rows, pg) {
+  var g = pg === "tyt_only" ? "sayisal" : pg;
+  return (rows || []).map(function (r) {
+    return {
+      section: r.section,
+      name: r.name,
+      targetNet: clampRowTargetNet(r, g),
+    };
+  });
+}
+
+export function filterRowsByPuanGroup(rows, pg) {
+  if (pg === "dil") {
+    return (rows || []).filter(function (r) {
+      var sec = String(r.section || "").toUpperCase();
+      if (sec !== "AYT") return true;
+      var n = String(r.name || "").toLocaleLowerCase("tr");
+      if (/tarih-2|coğrafya-2|felsefe|din\s*kültür/i.test(n)) return false;
+      return (
+        /yabancı|ydt/.test(n) ||
+        /türk\s*dili|edebiyat/.test(n) ||
+        n.indexOf("tarih-1") !== -1 ||
+        n.indexOf("coğrafya-1") !== -1
+      );
+    });
+  }
+  var alan =
+    pg === "sayisal"
+      ? "sayisal"
+      : pg === "ea"
+        ? "esit_agirlik"
+        : pg === "sozel"
+          ? "sozel"
+          : pg === "dil"
+            ? "dil"
+            : "sayisal";
+  var pack = YKS_AYT_BY_ALAN[alan] || YKS_AYT_BY_ALAN.sayisal;
+  return (rows || []).filter(function (r) {
+    var sec = String(r.section || "").toUpperCase();
+    if (sec !== "AYT") return true;
+    var lab = String(r.name || "").toLocaleLowerCase("tr");
+    for (var i = 0; i < pack.branches.length; i++) {
+      var bl = pack.branches[i].label.toLocaleLowerCase("tr");
+      if (lab.indexOf(bl) !== -1) return true;
+    }
+    return false;
+  });
 }

@@ -1,13 +1,13 @@
 /**
- * Net Sihirbazı V2 — deneme kayıtlarındaki yksBranchDetail ile Programs.rowsJson satır adlarına gerçek güncel net.
- * Mock yok: veri yoksa 0 döner; arayüz kullanıcıya not gösterir.
+ * Net Sihirbazı — deneme kayıtlarındaki yksBranchDetail ile program satırı (branchId / atlasKey) eşlemesi.
+ * Branş verisi yoksa güncel net 0,0 (sessiz; arayüzde uyarı yok).
  */
 
 import { YKS_AYT_BY_ALAN, YKS_TYT_BRANCHES } from "./yks-exam-structure.js";
 import { parseStudentNetVal } from "./hedef-atlas-helpers.js";
 
 function normLabel(s) {
-  return String(s == null ? "" : s)
+  return String(s == null ? "")
     .trim()
     .toLowerCase()
     .normalize("NFD")
@@ -109,8 +109,8 @@ function examSortKey(e) {
 }
 
 /**
- * @param {object[]} exams — yksBranchDetail taşıyan deneme nesneleri (koç / öğrenci cache formatı)
- * @param {string} programAlanKey — Programs.alanKey (sayisal, esit_agirlik, …)
+ * @param {object[]} exams
+ * @param {string} programAlanKey
  */
 export function buildLatestBranchNetLookup(exams, programAlanKey) {
   var list = Array.isArray(exams) ? exams.slice() : [];
@@ -175,6 +175,35 @@ function sumNetsWhere(rows, pred) {
   return any ? Math.round(s * 10) / 10 : null;
 }
 
+function normalizeAlanKeyForPack(ak) {
+  var s = String(ak || "sayisal").toLowerCase();
+  if (s === "ea" || s.indexOf("esit") !== -1) return "esit_agirlik";
+  if (s.indexOf("sozel") !== -1 || s === "sözel") return "sozel";
+  if (s === "dil") return "dil";
+  return "sayisal";
+}
+
+/**
+ * Öğrenci detayındaki etiket ile YKS şeması branchId eşlemesi.
+ */
+function canonicalLabelForBranch(section, branchId, programAlanKey) {
+  var sec = String(section || "").toUpperCase();
+  if (!branchId) return null;
+  if (sec === "TYT") {
+    for (var i = 0; i < YKS_TYT_BRANCHES.length; i++) {
+      if (YKS_TYT_BRANCHES[i].id === branchId) return YKS_TYT_BRANCHES[i].label;
+    }
+    return null;
+  }
+  var ak = normalizeAlanKeyForPack(programAlanKey);
+  var pack = YKS_AYT_BY_ALAN[ak] || YKS_AYT_BY_ALAN.sayisal;
+  if (!pack || !pack.branches) return null;
+  for (var j = 0; j < pack.branches.length; j++) {
+    if (pack.branches[j].id === branchId) return pack.branches[j].label;
+  }
+  return null;
+}
+
 /**
  * @returns {function(object, number, number, string): number}
  */
@@ -186,28 +215,37 @@ export function createCurrentNetForRowResolver(exams, programAlanKey) {
       var rowName = String(r.name || "").trim();
       var rows = sec === "AYT" ? lookup.aytRows : lookup.tytRows;
       var nameN = normLabel(rowName);
+      var v = null;
 
-      var exact = null;
-      for (var i = 0; i < rows.length; i++) {
-        if (normLabel(rows[i].label) === nameN) {
-          exact = Number(rows[i].net);
-          break;
+      if (r.branchId) {
+        var want = canonicalLabelForBranch(sec, r.branchId, programAlanKey);
+        if (want) {
+          for (var zi = 0; zi < rows.length; zi++) {
+            if (normLabel(rows[zi].label) === normLabel(want)) {
+              v = Number(rows[zi].net);
+              break;
+            }
+          }
         }
       }
-      var v = exact;
-      if (v == null || isNaN(v)) {
-        if (nameN.indexOf("fen") !== -1 && nameN.indexOf("bilim") !== -1) {
-          v = sumNetsWhere(rows, function (lbl) {
-            return /^fen\s*bilimleri/i.test(String(lbl || ""));
-          });
+
+      if ((v == null || isNaN(v)) && rows.length) {
+        for (var i = 0; i < rows.length; i++) {
+          if (normLabel(rows[i].label) === nameN) {
+            v = Number(rows[i].net);
+            break;
+          }
         }
       }
-      if (v == null || isNaN(v)) {
-        if (nameN.indexOf("sosyal") !== -1 && nameN.indexOf("bilim") !== -1) {
-          v = sumNetsWhere(rows, function (lbl2) {
-            return /^sosyal\s*bilimler/i.test(String(lbl2 || ""));
-          });
-        }
+      if ((v == null || isNaN(v)) && nameN.indexOf("fen") !== -1 && nameN.indexOf("bilim") !== -1) {
+        v = sumNetsWhere(rows, function (lbl) {
+          return /^fen\s*bilimleri/i.test(String(lbl || ""));
+        });
+      }
+      if ((v == null || isNaN(v)) && nameN.indexOf("sosyal") !== -1 && nameN.indexOf("bilim") !== -1) {
+        v = sumNetsWhere(rows, function (lbl2) {
+          return /^sosyal\s*bilimler/i.test(String(lbl2 || ""));
+        });
       }
       if ((v == null || isNaN(v)) && sec === "AYT") {
         if (nameN.indexOf("yabanc") !== -1 || nameN.indexOf("ydt") !== -1 || /^dil$/.test(nameN)) {
