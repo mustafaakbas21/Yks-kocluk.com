@@ -48,9 +48,22 @@ window.OspPortal.updateTaskDone = async function (taskId, done) {
   var sid = window.OspPortal.studentDocId;
   if (!sid || !taskId) return;
   try {
-    var patch = {};
-    patch["taskDoneMap." + taskId] = !!done;
-    await updateDoc(doc(db, "studentPortalPlans", sid), patch);
+    var snap = await getDoc(doc(db, "studentPortalPlans", sid));
+    var exists = typeof snap.exists === "function" ? snap.exists() : snap.exists;
+    if (!exists) return;
+    var d = snap.data();
+    var map = {};
+    if (d && typeof d.task_done_map_json === "string" && d.task_done_map_json) {
+      try {
+        map = JSON.parse(d.task_done_map_json) || {};
+      } catch (_e) {}
+    } else if (d && d.taskDoneMap && typeof d.taskDoneMap === "object") {
+      map = Object.assign({}, d.taskDoneMap);
+    }
+    map[String(taskId)] = !!done;
+    await updateDoc(doc(db, "studentPortalPlans", sid), {
+      task_done_map_json: JSON.stringify(map),
+    });
   } catch (err) {
     logAppwriteError("ogrenci-panel-app.js/updateTaskDone", err);
   }
@@ -103,13 +116,16 @@ async function loadOspForUser(user) {
 
     if (profile.coach_id) {
       try {
-        var qs = query(collection(db, "students"), where("coach_id", "==", profile.coach_id));
+        var qs = query(collection(db, "students"));
         var stSnap = await getDocs(qs);
+        var coachNeedle = String(profile.coach_id || "").trim();
         var match = null;
         var uname = (profile.username || "").trim().toLowerCase();
         var fn = (profile.fullName || "").trim();
         stSnap.forEach(function (d) {
           var data = d.data();
+          var c = data.coach_id != null ? data.coach_id : data.coachId;
+          if (String(c || "").trim() !== coachNeedle) return;
           if (uname && data.portalUsername && String(data.portalUsername).trim().toLowerCase() === uname) {
             match = data;
             studentDocId = d.id;
@@ -118,6 +134,8 @@ async function loadOspForUser(user) {
         if (!match) {
           stSnap.forEach(function (d) {
             var data = d.data();
+            var c2 = data.coach_id != null ? data.coach_id : data.coachId;
+            if (String(c2 || "").trim() !== coachNeedle) return;
             if (!match && fn && data.name && String(data.name).trim() === fn) {
               match = data;
               studentDocId = d.id;

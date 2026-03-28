@@ -2001,9 +2001,15 @@ async function countStudentsForCoach(username) {
   var uname = (username || "").trim();
   if (!uname) return 0;
   try {
-    var q = query(collection(db, "users"), where("role", "==", "student"), where("coach_id", "==", uname));
-    var snap = await getCountFromServer(q);
-    return snap.data().count;
+    var q = query(collection(db, "users"), where("role", "==", "student"));
+    var snap = await getDocs(q);
+    var n = 0;
+    snap.forEach(function (d) {
+      var data = typeof d.data === "function" ? d.data() : {};
+      var c = data.coach_id != null ? data.coach_id : data.coachId;
+      if (String(c || "").trim() === uname) n++;
+    });
+    return n;
   } catch (e) {
     console.warn("[count]", uname, e);
     return 0;

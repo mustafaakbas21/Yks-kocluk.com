@@ -1,5 +1,5 @@
 /**
- * YKS — Hedef üniversite / bölüm seçici (Appwrite Universities + Programs).
+ * YKS — Hedef üniversite / bölüm seçici (src/data/yks-data.json).
  * window.YksHedefUniPicker — öğrenci ekle/düzen formları (koc-panel.html).
  */
 import {
@@ -21,7 +21,7 @@ function loadData() {
     })
     .catch(function (e) {
       loadPromise = null;
-      console.warn("[YksHedefUniPicker] Appwrite:", e && e.message ? e.message : e);
+      console.warn("[YksHedefUniPicker] yks-data.json:", e && e.message ? e.message : e);
       return getHedefAppwriteUniversities();
     });
   return loadPromise;

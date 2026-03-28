@@ -32,14 +32,17 @@ export function mountOspMufredatAccordion(containerId) {
   root.innerHTML = "";
   root.classList.add("osp-mufredat-root");
 
-  ["TYT", "AYT"].forEach(function (sinav) {
+  ["TYT", "AYT", "YDT"].forEach(function (sinav) {
     var subjects = mufredatData[sinav];
     if (!subjects) return;
     var detSinav = document.createElement("details");
     detSinav.className = "osp-muf-sinav";
     detSinav.open = sinav === "TYT";
     var sum1 = document.createElement("summary");
-    sum1.textContent = sinav + " — Temel/Yerleştirme sınavı";
+    sum1.textContent =
+      sinav === "YDT"
+        ? sinav + " — Yabancı Dil Testi"
+        : sinav + " — Temel/Yerleştirme sınavı";
     detSinav.appendChild(sum1);
 
     Object.keys(subjects).forEach(function (ders) {

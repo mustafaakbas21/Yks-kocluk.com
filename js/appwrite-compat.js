@@ -60,6 +60,16 @@ function __isCollectionMissingError(e) {
   return /collection.*not found|unknown collection|Invalid collection|could not be found/i.test(msg);
 }
 
+/** Şemada olmayan attribute / geçersiz sorgu (400) — boş liste, konsol gürültüsü yok */
+function __isInvalidQueryError(e) {
+  const code = e && (e.code != null ? e.code : e.type);
+  const msg = e && e.message != null ? String(e.message) : String(e || "");
+  return (
+    code === 400 ||
+    /invalid query|attribute.*not found|not found in schema|index.*not found/i.test(msg)
+  );
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -76,6 +86,13 @@ function isDateObject(v) {
 function normalizeValue(v) {
   if (v === "__SERVER_TIMESTAMP__") return nowIso();
   if (isDateObject(v)) return v.toISOString();
+  /** Firestore Timestamp uyumu (ör. exams.examDate, appointments.scheduledAt) */
+  if (v != null && typeof v === "object" && typeof v.toDate === "function") {
+    try {
+      var td = v.toDate();
+      if (td && !isNaN(td.getTime())) return td.toISOString();
+    } catch (_e) {}
+  }
   if (Array.isArray(v)) return v.map(normalizeValue);
   if (v && typeof v === "object") {
     const out = {};
@@ -275,7 +292,7 @@ export async function getDocs(refOrQuery) {
   } catch (e) {
     if (__is404ishError(e) || __isCollectionMissingError(e)) {
       __blacklistedCollections.add(c.collectionId);
-    } else {
+    } else if (!__isInvalidQueryError(e)) {
       logAppwriteError("appwrite-compat.js/getDocs", e);
     }
     return makeDocsSnapshot([]);

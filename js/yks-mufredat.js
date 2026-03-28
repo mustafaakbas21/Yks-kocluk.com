@@ -1,107 +1,273 @@
 /**
- * Merkezi YKS 2026 müfredat paketi — Net Sihirbazı / Hedef / Otomatik Kırpıcı / öğrenci accordion tek kaynak.
+ * Merkezi YKS müfredat — Sınav → Ders → Konu (TYT / AYT / YDT).
+ * Net Sihirbazı / Hedef / Otomatik Kırpıcı / öğrenci accordion tek kaynak.
+ */
+
+/**
+ * @type {Record<string, Record<string, string[]>>}
  */
 export const YKS2026_Mufredat = {
-  "Matematik (TYT/AYT)": {
-    "TYT Başlangıç": ["Temel Kavramlar", "Sayı Basamakları", "Bölme-Bölünebilme", "OBEB-OKEK", "Rasyonel Sayılar"],
-    "TYT Denklem/Eşitsizlik": ["Basit Eşitsizlikler", "Mutlak Değer", "Üslü Sayılar", "Köklü Sayılar", "Çarpanlara Ayırma"],
-    "AYT Trigonometri": ["Trigonometri 1 (Bölüm)", "Trigonometri 2 (Denklemler)"],
-    "AYT Logaritma/Diziler": ["Logaritma Fonksiyonu", "Diziler ve Seriler"],
-    "AYT Limit/Türev/İntegral": ["Limit ve Süreklilik", "Türev Alma Kuralları", "İntegral ve Alan Hesabı"],
-    Geometri: ["Üçgenler", "Dörtgenler", "Çember ve Daire", "Analitik Geometri", "Katı Cisimler"],
+  TYT: {
+    "TYT Türkçe": [
+      "Sözcükte Anlam",
+      "Cümlede Anlam",
+      "Paragrafta Anlam",
+      "Ses Bilgisi",
+      "Yazım Kuralları",
+      "Noktalama İşaretleri",
+      "Anlatım Bozuklukları",
+    ],
+    "TYT Matematik": [
+      "Temel Kavramlar",
+      "Sayı Basamakları ve Bölünebilme",
+      "Rasyonel Sayılar",
+      "Üslü Sayılar",
+      "Köklü Sayılar",
+      "Çarpanlara Ayırma",
+      "Oran ve Orantı",
+      "Problemler",
+      "Mutlak Değer",
+      "Birinci Dereceden Denklem ve Eşitsizlikler",
+      "Kümeler ve İşlemler",
+      "Fonksiyonlar",
+      "Permütasyon, Kombinasyon ve Olasılık",
+      "Veri, İstatistik",
+    ],
+    "TYT Geometri": [
+      "Üçgenler",
+      "Çokgenler ve Dörtgenler",
+      "Çember ve Daire",
+      "Katı Cisimler",
+      "Dönüşüm Geometrisi",
+      "Analitik Geometri",
+    ],
+    "TYT Tarih": [
+      "Tarih Bilimi ve Uygarlığın Doğuşu",
+      "İlk ve Orta Çağlarda Türk Dünyası",
+      "İslam Tarihi ve Uygarlığı",
+      "Türkiye Tarihi (Türk-İslam Devletleri, Osmanlı)",
+      "Yakın Çağda Türkiye, Atatürk İlkeleri ve İnkılap Tarihi",
+      "Atatürk Dönemi ve Sonrası Türkiye",
+    ],
+    "TYT Coğrafya": [
+      "Doğa ve İnsan",
+      "Dünya'nın Şekli ve Hareketleri",
+      "Çevre ve Toplum",
+      "İklim Bilgisi",
+      "Yeryüzü Şekilleri ve Su",
+      "Nüfus ve Yerleşme",
+      "Üretim, Bölgesel Kalkınma ve Küresel Ekonomi",
+    ],
+    "TYT Felsefe": [
+      "Felsefeye Giriş",
+      "Bilgi Felsefesi",
+      "Varlık Felsefesi",
+      "Ahlak Felsefesi",
+      "Sanat Felsefesi",
+      "Din Felsefesi",
+      "Siyaset Felsefesi",
+      "Bilim Felsefesi",
+    ],
+    "TYT Din": [
+      "İnanç Esasları",
+      "İbadetler",
+      "Güncel Ahlaki ve Sosyal Meseleler",
+    ],
+    "TYT Fizik": [
+      "Fizik Bilimine Giriş",
+      "Madde ve Özellikleri",
+      "Hareket ve Kuvvet",
+      "Enerji",
+      "Basit Makineler",
+      "Isı ve Sıcaklık",
+      "Elektrik ve Elektronik",
+      "Dalga Özellikleri ve Optik",
+    ],
+    "TYT Kimya": [
+      "Kimya Bilimi",
+      "Atom ve Yapısı",
+      "Periyodik Sistem",
+      "Kimyasal Türler Arası Etkileşimler",
+      "Mol Kavramı",
+      "Asitler ve Bazlar",
+      "Kimya ve Enerji",
+      "Karbon Kimyası ve Hayat",
+    ],
+    "TYT Biyoloji": [
+      "Canlıların Ortak Özellikleri",
+      "Hücre",
+      "Canlıların Sınıflandırılması",
+      "Ekoloji",
+      "Canlılarda Enerji Dönüşümü",
+      "Kalıtım ve Evrim",
+      "Vücudun Sistemleri",
+      "Biyoteknoloji ve Genetik Mühendisliği",
+    ],
   },
-  "Türkçe (Edebiyat/Dil)": {
-    "Dil Bilgisi (TYT)": ["Sözcükte Anlam", "Cümlede Anlam", "Paragrafta Anlam", "Ses Bilgisi", "Yazım Kuralları", "Noktalama İşaretleri"],
-    "Edebiyat (AYT)": ["Edebi Sanatlar", "Türk Edebiyatı Tarihi", "Halk Edebiyatı", "Divan Edebiyatı", "Cumhuriyet Dönemi"],
-    "Anlatım Bozuklukları": ["Anlatım Bozukluğu TYT"],
+  AYT: {
+    "AYT Matematik": [
+      "Temel Kavramlar",
+      "Sayı Basamakları ve Bölünebilme",
+      "Rasyonel Sayılar",
+      "Üslü Sayılar",
+      "Köklü Sayılar",
+      "Çarpanlara Ayırma",
+      "Oran ve Orantı",
+      "Problemler",
+      "Mutlak Değer",
+      "Denklem ve Eşitsizlikler",
+      "Kümeler ve İşlemler",
+      "Fonksiyonlar",
+      "Permütasyon, Kombinasyon ve Olasılık",
+      "Veri, İstatistik",
+      "Trigonometri",
+      "Diziler ve Seriler",
+      "Limit ve Süreklilik",
+      "Türev",
+      "İntegral",
+    ],
+    "AYT Geometri": [
+      "Üçgenler",
+      "Çokgenler ve Dörtgenler",
+      "Çember ve Daire",
+      "Katı Cisimler",
+      "Dönüşüm Geometrisi",
+      "Analitik Geometri",
+    ],
+    "AYT Edebiyat": [
+      "Güzel Sanatlar ve Edebiyat",
+      "Edebi Sanatlar",
+      "Halk Edebiyatı",
+      "Tanzimat ve Servet-i Fünun",
+      "Milli Edebiyat",
+      "Cumhuriyet Dönemi ve Sonrası Türk Edebiyatı",
+      "Dünya Edebiyatı",
+    ],
+    "AYT Tarih-1": [
+      "Tarih Bilimi ve Yakın Çağın Başlangıcı",
+      "İlk Çağ Uygarlıkları ve İslam Öncesi Türk Tarihi",
+      "İlk Çağlarda İslam Tarihi ve Kültürü",
+      "Türk-İslam Devletleri, Osmanlı Tarihi",
+      "Yüzyıldan Günümüze Türkiye ve Dünya",
+    ],
+    "AYT Tarih-2": [
+      "Atatürk İlkeleri ve İnkılap Tarihi",
+      "Atatürk Dönemi ve Sonrası Türkiye",
+    ],
+    "AYT Coğrafya-1": [
+      "Doğa ve İnsan",
+      "Dünya'nın Şekli ve Hareketleri",
+      "İklim Bilgisi",
+      "Yeryüzü Şekilleri ve Su",
+      "Nüfus ve Yerleşme",
+      "Üretim, Bölgesel Kalkınma ve Küresel Ekonomi",
+    ],
+    "AYT Coğrafya-2": [
+      "Çevre ve Toplum",
+      "Türkiye Fiziki ve Beşeri Coğrafyası",
+      "Çevre ve Toplum Sorunları",
+      "Küresel Ortam",
+    ],
+    "AYT Felsefe Grubu": [
+      "Felsefeye Giriş",
+      "Bilgi Felsefesi",
+      "Varlık Felsefesi",
+      "Ahlak Felsefesi",
+      "Sanat Felsefesi",
+      "Din Felsefesi",
+      "Siyaset Felsefesi",
+      "Bilim Felsefesi",
+      "Psikoloji",
+      "Sosyoloji",
+      "Mantık",
+    ],
+    "AYT Din Kültürü ve Ahlak Bilgisi": [
+      "İnanç Esasları",
+      "İbadetler",
+      "Güncel Ahlaki ve Sosyal Meseleler",
+    ],
+    "AYT Fizik": [
+      "Vektörler ve Kuvvet",
+      "Hareket ve Kuvvet",
+      "Enerji",
+      "Basit Makineler",
+      "Isı ve Sıcaklık",
+      "Elektrik ve Manyetizma",
+      "Dalga Özellikleri ve Optik",
+      "Modern Fizik",
+    ],
+    "AYT Kimya": [
+      "Kimya Bilimi",
+      "Atom ve Yapısı",
+      "Periyodik Sistem",
+      "Kimyasal Türler Arası Etkileşimler",
+      "Mol Kavramı",
+      "Asitler ve Bazlar",
+      "Kimya ve Enerji",
+      "Organik Kimya",
+      "Karbon Kimyası",
+    ],
+    "AYT Biyoloji": [
+      "Canlıların Ortak Özellikleri",
+      "Hücre",
+      "Canlıların Sınıflandırılması",
+      "Ekoloji",
+      "Canlılarda Enerji Dönüşümü",
+      "Kalıtım ve Evrim",
+      "Vücudun Sistemleri",
+      "Biyoteknoloji ve Genetik Mühendisliği",
+    ],
   },
-  "Fen Bilimleri": {
-    Fizik: ["Vektörler ve Kuvvet", "Hareket", "Newton'un Hareket Yasaları", "Atışlar", "Enerji ve İş"],
-    Kimya: ["Kimya Bilimi", "Atom ve Periyodik Sistem", "Kimyasal Türler Arası Etkileşimler", "Mol Kavramı"],
-    Biyoloji: ["Hücre ve Yapısı", "Canlıların Sınıflandırılması", "Ekoloji", "Nükleik Asitler", "Canlılarda Enerji Dönüşümü"],
-  },
-  "Sosyal Bilimler": {
-    Tarih: ["Tarih Bilimi", "İlkçağ Uygarlıkları", "Türk-İslam Tarihi", "Osmanlı Tarihi", "Milli Mücadele Dönemi"],
-    Coğrafya: ["Doğa ve İnsan", "Dünya'nın Şekli", "Harita Bilgisi", "İklim Bilgisi", "Nüfus ve Yerleşme"],
-    "Felsefe & Din": ["Felsefeye Giriş", "Bilgi Felsefesi", "İnanç Esasları", "İbadet ve Hayat"],
+  YDT: {
+    "YDT": [
+      "Kelime Bilgisi",
+      "Dil Bilgisi",
+      "Cloze Test",
+      "Cümleyi Tamamlama",
+      "İngilizceden Türkçeye Çeviri",
+      "Paragraf",
+      "Diyalog Tamamlama",
+      "Anlam Bütünlüğü",
+    ],
   },
 };
 
-export function yks2026DersKeys() {
-  return Object.keys(YKS2026_Mufredat);
+export function yks2026DersKeys(exam) {
+  if (!exam) {
+    var out = [];
+    ["TYT", "AYT", "YDT"].forEach(function (e) {
+      Object.keys(YKS2026_Mufredat[e] || {}).forEach(function (k) {
+        if (out.indexOf(k) === -1) out.push(k);
+      });
+    });
+    return out;
+  }
+  return Object.keys(YKS2026_Mufredat[exam] || {});
 }
 
 /**
- * @param {string} dersKey — YKS2026_Mufredat üst anahtarı
- * @returns {{ value: string, text: string }[]} value = "Ünite › Konu"
+ * @param {string} exam
+ * @param {string} dersKey — örn. "TYT Matematik"
+ * @returns {{ value: string, text: string }[]}
  */
-export function yks2026KonuOptionsForDers(dersKey) {
-  var block = YKS2026_Mufredat[dersKey];
-  if (!block || typeof block !== "object") return [];
-  var out = [];
-  Object.keys(block).forEach(function (unit) {
-    var arr = block[unit];
-    if (!Array.isArray(arr)) return;
-    arr.forEach(function (topic) {
-      out.push({
-        value: unit + " › " + topic,
-        text: unit + " › " + topic,
-      });
+export function yks2026KonuOptionsForDers(exam, dersKey) {
+  var block = (YKS2026_Mufredat[exam] || {})[dersKey];
+  if (!Array.isArray(block)) return [];
+  return block.map(function (topic) {
+    return { value: topic, text: topic };
+  });
+}
+
+/**
+ * Öğrenci paneli / soru formları için TYT·AYT·YDT sözlüğü (ders → konu listesi).
+ */
+export function buildLegacyMufredatTYTAYT() {
+  var out = { TYT: {}, AYT: {}, YDT: {} };
+  ["TYT", "AYT", "YDT"].forEach(function (exam) {
+    var bag = YKS2026_Mufredat[exam] || {};
+    Object.keys(bag).forEach(function (ders) {
+      out[exam][ders] = (bag[ders] || []).slice();
     });
   });
   return out;
-}
-
-/**
- * Öğrenci paneli / soru formları için TYT·AYT sözlüğü (ünite — konu etiketleri).
- */
-export function buildLegacyMufredatTYTAYT() {
-  var TYT = {};
-  var AYT = {};
-
-  function pushUnique(arr, item) {
-    if (arr.indexOf(item) === -1) arr.push(item);
-  }
-
-  function addTy(ders, unit, topics) {
-    if (!TYT[ders]) TYT[ders] = [];
-    topics.forEach(function (t) {
-      pushUnique(TYT[ders], unit + " — " + t);
-    });
-  }
-
-  function addAy(ders, unit, topics) {
-    if (!AYT[ders]) AYT[ders] = [];
-    topics.forEach(function (t) {
-      pushUnique(AYT[ders], unit + " — " + t);
-    });
-  }
-
-  var mat = YKS2026_Mufredat["Matematik (TYT/AYT)"] || {};
-  Object.keys(mat).forEach(function (unit) {
-    var topics = mat[unit] || [];
-    if (/^TYT/i.test(unit) || unit === "Geometri") addTy("Matematik", unit, topics);
-    if (/^AYT/i.test(unit)) addAy("Matematik", unit, topics);
-  });
-
-  var tr = YKS2026_Mufredat["Türkçe (Edebiyat/Dil)"] || {};
-  Object.keys(tr).forEach(function (unit) {
-    var topics = tr[unit] || [];
-    if (/Dil Bilgisi/i.test(unit) || /TYT/i.test(unit)) addTy("Türkçe", unit, topics);
-    if (/Edebiyat/i.test(unit) || /Anlatım/i.test(unit)) addAy("Türk Dili ve Edebiyatı", unit, topics);
-  });
-
-  var fen = YKS2026_Mufredat["Fen Bilimleri"] || {};
-  Object.keys(fen).forEach(function (dersName) {
-    addTy(dersName, dersName, fen[dersName] || []);
-  });
-
-  var sos = YKS2026_Mufredat["Sosyal Bilimler"] || {};
-  Object.keys(sos).forEach(function (unit) {
-    var topics = sos[unit] || [];
-    if (unit === "Felsefe & Din") addTy("Felsefe & Din", unit, topics);
-    else addTy(unit, unit, topics);
-  });
-
-  return { TYT: TYT, AYT: AYT };
 }

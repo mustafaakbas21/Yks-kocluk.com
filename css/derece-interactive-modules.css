@@ -1168,3 +1168,128 @@
   max-width: 100%;
   border: 1px solid #e2e8f0;
 }
+
+/* ----- Tercih Sihirbazı ----- */
+.ts-wizard-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: flex-end;
+  margin: 0 1.5rem 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(124, 58, 237, 0.12);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+}
+
+.ts-wizard-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 8rem;
+}
+
+.ts-wizard-form .form-group label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.ts-wizard-form input[type="number"],
+.ts-wizard-form input[type="text"],
+.ts-wizard-form select {
+  padding: 0.45rem 0.6rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  font-size: 0.9rem;
+  min-width: 7rem;
+}
+
+.ts-wizard-form .btn--filter {
+  padding: 0.55rem 1.25rem;
+  border-radius: 12px;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg, #7c3aed, #5b21b6);
+  color: #fff;
+}
+
+.ts-wizard-form .btn--filter:hover {
+  filter: brightness(1.05);
+}
+
+.ts-table-scroll {
+  overflow-x: auto;
+  margin: 0 1.5rem 2rem;
+  border-radius: 14px;
+  border: 1px solid rgba(124, 58, 237, 0.1);
+  background: #fff;
+}
+
+.ts-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.ts-table th,
+.ts-table td {
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid #f1f5f9;
+  text-align: left;
+  vertical-align: top;
+}
+
+.ts-table thead th {
+  background: rgba(124, 58, 237, 0.07);
+  font-weight: 800;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.ts-table tbody tr:hover {
+  background: rgba(248, 250, 252, 0.95);
+}
+
+.ts-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem 1rem;
+  margin: 0 1.5rem 2rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  background: rgba(124, 58, 237, 0.06);
+  border: 1px solid rgba(124, 58, 237, 0.12);
+}
+
+.ts-pager__info {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #475569;
+  font-variant-numeric: tabular-nums;
+}
+
+.ts-pager__btn {
+  padding: 0.45rem 1rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  font-weight: 700;
+  font-size: 0.86rem;
+  cursor: pointer;
+  color: #334155;
+}
+
+.ts-pager__btn:hover:not(:disabled) {
+  border-color: #7c3aed;
+  color: #5b21b6;
+}
+
+.ts-pager__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

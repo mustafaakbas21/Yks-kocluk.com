@@ -7,7 +7,6 @@ import {
   addDoc,
   getDocs,
   query,
-  where,
   db,
   serverTimestamp,
   logAppwriteError,
@@ -104,11 +103,15 @@ export async function loadExamDefinitionsForCoach(getCoachId) {
   var cid = getCoachId();
   if (!cid) return [];
   try {
-    var q = query(collection(db, EXAM_DEFINITIONS_COLLECTION), where("coach_id", "==", cid));
+    var q = query(collection(db, EXAM_DEFINITIONS_COLLECTION));
     var snap = await getDocs(q);
     var out = [];
     snap.forEach(function (d) {
       var data = typeof d.data === "function" ? d.data() : {};
+      var coachField = data.coach_id != null ? data.coach_id : data.coachId;
+      if (coachField !== undefined && coachField !== null && String(coachField).trim() !== "") {
+        if (String(coachField) !== String(cid)) return;
+      }
       out.push({
         id: d.id,
         examName: data.examName || "",

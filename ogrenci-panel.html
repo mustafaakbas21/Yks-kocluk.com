@@ -76,6 +76,11 @@
             </button>
           </li>
           <li>
+            <button type="button" class="sidebar__link" data-osp-nav="tercih-sihirbazi" title="Tercih Sihirbazı — yks-data.json">
+              <i class="fa-solid fa-wand-magic-sparkles"></i><span>Tercih Sihirbazı</span>
+            </button>
+          </li>
+          <li>
             <button type="button" class="sidebar__link" data-osp-nav="yks-puan" title="YKS Puan Hesaplama">
               <i class="fa-solid fa-calculator"></i><span>YKS Puan Hesaplama</span>
             </button>
@@ -333,7 +338,7 @@
         <!-- Hedef Simülatörü -->
         <section class="osp-view osp-hedef-page" data-osp-view="hedef" id="ospViewHedef" hidden>
           <p style="font-size:0.88rem;color:var(--osp-muted);margin:0 0 0.75rem;">
-            Önce üniversite; bölüm listesi yalnızca Appwrite <strong>Programs</strong> kayıtlarından gelir (aynı katalog koç paneli ve Net Sihirbazı ile paylaşılır). Veri kökü YÖK Atlas — örn. <a href="https://github.com/saidsurucu/yokatlas-py" target="_blank" rel="noopener">yokatlas-py</a>.
+            Önce üniversite; bölüm listesi <code class="text-xs">src/data/yks-data.json</code> statik dosyasından gelir (koç paneli ve Net Sihirbazı ile aynı katalog).
           </p>
           <div class="osp-hedef-atlas-bar">
             <div class="net-sihirbazi-select-row osp-net-sihirbazi-row">
@@ -351,7 +356,7 @@
               </div>
               <div class="net-sihirbazi-select">
                 <label for="ospHedefDeptSelect">Bölüm / program</label>
-                <select id="ospHedefDeptSelect" aria-label="Hedef bölüm veya program (Appwrite)"></select>
+                <select id="ospHedefDeptSelect" aria-label="Hedef bölüm veya program (yerel katalog)"></select>
               </div>
             </div>
           </div>
@@ -370,7 +375,7 @@
         <!-- TYT-AYT Net Sihirbazı -->
         <section class="osp-view osp-net-sihirbazi-page" data-osp-view="net-sihirbazi" id="ospViewNetSihirbazi" hidden>
           <p class="net-sihirbazi-hint" style="margin:0 0 0.75rem;font-size:0.88rem;color:var(--osp-muted);">
-            Net Sihirbazı V2: yalnızca Appwrite <strong>Universities</strong> / <strong>Programs</strong>. Bölüm listesi seçilen üniversitenin gerçek programlarıdır. Güncel netler deneme kayıtlarınızdaki YKS branş detayından gelir (mock veri yok).
+            Net Sihirbazı V2: üniversite ve bölüm listesi <code class="text-xs">yks-data.json</code> statik dosyasından gelir. Güncel netler deneme kayıtlarınızdaki YKS branş detayından gelir (mock veri yok).
           </p>
           <div class="osp-hedef-atlas-bar">
             <div class="net-sihirbazi-select-row osp-net-sihirbazi-row">
@@ -398,6 +403,52 @@
             <p class="osp-net-sihirbazi-meta" id="ospNsTabanSub">Seçim yapın; veri yüklenirken iskelet gösterilir.</p>
           </div>
           <div id="ospNsNetTableWrap" class="osp-hedef-net-table-host" aria-live="polite"></div>
+        </section>
+
+        <!-- Tercih Sihirbazı -->
+        <section class="osp-view" data-osp-view="tercih-sihirbazi" id="ospViewTercihSihirbazi" hidden>
+          <p class="net-sihirbazi-hint" style="margin:0 0 0.75rem;font-size:0.88rem;color:var(--osp-muted);">
+            Liste <code class="text-xs">yks-data.json</code> dosyasından gelir. <strong>Sıra (demo)</strong> YÖK Atlas yerleştirme sırası değildir; filtre için örnek değerdir.
+          </p>
+          <form id="ospTsForm" class="ts-wizard-form" style="margin:0 0 1rem" autocomplete="off">
+            <div class="form-group">
+              <label for="ospTsMinSira">Başarı sırası min</label>
+              <input type="number" id="ospTsMinSira" name="minSira" min="1" max="9999999" placeholder="örn. 1" />
+            </div>
+            <div class="form-group">
+              <label for="ospTsMaxSira">Başarı sırası max</label>
+              <input type="number" id="ospTsMaxSira" name="maxSira" min="1" max="9999999" placeholder="örn. 500000" />
+            </div>
+            <div class="form-group">
+              <label for="ospTsPuan">Puan türü</label>
+              <select id="ospTsPuan" name="puanTuru" aria-label="Puan türü">
+                <option value="">Tümü</option>
+                <option value="SAY">SAY</option>
+                <option value="EA">EA</option>
+                <option value="SÖZ">SÖZ</option>
+                <option value="DİL">DİL</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="ospTsCity">Şehir</label>
+              <select id="ospTsCity" name="city" aria-label="Şehir">
+                <option value="">Tümü</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="ospTsUniType">Üniversite türü</label>
+              <select id="ospTsUniType" name="uniType" aria-label="Üniversite türü">
+                <option value="">Tümü</option>
+                <option value="devlet">Devlet</option>
+                <option value="vakıf">Vakıf</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <button type="submit" class="btn btn--filter">Filtrele</button>
+            </div>
+          </form>
+          <p id="ospTsMeta" class="net-sihirbazi-hint" style="margin:0 0 0.75rem">Veri yükleniyor…</p>
+          <div id="ospTsTableWrap" class="ts-table-scroll" style="margin:0" aria-live="polite"></div>
         </section>
 
         <!-- YKS Puan Hesaplama -->
@@ -846,8 +897,26 @@
   }
 
   OSP.applyPlanFromFirestore = function (data) {
-    if (!data || data.version !== 1 || !Array.isArray(data.week)) return;
+    if (!data) return;
+    if (typeof data.week_json === "string" && data.week_json) {
+      try {
+        data.week = JSON.parse(data.week_json);
+      } catch (e) {
+        return;
+      }
+    }
+    if (typeof data.next_task_json === "string" && data.next_task_json) {
+      try {
+        data.nextTask = JSON.parse(data.next_task_json);
+      } catch (e) {}
+    }
     var doneMap = data.taskDoneMap || {};
+    if (typeof data.task_done_map_json === "string" && data.task_done_map_json) {
+      try {
+        doneMap = JSON.parse(data.task_done_map_json) || {};
+      } catch (e) {}
+    }
+    if (data.version !== 1 || !Array.isArray(data.week)) return;
     data.week.forEach(function (d) {
       (d.tasks || []).forEach(function (t) {
         t.done = !!doneMap[t.id];
@@ -866,7 +935,7 @@
     var ban = document.getElementById("ospCoachBanner");
     if (ban) {
       ban.textContent =
-        "Koç planı (Firestore) · " +
+        "Koç planı (Appwrite) · " +
         (data.studentName ? data.studentName + " · " : "") +
         "Güncelleme: " +
         formatPlanUpdatedAt(data.updatedAt);
@@ -916,6 +985,7 @@
     dashboard: "Ana Sayfa",
     hedef: "🎯 Hedef Simülatörü",
     "net-sihirbazi": "TYT-AYT Net Sihirbazı",
+    "tercih-sihirbazi": "Tercih Sihirbazı",
     "yks-puan": "YKS Puan Hesaplama",
     "koca-sor": "🆘 Koça Sor",
     haftalik: "Haftalık Programım",
@@ -1015,6 +1085,20 @@
         })
         .catch(function (e) {
           console.error("[OSP] YKS puan:", e);
+        });
+    }
+    if (view === "tercih-sihirbazi") {
+      import("./js/tercih-sihirbazi.js")
+        .then(function (m) {
+          m.initTercihSihirbazi({
+            formId: "ospTsForm",
+            tableWrapId: "ospTsTableWrap",
+            metaId: "ospTsMeta",
+            citySelectId: "ospTsCity",
+          });
+        })
+        .catch(function (e) {
+          console.error("[OSP] Tercih Sihirbazı:", e);
         });
     }
     try {

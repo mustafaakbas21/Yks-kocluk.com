@@ -1,28 +1,26 @@
 /**
- * TYT-AYT Net Sihirbazı V2 — Appwrite Universities + Programs; Türkçe sıralı menüler; güncel net = deneme yksBranchDetail (mock yok).
+ * TYT-AYT Net Sihirbazı V2 — `src/data/yks-data.json` statik katalog; güncel net = deneme yksBranchDetail (mock yok).
  * YKS Puan modülü aşağıda aynı dosyada.
  */
 import { YKS2026_Mufredat } from "./yks-mufredat.js";
 import { wireSearchFilterForSelect } from "./hedef-atlas-helpers.js";
-import { hedefUniDisplayName, hedefProgramDisplayName } from "./hedef-appwrite-catalog.js";
+import {
+  ensureHedefSimulatorAppwriteData,
+  getCachedHedefProgramsForUniversity,
+  getHedefAppwriteUniversities,
+  hedefProgramDisplayName,
+  hedefUniDisplayName,
+  loadHedefProgramsForUniversity,
+} from "./hedef-appwrite-catalog.js";
 import {
   buildProgramFromAppwriteV2,
   buildMotorDisplayRows,
   netSihirbaziSkeletonHtml,
   netSihirbaziV2ResultHtml,
 } from "./net-sihirbazi-engine.js";
-import {
-  databases,
-  APPWRITE_DATABASE_ID,
-  APPWRITE_COLLECTION_UNIVERSITIES,
-  APPWRITE_COLLECTION_PROGRAMS,
-} from "./appwrite-config.js";
-import { Query } from "./appwrite-browser.js";
 import { createCurrentNetForRowResolver, hasAnyBranchNetData } from "./net-sihirbazi-current-nets.js";
 
 export { YKS2026_Mufredat };
-
-var NS_PAGE = 500;
 
 /**
  * @param {{ uniSelectId: string, deptSelectId: string, tableWrapId: string, uniTitleId?: string, deptTitleId?: string, subtitleId?: string, uniFilterId?: string, deptFilterId?: string, resolveExams?: () => unknown }} options
@@ -44,8 +42,6 @@ export function initNetSihirbazi(options) {
 
   /** @type {object[]} */
   var unis = [];
-  /** @type {Record<string, object[]>} */
-  var programsByUni = {};
 
   function renderEmptyState(msg) {
     try {
@@ -54,7 +50,7 @@ export function initNetSihirbazi(options) {
       if (subEl) {
         subEl.textContent =
           msg ||
-          "Veri yalnızca Appwrite Universities / Programs koleksiyonlarından gelir. Önce üniversite, sonra yalnızca o üniversiteye ait bölümler.";
+          "Üniversite ve bölüm listesi src/data/yks-data.json dosyasından gelir. Önce üniversite, sonra o üniversiteye ait bölümler.";
       }
       wrap.innerHTML =
         '<p class="net-sihirbazi-placeholder">Üniversite ve bölüm seçildiğinde analiz tablosu oluşturulur.</p>';
@@ -113,56 +109,6 @@ export function initNetSihirbazi(options) {
     }
   }
 
-  async function fetchAllUniversities() {
-    var all = [];
-    var cursor = null;
-    try {
-      for (;;) {
-        var q = [Query.limit(NS_PAGE)];
-        if (cursor) q.push(Query.cursorAfter(cursor));
-        var res = await databases.listDocuments(APPWRITE_DATABASE_ID, APPWRITE_COLLECTION_UNIVERSITIES, q);
-        var docs = (res && res.documents) || [];
-        all = all.concat(docs);
-        if (docs.length < NS_PAGE) break;
-        cursor = docs[docs.length - 1].$id;
-      }
-      all.sort(function (a, b) {
-        return hedefUniDisplayName(a).localeCompare(hedefUniDisplayName(b), "tr");
-      });
-      return all;
-    } catch (e) {
-      console.error("[Net Sihirbazı V2] fetchAllUniversities:", e);
-      throw e;
-    }
-  }
-
-  async function fetchProgramsForUni(uniId) {
-    var uid = String(uniId || "").trim();
-    if (!uid) return [];
-    if (programsByUni[uid]) return programsByUni[uid];
-    var acc = [];
-    var cursor = null;
-    try {
-      for (;;) {
-        var q = [Query.equal("uniId", uid), Query.limit(NS_PAGE)];
-        if (cursor) q.push(Query.cursorAfter(cursor));
-        var res = await databases.listDocuments(APPWRITE_DATABASE_ID, APPWRITE_COLLECTION_PROGRAMS, q);
-        var docs = (res && res.documents) || [];
-        acc = acc.concat(docs);
-        if (docs.length < NS_PAGE) break;
-        cursor = docs[docs.length - 1].$id;
-      }
-      acc.sort(function (a, b) {
-        return hedefProgramDisplayName(a).localeCompare(hedefProgramDisplayName(b), "tr");
-      });
-      programsByUni[uid] = acc;
-      return acc;
-    } catch (e) {
-      console.error("[Net Sihirbazı V2] fetchProgramsForUni:", e);
-      throw e;
-    }
-  }
-
   async function loadExamsForResolver() {
     try {
       if (!resolveExams) return [];
@@ -187,7 +133,7 @@ export function initNetSihirbazi(options) {
       var uni = unis.find(function (x) {
         return x.$id === uid;
       });
-      var progs = programsByUni[uid] || [];
+      var progs = getCachedHedefProgramsForUniversity(uid) || [];
       var pdoc = progs.find(function (x) {
         return x.$id === pid;
       });
@@ -224,7 +170,7 @@ export function initNetSihirbazi(options) {
           ? "Güncel sütunu gerçek deneme branş netlerinizden türetilir (eşleşmeyen dersler 0)."
           : "Henüz branş neti yok; güncel değerler 0 gösteriliyor.",
         tableFootnote:
-          "Kalan = güncel − hedef. Ekside kırmızı, fazlada yeşil. Hedefler Appwrite Programs (rowsJson).",
+          "Kalan = güncel − hedef. Ekside kırmızı, fazlada yeşil. Hedefler yks-data.json (rowsJson).",
       };
       wrap.innerHTML = netSihirbaziV2ResultHtml(display, prog, uiMeta);
     } catch (err) {
@@ -258,15 +204,14 @@ export function initNetSihirbazi(options) {
 
   (async function bootstrap() {
     try {
-      unis = await fetchAllUniversities();
+      await ensureHedefSimulatorAppwriteData();
+      unis = getHedefAppwriteUniversities();
       fillUniversitySelect();
       bindFiltersOnce();
       if (!unis.length) {
-        renderEmptyState(
-          "Universities koleksiyonunda kayıt yok. setup-appwrite.js sonrası auto-fetch-yokatlas.js veya import-excel-to-appwrite.js çalıştırın."
-        );
+        renderEmptyState("src/data/yks-data.json boş veya yüklenemedi. Dosyaya üniversite/program ekleyin.");
         wrap.innerHTML =
-          '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Liste boş — önce veri aktarımı gerekir.</p>';
+          '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Liste boş — yks-data.json kontrol edin.</p>';
         return;
       }
       renderEmptyState(null);
@@ -274,7 +219,7 @@ export function initNetSihirbazi(options) {
       console.error("[Net Sihirbazı V2] bootstrap:", e);
       try {
         wrap.innerHTML =
-          '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Appwrite Universities yüklenemedi. Oturum ve koleksiyon adlarını kontrol edin.</p>';
+          '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Yerel katalog (yks-data.json) yüklenemedi.</p>';
         if (subEl) subEl.textContent = e && e.message ? String(e.message) : "Yükleme hatası.";
       } catch (_e2) {}
     }
@@ -292,7 +237,7 @@ export function initNetSihirbazi(options) {
         return;
       }
       wrap.innerHTML = netSihirbaziSkeletonHtml();
-      fetchProgramsForUni(uid)
+      loadHedefProgramsForUniversity(uid)
         .then(function (list) {
           try {
             if (!list.length) {
@@ -300,7 +245,7 @@ export function initNetSihirbazi(options) {
               dSel.disabled = true;
               wrap.innerHTML =
                 '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Bu üniversite için kayıtlı bölüm yok.</p>';
-              if (subEl) subEl.textContent = "Bu uniId için Programs dökümanı bulunamadı.";
+              if (subEl) subEl.textContent = "Bu üniversite kimliği için yks-data.json içinde program yok.";
               return;
             }
             fillDepartmentSelect(list);
@@ -312,11 +257,11 @@ export function initNetSihirbazi(options) {
           }
         })
         .catch(function (err) {
-          console.error("[Net Sihirbazı V2] programs fetch:", err);
+          console.error("[Net Sihirbazı V2] programs load:", err);
           try {
             wrap.innerHTML =
               '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Bölümler yüklenemedi.</p>';
-            if (subEl) subEl.textContent = err && err.message ? String(err.message) : "Ağ hatası.";
+            if (subEl) subEl.textContent = err && err.message ? String(err.message) : "Hata.";
           } catch (_e2) {}
         });
     } catch (err) {

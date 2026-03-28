@@ -1,26 +1,19 @@
 /**
- * Üniversite / bölüm tek kaynak: Appwrite Universities + Programs.
- * import-excel-to-appwrite.js, auto-fetch-yokatlas.js veya yokatlas-py ile doldurulur.
+ * Üniversite / bölüm tek kaynak: `src/data/yks-data.json` (statik JSON).
+ * Patron tam listeyi bu dosyaya yapıştırır; Appwrite Universities/Programs kullanılmaz.
  */
 
-import { Query } from "./appwrite-browser.js";
-import {
-  databases,
-  APPWRITE_DATABASE_ID,
-  APPWRITE_COLLECTION_UNIVERSITIES,
-  APPWRITE_COLLECTION_PROGRAMS,
-} from "./appwrite-config.js";
+/** @type {string} */
+var YKS_DATA_JSON_URL = "src/data/yks-data.json";
 
-var PAGE = 500;
 /** @type {boolean} */
 var _ready = false;
 /** @type {object[]} */
 var _universities = [];
+/** @type {object[]} */
+var _allPrograms = [];
 /** @type {Record<string, object[]>} */
 var _programsByUni = Object.create(null);
-/** @type {Record<string, Promise<object[]>>} */
-var _progPromises = Object.create(null);
-
 /** Appwrite dökümanında üniversite görünen adı (`uniName`; eski kayıtlar `name`). */
 export function hedefUniDisplayName(u) {
   if (!u) return "";
@@ -48,35 +41,57 @@ export function programPuanGroupFromAlanKey(alanKey) {
   return "sayisal";
 }
 
-async function listAllDocuments(collectionId, extraQueries) {
-  var all = [];
-  var cursor = null;
-  for (;;) {
-    var q = [Query.limit(PAGE)].concat(extraQueries || []);
-    if (cursor) q.push(Query.cursorAfter(cursor));
-    var res = await databases.listDocuments(APPWRITE_DATABASE_ID, collectionId, q);
-    var docs = (res && res.documents) || [];
-    all = all.concat(docs);
-    if (docs.length < PAGE) break;
-    cursor = docs[docs.length - 1].$id;
+function normalizeUni(raw) {
+  var id = raw && (raw.id != null ? String(raw.id) : raw.$id != null ? String(raw.$id) : "");
+  return Object.assign({}, raw, { $id: id, uniName: raw.uniName != null ? raw.uniName : raw.name });
+}
+
+function normalizeProgram(raw) {
+  var id = raw && (raw.id != null ? String(raw.id) : raw.$id != null ? String(raw.$id) : "");
+  var rows = raw.rowsJson != null ? raw.rowsJson : raw.rows_json;
+  if (Array.isArray(rows)) {
+    rows = JSON.stringify(rows);
   }
-  return all;
+  return Object.assign({}, raw, { $id: id, rowsJson: rows });
 }
 
 /**
- * Universities listesini Appwrite’tan bir kez yükler (boş dizi olabilir).
+ * Statik JSON’u bir kez yükler (boş dizi olabilir).
  */
 export async function ensureHedefSimulatorAppwriteData() {
   if (_ready) return;
   try {
-    var list = await listAllDocuments(APPWRITE_COLLECTION_UNIVERSITIES, []);
-    list.sort(function (a, b) {
+    var res = await fetch(YKS_DATA_JSON_URL, { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    var data = await res.json();
+    var ulist = Array.isArray(data.universities) ? data.universities : [];
+    _universities = ulist.map(normalizeUni).filter(function (u) {
+      return u.$id;
+    });
+    _universities.sort(function (a, b) {
       return hedefUniDisplayName(a).localeCompare(hedefUniDisplayName(b), "tr");
     });
-    _universities = list;
+    _allPrograms = (Array.isArray(data.programs) ? data.programs : []).map(normalizeProgram).filter(function (p) {
+      return p.$id && p.uniId;
+    });
+    _programsByUni = Object.create(null);
+    for (var i = 0; i < _allPrograms.length; i++) {
+      var p = _allPrograms[i];
+      var uid = String(p.uniId);
+      if (!_programsByUni[uid]) _programsByUni[uid] = [];
+      _programsByUni[uid].push(p);
+    }
+    for (var k in _programsByUni) {
+      if (!Object.prototype.hasOwnProperty.call(_programsByUni, k)) continue;
+      _programsByUni[k].sort(function (a, b) {
+        return hedefProgramDisplayName(a).localeCompare(hedefProgramDisplayName(b), "tr");
+      });
+    }
   } catch (e) {
-    console.warn("[Uni/Program kataloğu] Appwrite Universities okunamadı:", e && e.message ? e.message : e);
+    console.warn("[Uni/Program kataloğu] yks-data.json yüklenemedi:", e && e.message ? e.message : e);
     _universities = [];
+    _allPrograms = [];
+    _programsByUni = Object.create(null);
   }
   _ready = true;
 }
@@ -87,6 +102,11 @@ export function isHedefAppwriteCatalogReady() {
 
 export function getHedefAppwriteUniversities() {
   return _universities || [];
+}
+
+/** Tüm programlar (Tercih Sihirbazı vb.); tek sefer yks-data.json */
+export function getAllHedefPrograms() {
+  return _allPrograms ? _allPrograms.slice() : [];
 }
 
 export function getCachedHedefProgramsForUniversity(uniDocId) {
@@ -101,32 +121,15 @@ export function getCachedHedefProgramsForUniversity(uniDocId) {
 export function loadHedefProgramsForUniversity(uniDocId) {
   var uid = String(uniDocId || "").trim();
   if (!uid) return Promise.resolve([]);
-  if (Object.prototype.hasOwnProperty.call(_programsByUni, uid)) {
-    return Promise.resolve(_programsByUni[uid]);
+  if (!Object.prototype.hasOwnProperty.call(_programsByUni, uid)) {
+    return Promise.resolve([]);
   }
-  if (_progPromises[uid]) return _progPromises[uid];
-  _progPromises[uid] = listAllDocuments(APPWRITE_COLLECTION_PROGRAMS, [Query.equal("uniId", uid)])
-    .then(function (docs) {
-      docs.sort(function (a, b) {
-        return hedefProgramDisplayName(a).localeCompare(hedefProgramDisplayName(b), "tr");
-      });
-      _programsByUni[uid] = docs;
-      delete _progPromises[uid];
-      return docs;
-    })
-    .catch(function (err) {
-      delete _progPromises[uid];
-      console.error("[Uni/Program kataloğu] Programs yüklenemedi:", err);
-      _programsByUni[uid] = [];
-      return [];
-    });
-  return _progPromises[uid];
+  return Promise.resolve(_programsByUni[uid]);
 }
 
 export function invalidateHedefAppwriteCache() {
   _ready = false;
   _universities = [];
-  for (var k in _programsByUni) {
-    if (Object.prototype.hasOwnProperty.call(_programsByUni, k)) delete _programsByUni[k];
-  }
+  _allPrograms = [];
+  _programsByUni = Object.create(null);
 }

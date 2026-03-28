@@ -172,13 +172,11 @@ export async function listSoruHavuzuFiltered(coachKey, opts) {
     return { questions: [], totalMatched: 0, requested: want };
   }
 
-  function buildQueries(includeCoach) {
+  function buildQueries() {
     var q = [Query.orderDesc("$createdAt")];
-    if (includeCoach) q.unshift(Query.equal("coach_id", coachKey));
     if (ders) q.push(Query.equal("ders", ders));
     if (konu) q.push(Query.equal("konu", konu));
     if (zorluk && !useKarma) q.push(Query.equal("zorluk", zorluk));
-    // Appwrite tarafında (mümkünse) dışla; olmazsa aşağıdaki client-side filtre devreye girer.
     Object.keys(excludeSet).forEach(function (id) {
       q.push(Query.notEqual("$id", id));
     });
@@ -186,19 +184,21 @@ export async function listSoruHavuzuFiltered(coachKey, opts) {
   }
 
   var fetchLimit = useKarma ? Math.min(100, Math.max(want * 2, 40)) : want;
-  var queries = buildQueries(true);
+  var queries = buildQueries();
   queries.push(Query.limit(fetchLimit));
 
   var docs = [];
   try {
     var res = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, queries);
-    docs = (res && res.documents) || [];
+    docs = ((res && res.documents) || []).filter(function (row) {
+      return poolDocMatchesCoach(row, coachKey);
+    });
   } catch (err) {
-    if (!isCoachIdUnavailableError(err)) {
-      logAppwriteError("soru-havuzu-core.js/listSoruHavuzuFiltered/listDocuments", err);
-    }
     try {
-      var q2 = buildQueries(false);
+      logAppwriteError("soru-havuzu-core.js/listSoruHavuzuFiltered/listDocuments", err);
+    } catch (_e) {}
+    try {
+      var q2 = buildQueries();
       q2.push(Query.limit(Math.min(200, fetchLimit * 3)));
       var res2 = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, q2);
       docs = ((res2 && res2.documents) || []).filter(function (row) {
@@ -207,15 +207,21 @@ export async function listSoruHavuzuFiltered(coachKey, opts) {
       shuffleInPlace(docs);
       docs = docs.slice(0, fetchLimit);
     } catch (err2) {
-      logAppwriteError("soru-havuzu-core.js/listSoruHavuzuFiltered/listDocuments-fallback", err2);
-      var all = await fetchSoruHavuzuForCoach(coachKey);
-      docs = (all || []).filter(function (row) {
-        if (ders && String(row.ders || "") !== ders) return false;
-        if (konu && String(row.konu || "") !== konu) return false;
-        if (exam && !rowMatchesExamFilter(row, exam)) return false;
-        if (zorluk && !useKarma && String(row.zorluk || "") !== zorluk) return false;
-        return true;
-      });
+      try {
+        logAppwriteError("soru-havuzu-core.js/listSoruHavuzuFiltered/fallback2", err2);
+      } catch (_e2) {}
+      try {
+        var all = await fetchSoruHavuzuForCoach(coachKey);
+        docs = (all || []).filter(function (row) {
+          if (ders && String(row.ders || "") !== ders) return false;
+          if (konu && String(row.konu || "") !== konu) return false;
+          if (exam && !rowMatchesExamFilter(row, exam)) return false;
+          if (zorluk && !useKarma && String(row.zorluk || "") !== zorluk) return false;
+          return poolDocMatchesCoach(row, coachKey);
+        });
+      } catch (_e3) {
+        docs = [];
+      }
       shuffleInPlace(docs);
       docs = docs.slice(0, fetchLimit);
     }
@@ -282,23 +288,17 @@ async function listAllCoachDocumentsPaged(queries) {
 
 async function listAllCoachDocuments(coachKey) {
   if (!coachKeyUsable(coachKey)) return [];
-  var queries = [
-    Query.equal("coach_id", coachKey),
-    Query.orderDesc("$createdAt"),
-    Query.limit(PAGE_SIZE),
-  ];
+  var loose = [Query.orderDesc("$createdAt"), Query.limit(PAGE_SIZE)];
   try {
-    return await listAllCoachDocumentsPaged(queries);
-  } catch (error) {
-    if (!isCoachIdUnavailableError(error)) {
-      logAppwriteError("soru-havuzu-core.js/listAllCoachDocuments", error);
-      throw error;
-    }
-    var loose = [Query.orderDesc("$createdAt"), Query.limit(PAGE_SIZE)];
     var all = await listAllCoachDocumentsPaged(loose);
     return all.filter(function (row) {
       return poolDocMatchesCoach(row, coachKey);
     });
+  } catch (error) {
+    try {
+      logAppwriteError("soru-havuzu-core.js/listAllCoachDocuments", error);
+    } catch (_e) {}
+    return [];
   }
 }
 
@@ -354,9 +354,8 @@ export async function listSoruDocumentsForPdf(coachKey, filters) {
   var konu = String(filters.konu || "").trim();
   var zorluk = String(filters.zorluk || "").trim();
   var sinav = String(filters.sinav || "").trim();
-  function build(withCoach) {
+  function build() {
     var queries = [Query.orderDesc("$createdAt")];
-    if (withCoach) queries.unshift(Query.equal("coach_id", coachKey));
     if (ders) queries.push(Query.equal("ders", ders));
     if (konu) queries.push(Query.equal("konu", konu));
     if (zorluk && zorluk !== "Tümü") queries.push(Query.equal("zorluk", zorluk));
@@ -364,8 +363,11 @@ export async function listSoruDocumentsForPdf(coachKey, filters) {
     return queries;
   }
   try {
-    var res = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, build(true));
+    var res = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, build());
     var rowsOut = (res && res.documents) || [];
+    rowsOut = rowsOut.filter(function (row) {
+      return poolDocMatchesCoach(row, coachKey);
+    });
     if (sinav) {
       rowsOut = rowsOut.filter(function (row) {
         return rowMatchesExamFilter(row, sinav);
@@ -373,17 +375,10 @@ export async function listSoruDocumentsForPdf(coachKey, filters) {
     }
     return rowsOut;
   } catch (e) {
-    if (!isCoachIdUnavailableError(e)) {
+    try {
       logAppwriteError("soru-havuzu-core.js/listSoruDocumentsForPdf", e);
-      throw e;
-    }
-    var res2 = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, build(false));
-    var rows = (res2 && res2.documents) || [];
-    return rows.filter(function (row) {
-      if (!poolDocMatchesCoach(row, coachKey)) return false;
-      if (sinav && !rowMatchesExamFilter(row, sinav)) return false;
-      return true;
-    });
+    } catch (_e) {}
+    return [];
   }
 }
 

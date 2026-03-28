@@ -3217,8 +3217,11 @@
               <button type="button" class="sidebar__sublink" data-nav="hedef-simulator" title="Hedef üniversite ve net simülasyonu">
                 <i class="fa-solid fa-bullseye"></i><span>Hedef Simülatörü</span>
               </button>
-              <button type="button" class="sidebar__sublink" data-nav="net-sihirbazi" title="TYT-AYT Net Sihirbazı — Appwrite Programs">
+              <button type="button" class="sidebar__sublink" data-nav="net-sihirbazi" title="TYT-AYT Net Sihirbazı — yks-data.json">
                 <i class="fa-solid fa-crosshairs"></i><span>TYT-AYT Net Sihirbazı</span>
+              </button>
+              <button type="button" class="sidebar__sublink" data-nav="tercih-sihirbazi" title="Tercih Sihirbazı — yks-data.json filtre">
+                <i class="fa-solid fa-wand-magic-sparkles"></i><span>Tercih Sihirbazı</span>
               </button>
               <button type="button" class="sidebar__sublink" data-nav="yks-puan" title="YKS yerleştirme göstergesi (demo)">
                 <i class="fa-solid fa-calculator"></i><span>YKS Puan Hesaplama</span>
@@ -4813,7 +4816,7 @@
                   <input type="range" id="tmAutoCropSensitivity" min="0.65" max="1.45" step="0.05" value="1.00" />
                 </label>
                 <div class="tm-auto-cropper-toolbar" role="group" aria-label="Ders ve konu seçimi">
-                  <label><span>Sınav</span><select id="tmAutoCropExam"><option value="TYT">TYT</option><option value="AYT">AYT</option></select></label>
+                  <label><span>Sınav</span><select id="tmAutoCropExam"><option value="TYT">TYT</option><option value="AYT">AYT</option><option value="YDT">YDT</option></select></label>
                   <label><span>Ders seçiniz</span><select id="tmAutoCropDersSelect"><option value="">— Ders seçiniz —</option></select></label>
                   <label><span>Konu seçiniz</span><select id="tmAutoCropKonuSelect"><option value="">— Önce ders —</option></select></label>
                   <label><span>Zorluk</span><select id="tmAutoCropZorluk"><option value="Kolay">Kolay</option><option value="Orta" selected>Orta</option><option value="Zor">Zor</option></select></label>
@@ -5083,6 +5086,7 @@
                 <select id="arsivUploadSinav" aria-label="Yükleme sınav tipi">
                   <option value="TYT">TYT</option>
                   <option value="AYT">AYT</option>
+                  <option value="YDT">YDT</option>
                 </select>
               </label>
               <label class="soru-arsivi-field">
@@ -5238,7 +5242,7 @@
           <div class="page-head" style="margin: 0 1.5rem 1rem">
             <h1 class="page-head__title">Hedef Simülatörü</h1>
             <p class="page-desc">
-              Öğrenci seçin; üniversite ve bölüm listesi yalnızca Appwrite <strong>Universities</strong> ve <strong>Programs</strong> koleksiyonlarından gelir (veri kökü YÖK Atlas / <a href="https://github.com/saidsurucu/yokatlas-py" target="_blank" rel="noopener">yokatlas-py</a> ile üretilip aktarılabilir). Liste boşsa önce veriyi Appwrite’a yükleyin.
+              Öğrenci seçin; üniversite ve bölüm listesi <code class="text-xs">src/data/yks-data.json</code> dosyasından gelir. Liste boşsa dosyaya katalog ekleyin.
             </p>
           </div>
           <div class="dp-hedef-student-bar">
@@ -5284,7 +5288,7 @@
             </div>
             <div class="net-sihirbazi-select">
               <label for="dpHedefDeptSelect">Bölüm / program</label>
-              <select id="dpHedefDeptSelect" aria-label="Hedef bölüm veya program (Appwrite)"></select>
+              <select id="dpHedefDeptSelect" aria-label="Hedef bölüm veya program (yerel katalog)"></select>
             </div>
           </div>
           <div class="dp-hedef-page" style="margin: 0 1.5rem">
@@ -5298,7 +5302,7 @@
                 <strong class="dp-hedef-prob__pct" id="dpHedefProbPct">—</strong>
               </div>
               <div class="dp-hedef-prob__track" aria-hidden="true"><div class="dp-hedef-prob__fill" id="dpHedefProbFill"></div></div>
-              <p class="dp-hedef-prob__hint">Güncel netler ile Appwrite’taki program hedefleri birleştirilerek yaklaşık gösterilir; resmî yerleştirme değildir.</p>
+              <p class="dp-hedef-prob__hint">Güncel netler ile yks-data.json’daki program hedefleri birleştirilerek yaklaşık gösterilir; resmî yerleştirme değildir.</p>
             </div>
             <div id="dpHedefPerSubjectGaps" class="dp-hedef-subgap" aria-live="polite"></div>
             <div class="dp-hedef-chart-wrap">
@@ -5314,12 +5318,12 @@
           <div class="page-head" style="margin: 0 1.5rem 1rem">
             <h1 class="page-head__title">TYT-AYT Net Sihirbazı</h1>
             <p class="page-desc">
-              Liste yalnızca Appwrite <strong>Universities</strong> ve <strong>Programs</strong> verisinden gelir; sahte bölüm gösterilmez. Hedef dağılım <code class="text-xs">rowsJson</code> ile yüklenir. Güncel netler, açık öğrenci detayındaki denemelerin YKS branş detayından okunur (mock yok).
+              Liste <code class="text-xs">yks-data.json</code> statik kataloğundan gelir; sahte bölüm gösterilmez. Hedef dağılım <code class="text-xs">rowsJson</code> ile yüklenir. Güncel netler, açık öğrenci detayındaki denemelerin YKS branş detayından okunur (mock yok).
             </p>
           </div>
           <div class="net-sihirbazi-page" style="margin: 0 1.5rem 2rem">
             <p class="net-sihirbazi-hint">
-              Önce üniversite seçin; bölüm menüsü yalnızca o üniversitenin <code style="font-size:0.85em">uniId</code> kayıtlarıdır. Veri aktarımı: <code style="font-size:0.85em">auto-fetch-yokatlas.js</code> veya <code style="font-size:0.85em">import-excel-to-appwrite.js</code>.
+              Önce üniversite seçin; bölüm menüsü seçilen üniversitenin <code style="font-size:0.85em">uniId</code> değerine göre <code style="font-size:0.85em">yks-data.json</code> içinden gelir.
             </p>
             <div class="dp-hedef-atlas-bar net-sihirbazi-select-row">
               <div class="net-sihirbazi-select net-sihirbazi-select--search">
@@ -5341,11 +5345,60 @@
             </div>
             <div class="dp-hedef-hero net-sihirbazi-hero">
               <h1 id="dpNsUniTitle">Üniversite ve bölüm seçin</h1>
-              <p id="dpNsDeptSub">Net Sihirbazı V2 — Appwrite Programs</p>
+              <p id="dpNsDeptSub">Net Sihirbazı V2 — yks-data.json</p>
               <p id="dpNsTabanSub" class="net-sihirbazi-meta">Veri yükleniyor…</p>
             </div>
             <div id="dpNsNetTableWrap" class="dp-hedef-net-table-host net-sihirbazi-table-host" aria-live="polite"></div>
           </div>
+        </div>
+
+        <div class="main-view" data-view="tercih-sihirbazi" id="view-tercih-sihirbazi" hidden>
+          <div class="page-head" style="margin: 0 1.5rem 1rem">
+            <h1 class="page-head__title">Tercih Sihirbazı</h1>
+            <p class="page-desc">
+              Katalog <code class="text-xs">src/data/yks-data.json</code> içinde YÖK üniversite/fakülte/bölüm ağacından üretilmiş on binlerce satır vardır; sonuçlar sayfalanır (Önceki / Sonraki).
+              <strong>Sıra (örnek)</strong> sütunu resmî YÖK Atlas yerleştirme sırası değildir; yalnızca aralık filtresi için örnek değerdir. Güncel taban / sıra için yokatlas.yok.gov.tr kullanın.
+            </p>
+          </div>
+          <form id="dpTsForm" class="ts-wizard-form" autocomplete="off">
+            <div class="form-group">
+              <label for="dpTsMinSira">Başarı sırası min</label>
+              <input type="number" id="dpTsMinSira" name="minSira" min="1" max="9999999" placeholder="örn. 1" />
+            </div>
+            <div class="form-group">
+              <label for="dpTsMaxSira">Başarı sırası max</label>
+              <input type="number" id="dpTsMaxSira" name="maxSira" min="1" max="9999999" placeholder="örn. 500000" />
+            </div>
+            <div class="form-group">
+              <label for="dpTsPuan">Puan türü</label>
+              <select id="dpTsPuan" name="puanTuru" aria-label="Puan türü">
+                <option value="">Tümü</option>
+                <option value="SAY">SAY</option>
+                <option value="EA">EA</option>
+                <option value="SÖZ">SÖZ</option>
+                <option value="DİL">DİL</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="dpTsCity">Şehir</label>
+              <select id="dpTsCity" name="city" aria-label="Şehir">
+                <option value="">Tümü</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="dpTsUniType">Üniversite türü</label>
+              <select id="dpTsUniType" name="uniType" aria-label="Üniversite türü">
+                <option value="">Tümü</option>
+                <option value="devlet">Devlet</option>
+                <option value="vakıf">Vakıf</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <button type="submit" class="btn btn--filter">Filtrele</button>
+            </div>
+          </form>
+          <p id="dpTsMeta" class="net-sihirbazi-hint" style="margin: 0 1.5rem 0.75rem">Veri yükleniyor…</p>
+          <div id="dpTsTableWrap" class="ts-table-scroll" aria-live="polite"></div>
         </div>
 
         <div class="main-view" data-view="yks-puan" id="view-yks-puan" hidden>

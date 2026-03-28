@@ -1,6 +1,6 @@
 /**
- * TYT-AYT Net Sihirbazı — hedef motoru: soru üst sınırı, Appwrite Programs.rowsJson, clamp / filtre.
- * Program çözümü: `buildProgramFromAppwriteV2` (Universities + Programs).
+ * TYT-AYT Net Sihirbazı — hedef motoru: soru üst sınırı, rowsJson (yks-data.json), clamp / filtre.
+ * Program çözümü: `buildProgramFromAppwriteV2` (statik program dökümanı ile uyumlu).
  */
 
 import { YKS_AYT_BY_ALAN, YKS_TYT_BRANCHES } from "./yks-exam-structure.js";
@@ -57,7 +57,7 @@ function esc(s) {
 /** @typedef {"sayisal"|"ea"|"sozel"|"dil"} PuanGroup */
 
 /**
- * Appwrite Programs.alanKey → motor puan grubu.
+ * Program alanKey → motor puan grubu.
  */
 export function puanGroupFromAlanKey(alanKey) {
   var raw = String(alanKey || "").trim().toLowerCase();
@@ -177,9 +177,9 @@ export function filterRowsByPuanGroup(rows, pg) {
 }
 
 /**
- * Appwrite V2: Universities + Programs dökümanlarından program nesnesi.
+ * Statik katalog: üniversite + program dökümanından program nesnesi (eski Appwrite şekliyle uyumlu).
  * @param {{ name?: string, universityName?: string }} uniDoc
- * @param {object} programDoc — Programs (uniId, name, targetTytNet, targetAytNet, alanKey, rowsJson)
+ * @param {object} programDoc — uniId, programName, targetTytNet, targetAytNet, alanKey, rowsJson
  * @returns {{ id: string, university: string, department: string, baseScore2025: number, rows: Array, dataSource: string, puanGroup: PuanGroup, targetTytNet: number, targetAytNet: number }|null}
  */
 export function buildProgramFromAppwriteV2(uniDoc, programDoc) {
@@ -236,7 +236,7 @@ export function buildProgramFromAppwriteV2(uniDoc, programDoc) {
       department: dept,
       baseScore2025: 400,
       rows: cleaned,
-      dataSource: "appwrite-v2",
+      dataSource: "static-json",
       puanGroup: pg,
       targetTytNet: isNaN(tt) ? 0 : tt,
       targetAytNet: isNaN(ta) ? 0 : ta,
@@ -329,7 +329,7 @@ export function netSihirbaziV2ResultHtml(displayRows, program, uiMeta) {
     '<div class="mb-5 rounded-2xl border border-violet-200/90 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-4 shadow-md shadow-violet-100/50">' +
     '<div class="flex flex-wrap items-end justify-between gap-3">' +
     '<div class="space-y-1">' +
-    '<p class="text-xs font-extrabold uppercase tracking-wider text-violet-600">Hedef netler (Appwrite Programs)</p>' +
+    '<p class="text-xs font-extrabold uppercase tracking-wider text-violet-600">Hedef netler (yks-data.json)</p>' +
     '<p class="text-sm font-semibold text-slate-700">' +
     "TYT: <span class=\"text-violet-700 tabular-nums\">" +
     esc(tT.toFixed(1)) +
@@ -379,7 +379,7 @@ export function netSihirbaziV2ResultHtml(displayRows, program, uiMeta) {
   var foot =
     uiMeta.tableFootnote != null && String(uiMeta.tableFootnote).trim() !== ""
       ? String(uiMeta.tableFootnote)
-      : "Hedefler Appwrite Programs.rowsJson kaynağındadır. Kalan = güncel net − hedef net.";
+      : "Hedefler yks-data.json (rowsJson) kaynağındadır. Kalan = güncel net − hedef net.";
   var table =
     '<div class="overflow-hidden rounded-2xl border border-violet-200/80 bg-white shadow-sm">' +
     '<table class="w-full border-collapse text-left text-sm">' +

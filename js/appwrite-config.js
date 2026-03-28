@@ -1,5 +1,7 @@
 import { Client, Databases, Storage } from "./appwrite-browser.js";
 
+/** Tüm veritabanı koleksiyonları ve sütunlar: kökte `setup-appwrite.js` (genişletilmiş şema + isteğe `--seed`). */
+
 export const APPWRITE_ENDPOINT = "https://fra.cloud.appwrite.io/v1";
 export const APPWRITE_PROJECT_ID = "69c12f05001b051b2f14";
 export const APPWRITE_DATABASE_ID = "derece_panel";
@@ -43,11 +45,10 @@ export const APPWRITE_BUCKET_AVATARLAR = "avatarlar";
  * İzinler: oturumlu kullanıcıya okuma/yazma (koç paneli ile uyumlu).
  */
 export const APPWRITE_COLLECTION_GLOBAL_DENEMELER = "global_denemeler";
-/** Eski Net Sihirbazı hedef satırları (isteğe bağlı; arayüz artık Programs.rowsJson kullanır) */
+/** Eski Net Sihirbazı hedef satırları (isteğe bağlı) */
 export const APPWRITE_COLLECTION_YKS_NET_TARGETS = "yks_net_sihirbazi_targets";
-/** Üniversite kataloğu (`seed-2026-yok-atlas.js`, import scriptleri) */
+/** Geriye dönük uyumluluk — Net Sihirbazı / hedef seçici artık `src/data/yks-data.json` kullanır */
 export const APPWRITE_COLLECTION_UNIVERSITIES = "Universities";
-/** Net Sihirbazı V2 — bölümler (`uniId` → Universities.$id) */
 export const APPWRITE_COLLECTION_PROGRAMS = "Programs";
 /** Deneme Analizi — `setup-appwrite.js` ile oluşturulan koleksiyonlar */
 export const APPWRITE_COLLECTION_LESSONS = "Lessons";
@@ -55,10 +56,12 @@ export const APPWRITE_COLLECTION_TOPICS = "Topics";
 export const APPWRITE_COLLECTION_EXAMS = "Exams";
 /**
  * Akıllı Optik V2 / Karne V2 — deneme sonucu kaydı (`setup-appwrite.js`: koleksiyon + indeksler).
- * Create payload: `js/exam-results-appwrite.js` → `buildExamResultCreatePayload`.
+ * Create payload örneği: `_YEDEKLER_VE_COPLER/_eski_kodlar_arsivi/js/exam-results-appwrite.js` → `buildExamResultCreatePayload` (Akıllı Optik modülü arşivlendi).
  * Karne trend etiketleri: `exam_name`, `saved_at` (Exams zorunlu değil).
  */
 export const APPWRITE_COLLECTION_EXAM_RESULTS = "ExamResults";
+/** Koç paneli öğrenci listesi — `coach_id` ile Appwrite sorgusu (`koc-panel.js` → coachQuery) */
+export const APPWRITE_COLLECTION_STUDENTS = "students";
 
 const client = new Client()
   .setEndpoint(APPWRITE_ENDPOINT)

@@ -16,12 +16,23 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from PIL import Image
 
-app = FastAPI(title="YKS Auto Crop API", version="2.0.0")
+app = FastAPI(title="YKS Auto Crop API", version="2.1.0")
 
 MAX_PDF_BYTES = 20 * 1024 * 1024
-RENDER_ZOOM = 2.3
-OCR_RENDER_ZOOM = 2.8
-QNUM_RE = re.compile(r"^\s*(\d{1,3})\s*[\.\)]\s*")
+# Yüksek DPI: kesim önizlemesi ve kenar netliği (2.8–3.0 aralığı)
+DEFAULT_RENDER_ZOOM = 2.9
+OCR_RENDER_ZOOM = 3.0
+# Mürekkep analizi için hafif düşük zoom (hız); kesim çıktısı DEFAULT_RENDER_ZOOM ile
+INK_ANALYSIS_ZOOM = 2.2
+# Soru numarası çapası: 1. 2) 3: 4- … ve Soru 1 / Soru 12
+QNUM_RE = re.compile(r"^\s*(?:(\d{1,3})\s*[\.\):\-]\s+|Soru\s*(\d{1,3})\s*[\.\):\-]?\s*)", re.I)
+# Soru seçenekleri (satır başı tek şık)
+OPTION_LINE_RE = re.compile(r"^\s*([A-E])\)\s", re.I)
+# Tek satırda birden fazla şık (örn. A) ... B) ... E))
+OPTION_INLINE_RE = re.compile(r"\b([A-E])\)\s")
+# Kırpma sonrası homojen beyaz boşluk (PDF point ≈ 15px ekran görünümü)
+FINAL_PAD_PT = 15.0
+GUTTER_PAD_PT = 2.5
 
 
 @dataclass
@@ -45,12 +56,109 @@ def _clamp_sensitivity(v: float) -> float:
 
 
 def _is_question_start(text: str) -> bool:
-    return bool(QNUM_RE.match(text or ""))
+    t = text or ""
+    if QNUM_RE.match(t):
+        return True
+    # Bazı PDF'lerde numara satır dışında kısa başlık
+    if re.match(r"^\s*Soru\s*\d{1,3}\s*$", t, re.I):
+        return True
+    return False
 
 
-def _merge_words_to_lines(words: List[tuple], page_w: float) -> List[LineRow]:
+def _union_rect(a: fitz.Rect, b: fitz.Rect) -> fitz.Rect:
+    return fitz.Rect(
+        min(a.x0, b.x0),
+        min(a.y0, b.y0),
+        max(a.x1, b.x1),
+        max(a.y1, b.y1),
+    )
+
+
+def _clamp_render_zoom(v: float) -> float:
+    return max(2.0, min(3.25, float(v or DEFAULT_RENDER_ZOOM)))
+
+
+def _refine_bbox_ink(page: fitz.Page, inner: fitz.Rect, sensitivity: float) -> Optional[fitz.Rect]:
+    """
+    Metin kutusunu mürekkep projeksiyonu ile sıkılaştırır; metin katmanı ile birleştirir.
+    Açık arka planlı PDF'lerde koyu piksel eşiği ile daha temiz kesim.
+    """
+    page_rect = page.rect
+    thr = max(205, min(250, int(246 - (sensitivity - 1.0) * 22)))
+    z = float(INK_ANALYSIS_ZOOM)
+    margin = 16 + int(12 * max(0, sensitivity - 0.75))
+    search = fitz.Rect(
+        max(page_rect.x0, inner.x0 - margin),
+        max(page_rect.y0, inner.y0 - margin),
+        min(page_rect.x1, inner.x1 + margin),
+        min(page_rect.y1, inner.y1 + margin),
+    )
+    if search.width < 6 or search.height < 6:
+        return None
+    try:
+        pix = page.get_pixmap(matrix=fitz.Matrix(z, z), clip=search, alpha=False)
+    except Exception:
+        return None
+    mode = "RGB" if pix.n == 3 else "RGBA"
+    img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
+    gray = img.convert("L")
+    bw = gray.point(lambda p: 255 if p <= thr else 0)
+    bbox = bw.getbbox()
+    if not bbox:
+        return None
+    x0p, y0p, x1p, y1p = bbox
+    rx0 = search.x0 + x0p / z
+    ry0 = search.y0 + y0p / z
+    rx1 = search.x0 + x1p / z
+    ry1 = search.y0 + y1p / z
+    ink_rect = fitz.Rect(rx0, ry0, rx1, ry1)
+    pad = 4.5 + 5.0 * max(0, sensitivity - 0.65)
+    merged = _union_rect(inner, ink_rect)
+    out = fitz.Rect(
+        max(page_rect.x0, merged.x0 - pad),
+        max(page_rect.y0, merged.y0 - pad),
+        min(page_rect.x1, merged.x1 + pad),
+        min(page_rect.y1, merged.y1 + pad),
+    )
+    if out.width < 18 or out.height < 18:
+        return None
+    return out
+
+
+def _detect_gutter_and_mode(words: List[tuple], page_w: float) -> Tuple[float, bool]:
+    """Ortadaki dikey boşluğu (gutter) bulur; tek sütunsa two_col=False."""
+    if not words or page_w < 1:
+        return page_w * 0.5, False
+    bins = 56
+    hist = [0] * bins
+    for w in words:
+        cx = (float(w[0]) + float(w[2])) * 0.5
+        i = int(cx / page_w * bins)
+        i = max(0, min(bins - 1, i))
+        hist[i] += 1
+    left = sum(hist[: bins // 2])
+    right = sum(hist[bins // 2 :])
+    total = left + right
+    if total < 4:
+        return page_w * 0.5, False
+    if min(left, right) < total * 0.11:
+        return page_w * 0.5, False
+    lo = int(bins * 0.25)
+    hi = int(bins * 0.75)
+    best_i = (lo + hi) // 2
+    best_v = 10**9
+    for i in range(lo, hi):
+        if hist[i] < best_v:
+            best_v = hist[i]
+            best_i = i
+    gutter = (best_i + 0.5) / bins * page_w
+    return gutter, True
+
+
+def _merge_words_to_lines(words: List[tuple], page_w: float) -> Tuple[List[LineRow], float, bool]:
     if not words:
-        return []
+        return [], page_w * 0.5, False
+    gutter_x, two_col = _detect_gutter_and_mode(words, page_w)
     # words tuple: (x0,y0,x1,y1,"word", block_no, line_no, word_no)
     words_sorted = sorted(words, key=lambda w: (round(float(w[1]), 1), float(w[0])))
     rows: List[List[tuple]] = []
@@ -66,7 +174,6 @@ def _merge_words_to_lines(words: List[tuple], page_w: float) -> List[LineRow]:
             rows.append([w])
 
     merged: List[LineRow] = []
-    centers = []
     for r in rows:
         r = sorted(r, key=lambda x: float(x[0]))
         x0 = min(float(x[0]) for x in r)
@@ -76,24 +183,48 @@ def _merge_words_to_lines(words: List[tuple], page_w: float) -> List[LineRow]:
         txt = " ".join(str(x[4]) for x in r).strip()
         if not txt:
             continue
-        centers.append((x0 + x1) * 0.5)
-        merged.append(LineRow(text=txt, x0=x0, y0=y0, x1=x1, y1=y1, col=0))
+        cx = (x0 + x1) * 0.5
+        col = 0
+        if two_col:
+            col = 0 if cx < gutter_x else 1
+        merged.append(LineRow(text=txt, x0=x0, y0=y0, x1=x1, y1=y1, col=col))
 
-    if not merged:
-        return merged
-
-    # lightweight dual-column detection
-    med = sorted(centers)[len(centers) // 2]
-    left_count = sum(1 for c in centers if c < med - page_w * 0.08)
-    right_count = sum(1 for c in centers if c > med + page_w * 0.08)
-    is_two_col = left_count > 6 and right_count > 6
-    split_x = med
-    if is_two_col:
-        for row in merged:
-            cx = (row.x0 + row.x1) * 0.5
-            row.col = 0 if cx <= split_x else 1
     merged.sort(key=lambda r: (r.col, r.y0, r.x0))
-    return merged
+    return merged, gutter_x, two_col
+
+
+def _column_x_bounds(page_rect: fitz.Rect, col: int, gutter_x: float, two_col: bool) -> Tuple[float, float]:
+    if not two_col:
+        return page_rect.x0, page_rect.x1
+    if col == 0:
+        return page_rect.x0, min(page_rect.x1, gutter_x - GUTTER_PAD_PT)
+    return max(page_rect.x0, gutter_x + GUTTER_PAD_PT), page_rect.x1
+
+
+def _clip_rect_to_column(rect: fitz.Rect, page_rect: fitz.Rect, col: int, gutter_x: float, two_col: bool) -> fitz.Rect:
+    x0, x1 = _column_x_bounds(page_rect, col, gutter_x, two_col)
+    return fitz.Rect(
+        max(rect.x0, x0),
+        max(rect.y0, page_rect.y0),
+        min(rect.x1, x1),
+        min(rect.y1, page_rect.y1),
+    )
+
+
+def _last_option_line_index(lines: List[LineRow]) -> Optional[int]:
+    idxs: List[int] = []
+    for i, ln in enumerate(lines):
+        t = (ln.text or "").strip()
+        if OPTION_LINE_RE.match(t):
+            idxs.append(i)
+            continue
+        if len(t) < 420:
+            found = OPTION_INLINE_RE.findall(t)
+            if len(found) >= 3:
+                idxs.append(i)
+    if not idxs:
+        return None
+    return max(idxs)
 
 
 def _line_intersects(rect: fitz.Rect, line: LineRow) -> bool:
@@ -116,7 +247,7 @@ def _extract_images_on_page(page: fitz.Page) -> List[fitz.Rect]:
 def _segment_page_questions(page: fitz.Page, sensitivity: float) -> List[CropSegment]:
     words = page.get_text("words") or []
     page_rect = page.rect
-    lines = _merge_words_to_lines(words, page_rect.width)
+    lines, gutter_x, two_col = _merge_words_to_lines(words, page_rect.width)
     if not lines:
         return []
 
@@ -125,10 +256,13 @@ def _segment_page_questions(page: fitz.Page, sensitivity: float) -> List[CropSeg
     pad_x = 10 + int(16 * (sensitivity - 1.0))
     pad_y = 8 + int(14 * (sensitivity - 1.0))
 
-    for col in (0, 1):
+    cols_to_scan = (0, 1) if two_col else (0,)
+
+    for col in cols_to_scan:
         col_lines = [ln for ln in lines if ln.col == col]
         if not col_lines:
             continue
+        x_min_c, x_max_c = _column_x_bounds(page_rect, col, gutter_x, two_col)
         starts = [i for i, ln in enumerate(col_lines) if _is_question_start(ln.text)]
         if not starts:
             continue
@@ -139,34 +273,67 @@ def _segment_page_questions(page: fitz.Page, sensitivity: float) -> List[CropSeg
             block = col_lines[a:b]
             if not block:
                 continue
-            x0 = min(ln.x0 for ln in block)
+            opt_end = _last_option_line_index(block)
+            if opt_end is not None:
+                block = block[: opt_end + 1]
+            # Sütun içi yatay sınırlar (komşu sütun metnini dışarıda bırak)
+            x0 = max(x_min_c, min(ln.x0 for ln in block))
             y0 = min(ln.y0 for ln in block)
-            x1 = max(ln.x1 for ln in block)
+            x1 = min(x_max_c, max(ln.x1 for ln in block))
             y1 = max(ln.y1 for ln in block)
 
-            # include images that overlap this question band
-            band = fitz.Rect(0, y0, page_rect.width, y1)
+            band = fitz.Rect(x_min_c, y0, x_max_c, y1)
             for ir in images:
                 if band.intersects(ir):
-                    x0 = min(x0, ir.x0)
+                    ix0 = max(x_min_c, ir.x0)
+                    ix1 = min(x_max_c, ir.x1)
+                    if ix1 <= ix0:
+                        continue
+                    x0 = min(x0, ix0)
                     y0 = min(y0, ir.y0)
-                    x1 = max(x1, ir.x1)
+                    x1 = max(x1, ix1)
                     y1 = max(y1, ir.y1)
 
+            inner = fitz.Rect(x0, y0, x1, y1)
+            refined = _refine_bbox_ink(page, inner, sensitivity)
+            if refined is not None:
+                rect = refined
+            else:
+                rect = fitz.Rect(
+                    max(page_rect.x0, x0 - pad_x),
+                    max(page_rect.y0, y0 - pad_y),
+                    min(page_rect.x1, x1 + pad_x),
+                    min(page_rect.y1, y1 + pad_y),
+                )
+            rect = _clip_rect_to_column(rect, page_rect, col, gutter_x, two_col)
+            rect = _apply_final_padding(rect, page_rect)
             rect = fitz.Rect(
-                max(page_rect.x0, x0 - pad_x),
-                max(page_rect.y0, y0 - pad_y),
-                min(page_rect.x1, x1 + pad_x),
-                min(page_rect.y1, y1 + pad_y),
+                max(rect.x0, page_rect.x0),
+                max(rect.y0, page_rect.y0),
+                min(rect.x1, page_rect.x1),
+                min(rect.y1, page_rect.y1),
             )
             if rect.width < 20 or rect.height < 20:
                 continue
             txt = "\n".join(ln.text for ln in block).strip()
             segments.append(CropSegment(bbox=rect, text=txt))
 
-    # reading order: left column top->bottom, then right
-    segments.sort(key=lambda s: (0 if s.bbox.x0 < page_rect.width * 0.5 else 1, s.bbox.y0))
+    segments.sort(
+        key=lambda s: (
+            0 if (s.bbox.x0 + s.bbox.x1) * 0.5 < page_rect.width * 0.5 else 1,
+            s.bbox.y0,
+        )
+    )
     return segments
+
+
+def _apply_final_padding(rect: fitz.Rect, page_rect: fitz.Rect) -> fitz.Rect:
+    return fitz.Rect(
+        max(page_rect.x0, rect.x0 - FINAL_PAD_PT),
+        max(page_rect.y0, rect.y0 - FINAL_PAD_PT),
+        min(page_rect.x1, rect.x1 + FINAL_PAD_PT),
+        min(page_rect.y1, rect.y1 + FINAL_PAD_PT),
+    )
 
 
 def _pixmap_to_data_url(pix: fitz.Pixmap) -> str:
@@ -206,17 +373,17 @@ def _ocr_fallback_if_needed(page: fitz.Page, seg: CropSegment) -> str:
 def _heuristic_tag(text: str) -> str:
     t = (text or "").lower()
     rules = [
-        (["türev", "limit", "integral"], "Matematik > Türev-İntegral"),
-        (["trigonometri", "sin", "cos", "tan"], "Matematik > Trigonometri"),
-        (["paragraf", "anlatım", "sözcük"], "Türkçe > Paragraf"),
-        (["elektrik", "manyetik", "devre"], "Fizik > Elektrik ve Manyetizma"),
-        (["mol", "asit", "baz", "kimya"], "Kimya > Genel Kimya"),
-        (["ekosistem", "hücre", "dna"], "Biyoloji > Canlıların Ortak Özellikleri"),
+        (["türev", "limit", "integral"], "AYT Matematik > Türev ve İntegral"),
+        (["trigonometri", "sin", "cos", "tan"], "AYT Matematik > Trigonometri"),
+        (["paragraf", "anlatım", "sözcük"], "TYT Türkçe > Paragrafta Anlam"),
+        (["elektrik", "manyetik", "devre"], "TYT Fizik > Elektrik ve Elektronik"),
+        (["mol", "asit", "baz"], "TYT Kimya > Mol Kavramı"),
+        (["ekosistem", "hücre", "dna"], "TYT Biyoloji > Hücre"),
     ]
     for keys, tag in rules:
         if any(k in t for k in keys):
             return tag
-    return "Genel > Belirsiz Konu"
+    return "TYT Matematik > Genel"
 
 
 def _ai_suggest_tag(text: str) -> str:
@@ -266,6 +433,7 @@ def _ai_suggest_tag(text: str) -> str:
 async def crop_pdf(
     pdf: UploadFile = File(...),
     sensitivity: float = Form(1.0),
+    render_scale: float = Form(DEFAULT_RENDER_ZOOM),
 ):
     if not pdf.filename or not pdf.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Yalnızca PDF dosyası kabul edilir.")
@@ -275,6 +443,7 @@ async def crop_pdf(
     if len(content) > MAX_PDF_BYTES:
         raise HTTPException(status_code=413, detail="PDF boyutu çok büyük.")
     sens = _clamp_sensitivity(sensitivity)
+    render_zoom = _clamp_render_zoom(render_scale)
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         tmp.write(content)
@@ -289,7 +458,7 @@ async def crop_pdf(
                 segments = _segment_page_questions(page, sens)
                 for seg_idx, seg in enumerate(segments):
                     pix = page.get_pixmap(
-                        matrix=fitz.Matrix(RENDER_ZOOM, RENDER_ZOOM),
+                        matrix=fitz.Matrix(render_zoom, render_zoom),
                         clip=seg.bbox,
                         alpha=False,
                     )

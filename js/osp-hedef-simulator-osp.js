@@ -1,6 +1,5 @@
 /**
- * Öğrenci paneli — Hedef Simülatörü (Chart.js + Appwrite Universities / Programs).
- * Veri: import-excel-to-appwrite.js, auto-fetch-yokatlas.js veya yokatlas-py ile Appwrite’a aktarılır.
+ * Öğrenci paneli — Hedef Simülatörü (Chart.js + src/data/yks-data.json).
  */
 import { YKS2026_Mufredat } from "./yks-mufredat.js";
 import { buildProgramFromAppwriteV2 } from "./net-sihirbazi-engine.js";
@@ -185,7 +184,7 @@ export function renderOspHedefSimulator() {
     "Kalan net farkı (branş toplamı): " +
     totalGap.toFixed(1) +
     (program
-      ? " — Appwrite Programs."
+      ? " — yks-data.json."
       : window.OSP &&
           window.OSP.coachCurrentTytNet != null &&
           window.OSP.coachTargetTytNet != null
@@ -216,7 +215,7 @@ export function renderOspHedefSimulator() {
             pointBackgroundColor: "#6c5ce7",
           },
           {
-            label: "Hedef net (Programs)",
+            label: "Hedef net (katalog)",
             data: target,
             borderColor: "#10b981",
             backgroundColor: "rgba(16, 185, 129, 0.18)",
