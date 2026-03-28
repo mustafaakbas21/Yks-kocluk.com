@@ -7,7 +7,8 @@ import { YKS_AYT_BY_ALAN, YKS_TYT_BRANCHES } from "./yks-exam-structure.js";
 import { parseStudentNetVal } from "./hedef-atlas-helpers.js";
 
 function normLabel(s) {
-  return String(s == null ? "")
+  var base = String(s == null ? "" : s);
+  return base
     .trim()
     .toLowerCase()
     .normalize("NFD")
