@@ -272,11 +272,11 @@ function paintTablePage(wrap) {
       escapeHtml(uniName) +
       "</strong>" +
       uniCellBadgesRow(u, p) +
-      "</div></td><td class="ts-cell-bolum">' +
+      "</div></td><td class=\"ts-cell-bolum\">" +
       programBolumBlockHtml(p) +
       "</td><td>" +
       escapeHtml(String(p.scoreType || "-")) +
-      "</td><td class="ts-num-cell">" +
+      "</td><td class=\"ts-num-cell\">" +
       escapeHtml(formatKontenjanCell(p)) +
       "</td><td class=\"ts-num-cell\">" +
       escapeHtml(formatTabanCell(p)) +
