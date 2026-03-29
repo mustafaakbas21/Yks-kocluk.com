@@ -19,6 +19,8 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="css/koc-panel.css" />
   <link rel="stylesheet" href="css/ogrenci-panel.css" />
+  <link rel="stylesheet" href="css/derece-board.css" />
+  <link rel="stylesheet" href="css/osp-student-ders.css" />
   <link rel="stylesheet" href="css/site-credit.css" />
   <link rel="stylesheet" href="css/derece-interactive-modules.css" />
   <link rel="stylesheet" href="css/sorun-bildir.css" />
@@ -89,6 +91,26 @@
             <button type="button" class="sidebar__link" data-osp-nav="koca-sor">
               <i class="fa-solid fa-life-ring"></i><span>Koça Sor</span>
             </button>
+          </li>
+
+          <li class="osp-sidebar__group has-submenu is-open">
+            <button type="button" class="osp-sidebar__accordion" aria-expanded="true" aria-controls="ospSubDers">
+              <i class="fa-solid fa-chalkboard-user osp-sidebar__acc-icon" aria-hidden="true"></i>
+              <span>Ders Anlatımı</span>
+              <span class="osp-sidebar__chev" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
+            </button>
+            <ul class="osp-sidebar__submenu" id="ospSubDers" role="group">
+              <li>
+                <button type="button" class="sidebar__link" data-osp-nav="ders-board">
+                  <i class="fa-solid fa-pen-ruler"></i><span>Board</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="sidebar__link" data-osp-nav="ders-kutuphane">
+                  <i class="fa-solid fa-book-bookmark"></i><span>Kütüphanem</span>
+                </button>
+              </li>
+            </ul>
           </li>
 
           <li class="osp-sidebar__group has-submenu is-open">
@@ -787,6 +809,43 @@
           <button type="button" class="osp-koca-submit" id="ospKocaGonder">Gönder</button>
         </section>
 
+        <!-- Ders Anlatımı — Board (salt okunur) -->
+        <section class="osp-view" data-osp-view="ders-board" id="ospViewDersBoard" hidden>
+          <div id="ospDersBoardEmpty" class="osp-ders-board-empty">
+            <p>Koçunun paylaştığı tahtaları <strong>Kütüphanem</strong> üzerinden açabilirsin.</p>
+            <button type="button" class="osp-btn-primary" data-osp-nav="ders-kutuphane">Kütüphaneye git</button>
+          </div>
+          <div id="ospDersBoardCanvasWrap" class="osp-ders-board-canvas-wrap" hidden>
+            <div class="derece-board derece-board--readonly osp-student-board" id="ospStudentReadOnlyRoot">
+              <div class="derece-board__main" style="flex:1;min-width:0">
+                <p class="osp-student-board__hint">Salt okunur — koçunun gönderdiği tahta.</p>
+                <div class="osp-student-board__bar">
+                  <button type="button" class="osp-student-board__back" data-osp-nav="ders-kutuphane">
+                    <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Kütüphane
+                  </button>
+                  <h1 class="osp-student-board__title" data-osp-student-board-title>Tahta</h1>
+                </div>
+                <div class="derece-board__sheet-wrap"></div>
+              </div>
+              <div class="derece-board__page-strip" aria-label="Sayfalar"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Ders Anlatımı — Kütüphanem -->
+        <section class="osp-view" data-osp-view="ders-kutuphane" id="ospViewDersKutuphane" hidden>
+          <div class="osp-lib-wrap">
+            <div class="osp-lib-tabs" role="tablist" aria-label="Kütüphane sekmeleri">
+              <button type="button" class="osp-lib-tab is-active" role="tab" aria-selected="true" data-osp-lib-tab="coach">
+                Koçun Yolladıkları
+              </button>
+            </div>
+            <div class="osp-lib-panel" data-osp-lib-panel="coach" id="ospLibPanelCoach">
+              <div id="ospSharedBoardGrid" class="osp-shared-grid"></div>
+            </div>
+          </div>
+        </section>
+
         <!-- Ödeme -->
         <section class="osp-view" data-osp-view="odeme" id="ospViewOdeme" hidden>
           <div id="ospPayAlert"></div>
@@ -850,6 +909,7 @@
     Mustafa AKBAŞ - Furkan Şehmus KIYAR - Veysel Anıl KARAASLAN - Efe KARACABEY tarafından üretildi
   </p>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js" crossorigin="anonymous"></script>
   <script>
 (function () {
   "use strict";
@@ -1012,7 +1072,9 @@
     haftalik: "Haftalık Programım",
     kaynaklar: "Kaynaklarım",
     gelisim: "Gelişim Röntgenim",
-    odeme: "Ödeme & Taksitlerim"
+    odeme: "Ödeme & Taksitlerim",
+    "ders-board": "Ders Anlatımı — Board",
+    "ders-kutuphane": "Kütüphanem"
   };
 
   function ospToast(msg) {
@@ -1066,6 +1128,13 @@
 
   function navigate(view) {
     if (!titles[view]) return;
+    if (view !== "ders-board") {
+      import("./js/osp-student-ders.js")
+        .then(function (m) {
+          if (m.disposeOspStudentBoardView) m.disposeOspStudentBoardView();
+        })
+        .catch(function () {});
+    }
     showView(view);
     openAccordionForView(view);
     if (view === "hedef") renderOspHedefSimulator();
@@ -1120,6 +1189,24 @@
         })
         .catch(function (e) {
           console.error("[OSP] Tercih Sihirbazı:", e);
+        });
+    }
+    if (view === "ders-kutuphane") {
+      import("./js/osp-student-ders.js")
+        .then(function (m) {
+          if (m.refreshOspStudentLibrary) void m.refreshOspStudentLibrary();
+        })
+        .catch(function (e) {
+          console.error("[OSP] Kütüphane:", e);
+        });
+    }
+    if (view === "ders-board") {
+      import("./js/osp-student-ders.js")
+        .then(function (m) {
+          if (m.mountOspStudentBoardIfPending) void m.mountOspStudentBoardIfPending();
+        })
+        .catch(function (e) {
+          console.error("[OSP] Board:", e);
         });
     }
     try {
@@ -2017,6 +2104,9 @@
       }
     });
   }
+
+  window.__ospNavigate = navigate;
+  window.ospToast = ospToast;
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);

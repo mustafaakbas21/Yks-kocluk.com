@@ -53,6 +53,7 @@ const COLLECTION_COACH_TASKS = "coach_tasks";
 const COLLECTION_SUBJECT_PROGRESS = "subject_progress";
 const COLLECTION_EXAM_RESULTS = trimEnv("APPWRITE_COLLECTION_EXAM_RESULTS") || "ExamResults";
 const COLLECTION_MR_PROFILES = trimEnv("APPWRITE_COLLECTION_MR_PROFILES") || "mr_student_profiles";
+const COLLECTION_BOARDS = "boards";
 
 const ATTR_POLL_MS = Math.max(500, parseInt(process.env.APPWRITE_ATTR_POLL_MS || "2000", 10) || 2000);
 const ATTR_MAX_ATTEMPTS = Math.max(30, parseInt(process.env.APPWRITE_ATTR_MAX_ATTEMPTS || "120", 10) || 120);
@@ -414,6 +415,21 @@ async function setupExamResults(databases) {
   }
 }
 
+async function setupBoards(databases) {
+  log("boards (DereceBoard — tuval JSON + küçük resimler) …");
+  await ensureCollection(databases, COLLECTION_BOARDS, "DereceBoard tuvalleri");
+  let keys = await listAttributeKeySet(databases, COLLECTION_BOARDS);
+  await ensureStringAttr(databases, COLLECTION_BOARDS, "coach_id", 128, true, keys);
+  await ensureStringAttr(databases, COLLECTION_BOARDS, "title", 512, false, keys);
+  await ensureTextAttr(databases, COLLECTION_BOARDS, "pages_json", false, keys);
+  await ensureTextAttr(databases, COLLECTION_BOARDS, "thumbnails_json", false, keys);
+  await ensureDatetimeAttr(databases, COLLECTION_BOARDS, "updated_at", false, keys);
+  keys = await listAttributeKeySet(databases, COLLECTION_BOARDS);
+  if (keys.has("coach_id")) {
+    await ensureKeyIndex(databases, COLLECTION_BOARDS, "idx_boards_coach", ["coach_id"], ["ASC"]);
+  }
+}
+
 async function main() {
   if (!APPWRITE_PROJECT_ID || !APPWRITE_API_KEY) {
     console.error("[appwrite-setup] Hata: .env içinde APPWRITE_PROJECT_ID ve APPWRITE_API_KEY gerekli.");
@@ -434,6 +450,7 @@ async function main() {
   await setupSubjectProgress(databases);
   await setupMrProfiles(databases);
   await setupExamResults(databases);
+  await setupBoards(databases);
 
   log("✅ Tamam.");
 }

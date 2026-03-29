@@ -121,6 +121,24 @@
     @media (max-width: 900px) { .dashboard-analytics-grid { grid-template-columns: 1fr; } }
     .dashboard-analytics-card { background: #fff; border-radius: var(--radius-lg, 20px); padding: 1.25rem 1.5rem; border: 1px solid var(--gray-200, #e8e8ed); box-shadow: var(--shadow-sm, 0 2px 8px rgba(109,40,217,0.08)); }
     .dashboard-analytics-card__title { font-size: 0.95rem; font-weight: 800; color: #4c1d95; margin: 0 0 1rem; display: flex; align-items: center; gap: 0.5rem; }
+    .dashboard-analytics-card__head-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1rem; margin-bottom: 1rem; }
+    .dashboard-analytics-card__head-row .dashboard-analytics-card__title { margin: 0; }
+    .dash-period-toggles { display: inline-flex; border-radius: 12px; border: 1px solid #ede9fe; background: #faf5ff; padding: 3px; gap: 2px; }
+    .dash-period-btn { border: none; background: transparent; color: #64748b; font-size: 0.78rem; font-weight: 700; padding: 0.4rem 0.75rem; border-radius: 9px; cursor: pointer; transition: background 0.15s, color 0.15s; font-family: inherit; }
+    .dash-period-btn:hover { color: #4c1d95; background: rgba(124, 58, 237, 0.06); }
+    .dash-period-btn.is-active { background: #fff; color: #5b21b6; box-shadow: 0 1px 4px rgba(109, 40, 217, 0.12); }
+    .dash-meeting-chart-wrap { position: relative; min-height: 220px; }
+    .dash-meeting-chart-wrap canvas { max-height: 280px; }
+    .dashboard-empty-hint { margin: 0; padding: 1.5rem 1rem; text-align: center; font-size: 0.88rem; color: #64748b; font-weight: 600; }
+    .dash-activity-feed { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 0; }
+    .dash-activity-item { display: flex; gap: 0.85rem; padding: 0.85rem 0; border-bottom: 1px solid #f1f5f9; align-items: flex-start; }
+    .dash-activity-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .dash-activity-item__icon { flex-shrink: 0; width: 2.35rem; height: 2.35rem; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1rem; color: #fff; background: linear-gradient(135deg, #7c3aed, #6d28d9); box-shadow: 0 2px 8px rgba(109, 40, 217, 0.2); }
+    .dash-activity-item__icon--muted { background: linear-gradient(135deg, #a78bfa, #7c3aed); }
+    .dash-activity-item__body { min-width: 0; flex: 1; }
+    .dash-activity-item__text { margin: 0; font-size: 0.88rem; font-weight: 600; color: #334155; line-height: 1.45; }
+    .dash-activity-item__time { margin: 0.25rem 0 0; font-size: 0.75rem; font-weight: 600; color: #94a3b8; }
+    .dash-activity-empty { padding: 1.5rem 0.5rem; text-align: center; font-size: 0.88rem; color: #64748b; font-weight: 600; list-style: none; }
     .net-donut-wrap { position: relative; width: min(100%, 260px); height: 240px; margin: 0 auto; }
     .net-donut-wrap canvas { max-height: 220px; }
     .net-donut-center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -52%); text-align: center; pointer-events: none; }
@@ -460,11 +478,7 @@
       display: none !important;
       pointer-events: none !important;
     }
-    /*
-      testmaker-workspace.css içindeki
-      .main-view.tm-workspace-view.is-active { display:flex !important }
-      [,hidden]’dan daha güçlü olabiliyor — kapalı görünümü her zaman gizle.
-    */
+    /* TestMaker: testmaker-workspace.css icindeki is-active display kurali [hidden] ile carpisabiliyor; asagidaki blok kapali gorunumu zorla gizler. */
     .main-view.tm-workspace-view[hidden],
     .main-view.tm-workspace-view.is-active[hidden] {
       display: none !important;
@@ -560,7 +574,8 @@
     .sidebar__item--simulasyon.sidebar__item--sim-open .sidebar__tm-chevron,
     .sidebar__item--gelen.sidebar__item--gelen-open .sidebar__tm-chevron,
     .sidebar__item--deneme-analizi.sidebar__item--dana-open .sidebar__tm-chevron,
-    .sidebar__item--mr.sidebar__item--mr-open .sidebar__tm-chevron {
+    .sidebar__item--mr.sidebar__item--mr-open .sidebar__tm-chevron,
+    .sidebar__item--ders-anlatim.sidebar__item--ders-anlatim-open .sidebar__tm-chevron {
       transform: rotate(180deg);
     }
     /* Öğrenciler / Randevu / … : açıkken sütun listesi */
@@ -569,7 +584,8 @@
     .sidebar__item--simulasyon.sidebar__item--sim-open .sidebar__submenu--sim-nested,
     .sidebar__item--gelen.sidebar__item--gelen-open .sidebar__submenu--gelen-nested,
     .sidebar__item--deneme-analizi.sidebar__item--dana-open .sidebar__submenu--dana-nested,
-    .sidebar__item--mr.sidebar__item--mr-open .sidebar__submenu--mr-nested {
+    .sidebar__item--mr.sidebar__item--mr-open .sidebar__submenu--mr-nested,
+    .sidebar__item--ders-anlatim.sidebar__item--ders-anlatim-open .sidebar__submenu--ders-nested {
       display: flex !important;
       flex-direction: column;
     }
@@ -578,7 +594,8 @@
     .sidebar__submenu--sim-nested,
     .sidebar__submenu--gelen-nested,
     .sidebar__submenu--dana-nested,
-    .sidebar__submenu--mr-nested {
+    .sidebar__submenu--mr-nested,
+    .sidebar__submenu--ders-nested {
       padding-left: 1.35rem !important;
       margin-left: 0.35rem;
       border-left: 2px solid rgba(124, 58, 237, 0.22);
@@ -588,7 +605,8 @@
     .app--sidebar-readable .sidebar--elite .sidebar__item--simulasyon .sidebar__sublink span,
     .app--sidebar-readable .sidebar--elite .sidebar__item--gelen .sidebar__sublink span,
     .app--sidebar-readable .sidebar--elite .sidebar__item--deneme-analizi .sidebar__sublink span,
-    .app--sidebar-readable .sidebar--elite .sidebar__item--mr .sidebar__sublink span {
+    .app--sidebar-readable .sidebar--elite .sidebar__item--mr .sidebar__sublink span,
+    .app--sidebar-readable .sidebar--elite .sidebar__item--ders-anlatim .sidebar__sublink span {
       font-weight: 700;
       font-size: 0.74rem !important;
     }
@@ -3245,6 +3263,8 @@
   <link rel="stylesheet" href="css/gorusme-odasi-cockpit.css" />
   <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet" />
   <link rel="stylesheet" href="css/sorun-bildir.css" />
+  <link rel="stylesheet" href="css/derece-board.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
   <!-- TestMaker: Cropper.js + pdf.js (head’de CSS); script’ler body sonunda (html2pdf, cropper, pdf) -->
 </head>
 <body class="has-site-credit">
@@ -3272,7 +3292,7 @@
           </li>
           <li>
             <button type="button" class="sidebar__link" data-nav="gorusme-odasi" title="Canlı görüşme kokpiti">
-              <span class="sidebar__emoji" aria-hidden="true">🤝</span><span>Görüşme Odası</span>
+              <i class="fa-solid fa-comments" aria-hidden="true"></i><span>Görüşme Odası</span>
             </button>
           </li>
           <li class="sidebar__item--ogrenci has-submenu">
@@ -3308,6 +3328,24 @@
             <button type="button" class="sidebar__link" data-nav="haftalik-program" title="Haftalık çalışma programı">
               <i class="fa-solid fa-calendar-week"></i><span>Haftalık Program</span>
             </button>
+          </li>
+          <li class="sidebar__item--ders-anlatim has-submenu">
+            <button
+              type="button"
+              class="sidebar__link sidebar__link--tm-accordion"
+              id="sidebarDersToggle"
+              aria-expanded="false"
+              aria-controls="sidebarDersSubmenu"
+              title="Ders anlatımı araçları"
+            >
+              <i class="fa-solid fa-chalkboard-user"></i><span>Ders Anlatımı</span>
+              <span class="sidebar__tm-chevron" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
+            </button>
+            <div class="sidebar__submenu sidebar__submenu--ders-nested" id="sidebarDersSubmenu" role="group" aria-label="Ders anlatımı alt menü">
+              <button type="button" class="sidebar__sublink" data-nav="ders-board" title="Beyaz tahta — DereceBoard">
+                <i class="fa-solid fa-pen-ruler"></i><span>Board</span>
+              </button>
+            </div>
           </li>
           <li class="sidebar__item--mr has-submenu">
             <button
@@ -3539,6 +3577,28 @@
               <div class="dashboard-kpi-card__icon"><i class="fa-solid fa-file-circle-check"></i></div>
               <span class="dashboard-kpi-card__lbl">Çözülen deneme sayısı</span>
               <span class="dashboard-kpi-card__val" id="kpiExamCount">—</span>
+            </div>
+          </div>
+
+          <div class="dashboard-analytics-grid dashboard-analytics-grid--meeting-activity">
+            <div class="dashboard-analytics-card dashboard-analytics-card--chart">
+              <div class="dashboard-analytics-card__head-row">
+                <h3 class="dashboard-analytics-card__title"><i class="fa-solid fa-chart-column"></i> Görüşme ve Randevu Analizi</h3>
+                <div class="dash-period-toggles" role="group" aria-label="Dönem seçimi">
+                  <button type="button" class="dash-period-btn is-active" data-meeting-period="week" aria-pressed="true">Hafta</button>
+                  <button type="button" class="dash-period-btn" data-meeting-period="month" aria-pressed="false">Ay</button>
+                  <button type="button" class="dash-period-btn" data-meeting-period="year" aria-pressed="false">Yıl</button>
+                </div>
+              </div>
+              <div class="dash-meeting-chart-wrap">
+                <canvas id="meetingAnalysisChart" aria-label="Görüşme ve randevu analizi grafiği"></canvas>
+                <p id="meetingAnalysisChartEmpty" class="dashboard-empty-hint" hidden>Bu dönemde görüşme kaydı bulunmuyor.</p>
+              </div>
+            </div>
+            <div class="dashboard-analytics-card dashboard-analytics-card--activity">
+              <h3 class="dashboard-analytics-card__title"><i class="fa-solid fa-clock-rotate-left"></i> Son Koçluk Aktiviteleri</h3>
+              <ul class="dash-activity-feed" id="dashboardActivityFeed" aria-live="polite"></ul>
+              <p id="dashboardActivityEmpty" class="dashboard-empty-hint" hidden>Henüz koçluk aktivitesi bulunmamaktadır.</p>
             </div>
           </div>
 
@@ -4098,6 +4158,111 @@
               </div>
             </div>
           </section>
+        </div>
+
+        <div class="main-view tw-important-root" data-view="ders-board" id="view-ders-board" hidden>
+          <div class="derece-board" id="dereceBoardRoot">
+            <aside class="derece-board__toolbar" aria-label="Çizim araçları">
+              <div class="derece-board__toolbar-save">
+                <button type="button" class="derece-board__btn-save-lib" data-db-save-lib title="Tüm sayfaları Appwrite kütüphanesine kaydet">
+                  <i class="fa-solid fa-handshake" aria-hidden="true"></i>
+                  <span>Kütüphaneye Kaydet</span>
+                </button>
+                <button type="button" class="derece-board__btn-pdf" data-db-pdf title="PDF ilk sayfa — arka plan">
+                  <i class="fa-solid fa-file-pdf" aria-hidden="true"></i>
+                  <span>PDF</span>
+                </button>
+              </div>
+              <input type="file" id="dereceBoardPdfInput" accept="application/pdf,.pdf" hidden aria-hidden="true" />
+              <button type="button" class="derece-board__tool derece-board__tool--pen-black is-active" data-db-tool="pen-black" title="Siyah kalem">
+                <i class="fa-solid fa-pencil" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="derece-board__tool derece-board__tool--pen-red" data-db-tool="pen-red" title="Kırmızı kalem">
+                <i class="fa-solid fa-pencil" style="color:#dc2626" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="derece-board__tool derece-board__tool--highlighter" data-db-tool="highlighter" title="Sarı fosforlu kalem">
+                <i class="fa-solid fa-highlighter" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="derece-board__tool" data-db-tool="eraser" title="Silgi">
+                <i class="fa-solid fa-eraser" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="derece-board__tool derece-board__tool--shapes" data-db-shapes-toggle title="Şekiller">
+                <i class="fa-solid fa-ruler-combined" aria-hidden="true"></i>
+              </button>
+              <span class="derece-board__tool-spacer" aria-hidden="true"></span>
+              <button type="button" class="derece-board__tool derece-board__tool--laser" data-db-tool="laser" title="Hayalet lazer (2 sn)">
+                <i class="fa-solid fa-location-crosshairs" aria-hidden="true" style="color:#ef4444"></i>
+              </button>
+              <span class="derece-board__tool-spacer" aria-hidden="true"></span>
+              <button type="button" class="derece-board__tool" data-db-tool="lasso" title="Seçim (taşı / boyutlandır)">
+                <i class="fa-solid fa-vector-square" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="derece-board__tool" data-db-undo title="Geri al">
+                <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="derece-board__tool" data-db-redo title="İleri al">
+                <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="derece-board__tool" data-db-tool="text" title="Metin">
+                <span style="font-weight:800;font-size:1rem">T</span>
+              </button>
+              <div class="derece-board__toolbar-footer">
+                <label class="derece-board__paper-label" for="dereceBoardPaperSelect">Kağıt</label>
+                <select id="dereceBoardPaperSelect" class="derece-board__paper-select" data-db-paper-select title="Kağıt türü" aria-label="Kağıt türü">
+                  <option value="white" selected>Beyaz</option>
+                  <option value="grid">Kareli</option>
+                  <option value="lined">Çizgili</option>
+                  <option value="dotted">Noktalı</option>
+                </select>
+              </div>
+            </aside>
+            <div class="derece-board__main">
+              <div class="derece-board__titlebar">
+                <h1>DereceBoard</h1>
+                <input type="text" id="dereceBoardTitleInput" maxlength="120" placeholder="Tahta başlığı…" value="Yeni tahta" />
+                <div class="derece-board__titlebar-actions">
+                  <button type="button" class="derece-board__btn-title-action" data-db-pdf-export title="Tahtayı HD PDF olarak indir">
+                    <i class="fa-solid fa-file-pdf" aria-hidden="true"></i> PDF İndir
+                  </button>
+                  <button type="button" class="derece-board__btn-share-top" data-db-share-open title="Seçili öğrencilere gönder">
+                    <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Öğrenciye Gönder
+                  </button>
+                </div>
+              </div>
+              <div class="derece-board__sheet-wrap">
+                <!-- Fabric canvas sayfaları JS ile eklenir -->
+              </div>
+            </div>
+            <button type="button" class="derece-board__fab-edit">Düzenle</button>
+            <div class="derece-board__page-strip" aria-label="Sayfa önizlemeleri"></div>
+            <div class="derece-board__popover" id="dereceBoardPopover" aria-hidden="true">
+              <label for="dereceBoardBrushRange">Kalınlık</label>
+              <input id="dereceBoardBrushRange" type="range" min="1" max="24" value="3" />
+              <span style="font-size:0.7rem;font-weight:700;color:#64748b">Renk</span>
+              <div class="derece-board__popover-colors"></div>
+            </div>
+            <div class="derece-board__popover derece-board__popover--shapes" id="dereceBoardShapesPopover" aria-hidden="true">
+              <span class="derece-board__popover-title">Şekiller</span>
+              <div class="derece-board__shape-grid">
+                <button type="button" class="derece-board__shape-btn" data-db-tool="shape-line" title="Düz çizgi"><i class="fa-solid fa-slash" aria-hidden="true"></i></button>
+                <button type="button" class="derece-board__shape-btn" data-db-tool="shape-circle" title="Çember"><i class="fa-regular fa-circle" aria-hidden="true"></i></button>
+                <button type="button" class="derece-board__shape-btn" data-db-tool="shape-rect" title="Dikdörtgen"><i class="fa-regular fa-square" aria-hidden="true"></i></button>
+                <button type="button" class="derece-board__shape-btn" data-db-tool="shape-triangle" title="Dik üçgen"><i class="fa-solid fa-play fa-rotate-270" aria-hidden="true" style="margin-left:2px"></i></button>
+              </div>
+            </div>
+            <div class="derece-board__modal" id="dereceBoardShareModal" hidden aria-hidden="true">
+              <div class="derece-board__modal-backdrop" data-db-share-close tabindex="-1"></div>
+              <div class="derece-board__modal-panel" role="dialog" aria-labelledby="dereceBoardShareTitle">
+                <h2 id="dereceBoardShareTitle">Öğrenciye gönder</h2>
+                <p class="derece-board__modal-lead">Tahta önce kaydedilir; seçtiğiniz öğrenciler <strong>Kütüphanem → Koçun Yolladıkları</strong> sekmesinde görür.</p>
+                <div id="dereceBoardShareList" class="derece-board__share-list"></div>
+                <div class="derece-board__modal-actions">
+                  <button type="button" class="derece-board__modal-btn derece-board__modal-btn--ghost" data-db-share-close>Vazgeç</button>
+                  <button type="button" class="derece-board__modal-btn derece-board__modal-btn--primary" data-db-share-confirm>Gönder</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="main-view" data-view="mr-konu" id="view-mr-konu" hidden>
@@ -7423,6 +7588,17 @@
   <script type="module" src="js/form-password-toggle.js"></script>
   <script type="module" src="js/sorun-bildir.js"></script>
   <script type="module" src="js/deneme-analizi.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous"></script>
+  <script>
+    (function () {
+      if (typeof pdfjsLib !== "undefined" && pdfjsLib.GlobalWorkerOptions) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      }
+    })();
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js" crossorigin="anonymous"></script>
   <script type="module" src="js/koc-panel.js"></script>
+  <script type="module" src="js/derece-board.js"></script>
 </body>
 </html>

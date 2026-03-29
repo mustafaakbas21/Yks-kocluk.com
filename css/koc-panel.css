@@ -148,7 +148,7 @@ ul {
 .sidebar__menu {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.55rem;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -187,6 +187,18 @@ ul {
   text-align: center;
   color: var(--gray-500);
   transition: color 0.2s;
+}
+
+/* Emoji yerine ikon kullanılmadığında aynı hizalama */
+.sidebar__link > .sidebar__emoji {
+  flex: 0 0 1.35rem;
+  width: 1.35rem;
+  min-width: 1.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .sidebar__link > span:not(.sidebar__tm-chevron) {
