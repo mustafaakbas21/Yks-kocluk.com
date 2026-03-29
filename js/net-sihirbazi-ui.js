@@ -1,16 +1,15 @@
 /**
- * TYT-AYT Net Sihirbazı V2 — `src/data/yks-data.json` statik katalog; güncel net = deneme yksBranchDetail (mock yok).
+ * TYT-AYT Net Sihirbazı V2 — veri kaynağı Hedef Simülatörü ile aynı: `yok-atlas.json` → yedek `yks-data.json` (hedef-appwrite-catalog).
+ * Güncel net = deneme yksBranchDetail (mock yok).
  * YKS Puan modülü aşağıda aynı dosyada.
  */
 import { YKS2026_Mufredat } from "./yks-mufredat.js";
-import { wireSearchFilterForSelect } from "./hedef-atlas-helpers.js";
 import {
   ensureHedefSimulatorAppwriteData,
-  getCachedHedefProgramsForUniversity,
+  getDedupedProgramsForUniversity,
   getHedefAppwriteUniversities,
   hedefProgramDisplayName,
   hedefUniDisplayName,
-  loadHedefProgramsForUniversity,
 } from "./hedef-appwrite-catalog.js";
 import {
   buildProgramFromAppwriteV2,
@@ -37,7 +36,7 @@ function alanKeyForNetResolver(pdoc, prog) {
 }
 
 /**
- * @param {{ uniSelectId: string, deptSelectId: string, tableWrapId: string, uniTitleId?: string, deptTitleId?: string, subtitleId?: string, uniFilterId?: string, deptFilterId?: string, resolveExams?: () => unknown }} options
+ * @param {{ uniSelectId: string, deptSelectId: string, tableWrapId: string, uniTitleId?: string, deptTitleId?: string, subtitleId?: string, resolveExams?: () => unknown }} options
  * resolveExams: seçili öğrencinin denemeleri (yksBranchDetail). Dizi veya Promise dönebilir. Yoksa güncel net 0 gösterilir.
  */
 export function initNetSihirbazi(options) {
@@ -47,8 +46,6 @@ export function initNetSihirbazi(options) {
   var uniTitle = options.uniTitleId ? document.getElementById(options.uniTitleId) : null;
   var deptTitle = options.deptTitleId ? document.getElementById(options.deptTitleId) : null;
   var subEl = options.subtitleId ? document.getElementById(options.subtitleId) : null;
-  var uniFilter = options.uniFilterId ? document.getElementById(options.uniFilterId) : null;
-  var deptFilter = options.deptFilterId ? document.getElementById(options.deptFilterId) : null;
   var resolveExams = typeof options.resolveExams === "function" ? options.resolveExams : null;
   if (!uSel || !dSel || !wrap) return;
   if (uSel.dataset.nsBound) return;
@@ -64,7 +61,7 @@ export function initNetSihirbazi(options) {
       if (subEl) {
         subEl.textContent =
           msg ||
-          "Üniversite ve bölüm listesi src/data/yks-data.json dosyasından gelir. Önce üniversite, sonra o üniversiteye ait bölümler.";
+          "Üniversite ve bölüm listesi YÖK Atlas kataloğundan gelir (Hedef Simülatörü ile aynı kaynak). Önce üniversite, sonra bölüm.";
       }
       wrap.innerHTML =
         '<p class="net-sihirbazi-placeholder">Üniversite ve bölüm seçildiğinde analiz tablosu oluşturulur.</p>';
@@ -77,12 +74,36 @@ export function initNetSihirbazi(options) {
     try {
       dSel.innerHTML = '<option value="">— Önce üniversite seçin —</option>';
       dSel.disabled = true;
-      if (deptFilter) {
-        deptFilter.disabled = true;
-        deptFilter.value = "";
-      }
     } catch (e) {
       console.error("[Net Sihirbazı V2] resetDepartmentUi:", e);
+    }
+  }
+
+  function nsBindSelect2() {
+    try {
+      if (typeof jQuery === "undefined" || !jQuery.fn.select2) return;
+      var $u = jQuery(uSel);
+      var $d = jQuery(dSel);
+      if ($u.hasClass("select2-hidden-accessible")) $u.select2("destroy");
+      if ($d.hasClass("select2-hidden-accessible")) $d.select2("destroy");
+      var lang = {
+        noResults: function () { return "Sonuç yok"; },
+        searching: function () { return "Aranıyor…"; },
+      };
+      jQuery(uSel).select2({
+        width: "100%",
+        placeholder: "Üniversite seçin",
+        allowClear: true,
+        language: lang,
+      });
+      jQuery(dSel).select2({
+        width: "100%",
+        placeholder: "Önce üniversite seçin",
+        allowClear: true,
+        language: lang,
+      });
+    } catch (e) {
+      console.error("[Net Sihirbazı V2] nsBindSelect2:", e);
     }
   }
 
@@ -110,14 +131,6 @@ export function initNetSihirbazi(options) {
         dSel.appendChild(o);
       });
       dSel.disabled = false;
-      if (deptFilter) {
-        deptFilter.disabled = false;
-        deptFilter.value = "";
-        Array.from(dSel.options).forEach(function (opt, i) {
-          if (i === 0) opt.hidden = false;
-          else opt.hidden = false;
-        });
-      }
     } catch (e) {
       console.error("[Net Sihirbazı V2] fillDepartmentSelect:", e);
     }
@@ -147,7 +160,7 @@ export function initNetSihirbazi(options) {
       var uni = unis.find(function (x) {
         return x.$id === uid;
       });
-      var progs = getCachedHedefProgramsForUniversity(uid) || [];
+      var progs = getDedupedProgramsForUniversity(uid) || [];
       var pdoc = progs.find(function (x) {
         return x.$id === pid;
       });
@@ -155,11 +168,11 @@ export function initNetSihirbazi(options) {
         renderEmptyState("Seçilen kayıt bulunamadı.");
         return;
       }
-      var prog = buildProgramFromAppwriteV2(uni, pdoc);
+      var prog = buildProgramFromAppwriteV2(uni, pdoc, { exactYokAtlasTargets: true });
       if (!prog || !prog.rows || !prog.rows.length) {
         if (uniTitle) uniTitle.textContent = hedefUniDisplayName(uni) || "—";
         if (deptTitle) deptTitle.textContent = hedefProgramDisplayName(pdoc) || "—";
-        if (subEl) subEl.textContent = "Bu bölüm için geçerli rowsJson üretilemedi.";
+        if (subEl) subEl.textContent = "Bu bölüm için YÖK/katalog satır listesi üretilemedi.";
         wrap.innerHTML =
           '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Program verisi okunamadı veya satır listesi boş.</p>';
         return;
@@ -178,13 +191,16 @@ export function initNetSihirbazi(options) {
           : "Branş güncel net bulunamadı — tabloda güncel sütunu 0; deneme kaydınıza YKS detayı ekleyin veya öğrenci seçin.";
       }
 
-      var display = buildMotorDisplayRows(prog, { currentNetForRow: currentNetForRow });
+      var display = buildMotorDisplayRows(prog, {
+        currentNetForRow: currentNetForRow,
+        exactYokAtlasTargets: true,
+      });
       var uiMeta = {
         currentNetSummary: hasBranch
           ? "Güncel sütunu gerçek deneme branş netlerinizden türetilir (eşleşmeyen dersler 0)."
           : "Henüz branş neti yok; güncel değerler 0 gösteriliyor.",
         tableFootnote:
-          "Kalan = güncel − hedef. Ekside kırmızı, fazlada yeşil. Hedefler yks-data.json (rowsJson).",
+          "Kalan = Hedef net − Güncel net. Hedef sütunu YÖK Atlas / katalog JSON ile birebir aynıdır (Net Sihirbazı = Hedef Simülatörü veri kaynağı).",
       };
       wrap.innerHTML = netSihirbaziV2ResultHtml(display, prog, uiMeta);
     } catch (err) {
@@ -197,21 +213,6 @@ export function initNetSihirbazi(options) {
     }
   }
 
-  function bindFiltersOnce() {
-    try {
-      if (uniFilter && !uniFilter.dataset.nsV2Wired) {
-        uniFilter.dataset.nsV2Wired = "1";
-        wireSearchFilterForSelect(uniFilter, uSel);
-      }
-      if (deptFilter && !deptFilter.dataset.nsV2Wired) {
-        deptFilter.dataset.nsV2Wired = "1";
-        wireSearchFilterForSelect(deptFilter, dSel);
-      }
-    } catch (e) {
-      console.error("[Net Sihirbazı V2] bindFiltersOnce:", e);
-    }
-  }
-
   resetDepartmentUi();
   renderEmptyState("Üniversiteler yükleniyor…");
   wrap.innerHTML = netSihirbaziSkeletonHtml();
@@ -221,11 +222,11 @@ export function initNetSihirbazi(options) {
       await ensureHedefSimulatorAppwriteData();
       unis = getHedefAppwriteUniversities();
       fillUniversitySelect();
-      bindFiltersOnce();
+      nsBindSelect2();
       if (!unis.length) {
-        renderEmptyState("src/data/yks-data.json boş veya yüklenemedi. Dosyaya üniversite/program ekleyin.");
+        renderEmptyState("YÖK Atlas / yks-data.json boş veya yüklenemedi. src/data/yok-atlas.json veya yks-data.json dosyasını kontrol edin.");
         wrap.innerHTML =
-          '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Liste boş — yks-data.json kontrol edin.</p>';
+          '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Liste boş — katalog dosyasını kontrol edin.</p>';
         return;
       }
       renderEmptyState(null);
@@ -233,7 +234,7 @@ export function initNetSihirbazi(options) {
       console.error("[Net Sihirbazı V2] bootstrap:", e);
       try {
         wrap.innerHTML =
-          '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Yerel katalog (yks-data.json) yüklenemedi.</p>';
+          '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Katalog (yok-atlas.json / yks-data.json) yüklenemedi.</p>';
         if (subEl) subEl.textContent = e && e.message ? String(e.message) : "Yükleme hatası.";
       } catch (_e2) {}
     }
@@ -243,41 +244,33 @@ export function initNetSihirbazi(options) {
     try {
       var uid = String(uSel.value || "").trim();
       resetDepartmentUi();
+      nsBindSelect2();
       renderEmptyState(
-        uid ? "Bölümler yükleniyor…" : "Önce üniversite seçin; bölüm listesi yalnızca seçilen üniversitenin uniId değerine göre gelir."
+        uid ? "Bölümler yükleniyor…" : "Önce üniversite seçin; bölüm listesi seçilen üniversiteye göre tekilleştirilmiş olarak gelir."
       );
       if (!uid) {
         if (uniTitle) uniTitle.textContent = "Üniversite ve bölüm seçin";
         return;
       }
       wrap.innerHTML = netSihirbaziSkeletonHtml();
-      loadHedefProgramsForUniversity(uid)
-        .then(function (list) {
-          try {
-            if (!list.length) {
-              fillDepartmentSelect([]);
-              dSel.disabled = true;
-              wrap.innerHTML =
-                '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Bu üniversite için kayıtlı bölüm yok.</p>';
-              if (subEl) subEl.textContent = "Bu üniversite kimliği için yks-data.json içinde program yok.";
-              return;
-            }
-            fillDepartmentSelect(list);
-            bindFiltersOnce();
-            renderEmptyState(null);
-          } catch (inner) {
-            console.error("[Net Sihirbazı V2] uni change:", inner);
-            renderEmptyState("Bölüm listesi işlenemedi.");
-          }
-        })
-        .catch(function (err) {
-          console.error("[Net Sihirbazı V2] programs load:", err);
-          try {
-            wrap.innerHTML =
-              '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Bölümler yüklenemedi.</p>';
-            if (subEl) subEl.textContent = err && err.message ? String(err.message) : "Hata.";
-          } catch (_e2) {}
-        });
+      var list = getDedupedProgramsForUniversity(uid) || [];
+      try {
+        if (!list.length) {
+          fillDepartmentSelect([]);
+          dSel.disabled = true;
+          nsBindSelect2();
+          wrap.innerHTML =
+            '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Bu üniversite için kayıtlı bölüm yok.</p>';
+          if (subEl) subEl.textContent = "Bu üniversite için katalogda program yok.";
+          return;
+        }
+        fillDepartmentSelect(list);
+        nsBindSelect2();
+        renderEmptyState(null);
+      } catch (inner) {
+        console.error("[Net Sihirbazı V2] uni change:", inner);
+        renderEmptyState("Bölüm listesi işlenemedi.");
+      }
     } catch (err) {
       console.error("[Net Sihirbazı V2] uSel change:", err);
     }
@@ -290,37 +283,59 @@ export function initNetSihirbazi(options) {
   });
 }
 
-/** TYT ham: taban 100 + Özet katsayılar (Türkçe/Mat 3.3, Sosyal/Fen 3.4) */
+/**
+ * Güncel ÖSYM YKS ham puan katsayıları (özet; taban 100).
+ * Ham = 100 + Σ (katsayı × net); birleşik yerleştirme = 0,40×TYT_ham + 0,60×AYT_ham + OBP katkısı.
+ */
+export var YKS_OSYM_KATSAYILAR = {
+  taban: 100,
+  birlesik: { tytOran: 0.4, aytOran: 0.6 },
+  tyt: { turkce: 3.3, temelMat: 3.3, sosyal: 3.4, fen: 3.4 },
+  aytSay: { mat: 3.0, fiz: 2.85, kim: 3.0, bio: 3.0 },
+  aytEa: { mat: 3.3, edeb: 3.0, tar1: 2.8, cog1: 2.6 },
+  aytSoz: { edeb: 3.0, tar1: 2.8, cog1: 2.6, tar2: 2.8, cog2: 2.6, fel: 2.7, dkab: 2.5 },
+  aytDil: { yd: 2.9, edeb: 3.0 },
+};
+
 function yksHamTyt(ntTr, ntMat, ntSos, ntFen) {
-  return 100 + 3.3 * ntTr + 3.3 * ntMat + 3.4 * ntSos + 3.4 * ntFen;
+  var K = YKS_OSYM_KATSAYILAR.tyt;
+  var B = YKS_OSYM_KATSAYILAR.taban;
+  return B + K.turkce * ntTr + K.temelMat * ntMat + K.sosyal * ntSos + K.fen * ntFen;
 }
 
-/** AYT ham (alan bazlı, taban 100 + ders katsayıları × net) */
 function yksHamAytSay(nMat, nFiz, nKim, nBio) {
-  return 100 + 3.3 * nMat + 3.0 * nFiz + 3.0 * nKim + 3.0 * nBio;
+  var K = YKS_OSYM_KATSAYILAR.aytSay;
+  var B = YKS_OSYM_KATSAYILAR.taban;
+  return B + K.mat * nMat + K.fiz * nFiz + K.kim * nKim + K.bio * nBio;
 }
 function yksHamAytEa(nMat, nEdeb, nTar1, nCog1) {
-  return 100 + 3.3 * nMat + 3.0 * nEdeb + 2.8 * nTar1 + 2.6 * nCog1;
+  var K = YKS_OSYM_KATSAYILAR.aytEa;
+  var B = YKS_OSYM_KATSAYILAR.taban;
+  return B + K.mat * nMat + K.edeb * nEdeb + K.tar1 * nTar1 + K.cog1 * nCog1;
 }
 function yksHamAytSoz(nEdeb, nTar1, nCog1, nTar2, nCog2, nFel, nDkab) {
+  var K = YKS_OSYM_KATSAYILAR.aytSoz;
+  var B = YKS_OSYM_KATSAYILAR.taban;
   return (
-    100 +
-    3.0 * nEdeb +
-    2.8 * nTar1 +
-    2.6 * nCog1 +
-    2.8 * nTar2 +
-    2.6 * nCog2 +
-    2.7 * nFel +
-    2.5 * nDkab
+    B +
+    K.edeb * nEdeb +
+    K.tar1 * nTar1 +
+    K.cog1 * nCog1 +
+    K.tar2 * nTar2 +
+    K.cog2 * nCog2 +
+    K.fel * nFel +
+    K.dkab * nDkab
   );
 }
 function yksHamAytDil(nYd, nEdeb) {
-  return 100 + 2.9 * nYd + 3.0 * nEdeb;
+  var K = YKS_OSYM_KATSAYILAR.aytDil;
+  var B = YKS_OSYM_KATSAYILAR.taban;
+  return B + K.yd * nYd + K.edeb * nEdeb;
 }
 
-/** Birleşik ham: %40 TYT + %60 AYT */
 function yksBirlesikHam(tytHam, aytHam) {
-  return 0.4 * tytHam + 0.6 * aytHam;
+  var r = YKS_OSYM_KATSAYILAR.birlesik;
+  return r.tytOran * tytHam + r.aytOran * aytHam;
 }
 
 /**
@@ -439,55 +454,83 @@ export function initYksPuanHesaplama(cfg) {
     if (el.value !== raw) el.value = raw;
   }
 
-  function clampDyPair(key, changedEl) {
+  function getMaxWarnEl(wrap) {
+    if (!wrap) return null;
+    var el = wrap.querySelector(".yks-dyb-maxwarn");
+    if (!el) {
+      el = document.createElement("span");
+      el.className = "yks-dyb-maxwarn";
+      el.setAttribute("role", "alert");
+      wrap.appendChild(el);
+    }
+    return el;
+  }
+
+  function clearDyError(t) {
+    if (!t || !t.wrap) return;
+    t.wrap.classList.remove("yks-dyb-inputs--invalid");
+    if (t.d) t.d.classList.remove("yks-inp-dyb--invalid");
+    if (t.y) t.y.classList.remove("yks-inp-dyb--invalid");
+    var w = t.wrap.querySelector(".yks-dyb-maxwarn");
+    if (w) {
+      w.hidden = true;
+      w.textContent = "";
+    }
+  }
+
+  function isValidPair(key) {
     var max = YKS_PUAN_SUBJECT_MAX[key];
-    if (max == null) return;
     var t = getPair(key);
-    if (!t.d || !t.y) return;
-    sanitizeDigits(t.d);
-    sanitizeDigits(t.y);
+    if (!t.d || !t.y || max == null) return true;
+    if (dyPairBlank(t.d, t.y)) return true;
     var d = parseDyInt(t.d);
     var y = parseDyInt(t.y);
-    var sum = d + y;
-    if (sum <= max) {
-      if (t.wrap) t.wrap.classList.remove("yks-dyb-inputs--invalid");
-      return;
+    return d + y <= max;
+  }
+
+  function validateDyPair(key) {
+    var max = YKS_PUAN_SUBJECT_MAX[key];
+    var t = getPair(key);
+    if (!t.d || !t.y || max == null) return true;
+    sanitizeDigits(t.d);
+    sanitizeDigits(t.y);
+    if (dyPairBlank(t.d, t.y)) {
+      clearDyError(t);
+      return true;
     }
-    if (changedEl) {
+    var d = parseDyInt(t.d);
+    var y = parseDyInt(t.y);
+    var ok = d + y <= max;
+    var warnEl = getMaxWarnEl(t.wrap);
+    if (!ok) {
       if (t.wrap) t.wrap.classList.add("yks-dyb-inputs--invalid");
-      var cur = changedEl === t.d ? d : y;
-      var other = sum - cur;
-      var allowed = Math.max(0, max - other);
-      changedEl.value = allowed === 0 ? "" : String(allowed);
-      setTimeout(function () {
-        if (t.wrap) t.wrap.classList.remove("yks-dyb-inputs--invalid");
-      }, 320);
-      return;
+      if (t.d) t.d.classList.add("yks-inp-dyb--invalid");
+      if (t.y) t.y.classList.add("yks-inp-dyb--invalid");
+      if (warnEl) {
+        warnEl.hidden = false;
+        warnEl.textContent = "Maksimum soru sayısını aştınız!";
+      }
+    } else {
+      clearDyError(t);
     }
-    if (t.wrap) t.wrap.classList.add("yks-dyb-inputs--invalid");
-    d = parseDyInt(t.d);
-    y = parseDyInt(t.y);
-    while (d + y > max) {
-      if (y > 0) {
-        y--;
-        t.y.value = y ? String(y) : "";
-      } else if (d > 0) {
-        d--;
-        t.d.value = d ? String(d) : "";
-      } else break;
-    }
-    setTimeout(function () {
-      if (t.wrap) t.wrap.classList.remove("yks-dyb-inputs--invalid");
-    }, 320);
+    return ok;
   }
 
   function netFromPair(key) {
     var t = getPair(key);
     if (!t.d || !t.y || !t.net) return 0;
+    var badge = t.net.closest ? t.net.closest(".yks-net-badge") : null;
     if (dyPairBlank(t.d, t.y)) {
       t.net.textContent = "—";
+      if (badge) badge.classList.remove("yks-net-badge--invalid");
       return 0;
     }
+    if (!isValidPair(key)) {
+      t.net.textContent = "—";
+      if (badge) badge.classList.add("yks-net-badge--invalid");
+      return 0;
+    }
+    if (badge) badge.classList.remove("yks-net-badge--invalid");
     var d = parseDyInt(t.d);
     var y = parseDyInt(t.y);
     var net = d - y / 4;
@@ -495,8 +538,8 @@ export function initYksPuanHesaplama(cfg) {
     return net;
   }
 
-  function onDyInput(key, e) {
-    clampDyPair(key, e && e.target);
+  function onDyInput(key) {
+    validateDyPair(key);
     netFromPair(key);
     calc();
   }
@@ -509,12 +552,12 @@ export function initYksPuanHesaplama(cfg) {
   function syncObpUi() {
     var m = obpMode();
     if (obpValueLabel) {
-      obpValueLabel.textContent = m === "diploma" ? "Diploma notu (50–100)" : "OBP puanı (30–60)";
+      obpValueLabel.textContent = m === "diploma" ? "Diploma notu (OBP, 50–100)" : "OBP puanı (30–60)";
     }
     if (obpValueEl) {
-      obpValueEl.min = m === "diploma" ? "0" : "0";
-      obpValueEl.max = m === "diploma" ? "100" : "60";
-      obpValueEl.placeholder = m === "diploma" ? "Örn. 85" : "Örn. 45";
+      obpValueEl.setAttribute("min", m === "diploma" ? "50" : "30");
+      obpValueEl.setAttribute("max", m === "diploma" ? "100" : "60");
+      obpValueEl.placeholder = m === "diploma" ? "Max: 100" : "Max: 60";
     }
   }
 
@@ -524,6 +567,61 @@ export function initYksPuanHesaplama(cfg) {
     if (s === "") return 0;
     var n = parseFloat(s);
     return yksObpPlacementContribution(obpMode(), n, obpKirik && obpKirik.checked);
+  }
+
+  function obpValidForPlacement() {
+    if (!obpValueEl) return false;
+    var s = String(obpValueEl.value || "").trim().replace(",", ".");
+    if (s === "") return false;
+    var n = parseFloat(s);
+    if (isNaN(n)) return false;
+    var m = obpMode();
+    if (m === "diploma") return n >= 50 && n <= 100;
+    return n >= 30 && n <= 60;
+  }
+
+  var dashTytHam = document.getElementById(id("yksPuanDashTytHam"));
+  var dashTytYer = document.getElementById(id("yksPuanDashTytYer"));
+  var dashAytHam = document.getElementById(id("yksPuanDashAytHam"));
+  var dashAytYer = document.getElementById(id("yksPuanDashAytYer"));
+  var dashAytLabel = document.getElementById(id("yksPuanDashAytLabel"));
+  var dashAytHint = document.getElementById(id("yksPuanDashAytHint"));
+  var dashObp = document.getElementById(id("yksPuanDashObp"));
+  var dashYerToplam = document.getElementById(id("yksPuanDashYerToplam"));
+  var dashWarn = document.getElementById(id("yksPuanDashWarn"));
+  var dashCoeff = document.getElementById(id("yksPuanDashCoeff"));
+  var dashSub = document.getElementById(id("yksPuanLiveDashboardSub"));
+
+  function dashSet(el, v) {
+    if (el) el.textContent = v;
+  }
+
+  function alanDisplayName() {
+    var a = alanSel ? String(alanSel.value || "say") : "say";
+    if (a === "say") return "Sayısal (SAY)";
+    if (a === "ea") return "Eşit ağırlık (EA)";
+    if (a === "soz") return "Sözel (SÖZ)";
+    if (a === "dil") return "Dil (DİL)";
+    return a;
+  }
+
+  function coeffSummaryText() {
+    var K = YKS_OSYM_KATSAYILAR;
+    return (
+      "Katsayılar (özet): TYT Türkçe " +
+      K.tyt.turkce +
+      ", TYT Mat " +
+      K.tyt.temelMat +
+      "; AYT Say Mat " +
+      K.aytSay.mat +
+      ", Fiz " +
+      K.aytSay.fiz +
+      ", Kim " +
+      K.aytSay.kim +
+      ", Bio " +
+      K.aytSay.bio +
+      "."
+    );
   }
 
   function tytNets() {
@@ -622,6 +720,14 @@ export function initYksPuanHesaplama(cfg) {
     return (Math.round(n * 100) / 100).toFixed(2);
   }
 
+  function emitYksPuanUpdate() {
+    try {
+      if (form && typeof CustomEvent !== "undefined") {
+        form.dispatchEvent(new CustomEvent("yks-puan:updated", { bubbles: true }));
+      }
+    } catch (e) {}
+  }
+
   function row(tb, label, val) {
     if (!tb) return;
     var tr = document.createElement("tr");
@@ -638,42 +744,106 @@ export function initYksPuanHesaplama(cfg) {
   function calc() {
     toggleAytPanels();
     subjectKeys.forEach(function (k) {
+      validateDyPair(k);
+    });
+    subjectKeys.forEach(function (k) {
       netFromPair(k);
     });
     syncObpUi();
+
+    var br = YKS_OSYM_KATSAYILAR.birlesik;
+    var dyBlocked = subjectKeys.some(function (k) {
+      var t = getPair(k);
+      if (!t.d || !t.y) return false;
+      if (dyPairBlank(t.d, t.y)) return false;
+      return !isValidPair(k);
+    });
+
+    if (dashCoeff) dashCoeff.textContent = coeffSummaryText();
+    if (dashSub) dashSub.textContent = "Gerçek zamanlı · " + alanDisplayName();
+
     if (!anyUserInput()) {
+      dashSet(dashTytHam, "—");
+      dashSet(dashTytYer, "—");
+      dashSet(dashAytHam, "—");
+      dashSet(dashAytYer, "—");
+      dashSet(dashObp, "—");
+      dashSet(dashYerToplam, "—");
+      dashSet(dashWarn, "");
+      if (dashAytLabel) dashAytLabel.textContent = "AYT ham puanı";
       if (outWrap) outWrap.hidden = true;
       if (hamTbody) hamTbody.innerHTML = "";
       if (yerTbody) yerTbody.innerHTML = "";
       if (hintEl) hintEl.textContent = "";
+      emitYksPuanUpdate();
       return;
     }
+
+    var warnParts = [];
+    if (dyBlocked) warnParts.push("Doğru + yanlış toplamı soru sayısını aşan satırlar var.");
+
     var tn = tytNets();
     var tytHam = yksHamTyt(tn.tr, tn.mat, tn.sos, tn.fen);
     var aytHam = aytHamForAlan();
     var birlesik = yksBirlesikHam(tytHam, aytHam);
+    var tytYerPay = br.tytOran * tytHam;
+    var aytYerPay = br.aytOran * aytHam;
+    var obpOk = obpValidForPlacement();
     var obpC = readObpContribution();
     var yerToplam = birlesik + obpC;
 
+    if (!obpOk) {
+      warnParts.push("Yerleştirme puanı için diploma notu (50–100) veya OBP (30–60) girin.");
+    }
+
+    if (dashAytLabel) dashAytLabel.textContent = "AYT ham · " + alanDisplayName();
+    if (dashAytHint) {
+      dashAytHint.textContent =
+        "Taban " + YKS_OSYM_KATSAYILAR.taban + " + alan katsayıları × net";
+    }
+
+    if (dyBlocked) {
+      dashSet(dashTytHam, "—");
+      dashSet(dashTytYer, "—");
+      dashSet(dashAytHam, "—");
+      dashSet(dashAytYer, "—");
+      dashSet(dashObp, obpOk ? fmt(obpC) : "—");
+      dashSet(dashYerToplam, "—");
+    } else {
+      dashSet(dashTytHam, fmt(tytHam));
+      dashSet(dashTytYer, fmt(tytYerPay));
+      dashSet(dashAytHam, fmt(aytHam));
+      dashSet(dashAytYer, fmt(aytYerPay));
+      dashSet(dashObp, obpOk ? fmt(obpC) : "—");
+      dashSet(dashYerToplam, obpOk ? fmt(yerToplam) : "—");
+    }
+
+    dashSet(dashWarn, warnParts.join(" "));
+
     if (hamTbody) {
       hamTbody.innerHTML = "";
-      row(hamTbody, "TYT ham puanı (taban 100 + katsayılar)", fmt(tytHam));
-      row(hamTbody, "AYT ham puanı (seçilen alan)", fmt(aytHam));
-      row(hamTbody, "Birleşik ham (%40 TYT + %60 AYT)", fmt(birlesik));
-      row(hamTbody, "TYT toplam net", fmt(tytNetSum()));
-      row(hamTbody, "AYT toplam net", fmt(aytNetSum()));
+      if (!dyBlocked) {
+        row(hamTbody, "TYT ham puanı (taban 100 + katsayılar)", fmt(tytHam));
+        row(hamTbody, "AYT ham puanı (seçilen alan)", fmt(aytHam));
+        row(hamTbody, "Birleşik ham (%40 TYT + %60 AYT)", fmt(birlesik));
+        row(hamTbody, "TYT toplam net", fmt(tytNetSum()));
+        row(hamTbody, "AYT toplam net", fmt(aytNetSum()));
+      }
     }
     if (yerTbody) {
       yerTbody.innerHTML = "";
-      row(yerTbody, "Birleşik ham", fmt(birlesik));
-      row(yerTbody, "OBP yerleştirme katkısı", fmt(obpC));
-      row(yerTbody, "Yerleştirme göstergesi (birleşik + OBP)", fmt(yerToplam));
+      if (!dyBlocked && obpOk) {
+        row(yerTbody, "Birleşik ham", fmt(birlesik));
+        row(yerTbody, "OBP yerleştirme katkısı", fmt(obpC));
+        row(yerTbody, "Yerleştirme göstergesi (birleşik + OBP)", fmt(yerToplam));
+      }
     }
-    if (outWrap) outWrap.hidden = false;
+    if (outWrap) outWrap.hidden = true;
     if (hintEl) {
       hintEl.textContent =
-        "Net formülü: Doğru − Yanlış ÷ 4. Sonuçlar bilgilendirme amaçlıdır; resmî ÖSYM puanı değildir.";
+        "Canlı güncelleme aktif. Net: Doğru − Yanlış ÷ 4. Sonuçlar bilgilendirme amaçlıdır; resmî ÖSYM puanı değildir.";
     }
+    emitYksPuanUpdate();
   }
 
   function resetForm() {
@@ -682,7 +852,9 @@ export function initYksPuanHesaplama(cfg) {
       if (t.d) t.d.value = "";
       if (t.y) t.y.value = "";
       if (t.net) t.net.textContent = "—";
-      if (t.wrap) t.wrap.classList.remove("yks-dyb-inputs--invalid");
+      clearDyError(t);
+      var b = t.net && t.net.closest ? t.net.closest(".yks-net-badge") : null;
+      if (b) b.classList.remove("yks-net-badge--invalid");
     });
     if (obpValueEl) obpValueEl.value = "";
     if (obpKirik) obpKirik.checked = false;
@@ -693,18 +865,23 @@ export function initYksPuanHesaplama(cfg) {
     if (hintEl) hintEl.textContent = "";
     syncObpUi();
     toggleAytPanels();
+    calc();
   }
 
   subjectKeys.forEach(function (k) {
     var t = getPair(k);
+    var max = YKS_PUAN_SUBJECT_MAX[k];
+    var ph = "Max: " + max;
+    if (t.d) t.d.setAttribute("placeholder", ph);
+    if (t.y) t.y.setAttribute("placeholder", ph);
     ["d", "y"].forEach(function (which) {
       var el = t[which];
       if (!el) return;
-      el.addEventListener("input", function (e) {
-        onDyInput(k, e);
+      el.addEventListener("input", function () {
+        onDyInput(k);
       });
       el.addEventListener("blur", function () {
-        clampDyPair(k, null);
+        validateDyPair(k);
         netFromPair(k);
         calc();
       });

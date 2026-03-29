@@ -1,10 +1,9 @@
 /**
- * Üniversite / bölüm tek kaynak: `src/data/yks-data.json` (statik JSON).
- * Patron tam listeyi bu dosyaya yapıştırır; Appwrite Universities/Programs kullanılmaz.
+ * Üniversite / bölüm tek kaynak: önce YÖK Atlas (`yok-atlas.json`), yoksa `yks-data.json`.
  */
 
-/** @type {string} */
-var YKS_DATA_JSON_URL = "src/data/yks-data.json";
+/** @type {string[]} */
+var YKS_DATA_JSON_URLS = ["src/data/yok-atlas.json", "src/data/yks-data.json"];
 
 /** @type {boolean} */
 var _ready = false;
@@ -58,12 +57,59 @@ function normalizeProgram(raw) {
 /**
  * Statik JSON’u bir kez yükler (boş dizi olabilir).
  */
+function normDedupeKey(s) {
+  return String(s || "")
+    .trim()
+    .toLocaleLowerCase("tr")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+/**
+ * Aynı üniversitede aynı bölüm adı tekrar etmesin (ilk kayıt kalır).
+ * @param {object[]} programs
+ * @returns {object[]}
+ */
+export function dedupeProgramsByDisplayName(programs) {
+  var seen = Object.create(null);
+  var out = [];
+  (programs || []).forEach(function (p) {
+    var name = hedefProgramDisplayName(p);
+    var key = normDedupeKey(name);
+    if (!key) return;
+    if (seen[key]) return;
+    seen[key] = true;
+    out.push(p);
+  });
+  return out;
+}
+
+export function getDedupedProgramsForUniversity(uniDocId) {
+  var list = getCachedHedefProgramsForUniversity(uniDocId);
+  if (!list || !list.length) return [];
+  return dedupeProgramsByDisplayName(list);
+}
+
 export async function ensureHedefSimulatorAppwriteData() {
   if (_ready) return;
   try {
-    var res = await fetch(YKS_DATA_JSON_URL, { cache: "no-store" });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    var data = await res.json();
+    var data = null;
+    var lastErr = null;
+    for (var u = 0; u < YKS_DATA_JSON_URLS.length; u++) {
+      try {
+        var res = await fetch(YKS_DATA_JSON_URLS[u], { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        var dataTry = await res.json();
+        var ulistCheck = Array.isArray(dataTry.universities) ? dataTry.universities : [];
+        if (ulistCheck.length === 0 && u < YKS_DATA_JSON_URLS.length - 1) continue;
+        data = dataTry;
+        break;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    if (!data) throw lastErr || new Error("Atlas JSON yüklenemedi");
     var ulist = Array.isArray(data.universities) ? data.universities : [];
     _universities = ulist.map(normalizeUni).filter(function (u) {
       return u.$id;
@@ -88,7 +134,7 @@ export async function ensureHedefSimulatorAppwriteData() {
       });
     }
   } catch (e) {
-    console.warn("[Uni/Program kataloğu] yks-data.json yüklenemedi:", e && e.message ? e.message : e);
+    console.warn("[Uni/Program kataloğu] yok-atlas.json / yks-data.json yüklenemedi:", e && e.message ? e.message : e);
     _universities = [];
     _allPrograms = [];
     _programsByUni = Object.create(null);

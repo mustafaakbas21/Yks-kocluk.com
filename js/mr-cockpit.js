@@ -108,6 +108,27 @@ function topicKey(exam, lesson, topic) {
   return exam + "::" + lesson + "::" + topic;
 }
 
+/** konu_json: eski sürüm boolean veya { done, assignId, solved } */
+function getKonuEntry(k) {
+  var v = state.konu[k];
+  if (v == null) return { done: false, assignId: "", solved: "" };
+  if (typeof v === "boolean") return { done: v, assignId: "", solved: "" };
+  return {
+    done: !!v.done,
+    assignId: v.assignId != null ? String(v.assignId) : "",
+    solved: v.solved != null && v.solved !== "" ? v.solved : "",
+  };
+}
+
+function setKonuEntry(k, patch) {
+  var cur = getKonuEntry(k);
+  state.konu[k] = {
+    done: patch.done !== undefined ? !!patch.done : cur.done,
+    assignId: patch.assignId !== undefined ? String(patch.assignId || "") : cur.assignId,
+    solved: patch.solved !== undefined ? patch.solved : cur.solved,
+  };
+}
+
 function mrDocId(sid) {
   return String(sid || "")
     .replace(/[^a-zA-Z0-9_-]/g, "_")
@@ -185,8 +206,10 @@ function subscribeBooks(studentId) {
       state.books.sort(function (a, b) {
         return String(a.title).localeCompare(String(b.title), "tr");
       });
-      var v = document.querySelector('.main-view[data-view="mr-soru"]:not([hidden])');
-      if (v) renderSoruMount();
+      var vSoru = document.querySelector('.main-view[data-view="mr-soru"]:not([hidden])');
+      if (vSoru) renderSoruMount();
+      var vKonu = document.querySelector('.main-view[data-view="mr-konu"]:not([hidden])');
+      if (vKonu) renderKonuMount();
     },
     function (err) {
       console.warn("[MR] atanan kaynaklar:", err);
@@ -317,7 +340,7 @@ function lessonProgressKonu(layer, lessonName, topics) {
   var done = 0;
   topics.forEach(function (top) {
     var k = topicKey(layer, lessonName, top);
-    if (state.konu[k]) done++;
+    if (getKonuEntry(k).done) done++;
   });
   return (100 * done) / topics.length;
 }
@@ -347,14 +370,38 @@ function renderAccordionKonu(mount) {
     var rows = topics
       .map(function (top) {
         var k = topicKey(layer, lessonName, top);
-        var on = !!state.konu[k];
+        var ke = getKonuEntry(k);
+        var on = ke.done;
+        var sel = String(ke.assignId || "");
+        var solved = ke.solved !== "" && ke.solved != null ? ke.solved : "";
+        var opts =
+          '<option value="">— Kitap seçin —</option>' +
+          booksForLesson(lessonName)
+            .map(function (b) {
+              return (
+                "<option value=\"" +
+                escapeHtml(b.assignId) +
+                "\"" +
+                (b.assignId === sel ? " selected" : "") +
+                ">" +
+                escapeHtml(b.title) +
+                "</option>"
+              );
+            })
+            .join("");
         return (
-          '<div class="mr-topic-row" data-mr-k="' +
+          '<div class="mr-topic-row mr-topic-row--soru" data-mr-k="' +
           encodeURIComponent(k) +
           '">' +
           '<span class="mr-topic-name">' +
           escapeHtml(top) +
           "</span>" +
+          '<select class="mr-book-select" data-mr-konu-book>' +
+          opts +
+          "</select>" +
+          '<label><span class="mr-hint">Çözülen soru</span><input type="number" min="0" class="mr-soru-input" data-mr-konu-solved placeholder="Çözülen soru" value="' +
+          escapeHtml(String(solved)) +
+          '"/></label>' +
           '<button type="button" class="mr-toggle ' +
           (on ? "mr-toggle--on" : "mr-toggle--off") +
           '" data-mr-toggle-konu="1">' +
@@ -423,7 +470,7 @@ function renderAccordionSoru(mount) {
           '<select class="mr-book-select" data-mr-book>' +
           opts +
           "</select>" +
-          '<label><span class="mr-hint">Çözülen soru</span><input type="number" min="0" class="mr-soru-input" data-mr-solved value="' +
+          '<label><span class="mr-hint">Çözülen soru</span><input type="number" min="0" class="mr-soru-input" data-mr-solved placeholder="Çözülen soru" value="' +
           escapeHtml(String(solved)) +
           '"/></label>' +
           '<button type="button" class="mr-toggle ' +
@@ -531,6 +578,29 @@ function escapeHtml(s) {
 }
 
 function bindMountKonu(mount) {
+  mount.querySelectorAll("[data-mr-konu-book]").forEach(function (sel) {
+    sel.addEventListener("change", function () {
+      var row = sel.closest(".mr-topic-row");
+      if (!row) return;
+      var k = decodeURIComponent(row.getAttribute("data-mr-k") || "");
+      if (!k) return;
+      var e = getKonuEntry(k);
+      setKonuEntry(k, { assignId: sel.value || "", done: e.done, solved: e.solved });
+      saveProfilePartial();
+    });
+  });
+  mount.querySelectorAll("[data-mr-konu-solved]").forEach(function (inp) {
+    inp.addEventListener("change", function () {
+      var row = inp.closest(".mr-topic-row");
+      if (!row) return;
+      var k = decodeURIComponent(row.getAttribute("data-mr-k") || "");
+      if (!k) return;
+      var e = getKonuEntry(k);
+      var n = parseInt(inp.value, 10);
+      setKonuEntry(k, { solved: isNaN(n) ? 0 : n, done: e.done, assignId: e.assignId });
+      saveProfilePartial();
+    });
+  });
   mount.querySelectorAll("[data-mr-toggle-konu]").forEach(function (btn) {
     btn.addEventListener("click", function (e) {
       e.preventDefault();
@@ -538,7 +608,8 @@ function bindMountKonu(mount) {
       if (!row) return;
       var k = decodeURIComponent(row.getAttribute("data-mr-k") || "");
       if (!k) return;
-      state.konu[k] = !state.konu[k];
+      var e0 = getKonuEntry(k);
+      setKonuEntry(k, { done: !e0.done, assignId: e0.assignId, solved: e0.solved });
       saveProfilePartial();
       renderKonuMount();
     });

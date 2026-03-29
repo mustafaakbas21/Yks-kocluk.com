@@ -12,6 +12,11 @@ var rootEl = null;
 var pages = [];
 var pageIndex = 0;
 var currentTool = "pen-black";
+/** El (pan) aracı — sürüklerken tuval kaydırma */
+var handPanDragging = false;
+var handPanCanvasRef = null;
+var handPanLast = { x: 0, y: 0 };
+var handPanGlobalListenersBound = false;
 var editMode = false;
 var popoverEl = null;
 var brushWidths = { pen: 3, highlighter: 22, eraser: 28 };
@@ -552,9 +557,14 @@ function getCurrentCanvas() {
   return p ? p.canvas : null;
 }
 
+function canvasHistoryJson(canvas) {
+  if (!canvas) return "{}";
+  return JSON.stringify(canvas.toJSON(["selectable", "evented"]));
+}
+
 function pushHistoryFor(canvas, state) {
   if (!state) return;
-  var json = JSON.stringify(canvas.toJSON(["selectable", "evented"]));
+  var json = canvasHistoryJson(canvas);
   state.history = state.history.slice(0, state.histStep + 1);
   state.history.push(json);
   state.histStep = state.history.length - 1;
@@ -572,8 +582,88 @@ function scheduleThumbUpdate(state) {
   }, 280);
 }
 
+function endHandPanGlobal() {
+  if (!handPanDragging) return;
+  var cPan = handPanCanvasRef;
+  handPanDragging = false;
+  handPanCanvasRef = null;
+  if (cPan && currentTool === "hand") {
+    try {
+      cPan.setCursor("grab");
+      cPan.hoverCursor = "grab";
+    } catch (_e) {}
+  }
+}
+
+function bindHandPan(canvas) {
+  if (!canvas) return;
+  canvas.on("mouse:down", function (opt) {
+    if (currentTool !== "hand") return;
+    var e = opt.e;
+    if (e && typeof e.button === "number" && e.button !== 0) return;
+    if (!e) return;
+    handPanDragging = true;
+    handPanCanvasRef = canvas;
+    handPanLast.x = e.clientX;
+    handPanLast.y = e.clientY;
+    try {
+      canvas.setCursor("grabbing");
+      canvas.hoverCursor = "grabbing";
+    } catch (_e) {}
+  });
+
+  canvas.on("mouse:move", function (opt) {
+    if (!handPanDragging || handPanCanvasRef !== canvas || currentTool !== "hand") return;
+    var e = opt.e;
+    if (!e) return;
+    var dx = e.clientX - handPanLast.x;
+    var dy = e.clientY - handPanLast.y;
+    handPanLast.x = e.clientX;
+    handPanLast.y = e.clientY;
+    if (dx === 0 && dy === 0) return;
+    if (typeof fabric !== "undefined" && fabric.Point) {
+      canvas.relativePan(new fabric.Point(dx, dy));
+    } else {
+      var v = canvas.viewportTransform;
+      if (v) {
+        v[4] += dx;
+        v[5] += dy;
+        canvas.setViewportTransform(v);
+      }
+    }
+    canvas.requestRenderAll();
+  });
+
+  canvas.on("mouse:up", function () {
+    endHandPanGlobal();
+  });
+}
+
+function bindHandPanGlobalListeners() {
+  if (handPanGlobalListenersBound) return;
+  handPanGlobalListenersBound = true;
+  window.addEventListener("mouseup", endHandPanGlobal);
+  window.addEventListener("touchend", endHandPanGlobal, { passive: true });
+}
+
 function applyToolToCanvas(canvas, tool) {
   if (!canvas || !ensureFabric()) return;
+
+  if (tool === "hand") {
+    canvas.isDrawingMode = false;
+    canvas.selection = false;
+    canvas.forEachObject(function (o) {
+      o.selectable = false;
+      o.evented = false;
+    });
+    canvas.defaultCursor = "grab";
+    canvas.hoverCursor = "grab";
+    try {
+      canvas.setCursor("grab");
+    } catch (_e) {}
+    return;
+  }
+
   canvas.isDrawingMode = false;
   canvas.selection = false;
   canvas.defaultCursor = "default";
@@ -640,6 +730,7 @@ function applyToolToCanvas(canvas, tool) {
 }
 
 function setTool(tool) {
+  endHandPanGlobal();
   currentTool = tool;
   if (tool === "pen-black") lastInkColor = penColors["pen-black"];
   else if (tool === "pen-red") lastInkColor = penColors["pen-red"];
@@ -730,9 +821,11 @@ function createPage(initialJson) {
   };
 
   function bindHistory() {
-    var push = function () {
+    var pushDebounced = function () {
+      if (isRestoringCanvas) return;
       if (historyDebounce) clearTimeout(historyDebounce);
       historyDebounce = setTimeout(function () {
+        if (isRestoringCanvas) return;
         pushHistoryFor(canvas, state);
         scheduleAutoSave();
       }, 60);
@@ -745,11 +838,12 @@ function createPage(initialJson) {
       if (opt.path) {
         opt.path.set({ selectable: true, evented: true });
       }
-      push();
+      pushHistoryFor(canvas, state);
+      scheduleAutoSave();
     });
-    canvas.on("object:modified", push);
-    canvas.on("object:removed", push);
-    canvas.on("text:changed", push);
+    canvas.on("object:modified", pushDebounced);
+    canvas.on("object:removed", pushDebounced);
+    canvas.on("text:changed", pushDebounced);
     canvas.on("object:added", function () {
       if (isRestoringCanvas) return;
       scheduleAutoSave();
@@ -758,6 +852,7 @@ function createPage(initialJson) {
   bindHistory();
 
   bindShapeInteractions(canvas, state);
+  bindHandPan(canvas);
 
   canvas.on("mouse:down", function (opt) {
     if (currentTool !== "text") return;
@@ -774,13 +869,12 @@ function createPage(initialJson) {
       canvas.renderAll();
       isRestoringCanvas = false;
       pushHistoryFor(canvas, state);
-      state.history = [JSON.stringify(canvas.toJSON())];
+      state.history = [canvasHistoryJson(canvas)];
       state.histStep = 0;
       state.paperType = state.paperType || "white";
     });
   } else {
-    var empty = JSON.stringify(canvas.toJSON());
-    state.history = [empty];
+    state.history = [canvasHistoryJson(canvas)];
     state.histStep = 0;
   }
 
@@ -861,8 +955,24 @@ function removePage(idx) {
 function toggleEditMode() {
   editMode = !editMode;
   rootEl.classList.toggle("derece-board--edit-mode", editMode);
-  var btn = rootEl.querySelector(".derece-board__fab-edit");
-  if (btn) btn.textContent = editMode ? "Düzenlemeyi bitir" : "Düzenle";
+  var label = rootEl.querySelector(".derece-board__toggle-edit-label");
+  if (label) label.textContent = editMode ? "Düzenlemeyi bitir" : "Düzenle";
+}
+
+function clearCurrentPageCanvas() {
+  var st = pages[pageIndex];
+  if (!st || !st.canvas) return;
+  isRestoringCanvas = true;
+  try {
+    st.canvas.clear();
+    applyPaperTypeToCanvas(st.canvas, st.paperType || "white", st);
+  } finally {
+    isRestoringCanvas = false;
+  }
+  applyToolToCanvas(st.canvas, currentTool);
+  pushHistoryFor(st.canvas, st);
+  scheduleAutoSave();
+  scheduleThumbUpdate(st);
 }
 
 function renderPopoverSwatches(toolKey) {
@@ -1079,10 +1189,12 @@ function wireToolbar() {
   });
 
   var pdfIn = rootEl.querySelector("#dereceBoardPdfInput");
-  var pdfBtn = rootEl.querySelector("[data-db-pdf]");
-  if (pdfBtn && pdfIn) {
-    pdfBtn.addEventListener("click", function () {
-      pdfIn.click();
+  var pdfImportBtns = rootEl.querySelectorAll("[data-db-pdf-import]");
+  if (pdfIn) {
+    pdfImportBtns.forEach(function (pdfBtn) {
+      pdfBtn.addEventListener("click", function () {
+        pdfIn.click();
+      });
     });
     pdfIn.addEventListener("change", function () {
       var f = pdfIn.files && pdfIn.files[0];
@@ -1119,14 +1231,21 @@ function wireToolbar() {
   if (u) u.addEventListener("click", undo);
   var r = rootEl.querySelector("[data-db-redo]");
   if (r) r.addEventListener("click", redo);
-  var sv = rootEl.querySelector("[data-db-save-lib]");
-  if (sv) sv.addEventListener("click", function () { void saveToLibrary(); });
-  var ed = rootEl.querySelector(".derece-board__fab-edit");
+  rootEl.querySelectorAll("[data-db-save-lib]").forEach(function (sv) {
+    sv.addEventListener("click", function () { void saveToLibrary(); });
+  });
+  var ed = rootEl.querySelector("[data-db-toggle-edit]");
   if (ed) ed.addEventListener("click", toggleEditMode);
+  rootEl.querySelectorAll("[data-db-page-add-top]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      createPage(null);
+    });
+  });
+  var clr = rootEl.querySelector("[data-db-clear-canvas]");
+  if (clr) clr.addEventListener("click", clearCurrentPageCanvas);
   rootEl.addEventListener("click", function (ev) {
     var add = ev.target.closest && ev.target.closest("[data-db-page-add]");
     if (add && rootEl.contains(add)) {
-      if (!editMode) return;
       ev.preventDefault();
       createPage(null);
     }
@@ -1144,20 +1263,20 @@ function wireToolbar() {
     }
   });
 
-  var shOpen = rootEl.querySelector("[data-db-share-open]");
-  if (shOpen) shOpen.addEventListener("click", function () { void openShareModal(); });
+  rootEl.querySelectorAll("[data-db-share-open]").forEach(function (shOpen) {
+    shOpen.addEventListener("click", function () { void openShareModal(); });
+  });
   rootEl.querySelectorAll("[data-db-share-close]").forEach(function (btn) {
     btn.addEventListener("click", closeShareModal);
   });
   var shGo = rootEl.querySelector("[data-db-share-confirm]");
   if (shGo) shGo.addEventListener("click", function () { void confirmShareStudents(); });
 
-  var pdfExportBtn = rootEl.querySelector("[data-db-pdf-export]");
-  if (pdfExportBtn) {
+  rootEl.querySelectorAll("[data-db-pdf-export]").forEach(function (pdfExportBtn) {
     pdfExportBtn.addEventListener("click", function () {
       void exportBoardToPdf(pdfExportBtn);
     });
-  }
+  });
 }
 
 export function initDereceBoard() {
@@ -1180,6 +1299,7 @@ export function initDereceBoard() {
 
   wireToolbar();
   bindPopoverColors();
+  bindHandPanGlobalListeners();
 
   createPage(null);
 

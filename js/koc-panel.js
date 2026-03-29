@@ -14,18 +14,19 @@ import { initExamDefinitionProfessionalUI } from "./exam-definition-module.js";
 import { initOptikAdvancedBindings } from "./optik-advanced-module.js";
 import { yksMufredatDatasi } from "./mufredat-data.js";
 import { YKS2026_Mufredat, yks2026DersKeys } from "./yks-mufredat.js";
+import { findAtlasProgramById } from "./yok-atlas-data.js";
 import {
-  findAtlasProgramById,
-  TR_UNIVERSITIES_UNIQUE,
-  PROGRAM_TEMPLATES_UI,
-  buildProgramFromUniTemplate,
-} from "./yok-atlas-data.js";
+  ensureHedefSimulatorAppwriteData,
+  getHedefAppwriteUniversities,
+  getDedupedProgramsForUniversity,
+  hedefUniDisplayName,
+  hedefProgramDisplayName,
+} from "./hedef-appwrite-catalog.js";
 import {
   buildSimulatorRows,
   netTemplateTableHtml,
   sumGap,
   parseStudentNetVal as parseStudentNetValAtlas,
-  wireSearchFilterForSelect,
   sortNamedItemsAlphabeticalTr,
   normalizeStudentYksAlanKey,
   studentAytTableSectionTitle,
@@ -34,6 +35,7 @@ import {
   hedefProbabilityBarClass,
 } from "./hedef-atlas-helpers.js";
 import { initNetSihirbazi, initYksPuanHesaplama } from "./net-sihirbazi-ui.js";
+import { initYksPuanNotesCoach } from "./yks-puan-notes.js";
 import { initTercihSihirbazi } from "./tercih-sihirbazi.js";
 import {
   onAuthStateChanged,
@@ -3348,173 +3350,153 @@ function firestoreDocExists(snap) {
 var dpHedefRadarChart = null;
 var dpInboxDelegationBound = false;
 
-var DP_HEDEF_CITY_PREFIXES = [
-  ["istanbul", "İstanbul"],
-  ["bogazici", "İstanbul"],
-  ["itu", "İstanbul"],
-  ["istanbul_", "İstanbul"],
-  ["ankara", "Ankara"],
-  ["hacettepe", "Ankara"],
-  ["gazi", "Ankara"],
-  ["odtu", "Ankara"],
-  ["bilkent", "Ankara"],
-  ["izmir", "İzmir"],
-  ["ege", "İzmir"],
-  ["dokuz", "İzmir"],
-  ["iyte", "İzmir"],
-  ["bursa", "Bursa"],
-  ["uludag", "Bursa"],
-  ["antalya", "Antalya"],
-  ["akdeniz", "Antalya"],
-  ["adana", "Adana"],
-  ["eskisehir", "Eskişehir"],
-  ["gaziantep", "Gaziantep"],
-  ["trabzon", "Trabzon"],
-  ["ktu", "Trabzon"],
-  ["samsun", "Samsun"],
-  ["konya", "Konya"],
-  ["selcuk", "Konya"],
-  ["mersin", "Mersin"],
-  ["erzurum", "Erzurum"],
-  ["ataturk", "Erzurum"],
-  ["elazig", "Elazığ"],
-  ["kahraman", "Kahramanmaraş"],
-  ["malatya", "Malatya"],
-  ["balikesir", "Balıkesir"],
-  ["canakkale", "Çanakkale"],
-  ["kocaeli", "Kocaeli"],
-  ["sakarya", "Sakarya"],
-];
+function dpHedefNormKey(s) {
+  return String(s || "")
+    .trim()
+    .toLocaleLowerCase("tr")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+}
 
-function dpHedefInferCity(u) {
-  var id = String((u && u.id) || "");
-  for (var i = 0; i < DP_HEDEF_CITY_PREFIXES.length; i++) {
-    if (id.indexOf(DP_HEDEF_CITY_PREFIXES[i][0]) !== -1) return DP_HEDEF_CITY_PREFIXES[i][1];
+function dpHedefMatchUniversity(name, list) {
+  var n = dpHedefNormKey(name);
+  if (!n) return null;
+  var best = null;
+  var bestLen = -1;
+  for (var i = 0; i < list.length; i++) {
+    var u = list[i];
+    var un = dpHedefNormKey(hedefUniDisplayName(u));
+    if (!un) continue;
+    if (un === n) return u;
+    if (n.indexOf(un) !== -1 || un.indexOf(n) !== -1) {
+      var L = Math.min(un.length, n.length);
+      if (L > bestLen) {
+        bestLen = L;
+        best = u;
+      }
+    }
   }
-  var nm = String((u && u.name) || "").toLocaleLowerCase("tr");
-  var cities = [
-    "İstanbul",
-    "Ankara",
-    "İzmir",
-    "Bursa",
-    "Antalya",
-    "Adana",
-    "Eskişehir",
-    "Trabzon",
-    "Samsun",
-    "Erzurum",
-    "Gaziantep",
-    "Konya",
-    "Kayseri",
-    "Mersin",
-    "Denizli",
-    "Balıkesir",
-    "Tekirdağ",
-    "Sakarya",
-    "Kocaeli",
-  ];
-  for (var c = 0; c < cities.length; c++) {
-    if (nm.indexOf(cities[c].toLocaleLowerCase("tr")) !== -1) return cities[c];
+  return best;
+}
+
+function dpHedefMatchProgram(name, programs) {
+  var n = dpHedefNormKey(name);
+  if (!n) return null;
+  var best = null;
+  var bestLen = -1;
+  for (var i = 0; i < programs.length; i++) {
+    var p = programs[i];
+    var pn = dpHedefNormKey(hedefProgramDisplayName(p));
+    if (!pn) continue;
+    if (pn === n) return p;
+    if (n.indexOf(pn) !== -1 || pn.indexOf(n) !== -1) {
+      var L = Math.min(pn.length, n.length);
+      if (L > bestLen) {
+        bestLen = L;
+        best = p;
+      }
+    }
   }
-  return "Diğer / Belirsiz";
+  return best;
 }
 
-function dpHedefTemplatePuanGroup(t) {
-  var n = String((t && t.name) || "").toLocaleLowerCase("tr");
-  if (/dil|ydt|çeviri|i̇ngilizce|ingilizce|almanca|fransızca|fransizca|mütercim/.test(n)) return "dil";
-  if (
-    /hukuk|psikoloji|sosyoloji|siyaset|uluslararası|uluslararasi|i̇letişim|iletisim|gazetecilik|çalışma|calisma|felsefe/.test(
-      n
-    )
-  )
-    return "sozel_ea";
-  if (/i̇ktisat|iktisat|işletme|isletme|yönetim|yonetim|maliye|kamu/.test(n)) return "sozel_ea";
-  return "sayisal";
-}
-
-function dpHedefSumAbsNetDistance(rows) {
-  var s = 0;
-  (rows || []).forEach(function (r) {
-    s += Math.abs(Number(r.target) - Number(r.current));
-  });
-  return s;
-}
-
-function dpHedefSortTemplatesByCloseness(templates, studentLike, uniIdFallback) {
-  var uid = uniIdFallback || "bogazici";
-  return templates.slice().sort(function (a, b) {
-    var pa = buildProgramFromUniTemplate(uid, a.id);
-    var pb = buildProgramFromUniTemplate(uid, b.id);
-    var da = pa ? dpHedefSumAbsNetDistance(buildSimulatorRows(pa, studentLike)) : 1e9;
-    var db = pb ? dpHedefSumAbsNetDistance(buildSimulatorRows(pb, studentLike)) : 1e9;
-    return da - db;
-  });
-}
-
-function populateDpHedefCityFilterOnce() {
-  var sel = document.getElementById("dpHedefFilterCity");
-  if (!sel || sel.dataset.dpHedefCityInit) return;
-  sel.dataset.dpHedefCityInit = "1";
-  var cities = Object.create(null);
-  TR_UNIVERSITIES_UNIQUE.forEach(function (u) {
-    cities[dpHedefInferCity(u)] = true;
-  });
-  var list = Object.keys(cities).sort(function (a, b) {
-    return a.localeCompare(b, "tr");
-  });
-  sel.innerHTML = '<option value="">Tüm şehirler</option>';
-  list.forEach(function (c) {
+function dpHedefFillUniversityOptions(uniSel) {
+  if (!uniSel) return;
+  var keep = uniSel.value;
+  uniSel.innerHTML = '<option value="">— Üniversite seçin —</option>';
+  var unis = sortNamedItemsAlphabeticalTr(
+    getHedefAppwriteUniversities().map(function (u) {
+      return { id: u.$id, name: hedefUniDisplayName(u) };
+    })
+  );
+  unis.forEach(function (u) {
     var o = document.createElement("option");
-    o.value = c;
-    o.textContent = c;
-    sel.appendChild(o);
+    o.value = u.id;
+    o.textContent = u.name;
+    uniSel.appendChild(o);
+  });
+  if (keep && unis.some(function (x) { return x.id === keep; })) uniSel.value = keep;
+}
+
+function dpHedefFillDepartmentOptions(deptSel, uniId) {
+  if (!deptSel) return;
+  var keep = deptSel.value;
+  deptSel.innerHTML = '<option value="">— Bölüm / program seçin —</option>';
+  var uid = String(uniId || "").trim();
+  if (!uid) return;
+  var progs = getDedupedProgramsForUniversity(uid);
+  progs.forEach(function (p) {
+    var o = document.createElement("option");
+    o.value = p.$id;
+    o.textContent = hedefProgramDisplayName(p);
+    deptSel.appendChild(o);
+  });
+  if (keep && progs.some(function (x) { return x.$id === keep; })) deptSel.value = keep;
+}
+
+function dpHedefApplyStudentTargetPrefill() {
+  var stSel = document.getElementById("studentSelect");
+  var uniSel = document.getElementById("universitySelect");
+  var deptSel = document.getElementById("departmentSelect");
+  if (!stSel || !uniSel || !deptSel) return;
+  var sid = String(stSel.value || "").trim();
+  if (!sid) return;
+  var student = cachedStudents.find(function (x) { return x.id === sid; });
+  if (!student) return;
+  var tu = String(student.targetUniversity || "").trim();
+  var td = String(student.targetDepartment || "").trim();
+  if (!tu && !td) return;
+  var unis = getHedefAppwriteUniversities();
+  if (!unis.length) return;
+  var mu = tu ? dpHedefMatchUniversity(tu, unis) : null;
+  if (!mu) return;
+  uniSel.value = mu.$id;
+  dpHedefFillDepartmentOptions(deptSel, mu.$id);
+  if (td) {
+    var progs = getDedupedProgramsForUniversity(mu.$id);
+    var mp = dpHedefMatchProgram(td, progs);
+    if (mp) deptSel.value = mp.$id;
+  }
+}
+
+function dpHedefDestroySelect2IfNeeded() {
+  if (typeof jQuery === "undefined" || !jQuery.fn.select2) return;
+  var $u = jQuery("#universitySelect");
+  var $d = jQuery("#departmentSelect");
+  if ($u.length && $u.hasClass("select2-hidden-accessible")) $u.select2("destroy");
+  if ($d.length && $d.hasClass("select2-hidden-accessible")) $d.select2("destroy");
+}
+
+function dpHedefInitSelect2IfPossible() {
+  if (typeof jQuery === "undefined" || !jQuery.fn.select2) return;
+  var lang = {
+    noResults: function () { return "Sonuç yok"; },
+    searching: function () { return "Aranıyor…"; },
+  };
+  jQuery("#universitySelect").select2({
+    width: "100%",
+    placeholder: "Üniversite seçin",
+    allowClear: true,
+    language: lang,
+  });
+  jQuery("#departmentSelect").select2({
+    width: "100%",
+    placeholder: "Önce üniversite seçin",
+    allowClear: true,
+    language: lang,
   });
 }
 
-function renderDpHedefSimulator() {
+function renderDpHedefSimulatorChartsOnly() {
   var canvas = document.getElementById("dpHedefRadarCanvas");
   var barsEl = document.getElementById("dpHedefBarsCoach");
   var gapEl = document.getElementById("dpHedefGapCoach");
   var tableWrap = document.getElementById("dpHedefNetTableWrap");
   if (!canvas || typeof Chart === "undefined") return;
 
-  var sel = document.getElementById("dpHedefStudentSelect");
-  if (sel) {
-    var keep = sel.value;
-    sel.innerHTML = '<option value="">— Öğrenci seçin —</option>';
-    cachedStudents.forEach(function (s) {
-      var o = document.createElement("option");
-      o.value = s.id;
-      o.textContent = s.name || s.studentName || "Öğrenci";
-      sel.appendChild(o);
-    });
-    if (keep && cachedStudents.some(function (x) { return x.id === keep; })) sel.value = keep;
-    if (!sel.dataset.dpHedefBound) {
-      sel.dataset.dpHedefBound = "1";
-      sel.addEventListener("change", function () {
-        renderDpHedefSimulator();
-      });
-    }
-  }
-
-  populateDpHedefCityFilterOnce();
-
-  var uniSel = document.getElementById("dpHedefUniSelect");
-  var deptSel = document.getElementById("dpHedefDeptSelect");
-  var uniFilter = document.getElementById("dpHedefUniFilter");
-  var deptFilter = document.getElementById("dpHedefDeptFilter");
-  var cityF = document.getElementById("dpHedefFilterCity");
-  var puanF = document.getElementById("dpHedefFilterPuan");
-  var closeF = document.getElementById("dpHedefFilterClose");
-
-  var prevUni = uniSel && uniSel.value ? String(uniSel.value) : "";
-  var prevDept = deptSel && deptSel.value ? String(deptSel.value) : "";
-
-  var cityVal = cityF && cityF.value ? String(cityF.value) : "";
-  var puanVal = puanF && puanF.value ? String(puanF.value) : "";
-  var closeVal = closeF && closeF.value ? String(closeF.value) : "";
-
-  var sid = sel && sel.value ? String(sel.value) : "";
+  var stSel = document.getElementById("studentSelect");
+  var sid = stSel && stSel.value ? String(stSel.value) : "";
   var student = sid ? cachedStudents.find(function (x) { return x.id === sid; }) : null;
   var studentLike = student
     ? {
@@ -3523,84 +3505,32 @@ function renderDpHedefSimulator() {
       }
     : null;
 
-  var unisFiltered = TR_UNIVERSITIES_UNIQUE.filter(function (u) {
-    return !cityVal || dpHedefInferCity(u) === cityVal;
-  });
-
-  var tmpls = PROGRAM_TEMPLATES_UI.filter(function (t) {
-    return !puanVal || dpHedefTemplatePuanGroup(t) === puanVal;
-  });
-
-  var sortUid = prevUni && unisFiltered.some(function (x) { return x.id === prevUni; }) ? prevUni : "bogazici";
-  if (closeVal === "near" && student) {
-    tmpls = dpHedefSortTemplatesByCloseness(tmpls, studentLike, sortUid);
-  } else {
-    tmpls = sortNamedItemsAlphabeticalTr(tmpls);
-  }
-
-  if (uniSel) {
-    uniSel.innerHTML = '<option value="">— Üniversite seçin —</option>';
-    sortNamedItemsAlphabeticalTr(unisFiltered).forEach(function (u) {
-      var o = document.createElement("option");
-      o.value = u.id;
-      o.textContent = u.name;
-      uniSel.appendChild(o);
-    });
-    if (prevUni && unisFiltered.some(function (x) { return x.id === prevUni; })) uniSel.value = prevUni;
-  }
-  if (deptSel) {
-    deptSel.innerHTML = '<option value="">— Bölüm / program türü seçin —</option>';
-    tmpls.forEach(function (t) {
-      var o = document.createElement("option");
-      o.value = t.id;
-      o.textContent = t.name;
-      deptSel.appendChild(o);
-    });
-    if (prevDept && tmpls.some(function (x) { return x.id === prevDept; })) deptSel.value = prevDept;
-  }
-
-  if (uniSel && uniFilter && !uniSel.dataset.dpHedefSearchWired) {
-    uniSel.dataset.dpHedefSearchWired = "1";
-    wireSearchFilterForSelect(uniFilter, uniSel);
-  }
-  if (deptSel && deptFilter && !deptSel.dataset.dpHedefSearchWired) {
-    deptSel.dataset.dpHedefSearchWired = "1";
-    wireSearchFilterForSelect(deptFilter, deptSel);
-  }
-  if (uniSel && deptSel && !uniSel.dataset.dpHedefChangeBound) {
-    uniSel.dataset.dpHedefChangeBound = "1";
-    deptSel.dataset.dpHedefChangeBound = "1";
-    uniSel.addEventListener("change", function () {
-      renderDpHedefSimulator();
-    });
-    deptSel.addEventListener("change", function () {
-      renderDpHedefSimulator();
-    });
-  }
-
+  var uniSel = document.getElementById("universitySelect");
+  var deptSel = document.getElementById("departmentSelect");
   var uniId = uniSel && uniSel.value ? String(uniSel.value) : "";
-  var tmplId = deptSel && deptSel.value ? String(deptSel.value) : "";
-  var atlasId = uniId && tmplId ? uniId + "__" + tmplId : "";
+  var progId = deptSel && deptSel.value ? String(deptSel.value) : "";
+  var atlasId = uniId && progId ? uniId + "__" + progId : "";
   var atlasProgram = atlasId ? findAtlasProgramById(atlasId) : null;
 
   var uniEl = document.getElementById("dpHedefUniTitle");
   var bolEl = document.getElementById("dpHedefBolumSub");
   if (atlasProgram) {
     if (uniEl) uniEl.textContent = atlasProgram.university;
-    if (bolEl)
-      bolEl.textContent =
-        atlasProgram.department +
-        " — Taban (örnek): " +
-        atlasProgram.baseScore2025 +
-        " · YÖK Atlas şablonu";
+    if (bolEl) {
+      var srcNote =
+        atlasProgram.dataSource === "yok-atlas"
+          ? "YÖK Atlas alanları (hedef netler dosyadaki değerlerle)"
+          : "Program satırları (katalog)";
+      bolEl.textContent = atlasProgram.department + " — " + srcNote;
+    }
   } else if (student) {
     var u = (student.targetUniversity || "").trim();
     var b = (student.targetDepartment || "").trim();
     if (uniEl) uniEl.textContent = u || "Hedef üniversite kayıtlı değil";
     if (bolEl) bolEl.textContent = (b || "Hedef bölüm kayıtlı değil") + " — Güncel vs hedef net";
   } else {
-    if (uniEl) uniEl.textContent = "Öğrenci veya Atlas programı seçin";
-    if (bolEl) bolEl.textContent = "Öğrenci kartından hedef atanabilir; aşağıdan örnek program seçilebilir.";
+    if (uniEl) uniEl.textContent = "Öğrenci veya program seçin";
+    if (bolEl) bolEl.textContent = "Öğrenci kartından hedef atanabilir; üniversite ve bölümü aşağıdan seçin.";
   }
 
   var alanKey = student ? normalizeStudentYksAlanKey(student) : "sayisal";
@@ -3645,8 +3575,8 @@ function renderDpHedefSimulator() {
       "Kalan net farkı (branş toplamı): " +
       totalGap.toFixed(1) +
       (atlasProgram
-        ? " — Seçilen YÖK Atlas örnek şablonu."
-        : student && parseStudentNetValAtlas(studentLike.currentTytNet) != null
+        ? " — Hedef sütunu YÖK/katalog satırlarıyla aynı; güncel net TYT oranından ölçeklenir."
+        : student && parseStudentNetValAtlas(studentLike && studentLike.currentTytNet) != null
           ? " — TYT net alanından ölçeklendirildi."
           : " — Varsayılan örnek veri (öğrencide güncel/hedef net girilince güncellenir).");
   }
@@ -3675,7 +3605,7 @@ function renderDpHedefSimulator() {
         return r.target - r.current > 0.05;
       })
       .sort(function (a, b) {
-        return b.target - b.current - (a.target - a.current);
+        return b.target - r.current - (a.target - a.current);
       })
       .slice(0, 12)
       .map(function (r) {
@@ -3691,11 +3621,11 @@ function renderDpHedefSimulator() {
       .join("");
     subGaps.innerHTML = atlasProgram
       ? need
-        ? '<p class="dp-hedef-subgap__title">Net hedefi farkı (şablon)</p><ul class="dp-hedef-subgap__list">' +
+        ? '<p class="dp-hedef-subgap__title">Net hedefi farkı</p><ul class="dp-hedef-subgap__list">' +
           need +
-          '</ul><p class="dp-hedef-subgap__note">Örnek YÖK şablon satırlarına göre; resmî taban net değildir.</p>'
-        : '<p class="dp-hedef-subgap__muted">Bu şablonda tüm satırlarda hedefe ulaşılmış veya üzeri görünüyor.</p>'
-      : '<p class="dp-hedef-subgap__muted">Üniversite ve bölüm şablonu seçince ders bazlı net farkı listelenir.</p>';
+          '</ul><p class="dp-hedef-subgap__note">Hedef netler seçilen programın YÖK/katalog satırlarıdır.</p>'
+        : '<p class="dp-hedef-subgap__muted">Bu programda tüm satırlarda hedefe ulaşılmış veya üzeri görünüyor.</p>'
+      : '<p class="dp-hedef-subgap__muted">Üniversite ve bölüm seçince ders bazlı net farkı listelenir.</p>';
   }
 
   var ctx = canvas.getContext("2d");
@@ -3716,7 +3646,7 @@ function renderDpHedefSimulator() {
           pointBackgroundColor: "#6c5ce7",
         },
         {
-          label: "Hedef net (şablon)",
+          label: "Hedef net (YÖK Atlas)",
           data: target,
           borderColor: "#10b981",
           backgroundColor: "rgba(16, 185, 129, 0.18)",
@@ -3738,19 +3668,82 @@ function renderDpHedefSimulator() {
   });
 }
 
-function initDpHedefSimulator() {
-  ["dpHedefFilterCity", "dpHedefFilterPuan", "dpHedefFilterClose"].forEach(function (id) {
-    var el = document.getElementById(id);
-    if (el && !el.dataset.dpHedefFilterListener) {
-      el.dataset.dpHedefFilterListener = "1";
-      el.addEventListener("change", function () {
-        renderDpHedefSimulator();
+function renderDpHedefSimulator() {
+  var canvas = document.getElementById("dpHedefRadarCanvas");
+  if (!canvas || typeof Chart === "undefined") return;
+
+  ensureHedefSimulatorAppwriteData().then(function () {
+    dpHedefDestroySelect2IfNeeded();
+
+    var sel = document.getElementById("studentSelect");
+    if (sel) {
+      var keep = sel.value;
+      sel.innerHTML = '<option value="">— Öğrenci seçin —</option>';
+      cachedStudents.forEach(function (s) {
+        var o = document.createElement("option");
+        o.value = s.id;
+        o.textContent = s.name || s.studentName || "Öğrenci";
+        sel.appendChild(o);
       });
+      if (keep && cachedStudents.some(function (x) { return x.id === keep; })) sel.value = keep;
+      if (!sel.dataset.dpHedefStudentBound) {
+        sel.dataset.dpHedefStudentBound = "1";
+        sel.addEventListener("change", function () {
+          dpHedefDestroySelect2IfNeeded();
+          dpHedefApplyStudentTargetPrefill();
+          var uniSync = document.getElementById("universitySelect");
+          if (uniSync) uniSync.dataset.dpHedefLastUni = String(uniSync.value || "");
+          dpHedefInitSelect2IfPossible();
+          try {
+            jQuery("#universitySelect").trigger("change.select2");
+            jQuery("#departmentSelect").trigger("change.select2");
+          } catch (_e) {}
+          renderDpHedefSimulatorChartsOnly();
+        });
+      }
     }
+
+    var uniSel = document.getElementById("universitySelect");
+    var deptSel = document.getElementById("departmentSelect");
+
+    if (uniSel && !uniSel.dataset.dpHedefCatalogInit) {
+      uniSel.dataset.dpHedefCatalogInit = "1";
+      dpHedefFillUniversityOptions(uniSel);
+    }
+
+    if (uniSel && deptSel) {
+      var curU = String(uniSel.value || "");
+      if (uniSel.dataset.dpHedefLastUni !== curU) {
+        uniSel.dataset.dpHedefLastUni = curU;
+        dpHedefFillDepartmentOptions(deptSel, curU);
+      }
+      if (!uniSel.dataset.dpHedefUniDeptBound) {
+        uniSel.dataset.dpHedefUniDeptBound = "1";
+        uniSel.addEventListener("change", function () {
+          dpHedefDestroySelect2IfNeeded();
+          var u = String(uniSel.value || "");
+          uniSel.dataset.dpHedefLastUni = u;
+          dpHedefFillDepartmentOptions(deptSel, u);
+          dpHedefInitSelect2IfPossible();
+          try {
+            jQuery("#departmentSelect").val(null).trigger("change");
+          } catch (_e2) {}
+          renderDpHedefSimulatorChartsOnly();
+        });
+        deptSel.addEventListener("change", function () {
+          renderDpHedefSimulatorChartsOnly();
+        });
+      }
+    }
+
+    dpHedefInitSelect2IfPossible();
+    renderDpHedefSimulatorChartsOnly();
   });
-  renderDpHedefSimulator();
 }
 
+function initDpHedefSimulator() {
+  renderDpHedefSimulator();
+}
 function renderDpGelenSorular() {
   var grid = document.getElementById("dpInboxGrid");
   var empty = document.getElementById("dpInboxEmpty");
@@ -8007,13 +8000,60 @@ function renderTestsTable() {
   if (tbody) tbody.innerHTML = "";
 }
 
+/** Appwrite 404 / Firebase not-found: belge zaten yok; öğrenci kartı hayalet senaryosu. */
+function isDocumentNotFoundDeleteError(err) {
+  if (!err) return false;
+  var code = err.code != null ? err.code : err.type;
+  var msg = err.message != null ? String(err.message) : String(err);
+  return (
+    code === 404 ||
+    code === "not-found" ||
+    /404|could not be found|not be found|document_not_found|not_found/i.test(msg)
+  );
+}
+
+function finalizeStudentRemovedFromPanel(docId) {
+  var root = document.getElementById("studentsCardsRoot");
+  if (root) {
+    var buttons = root.querySelectorAll("[data-del-student]");
+    for (var i = 0; i < buttons.length; i++) {
+      if (buttons[i].getAttribute("data-del-student") === docId) {
+        var card = buttons[i].closest(".student-card");
+        if (card && card.remove) card.remove();
+        break;
+      }
+    }
+  }
+  var ix = cachedStudents.findIndex(function (x) {
+    return x.id === docId;
+  });
+  if (ix >= 0) cachedStudents.splice(ix, 1);
+  renderStudentsPage();
+  fillStudentSelects();
+  renderStudentsList(cachedStudents);
+  showToast("Öğrenci başarıyla silindi.", { variant: "success" });
+  if (currentView === "ogrenci-detay" && currentStudentDetailId === docId) {
+    currentStudentDetailId = null;
+    navigateTo("ogrenciler");
+  }
+}
+
 async function firestoreDeleteConfirmed(collectionName, docId) {
   if (!confirm("Bu kaydı silmek istediğinize emin misiniz?")) return;
+  var isStudents = collectionName === "students";
   try {
     await deleteDoc(doc(db, collectionName, docId));
-    showToast("Kayıt silindi.");
     if (collectionName === "appointments") void fetchAndRenderAppointmentChart();
+    if (isStudents) {
+      finalizeStudentRemovedFromPanel(docId);
+    } else {
+      showToast("Kayıt silindi.");
+    }
   } catch (err) {
+    if (isStudents && isDocumentNotFoundDeleteError(err)) {
+      finalizeStudentRemovedFromPanel(docId);
+      return;
+    }
     console.error(err);
     alert("Silinemedi: " + (err.message || err));
   }
@@ -8445,6 +8485,7 @@ function fillStudentSelects() {
     "kkStudentSelect",
     "kglModalStudent",
     "hpStudentSelect",
+    "studentSelect",
   ].forEach(function (sid) {
     var sel = document.getElementById(sid);
     if (!sel) return;
@@ -9233,6 +9274,12 @@ function coachTaskDescriptionForKanban(t) {
 function getOgrenciVerisiTargetStudentId() {
   var sid = "";
   try {
+    if (currentView === "gorusme-odasi") {
+      var gs = document.getElementById("goStudentSelect");
+      if (gs && gs.value) sid = String(gs.value).trim();
+    }
+  } catch (e0) {}
+  try {
     if (currentView === "haftalik-program" && hpSelectedStudentId) sid = String(hpSelectedStudentId).trim();
   } catch (e) {}
   if (!sid) {
@@ -9595,6 +9642,13 @@ function gorevPriorityLabel(pr) {
   return "Normal";
 }
 
+function gorevStudentHueDeg(studentId) {
+  var s = String(studentId || "x");
+  var h = 0;
+  for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return 200 + (h % 140);
+}
+
 function renderGorevKanbanCards() {
   if (!gorevKanbanState) return;
   var map = { todo: "kanbanTodo", late: "kanbanLate", doing: "kanbanDoing", done: "kanbanDone" };
@@ -9605,12 +9659,13 @@ function renderGorevKanbanCards() {
     gorevKanbanState[key].forEach(function (task) {
       var t = normalizeGorevTask(task) || task;
       var card = document.createElement("div");
-      card.className = "kanban-card";
+      card.className = "kanban-card kanban-card--compact";
       if (t.priority === "high") card.classList.add("kanban-card--pri-high");
       else if (t.priority === "low") card.classList.add("kanban-card--pri-low");
       if (gorevIsOverdue(t, key)) card.classList.add("kanban-card--overdue");
       card.setAttribute("draggable", "true");
       card.setAttribute("data-task-id", t.id);
+      card.setAttribute("title", [t.dueDate ? "Teslim: " + t.dueDate : "", t.subject || "", coachTaskDescriptionForKanban(t) || ""].filter(Boolean).join(" · ") || t.title);
 
       var head = document.createElement("div");
       head.className = "kanban-card__head";
@@ -9628,47 +9683,18 @@ function renderGorevKanbanCards() {
       head.appendChild(del);
       card.appendChild(head);
 
-      var meta = document.createElement("div");
-      meta.className = "kanban-card__meta";
-      var chips = [];
       if (t.studentName || t.studentId) {
-        var st = document.createElement("span");
-        st.className = "kanban-card__chip kanban-card__chip--student";
-        st.innerHTML = '<i class="fa-solid fa-user-graduate" aria-hidden="true"></i> ' + escapeHtml(t.studentName || "Öğrenci");
-        chips.push(st);
-      }
-      if (t.subject) {
-        var sj = document.createElement("span");
-        sj.className = "kanban-card__chip";
-        sj.textContent = t.subject;
-        chips.push(sj);
-      }
-      if (t.dueDate) {
-        var du = document.createElement("span");
-        du.className = "kanban-card__chip kanban-card__chip--due";
-        du.innerHTML =
-          '<i class="fa-regular fa-calendar" aria-hidden="true"></i> ' +
-          escapeHtml(t.dueDate) +
-          (gorevIsOverdue(t, key) ? ' <strong class="kanban-card__late">Gecikti</strong>' : "");
-        chips.push(du);
-      }
-      if (t.priority && t.priority !== "normal") {
-        var pr = document.createElement("span");
-        pr.className = "kanban-card__chip kanban-card__chip--pri";
-        pr.textContent = gorevPriorityLabel(t.priority);
-        chips.push(pr);
-      }
-      chips.forEach(function (c) {
-        meta.appendChild(c);
-      });
-      if (chips.length) card.appendChild(meta);
-
-      var descText = coachTaskDescriptionForKanban(t);
-      if (descText) {
-        var desc = document.createElement("p");
-        desc.className = "kanban-card__desc";
-        desc.textContent = descText;
-        card.appendChild(desc);
+        var row = document.createElement("div");
+        row.className = "kanban-card__student";
+        var dot = document.createElement("span");
+        dot.className = "kanban-card__student-dot";
+        dot.style.background = "hsl(" + gorevStudentHueDeg(t.studentId) + ", 58%, 42%)";
+        var nm = document.createElement("span");
+        nm.className = "kanban-card__student-name";
+        nm.textContent = t.studentName || "Öğrenci";
+        row.appendChild(dot);
+        row.appendChild(nm);
+        card.appendChild(row);
       }
 
       host.appendChild(card);
@@ -9913,6 +9939,7 @@ var MODAL_IDS = [
   "financeModal",
   "examModal",
   "kkModalAta",
+  "kutuphaneEditModal",
   "koclukGorusmeModal",
   "hpWeeklyTaskModal",
   "profileSettingsModal",
@@ -13825,6 +13852,12 @@ function soruArsivAddToSepet(qid) {
   showToast("Soru Test Maker sepetine eklendi (mock).");
 }
 
+/** Appwrite / eski kayıtlarda konu alanı farklı anahtarlarla gelebilir */
+function soruArsivDocKonu(it) {
+  if (!it) return "";
+  return String(it.konu || it.topic || it.konu_adi || it.konuAdi || it.Konu || "").trim();
+}
+
 function soruArsivFilterItems(arr) {
   var sinav = (document.getElementById("arsivFilterSinav") || {}).value || "";
   var ders = (document.getElementById("arsivFilterDers") || {}).value || "";
@@ -13833,7 +13866,7 @@ function soruArsivFilterItems(arr) {
   return arr.filter(function (it) {
     if (!soruArsivItemMatchesSinav(sinav, it)) return false;
     if (ders && (it.ders || "") !== ders) return false;
-    if (konu && (it.konu || "") !== konu) return false;
+    if (konu && soruArsivDocKonu(it) !== konu) return false;
     if (zorluk && String(it.zorluk || "") !== zorluk) return false;
     return true;
   });
@@ -13872,6 +13905,11 @@ async function renderSoruHavuzuArsivi() {
     .map(function (it) {
       var id = escapeHtml(it.id);
       var resolved = normalizeSoruPoolDocForAi(it);
+      var konuDisplay = soruArsivDocKonu(it);
+      if (!konuDisplay && resolved && String(resolved.konu || "").trim()) {
+        konuDisplay = String(resolved.konu).trim();
+      }
+      if (!konuDisplay) konuDisplay = "Genel";
       var src = escapeHtml(
         (resolved && (resolved.imageUrl || resolved.image_url)) ||
           it.image_url ||
@@ -13912,7 +13950,7 @@ async function renderSoruHavuzuArsivi() {
         '<div class="soru-arsivi-meta-row">' +
         '<span class="soru-arsivi-meta-lbl">Konu</span>' +
         '<span class="soru-arsivi-meta-val">' +
-        escapeHtml(it.konu || "—") +
+        escapeHtml(konuDisplay) +
         "</span></div>" +
         dcRow +
         '<div class="soru-arsivi-status-row">' +
@@ -15141,7 +15179,7 @@ function navigateTo(view) {
   var dersLi = document.querySelector(".sidebar__item--ders-anlatim");
   var dersAcc = document.getElementById("sidebarDersToggle");
   if (dersLi && dersAcc) {
-    var inDers = view === "ders-board";
+    var inDers = view === "ders-board" || view === "board-library";
     dersLi.classList.toggle("sidebar__item--ders-anlatim-open", inDers);
     dersAcc.classList.toggle("sidebar__link--active", inDers);
     dersAcc.setAttribute("aria-expanded", inDers ? "true" : "false");
@@ -15271,6 +15309,16 @@ function navigateTo(view) {
   }
   if (view === "gorev-takibi") initGorevTakibiPage();
   if (view === "haftalik-program") initHaftalikProgramDnD();
+  if (view === "gorusme-odasi") {
+    try {
+      initHaftalikProgramDnD();
+    } catch (e) {
+      console.warn("[gorusme-odasi] hp init", e);
+    }
+    try {
+      if (typeof refreshGoHpWeeklyView === "function") refreshGoHpWeeklyView();
+    } catch (e2) {}
+  }
   if (view === "randevu") renderAppointmentsPage();
   if (view === "kocluk-gorusmeleri") refreshKoclukGorusmeList();
   if (
@@ -15316,6 +15364,7 @@ function navigateTo(view) {
   if (view === "kaynak-kitap") refreshKaynakKitapView();
   if (view === "kutuphanem") {
     bindKutuphanemFormOnce();
+    bindKutuphanemPageExtrasOnce();
     refreshKutuphanemList();
   }
   if (view === "hedef-simulator") initDpHedefSimulator();
@@ -15327,17 +15376,20 @@ function navigateTo(view) {
       uniTitleId: "dpNsUniTitle",
       deptTitleId: "dpNsDeptSub",
       subtitleId: "dpNsTabanSub",
-      uniFilterId: "dpNsUniFilter",
-      deptFilterId: "dpNsDeptFilter",
     });
   }
-  if (view === "yks-puan") initYksPuanHesaplama();
+  if (view === "yks-puan") {
+    initYksPuanNotesCoach({ showToast: showToast, getCoachId: getCoachId });
+    initYksPuanHesaplama();
+  }
   if (view === "tercih-sihirbazi") {
     initTercihSihirbazi({
       formId: "dpTsForm",
       tableWrapId: "dpTsTableWrap",
       metaId: "dpTsMeta",
       citySelectId: "dpTsCity",
+      uniSelectId: "dpTsUniSelect",
+      deptSelectId: "dpTsDeptSelect",
     });
   }
   if (view === "gelen-sorular") {
@@ -15497,14 +15549,57 @@ function tmAutoCropRenderGrid() {
     img.src = String(item.imageBase64 || "");
     card.appendChild(img);
 
-    var label = document.createElement("label");
-    var check = document.createElement("input");
-    check.type = "checkbox";
-    check.setAttribute("data-tm-auto-crop-check", String(idx));
-    check.checked = item.selected !== false;
-    label.appendChild(check);
-    label.appendChild(document.createTextNode(" Kaydet"));
-    card.appendChild(label);
+    var cevapBlock = document.createElement("div");
+    cevapBlock.className = "tm-auto-crop-item__cevap";
+    var cevapTitle = document.createElement("div");
+    cevapTitle.className = "tm-auto-crop-item__cevap-title";
+    cevapTitle.textContent = "Cevap şıkkı";
+    cevapBlock.appendChild(cevapTitle);
+    var cevapRow = document.createElement("div");
+    cevapRow.className = "tm-auto-crop-item__cevap-btns";
+    cevapRow.setAttribute("role", "radiogroup");
+    cevapRow.setAttribute("aria-label", "Doğru cevap şıkkı");
+    var secili = String((item.dogruCevap || "").trim().toUpperCase());
+    "ABCDE".split("").forEach(function (letter) {
+      var ab = document.createElement("button");
+      ab.type = "button";
+      ab.className =
+        "tm-auto-crop-cevap-btn" + (secili === letter ? " tm-auto-crop-cevap-btn--active" : "");
+      ab.textContent = letter;
+      ab.setAttribute("data-tm-auto-crop-cevap-btn", String(idx));
+      ab.setAttribute("data-letter", letter);
+      ab.setAttribute("aria-pressed", secili === letter ? "true" : "false");
+      cevapRow.appendChild(ab);
+    });
+    cevapBlock.appendChild(cevapRow);
+    card.appendChild(cevapBlock);
+
+    var badges = document.createElement("div");
+    badges.className = "tm-auto-crop-item__badges";
+    var bPage = document.createElement("span");
+    bPage.className = "tm-auto-crop-badge tm-auto-crop-badge--page";
+    bPage.textContent = "📄 Sayfa: " + String(item.page != null ? item.page : "—");
+    var bQ = document.createElement("span");
+    bQ.className = "tm-auto-crop-badge tm-auto-crop-badge--q";
+    var qn = item.questionNumber != null ? item.questionNumber : idx + 1;
+    bQ.textContent = "❓ Soru: " + String(qn);
+    badges.appendChild(bPage);
+    badges.appendChild(bQ);
+    card.appendChild(badges);
+
+    var toggleRow = document.createElement("div");
+    toggleRow.className = "tm-auto-crop-item__toggle-row";
+    var toggleBtn = document.createElement("button");
+    toggleBtn.type = "button";
+    toggleBtn.className =
+      "tm-auto-crop-save-toggle" + (item.selected !== false ? " tm-auto-crop-save-toggle--on" : "");
+    toggleBtn.setAttribute("role", "switch");
+    toggleBtn.setAttribute("aria-checked", item.selected !== false ? "true" : "false");
+    toggleBtn.setAttribute("data-tm-auto-crop-toggle", String(idx));
+    toggleBtn.innerHTML =
+      '<span class="tm-auto-crop-save-toggle__track" aria-hidden="true"></span><span class="tm-auto-crop-save-toggle__lbl">Havuza kaydet</span>';
+    toggleRow.appendChild(toggleBtn);
+    card.appendChild(toggleRow);
 
     var meta = document.createElement("div");
     meta.className = "tm-auto-crop-item__meta";
@@ -15552,9 +15647,17 @@ async function tmAutoCropRun() {
   fd.append("pdf", tmAutoCropFile);
   fd.append("sensitivity", String(sens));
   fd.append("render_scale", String(renderScale));
+  var gapEl = document.getElementById("tmAutoCropGapStrict");
+  var recEl = document.getElementById("tmAutoCropRecursive");
+  var gap = parseFloat((gapEl && gapEl.value) || "1") || 1;
+  fd.append("gap_strictness", String(gap));
+  fd.append("recursive_split", recEl && recEl.checked ? "1" : "0");
   if (runBtn) runBtn.disabled = true;
   tmAutoCropSetHint("PDF analiz ediliyor, lütfen bekleyin...");
   try {
+    await new Promise(function (r) {
+      setTimeout(r, 0);
+    });
     var res = await fetch("/api/crop_pdf", { method: "POST", body: fd });
     if (!res.ok) {
       if (res.status === 404) {
@@ -15571,11 +15674,20 @@ async function tmAutoCropRun() {
         if (!img) return null;
         var tag = String((q && q.ai_suggested_tag) || "").trim();
         var parsed = tmParseAiTag(tag);
+        var gIdx = parseInt((q && q.index) || i + 1, 10) || i + 1;
+        var dq = q && q.detected_qnum;
+        var qNum =
+          dq != null && dq !== "" && !isNaN(Number(dq))
+            ? Number(dq)
+            : gIdx;
         return {
           id: "q_" + i,
           page: parseInt((q && q.page) || 1, 10) || 1,
+          globalIndex: gIdx,
+          questionNumber: qNum,
           imageBase64: img,
           selected: true,
+          dogruCevap: "",
           suggestedDers: parsed.ders,
           suggestedKonu: parsed.konu,
           editedDers: parsed.ders,
@@ -15624,12 +15736,14 @@ async function tmAutoCropSaveSelected() {
       var blob = dataUrlToBlob(dataUrl);
       var dersUse = String(selected[i].editedDers || "").trim() || ders;
       var konuUse = String(selected[i].editedKonu || "").trim() || konu;
+      var dc = String(selected[i].dogruCevap || "").trim().toUpperCase();
       await saveSoruHavuzuEntry({
         coachKey: cid,
         imageBlob: blob,
         ders: dersUse,
         konu: konuUse,
         zorluk: zorluk,
+        dogruCevap: /^[ABCDE]$/.test(dc) ? dc : "",
         source: "auto_pdf_crop",
       });
       okCount++;
@@ -15717,6 +15831,15 @@ function initTmAutoCropperModule() {
     sens.addEventListener("input", syncSens);
     syncSens();
   }
+  var gapStrict = document.getElementById("tmAutoCropGapStrict");
+  var gapVal = document.getElementById("tmAutoCropGapVal");
+  if (gapStrict && gapVal) {
+    var syncGap = function () {
+      gapVal.textContent = Number(gapStrict.value || 1).toFixed(2);
+    };
+    gapStrict.addEventListener("input", syncGap);
+    syncGap();
+  }
   runBtn.addEventListener("click", tmAutoCropRun);
   clearBtn.addEventListener("click", clearAll);
   saveBtn.addEventListener("click", tmAutoCropSaveSelected);
@@ -15779,13 +15902,6 @@ function initTmAutoCropperModule() {
       showToast("Toplu ders uygulandı.");
     });
   }
-  grid.addEventListener("change", function (ev) {
-    var cb = ev.target && ev.target.closest && ev.target.closest("[data-tm-auto-crop-check]");
-    if (!cb) return;
-    var idx = parseInt(cb.getAttribute("data-tm-auto-crop-check"), 10);
-    if (isNaN(idx) || !tmAutoCropResults[idx]) return;
-    tmAutoCropResults[idx].selected = !!cb.checked;
-  });
   grid.addEventListener("input", function (ev) {
     var inpD = ev.target && ev.target.closest && ev.target.closest("[data-tm-auto-crop-ders]");
     if (inpD) {
@@ -15800,6 +15916,25 @@ function initTmAutoCropperModule() {
     }
   });
   grid.addEventListener("click", function (ev) {
+    var cevBtn = ev.target && ev.target.closest && ev.target.closest("[data-tm-auto-crop-cevap-btn]");
+    if (cevBtn) {
+      var idxC = parseInt(cevBtn.getAttribute("data-tm-auto-crop-cevap-btn"), 10);
+      var letter = String(cevBtn.getAttribute("data-letter") || "").trim().toUpperCase();
+      if (!isNaN(idxC) && tmAutoCropResults[idxC] && /^[ABCDE]$/.test(letter)) {
+        tmAutoCropResults[idxC].dogruCevap = letter;
+        tmAutoCropRenderGrid();
+      }
+      return;
+    }
+    var tgl = ev.target && ev.target.closest && ev.target.closest("[data-tm-auto-crop-toggle]");
+    if (tgl) {
+      var idxT = parseInt(tgl.getAttribute("data-tm-auto-crop-toggle"), 10);
+      if (!isNaN(idxT) && tmAutoCropResults[idxT]) {
+        tmAutoCropResults[idxT].selected = !(tmAutoCropResults[idxT].selected !== false);
+        tmAutoCropRenderGrid();
+      }
+      return;
+    }
     var resetBtn = ev.target && ev.target.closest && ev.target.closest("[data-tm-auto-crop-reset]");
     if (!resetBtn) return;
     var idx = parseInt(resetBtn.getAttribute("data-tm-auto-crop-reset"), 10);
@@ -15931,6 +16066,63 @@ var hpPendingDrop = null;
 /** Haftalık modal: Appwrite coach_tasks düzenleme */
 var hpEditingTaskId = null;
 
+/** Haftalık program: aktif görünüme göre öğrenci (Görüşme Odası = goStudentSelect) */
+function hpEffectiveStudentId() {
+  try {
+    var goView = document.getElementById("view-gorusme-odasi");
+    if (goView && !goView.hidden) {
+      var gs = document.getElementById("goStudentSelect");
+      if (gs && gs.value) return String(gs.value).trim();
+      return "";
+    }
+  } catch (e) {}
+  return String(hpSelectedStudentId || "").trim();
+}
+
+function refreshGoHpWeeklyView() {
+  var go = document.getElementById("view-gorusme-odasi");
+  var ws = document.getElementById("goHpWorkspace");
+  var emptyEl = document.getElementById("goHpEmptyState");
+  if (!go || go.hidden || !ws) return;
+  var gs = document.getElementById("goStudentSelect");
+  var sid = gs && gs.value ? String(gs.value).trim() : "";
+  if (!sid) {
+    if (emptyEl) emptyEl.hidden = false;
+    ws.hidden = true;
+    return;
+  }
+  if (emptyEl) emptyEl.hidden = true;
+  ws.hidden = false;
+  hpWeekAnchor = hpWeekAnchor || new Date();
+  hpBuildWeekGridDOM();
+  hpRenderWeekTaskCards();
+}
+
+async function saveWeeklyProgramSnapshot() {
+  var sid = "";
+  var go = document.getElementById("view-gorusme-odasi");
+  if (go && !go.hidden) {
+    var gs = document.getElementById("goStudentSelect");
+    sid = gs && gs.value ? String(gs.value).trim() : "";
+  } else {
+    sid = String(hpSelectedStudentId || "").trim();
+  }
+  if (!sid) {
+    showToast("Önce öğrenci seçin.");
+    return;
+  }
+  try {
+    await saveOgrenciVerisiBridge({ silent: true, studentIdOverride: sid });
+    showToast("Haftalık program başarıyla kaydedildi.", { variant: "success" });
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+try {
+  window.refreshGoHpWeeklyView = refreshGoHpWeeklyView;
+} catch (e) {}
+
 function hpFillStudentSelectOnly() {
   var sel = document.getElementById("hpStudentSelect");
   if (!sel) return;
@@ -15964,23 +16156,25 @@ function hpMondayOfWeek(ref) {
 }
 
 function hpRefreshWeekRangeLabel(monday) {
-  var el = document.getElementById("hpWeekRangeLabel");
-  if (!el) return;
   var sun = new Date(monday);
   sun.setDate(monday.getDate() + 6);
   var o1 = { day: "numeric", month: "long", year: "numeric" };
-  el.textContent =
-    monday.toLocaleDateString("tr-TR", o1) + " — " + sun.toLocaleDateString("tr-TR", o1);
+  var txt = monday.toLocaleDateString("tr-TR", o1) + " — " + sun.toLocaleDateString("tr-TR", o1);
+  var el = document.getElementById("hpWeekRangeLabel");
+  if (el) el.textContent = txt;
+  var elGo = document.getElementById("goHpWeekRangeLabel");
+  if (elGo) elGo.textContent = txt;
 }
 
 function hpRefreshPrevWeekRangeLabel(monday) {
-  var el = document.getElementById("hpPrevWeekRangeLabel");
-  if (!el) return;
   var sun = new Date(monday);
   sun.setDate(monday.getDate() + 6);
   var o1 = { day: "numeric", month: "long", year: "numeric" };
-  el.textContent =
-    monday.toLocaleDateString("tr-TR", o1) + " — " + sun.toLocaleDateString("tr-TR", o1);
+  var txt = monday.toLocaleDateString("tr-TR", o1) + " — " + sun.toLocaleDateString("tr-TR", o1);
+  var el = document.getElementById("hpPrevWeekRangeLabel");
+  if (el) el.textContent = txt;
+  var elGo = document.getElementById("goHpPrevWeekRangeLabel");
+  if (elGo) elGo.textContent = txt;
 }
 
 function hpBuildOneWeekGrid(gridEl, weekMonday, opts) {
@@ -16024,13 +16218,17 @@ function hpBuildOneWeekGrid(gridEl, weekMonday, opts) {
 function hpBuildWeekGridDOM() {
   var grid = document.getElementById("hpWeekGrid");
   var prevGrid = document.getElementById("hpPrevWeekGrid");
+  var goGrid = document.getElementById("goHpWeekGrid");
+  var goPrevGrid = document.getElementById("goHpPrevWeekGrid");
   var mon = hpMondayOfWeek(hpWeekAnchor || new Date());
   hpRefreshWeekRangeLabel(mon);
   var prevMon = new Date(mon.getTime());
   prevMon.setDate(prevMon.getDate() - 7);
   hpRefreshPrevWeekRangeLabel(prevMon);
-  hpBuildOneWeekGrid(grid, mon, { readonly: false });
-  hpBuildOneWeekGrid(prevGrid, prevMon, { readonly: true });
+  if (grid) hpBuildOneWeekGrid(grid, mon, { readonly: false });
+  if (prevGrid) hpBuildOneWeekGrid(prevGrid, prevMon, { readonly: true });
+  if (goGrid) hpBuildOneWeekGrid(goGrid, mon, { readonly: false });
+  if (goPrevGrid) hpBuildOneWeekGrid(goPrevGrid, prevMon, { readonly: true });
 }
 
 function hpTaskTypeLabel(meta) {
@@ -16042,78 +16240,89 @@ function hpTaskTypeLabel(meta) {
 }
 
 function hpRenderWeekTaskCards() {
-  if (!hpSelectedStudentId) return;
-  var sid = hpSelectedStudentId;
+  function fillForStudent(weekRootSel, prevRootSel, sid) {
+    if (!sid) return;
+    document.querySelectorAll(weekRootSel + " .hp-day__drop").forEach(function (drop) {
+      var iso = drop.getAttribute("data-hp-drop");
+      drop.innerHTML = "";
+      (cachedCoachTasks || [])
+        .filter(function (t) {
+          return (
+            String(t.studentId) === sid &&
+            String(t.dueDate || "").slice(0, 10) === iso &&
+            t.column !== "done"
+          );
+        })
+        .forEach(function (t) {
+          var meta = t.hpMeta || hpParseMetaFromDescription(t.description).meta;
+          var card = document.createElement("div");
+          card.className = "hp-week-card";
+          card.setAttribute("data-hp-task-id", t.id);
+          var sum = hpCardSummaryLine(t);
+          var resLine = meta && meta.resource ? meta.resource : "";
+          card.innerHTML =
+            '<div class="hp-week-card__type">' +
+            hpTaskTypeLabel(meta) +
+            "</div>" +
+            '<span class="hp-week-card__summary">' +
+            escapeHtml(sum) +
+            "</span>" +
+            (resLine ? '<span class="hp-week-card__src">' + escapeHtml(resLine) + "</span>" : "") +
+            '<button type="button" class="hp-week-card__edit" data-hp-task-edit="' +
+            escapeHtml(t.id) +
+            '" aria-label="Düzenle" title="Düzenle"><i class="fa-solid fa-pen"></i></button>' +
+            '<button type="button" class="hp-week-card__del" data-hp-task-del="' +
+            escapeHtml(t.id) +
+            '" aria-label="Kaldır">×</button>';
+          drop.appendChild(card);
+        });
+    });
 
-  document.querySelectorAll("#hpWeekGrid .hp-day__drop").forEach(function (drop) {
-    var iso = drop.getAttribute("data-hp-drop");
-    drop.innerHTML = "";
-    (cachedCoachTasks || [])
-      .filter(function (t) {
-        return (
-          String(t.studentId) === sid &&
-          String(t.dueDate || "").slice(0, 10) === iso &&
-          t.column !== "done"
-        );
-      })
-      .forEach(function (t) {
-        var meta = t.hpMeta || hpParseMetaFromDescription(t.description).meta;
-        var card = document.createElement("div");
-        card.className = "hp-week-card";
-        card.setAttribute("data-hp-task-id", t.id);
-        var sum = hpCardSummaryLine(t);
-        var resLine = meta && meta.resource ? meta.resource : "";
-        card.innerHTML =
-          '<div class="hp-week-card__type">' +
-          hpTaskTypeLabel(meta) +
-          "</div>" +
-          '<span class="hp-week-card__summary">' +
-          escapeHtml(sum) +
-          "</span>" +
-          (resLine ? '<span class="hp-week-card__src">' + escapeHtml(resLine) + "</span>" : "") +
-          '<button type="button" class="hp-week-card__edit" data-hp-task-edit="' +
-          escapeHtml(t.id) +
-          '" aria-label="Düzenle" title="Düzenle"><i class="fa-solid fa-pen"></i></button>' +
-          '<button type="button" class="hp-week-card__del" data-hp-task-del="' +
-          escapeHtml(t.id) +
-          '" aria-label="Kaldır">×</button>';
-        drop.appendChild(card);
-      });
-  });
+    document.querySelectorAll(prevRootSel + " .hp-day__static").forEach(function (box) {
+      var iso = box.getAttribute("data-hp-prev");
+      box.innerHTML = "";
+      (cachedCoachTasks || [])
+        .filter(function (t) {
+          return String(t.studentId) === sid && String(t.dueDate || "").slice(0, 10) === iso;
+        })
+        .forEach(function (t) {
+          var meta = t.hpMeta || hpParseMetaFromDescription(t.description).meta;
+          var done = (t.column || "") === "done";
+          var card = document.createElement("div");
+          card.className = "hp-week-card hp-week-card--past";
+          card.setAttribute("data-hp-task-id", t.id);
+          var sum = hpCardSummaryLine(t);
+          var resLine = meta && meta.resource ? meta.resource : "";
+          card.innerHTML =
+            '<span class="hp-week-card__status ' +
+            (done ? "hp-week-card__status--ok" : "hp-week-card__status--no") +
+            '" title="' +
+            (done ? "Tamamlandı" : "Yapılmadı") +
+            '">' +
+            (done ? "✓" : "✗") +
+            "</span>" +
+            '<div class="hp-week-card__type">' +
+            hpTaskTypeLabel(meta) +
+            "</div>" +
+            '<span class="hp-week-card__summary">' +
+            escapeHtml(sum) +
+            "</span>" +
+            (resLine ? '<span class="hp-week-card__src">' + escapeHtml(resLine) + "</span>" : "");
+          box.appendChild(card);
+        });
+    });
+  }
 
-  document.querySelectorAll("#hpPrevWeekGrid .hp-day__static").forEach(function (box) {
-    var iso = box.getAttribute("data-hp-prev");
-    box.innerHTML = "";
-    (cachedCoachTasks || [])
-      .filter(function (t) {
-        return String(t.studentId) === sid && String(t.dueDate || "").slice(0, 10) === iso;
-      })
-      .forEach(function (t) {
-        var meta = t.hpMeta || hpParseMetaFromDescription(t.description).meta;
-        var done = (t.column || "") === "done";
-        var card = document.createElement("div");
-        card.className = "hp-week-card hp-week-card--past";
-        card.setAttribute("data-hp-task-id", t.id);
-        var sum = hpCardSummaryLine(t);
-        var resLine = meta && meta.resource ? meta.resource : "";
-        card.innerHTML =
-          '<span class="hp-week-card__status ' +
-          (done ? "hp-week-card__status--ok" : "hp-week-card__status--no") +
-          '" title="' +
-          (done ? "Tamamlandı" : "Yapılmadı") +
-          '">' +
-          (done ? "✓" : "✗") +
-          "</span>" +
-          '<div class="hp-week-card__type">' +
-          hpTaskTypeLabel(meta) +
-          "</div>" +
-          '<span class="hp-week-card__summary">' +
-          escapeHtml(sum) +
-          "</span>" +
-          (resLine ? '<span class="hp-week-card__src">' + escapeHtml(resLine) + "</span>" : "");
-        box.appendChild(card);
-      });
-  });
+  var vHp = document.getElementById("view-haftalik-program");
+  var vGo = document.getElementById("view-gorusme-odasi");
+  if (vHp && !vHp.hidden && document.getElementById("hpWeekGrid")) {
+    fillForStudent("#hpWeekGrid", "#hpPrevWeekGrid", String(hpSelectedStudentId || "").trim());
+  }
+  if (vGo && !vGo.hidden && document.getElementById("goHpWeekGrid")) {
+    var gs = document.getElementById("goStudentSelect");
+    var sidGo = gs && gs.value ? String(gs.value).trim() : "";
+    fillForStudent("#goHpWeekGrid", "#goHpPrevWeekGrid", sidGo);
+  }
 }
 
 function hpPopulateSubjectTopics() {
@@ -16180,7 +16389,7 @@ function hpOpenWeeklyTaskModalForEdit(taskId) {
   var task = (cachedCoachTasks || []).find(function (x) {
     return x.id === taskId;
   });
-  if (!task || task.studentId !== hpSelectedStudentId) {
+  if (!task || task.studentId !== hpEffectiveStudentId()) {
     showToast("Görev bulunamadı.");
     return;
   }
@@ -16232,10 +16441,12 @@ function hpOpenWeeklyTaskModalForEdit(taskId) {
 }
 
 function hpSaveWeeklyTaskFromModal() {
-  if (!hpSelectedStudentId) {
+  var effSid = hpEffectiveStudentId();
+  if (!effSid) {
     showToast("Önce öğrenci seçin.");
     return;
   }
+  hpSelectedStudentId = effSid;
   if (!hpEditingTaskId && (!hpPendingDrop || !hpPendingDrop.dateIso)) {
     showToast("Öğrenci veya tarih eksik.");
     return;
@@ -16350,7 +16561,11 @@ function hpCarryIncompleteToCurrentWeek() {
     showToast("Oturum bilgisi yok.");
     return;
   }
-  var sid = hpSelectedStudentId;
+  var sid = hpEffectiveStudentId();
+  if (!sid) {
+    showToast("Önce öğrenci seçin.");
+    return;
+  }
   var curMon = hpMondayOfWeek(hpWeekAnchor || new Date());
   var prevMon = new Date(curMon.getTime());
   prevMon.setDate(prevMon.getDate() - 7);
@@ -16435,7 +16650,12 @@ function hpCarryIncompleteToCurrentWeek() {
 
 function refreshHpWeekIfVisible() {
   var v = document.getElementById("view-haftalik-program");
+  var go = document.getElementById("view-gorusme-odasi");
   if (v && !v.hidden && hpSelectedStudentId) {
+    hpRenderWeekTaskCards();
+    return;
+  }
+  if (go && !go.hidden) {
     hpRenderWeekTaskCards();
   }
 }
@@ -16486,86 +16706,97 @@ function refreshHpView() {
   hpRenderWeekTaskCards();
 }
 
+/** Sürükle-bırak + haftalık kart tıklamaları (ana sayfa ve Görüşme Odası gömülü alan) */
+function hpAttachWeeklyDnDRoot(root) {
+  if (!root || root.getAttribute("data-hp-dnd-bound")) return;
+  root.setAttribute("data-hp-dnd-bound", "1");
+
+  root.addEventListener("dragstart", function (e) {
+    var tool = e.target && e.target.closest && e.target.closest(".hp-tool");
+    if (!tool || !root.contains(tool)) return;
+    try {
+      e.dataTransfer.setData(
+        "application/json",
+        JSON.stringify({ hpTool: true, tool: tool.getAttribute("data-hp-tool") })
+      );
+      e.dataTransfer.setData("text/plain", "hp-tool");
+    } catch (err) {}
+    e.dataTransfer.effectAllowed = "copy";
+    tool.classList.add("hp-tool--dragging");
+  });
+  root.addEventListener("dragend", function (e) {
+    var tool = e.target && e.target.closest && e.target.closest(".hp-tool");
+    if (tool) tool.classList.remove("hp-tool--dragging");
+    root.querySelectorAll(".hp-day__drop--over").forEach(function (n) {
+      n.classList.remove("hp-day__drop--over");
+    });
+  });
+  root.addEventListener("dragover", function (e) {
+    var dz = e.target && e.target.closest && e.target.closest(".hp-day__drop");
+    if (!dz || !root.contains(dz)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    root.querySelectorAll(".hp-day__drop--over").forEach(function (n) {
+      n.classList.remove("hp-day__drop--over");
+    });
+    dz.classList.add("hp-day__drop--over");
+  });
+  root.addEventListener("dragleave", function (e) {
+    var dz = e.target && e.target.closest && e.target.closest(".hp-day__drop");
+    if (!dz || !root.contains(dz)) return;
+    if (!e.relatedTarget || !dz.contains(e.relatedTarget)) {
+      dz.classList.remove("hp-day__drop--over");
+    }
+  });
+  root.addEventListener("drop", function (e) {
+    var dz = e.target && e.target.closest && e.target.closest(".hp-day__drop");
+    if (!dz || !root.contains(dz)) return;
+    e.preventDefault();
+    dz.classList.remove("hp-day__drop--over");
+    var eff = hpEffectiveStudentId();
+    if (!eff) {
+      showToast("Önce öğrenci seçin.");
+      return;
+    }
+    hpSelectedStudentId = eff;
+    var raw = e.dataTransfer.getData("application/json");
+    var tool = "konu";
+    try {
+      var o = raw ? JSON.parse(raw) : null;
+      if (o && o.hpTool) tool = o.tool || "konu";
+    } catch (e2) {}
+    var iso = dz.getAttribute("data-hp-drop");
+    if (!iso) return;
+    hpOpenWeeklyTaskModal(tool, iso);
+  });
+
+  root.addEventListener("click", function (e) {
+    var ed = e.target && e.target.closest && e.target.closest("[data-hp-task-edit]");
+    if (ed && root.contains(ed)) {
+      e.preventDefault();
+      var tid = ed.getAttribute("data-hp-task-edit");
+      if (tid) hpOpenWeeklyTaskModalForEdit(tid);
+      return;
+    }
+    var del = e.target && e.target.closest && e.target.closest("[data-hp-task-del]");
+    if (!del || !root.contains(del)) return;
+    e.preventDefault();
+    var id = del.getAttribute("data-hp-task-del");
+    if (!id || !confirm("Bu görevi haftalık plandan kaldırmak istiyor musunuz?")) return;
+    removeGorevKanbanTask(id);
+  });
+}
+
 /** Haftalık program — öğrenci zorunlu, HTML5 DnD, Appwrite coach_tasks */
 function initHaftalikProgramDnD() {
   var root = document.getElementById("view-haftalik-program");
+  var goEmb = document.getElementById("goHpWeeklyEmbed");
   if (!root) return;
   if (!root.getAttribute("data-hp-dnd-init")) {
     root.setAttribute("data-hp-dnd-init", "1");
     hpWeekAnchor = new Date();
 
-    root.addEventListener("dragstart", function (e) {
-      var tool = e.target && e.target.closest && e.target.closest(".hp-tool");
-      if (!tool || !root.contains(tool)) return;
-      try {
-        e.dataTransfer.setData(
-          "application/json",
-          JSON.stringify({ hpTool: true, tool: tool.getAttribute("data-hp-tool") })
-        );
-        e.dataTransfer.setData("text/plain", "hp-tool");
-      } catch (err) {}
-      e.dataTransfer.effectAllowed = "copy";
-      tool.classList.add("hp-tool--dragging");
-    });
-    root.addEventListener("dragend", function (e) {
-      var tool = e.target && e.target.closest && e.target.closest(".hp-tool");
-      if (tool) tool.classList.remove("hp-tool--dragging");
-      root.querySelectorAll(".hp-day__drop--over").forEach(function (n) {
-        n.classList.remove("hp-day__drop--over");
-      });
-    });
-    root.addEventListener("dragover", function (e) {
-      var dz = e.target && e.target.closest && e.target.closest(".hp-day__drop");
-      if (!dz || !root.contains(dz)) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "copy";
-      root.querySelectorAll(".hp-day__drop--over").forEach(function (n) {
-        n.classList.remove("hp-day__drop--over");
-      });
-      dz.classList.add("hp-day__drop--over");
-    });
-    root.addEventListener("dragleave", function (e) {
-      var dz = e.target && e.target.closest && e.target.closest(".hp-day__drop");
-      if (!dz || !root.contains(dz)) return;
-      if (!e.relatedTarget || !dz.contains(e.relatedTarget)) {
-        dz.classList.remove("hp-day__drop--over");
-      }
-    });
-    root.addEventListener("drop", function (e) {
-      var dz = e.target && e.target.closest && e.target.closest(".hp-day__drop");
-      if (!dz || !root.contains(dz)) return;
-      e.preventDefault();
-      dz.classList.remove("hp-day__drop--over");
-      if (!hpSelectedStudentId) {
-        showToast("Önce öğrenci seçin.");
-        return;
-      }
-      var raw = e.dataTransfer.getData("application/json");
-      var tool = "konu";
-      try {
-        var o = raw ? JSON.parse(raw) : null;
-        if (o && o.hpTool) tool = o.tool || "konu";
-      } catch (e2) {}
-      var iso = dz.getAttribute("data-hp-drop");
-      if (!iso) return;
-      hpOpenWeeklyTaskModal(tool, iso);
-    });
-
-    root.addEventListener("click", function (e) {
-      var ed = e.target && e.target.closest && e.target.closest("[data-hp-task-edit]");
-      if (ed && root.contains(ed)) {
-        e.preventDefault();
-        var tid = ed.getAttribute("data-hp-task-edit");
-        if (tid) hpOpenWeeklyTaskModalForEdit(tid);
-        return;
-      }
-      var del = e.target && e.target.closest && e.target.closest("[data-hp-task-del]");
-      if (!del || !root.contains(del)) return;
-      e.preventDefault();
-      var id = del.getAttribute("data-hp-task-del");
-      if (!id || !confirm("Bu görevi haftalık plandan kaldırmak istiyor musunuz?")) return;
-      removeGorevKanbanTask(id);
-    });
+    hpAttachWeeklyDnDRoot(root);
 
     var btnCarry = document.getElementById("hpBtnCarryIncomplete");
     if (btnCarry) {
@@ -16600,6 +16831,29 @@ function initHaftalikProgramDnD() {
         hpSaveWeeklyTaskFromModal();
       });
     }
+  }
+  hpAttachWeeklyDnDRoot(goEmb);
+
+  var btnGoCarry = document.getElementById("goHpBtnCarryIncomplete");
+  if (btnGoCarry && !btnGoCarry.dataset.hpBound) {
+    btnGoCarry.dataset.hpBound = "1";
+    btnGoCarry.addEventListener("click", function () {
+      hpCarryIncompleteToCurrentWeek();
+    });
+  }
+  var btnHpSave = document.getElementById("btnHpSaveWeeklyProgram");
+  if (btnHpSave && !btnHpSave.dataset.hpBound) {
+    btnHpSave.dataset.hpBound = "1";
+    btnHpSave.addEventListener("click", function () {
+      void saveWeeklyProgramSnapshot();
+    });
+  }
+  var btnGoSave = document.getElementById("goBtnHpSaveWeeklyProgram");
+  if (btnGoSave && !btnGoSave.dataset.hpBound) {
+    btnGoSave.dataset.hpBound = "1";
+    btnGoSave.addEventListener("click", function () {
+      void saveWeeklyProgramSnapshot();
+    });
   }
   refreshHpView();
 }
@@ -16865,6 +17119,26 @@ var kkPrevStudentId = "";
 var kkOpenBookId = null;
 
 /** Koçun kütüphanesi (kaynaklar koleksiyonundan) */
+var KUTU_KITAP_TURU_LABELS = {
+  soru_bankasi: "Soru Bankası",
+  konu_anlatimi: "Konu Anlatımı",
+  deneme_sinavi: "Deneme Sınavı",
+  fasikul: "Fasikül",
+  okuma_kitabi: "Okuma Kitabı",
+};
+var KUTU_KITAP_TURU_ICONS = {
+  soru_bankasi: "\u{1F4DD}",
+  konu_anlatimi: "\u{1F4D6}",
+  deneme_sinavi: "\u{1F4CB}",
+  fasikul: "\u{1F4D2}",
+  okuma_kitabi: "\u{1F4D5}",
+};
+
+function kutuKitapTuruLabel(key) {
+  if (!key) return "";
+  return KUTU_KITAP_TURU_LABELS[key] || key;
+}
+
 var KK_LIBRARY_CACHE = [];
 var kkLibUnsub = null;
 var kkAssignUnsub = null;
@@ -16912,6 +17186,7 @@ function kkStartLibraryFirestoreListeners() {
           totalPages:
             typeof data.totalPages === "number" ? data.totalPages : parseInt(data.totalPages, 10) || 0,
           publisher: data.publisher || "",
+          kitap_turu: data.kitap_turu || data.kitapTuru || "",
         });
       });
       KK_LIBRARY_CACHE.sort(function (a, b) {
@@ -17005,29 +17280,200 @@ function kkFillLibraryDropdown() {
   });
 }
 
+/** Kütüphanem kartları — sol kenar rengi (inline; Tailwind CDN dinamik sınıfları güvenilir değil) */
+function kutuSubjectBorderHex(subject) {
+  var s = String(subject || "").toLowerCase();
+  if (/matematik|geometri/.test(s)) return "#3b82f6";
+  if (/ayt\s*mat/.test(s)) return "#2563eb";
+  if (/fizik/.test(s)) return "#8b5cf6";
+  if (/kimya/.test(s)) return "#10b981";
+  if (/biyoloji/.test(s)) return "#22c55e";
+  if (/türkçe|turkce|paragraf/.test(s)) return "#ef4444";
+  if (/edebiyat/.test(s)) return "#f97316";
+  if (/tarih|coğrafya|cografya|felsefe/.test(s)) return "#d97706";
+  if (/ingilizce|ydt/.test(s)) return "#06b6d4";
+  if (/genel/.test(s)) return "#64748b";
+  return "#4f46e5";
+}
+
+function openKutuphaneEditModal(docId) {
+  var lib = KK_LIBRARY_CACHE.find(function (x) {
+    return x.id === docId;
+  });
+  if (!lib) {
+    showToast("Kitap bulunamadı.");
+    return;
+  }
+  var idEl = document.getElementById("kutuEditDocId");
+  var tEl = document.getElementById("kutuEditTitle");
+  var sEl = document.getElementById("kutuEditSubject");
+  var totEl = document.getElementById("kutuEditTotal");
+  if (idEl) idEl.value = lib.id;
+  if (tEl) tEl.value = lib.title || "";
+  if (sEl) sEl.value = lib.subject || "";
+  if (totEl) totEl.value = String(lib.totalPages != null ? lib.totalPages : 1);
+  var turEl = document.getElementById("kutuEditKitapTuru");
+  if (turEl) turEl.value = lib.kitap_turu || "";
+  openModal("kutuphaneEditModal");
+}
+
+async function deleteKutuphaneLibraryDoc(docId) {
+  if (!docId) return;
+  if (!confirm("Bu kitabı kütüphaneden silmek istediğinize emin misiniz?")) return;
+  try {
+    await deleteDoc(doc(db, "kaynaklar", docId));
+    showToast("Kitap başarıyla silindi.", { variant: "success" });
+  } catch (err) {
+    console.error(err);
+    showToast("Silinemedi: " + (err && err.message ? err.message : String(err)), { variant: "danger" });
+  }
+}
+
+function bindKutuphanemPageExtrasOnce() {
+  var view = document.getElementById("view-kutuphanem");
+  if (!view || view.dataset.kutuExtrasBound) return;
+  view.dataset.kutuExtrasBound = "1";
+  var searchInp = document.getElementById("kutuphaneSearchInput");
+  if (searchInp) {
+    searchInp.addEventListener("input", function () {
+      refreshKutuphanemList();
+    });
+  }
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    if (!t || !t.closest) return;
+    var del = t.closest("[data-kutu-lib-del]");
+    if (del && del.closest("#view-kutuphanem")) {
+      e.preventDefault();
+      var did = del.getAttribute("data-kutu-lib-del");
+      if (did) void deleteKutuphaneLibraryDoc(did);
+      return;
+    }
+    var ed = t.closest("[data-kutu-lib-edit]");
+    if (ed && ed.closest("#view-kutuphanem")) {
+      e.preventDefault();
+      var eid = ed.getAttribute("data-kutu-lib-edit");
+      if (eid) openKutuphaneEditModal(eid);
+    }
+  });
+  var editForm = document.getElementById("formKutuphaneEdit");
+  if (editForm && !editForm.dataset.kutuEditBound) {
+    editForm.dataset.kutuEditBound = "1";
+    editForm.addEventListener("submit", async function (ev) {
+      ev.preventDefault();
+      var docId = document.getElementById("kutuEditDocId");
+      var tEl = document.getElementById("kutuEditTitle");
+      var sEl = document.getElementById("kutuEditSubject");
+      var totEl = document.getElementById("kutuEditTotal");
+      var turEl = document.getElementById("kutuEditKitapTuru");
+      var id = docId ? String(docId.value || "").trim() : "";
+      var title = tEl ? String(tEl.value || "").trim() : "";
+      var subject = sEl ? String(sEl.value || "").trim() : "";
+      var kitapTuru = turEl ? String(turEl.value || "").trim() : "";
+      var total = totEl ? parseInt(totEl.value, 10) : 0;
+      if (!id || !title || !subject) {
+        showToast("Kitap adı ve ders zorunludur.");
+        return;
+      }
+      if (!kitapTuru) {
+        showToast("Kitap türü seçin.");
+        return;
+      }
+      if (isNaN(total) || total < 1) {
+        showToast("Geçerli bir sayfa/test sayısı girin.");
+        return;
+      }
+      try {
+        await updateDoc(doc(db, "kaynaklar", id), {
+          title: title,
+          subject: subject,
+          kitap_turu: kitapTuru,
+          totalPages: total,
+        });
+        closeModal("kutuphaneEditModal");
+        showToast("Kitap güncellendi.", { variant: "success" });
+      } catch (err) {
+        console.error(err);
+        showToast("Güncellenemedi: " + (err && err.message ? err.message : String(err)), { variant: "danger" });
+      }
+    });
+  }
+}
+
 function refreshKutuphanemList() {
   var root = document.getElementById("kutuphaneListRoot");
   if (!root) return;
   if (KK_LIBRARY_CACHE.length === 0) {
     root.innerHTML =
-      '<p class="kk-lib-empty" style="margin:0">Henüz kitap eklenmedi. Yukarıdaki formdan ekleyin.</p>';
+      '<p class="text-center text-sm text-slate-500 py-10">Henüz kitap eklenmedi. Yukarıdaki formdan ekleyin.</p>';
+    return;
+  }
+  var q = "";
+  var inp = document.getElementById("kutuphaneSearchInput");
+  if (inp) q = String(inp.value || "").trim().toLowerCase();
+  var list = KK_LIBRARY_CACHE.filter(function (lib) {
+    if (!q) return true;
+    var blob = (
+      String(lib.title || "") +
+      " " +
+      String(lib.subject || "") +
+      " " +
+      String(lib.totalPages || "") +
+      " " +
+      String(kutuKitapTuruLabel(lib.kitap_turu) || "")
+    ).toLowerCase();
+    return blob.indexOf(q) !== -1;
+  });
+  if (list.length === 0) {
+    root.innerHTML =
+      '<p class="text-center text-sm text-slate-500 py-10">Aramanızla eşleşen kitap yok.</p>';
     return;
   }
   root.innerHTML =
-    '<div class="kutu-lib-grid">' +
-    KK_LIBRARY_CACHE.map(function (lib) {
-      return (
-        '<div class="kutu-lib-card">' +
-        "<div><h4>" +
-        escapeHtml(lib.title) +
-        "</h4>" +
-        '<p class="kutu-lib-meta">' +
-        escapeHtml(lib.subject) +
-        " · " +
-        escapeHtml(String(lib.totalPages)) +
-        " sayfa/test</p></div></div>"
-      );
-    }).join("") +
+    '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">' +
+    list
+      .map(function (lib) {
+        var borderHex = kutuSubjectBorderHex(lib.subject);
+        var turKey = lib.kitap_turu || "";
+        var turLbl = kutuKitapTuruLabel(turKey);
+        var turIco = KUTU_KITAP_TURU_ICONS[turKey] || "\uD83D\uDDCD\uFE0F";
+        var turBadge =
+          turLbl &&
+          '<span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 border border-emerald-100"><span aria-hidden="true">' +
+          turIco +
+          "</span> " +
+          escapeHtml(turLbl) +
+          "</span>";
+        return (
+          '<article class="group relative flex flex-col rounded-xl border border-slate-200/90 bg-white p-4 pt-4 pb-3 shadow-sm transition hover:shadow-md" data-kutu-lib-card data-kutu-lib-id="' +
+          escapeHtml(lib.id) +
+          '" style="border-left:4px solid ' +
+          borderHex +
+          '">' +
+          '<div class="pr-20 pb-1 min-h-[4.5rem]">' +
+          '<h4 class="text-lg font-bold text-slate-900 leading-snug">' +
+          escapeHtml(lib.title) +
+          "</h4>" +
+          '<div class="mt-2 flex flex-wrap gap-2">' +
+          '<span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600"><span aria-hidden="true">\uD83D\uDCDA</span> ' +
+          escapeHtml(lib.subject || "\u2014") +
+          "</span>" +
+          (turBadge || "") +
+          '<span class="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-0.5 text-xs font-semibold text-violet-700 border border-violet-100"><span aria-hidden="true">\uD83D\uDCC4</span> ' +
+          escapeHtml(String(lib.totalPages)) +
+          " sayfa</span>" +
+          "</div></div>" +
+          '<div class="absolute right-3 top-3 flex gap-1.5">' +
+          '<button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600" data-kutu-lib-edit="' +
+          escapeHtml(lib.id) +
+          '" title="D\u00fczenle" aria-label="D\u00fczenle"><i class="fa-solid fa-pen text-sm"></i></button>' +
+          '<button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-rose-400 hover:bg-rose-50 hover:text-rose-600" data-kutu-lib-del="' +
+          escapeHtml(lib.id) +
+          '" title="Sil" aria-label="Sil"><i class="fa-solid fa-trash text-sm"></i></button>' +
+          "</div></article>"
+        );
+      })
+      .join("") +
     "</div>";
 }
 
@@ -17044,12 +17490,18 @@ function bindKutuphanemFormOnce() {
     }
     var titleEl = document.getElementById("kutuKitapAdi");
     var subEl = document.getElementById("kutuDers");
+    var turEl = document.getElementById("kutuKitapTuru");
     var totEl = document.getElementById("kutuToplam");
     var title = titleEl ? String(titleEl.value || "").trim() : "";
     var subject = subEl ? String(subEl.value || "").trim() : "";
+    var kitapTuru = turEl ? String(turEl.value || "").trim() : "";
     var total = totEl ? parseInt(totEl.value, 10) : 0;
     if (!title || !subject) {
       showToast("Kitap adı ve ders zorunludur.");
+      return;
+    }
+    if (!kitapTuru) {
+      showToast("Kitap türü seçin.");
       return;
     }
     if (isNaN(total) || total < 1) {
@@ -17061,6 +17513,7 @@ function bindKutuphanemFormOnce() {
         coach_id: cid,
         title: title,
         subject: subject,
+        kitap_turu: kitapTuru,
         totalPages: total,
         createdAt: serverTimestamp(),
       });
@@ -17228,7 +17681,8 @@ function kkRenderBooks(root) {
         '" data-kk-book-id="' +
         escapeHtml(book.id) +
         '">' +
-        '<button type="button" class="kk-acc__head" data-kk-toggle="' +
+        '<div class="kk-acc__head">' +
+        '<button type="button" class="kk-acc__head-toggle" data-kk-toggle="' +
         escapeHtml(book.id) +
         '" aria-expanded="' +
         (isOpen ? "true" : "false") +
@@ -17253,6 +17707,10 @@ function kkRenderBooks(root) {
         "</span>" +
         (line.sub ? '<span class="kk-acc__meta">' + escapeHtml(line.sub) + "</span>" : "") +
         "</div></button>" +
+        '<button type="button" class="kk-acc__del" data-kk-del-assigned="' +
+        escapeHtml(book.id) +
+        '" title="Öğrenci listesinden kaldır" aria-label="Kaynağı sil"><i class="fa-solid fa-trash"></i> Sil</button>' +
+        "</div>" +
         '<div class="kk-acc__body"' +
         (isOpen ? "" : " hidden") +
         ">" +
@@ -17353,6 +17811,37 @@ async function kkAssignBookFromLibrary() {
   }
 }
 
+async function deleteAssignedResource(documentId) {
+  if (!documentId) return;
+  if (!confirm("Bu kaynağı öğrencinin listesinden silmek istediğinize emin misiniz?")) return;
+  try {
+    await deleteDoc(doc(db, APPWRITE_COLLECTION_ATANAN_KAYNAKLAR, documentId));
+    var ix = kkAssignedBooksCache.findIndex(function (b) {
+      return b.id === documentId;
+    });
+    if (ix >= 0) kkAssignedBooksCache.splice(ix, 1);
+    if (kkOpenBookId === documentId) kkOpenBookId = null;
+    var root = document.getElementById("kkBooksRoot");
+    if (root) {
+      var cards = root.querySelectorAll(".kk-acc[data-kk-book-id]");
+      for (var ci = 0; ci < cards.length; ci++) {
+        if (cards[ci].getAttribute("data-kk-book-id") === documentId) {
+          cards[ci].remove();
+          break;
+        }
+      }
+      if (kkAssignedBooksCache.length === 0) {
+        root.innerHTML =
+          '<p class="kk-lib-empty" style="margin:0">Bu öğrenciye henüz kaynak eklenmedi. «Yeni Kaynak Ata» ile kütüphaneden ekleyin.</p>';
+      }
+    }
+    showToast("Kaynak başarıyla silindi.", { variant: "success" });
+  } catch (err) {
+    console.error(err);
+    showToast("Kaynak silinemedi: " + (err && err.message ? err.message : String(err)), { variant: "danger" });
+  }
+}
+
 function initKaynakKitapModuleOnce() {
   if (kkKaynakBound) return;
   kkKaynakBound = true;
@@ -17360,6 +17849,14 @@ function initKaynakKitapModuleOnce() {
     var t = e.target;
     if (!t || !t.closest) return;
     if (!t.closest("#view-kaynak-kitap") && !t.closest("#kkModalAta")) return;
+    var kkDel = t.closest("[data-kk-del-assigned]");
+    if (kkDel && t.closest("#kkBooksRoot")) {
+      e.preventDefault();
+      e.stopPropagation();
+      var did = kkDel.getAttribute("data-kk-del-assigned");
+      if (did) void deleteAssignedResource(did);
+      return;
+    }
     var stripChip = t.closest(".kk-student-chip");
     if (stripChip && stripChip.getAttribute("data-kk-sid")) {
       e.preventDefault();
@@ -17451,6 +17948,7 @@ function initKaynakKitapModuleOnce() {
     f1.addEventListener("change", kkFillLibraryDropdown);
   }
   bindKutuphanemFormOnce();
+  bindKutuphanemPageExtrasOnce();
   kkStartLibraryFirestoreListeners();
 }
 

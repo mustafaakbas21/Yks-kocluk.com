@@ -43,15 +43,22 @@ export function buildDefaultRowsFromStudent(student) {
   return base;
 }
 
-/** @param {object|null} student */
+/** @param {object|null} student — güncel net: TYT özet oranı (öğrencide net varsa); hedef sütunu YÖK satırı birebir */
 export function buildAtlasRowsFromProgram(program, student) {
   if (!program || !program.rows || !program.rows.length) return null;
   var curT = student ? parseStudentNetVal(student.currentTytNet) : null;
   var tgtT = student ? parseStudentNetVal(student.targetTytNet) : null;
-  var ratio = curT != null && tgtT != null && tgtT > 0 ? Math.min(1.15, Math.max(0.45, curT / tgtT)) : 0.92;
+  var factor = curT != null && tgtT != null && tgtT > 0 ? Math.min(1.2, Math.max(0, curT / tgtT)) : 0;
   return program.rows.map(function (r) {
-    var target = r.targetNet;
-    var current = Math.round(Math.min(target, target * ratio * 0.96) * 10) / 10;
+    var rawT = r.targetNet;
+    var target =
+      typeof rawT === "number"
+        ? rawT
+        : parseFloat(String(rawT != null ? rawT : "").replace(",", "."));
+    if (isNaN(target)) target = 0;
+    target = Math.round(target * 1000) / 1000;
+    var current =
+      factor > 0 ? Math.round(Math.min(target, target * factor) * 10) / 10 : 0;
     return {
       label: r.section + " " + r.name,
       current: current,

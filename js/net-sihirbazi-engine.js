@@ -49,6 +49,25 @@ function parseAtlasNum(v) {
   return Math.round(Math.min(999, Math.max(0, n)) * 10) / 10;
 }
 
+/** YÖK JSON’daki net değeri — yuvarlama yok; Net Sihirbazı SSOT satırı için */
+function parseAtlasNumExact(v) {
+  if (v == null || v === "") return null;
+  var n = parseFloat(String(v).replace(/\s/g, "").replace(",", "."));
+  if (isNaN(n)) return null;
+  return Math.min(999, Math.max(0, n));
+}
+
+/**
+ * @param {number|null|undefined} n
+ * @returns {string}
+ */
+export function formatYokNetDisplay(n) {
+  if (n == null || (typeof n === "number" && isNaN(n))) return "—";
+  var x = Number(n);
+  if (isNaN(x)) return "—";
+  return new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 8 }).format(x);
+}
+
 /** @typedef {"sayisal"|"ea"|"sozel"|"dil"|"tyt_only"} PuanGroup */
 
 function normStr(s) {
@@ -146,11 +165,11 @@ function mergeAtlasPayload(programDoc) {
 /**
  * Atlas anahtarlarından satır listesi (dinamik: Önlisans = yalnızca TYT).
  */
-function buildRowsFromYokAtlasFields(src, pg) {
+function buildRowsFromYokAtlasFields(src, pg, exact) {
   var rows = [];
 
   function pushTyt(key, displayName, branchId) {
-    var v = parseAtlasNum(src[key]);
+    var v = exact ? parseAtlasNumExact(src[key]) : parseAtlasNum(src[key]);
     if (v == null) return;
     rows.push({
       section: "TYT",
@@ -172,7 +191,7 @@ function buildRowsFromYokAtlasFields(src, pg) {
   }
 
   function pushAyt(key, displayName, branchId) {
-    var v2 = parseAtlasNum(src[key]);
+    var v2 = exact ? parseAtlasNumExact(src[key]) : parseAtlasNum(src[key]);
     if (v2 == null) return;
     rows.push({
       section: "AYT",
@@ -213,7 +232,7 @@ function buildRowsFromYokAtlasFields(src, pg) {
 }
 
 /** rowsJson → iç motor satırları (geçiş; hedef değerler JSON’daki satırlardan) */
-function buildRowsFromLegacyRowsJson(programDoc, pg) {
+function buildRowsFromLegacyRowsJson(programDoc, pg, exact) {
   var raw = programDoc.rowsJson != null ? programDoc.rowsJson : programDoc.rows_json;
   var arr;
   if (typeof raw === "string") {
@@ -242,7 +261,9 @@ function buildRowsFromLegacyRowsJson(programDoc, pg) {
   if (!cleaned.length) return [];
 
   for (var j = 0; j < cleaned.length; j++) {
-    cleaned[j].targetNet = clampRowTargetNet(cleaned[j], stubPg);
+    if (!exact) {
+      cleaned[j].targetNet = clampRowTargetNet(cleaned[j], stubPg);
+    }
     cleaned[j].label = cleaned[j].section + " " + cleaned[j].name;
   }
 
@@ -259,7 +280,9 @@ function buildRowsFromLegacyRowsJson(programDoc, pg) {
  * Statik katalog programı — YÖK Atlas alanları veya (geçiş) rowsJson.
  * @returns {{ id: string, university: string, department: string, rows: Array, dataSource: string, puanGroup: PuanGroup, programTuru?: string, puanTuruRaw?: string, targetTytNet: number, targetAytNet: number }|null}
  */
-export function buildProgramFromAppwriteV2(uniDoc, programDoc) {
+export function buildProgramFromAppwriteV2(uniDoc, programDoc, opts) {
+  opts = opts || {};
+  var exact = !!opts.exactYokAtlasTargets;
   try {
     if (!uniDoc || !programDoc) return null;
     var uniName =
@@ -278,17 +301,19 @@ export function buildProgramFromAppwriteV2(uniDoc, programDoc) {
     var src = mergeAtlasPayload(programDoc);
     var pg = puanGroupFromAtlas(src);
 
-    var rows = buildRowsFromYokAtlasFields(src, pg);
+    var rows = buildRowsFromYokAtlasFields(src, pg, exact);
     var dataSource = "yok-atlas";
     if (!rows.length) {
-      rows = buildRowsFromLegacyRowsJson(programDoc, pg);
+      rows = buildRowsFromLegacyRowsJson(programDoc, pg, exact);
       dataSource = rows.length ? "legacy-rows-json" : "";
     }
     if (!rows.length) return null;
 
     for (var i = 0; i < rows.length; i++) {
       var g = pg === "tyt_only" ? "sayisal" : pg;
-      rows[i].targetNet = clampRowTargetNet(rows[i], g);
+      if (!exact) {
+        rows[i].targetNet = clampRowTargetNet(rows[i], g);
+      }
       if (!rows[i].label) rows[i].label = String(rows[i].section) + " " + String(rows[i].name);
     }
 
@@ -302,10 +327,14 @@ export function buildProgramFromAppwriteV2(uniDoc, programDoc) {
       else if (sec === "AYT") sumAyt += t;
     });
 
-    var tt = parseAtlasNum(src.targetTytNet != null ? src.targetTytNet : programDoc.targetTytNet);
-    var ta = parseAtlasNum(src.targetAytNet != null ? src.targetAytNet : programDoc.targetAytNet);
-    if (tt == null) tt = Math.round(sumTyt * 10) / 10;
-    if (ta == null) ta = Math.round(sumAyt * 10) / 10;
+    var tt = exact
+      ? parseAtlasNumExact(src.targetTytNet != null ? src.targetTytNet : programDoc.targetTytNet)
+      : parseAtlasNum(src.targetTytNet != null ? src.targetTytNet : programDoc.targetTytNet);
+    var ta = exact
+      ? parseAtlasNumExact(src.targetAytNet != null ? src.targetAytNet : programDoc.targetAytNet)
+      : parseAtlasNum(src.targetAytNet != null ? src.targetAytNet : programDoc.targetAytNet);
+    if (tt == null) tt = exact ? sumTyt : Math.round(sumTyt * 10) / 10;
+    if (ta == null) ta = exact ? sumAyt : Math.round(sumAyt * 10) / 10;
 
     return {
       id: pid,
@@ -319,6 +348,7 @@ export function buildProgramFromAppwriteV2(uniDoc, programDoc) {
       puanTuruRaw: src.puanTuru != null ? String(src.puanTuru) : "",
       targetTytNet: tt != null ? tt : 0,
       targetAytNet: ta != null ? ta : 0,
+      exactYokAtlasTargets: exact,
     };
   } catch (e) {
     console.warn("[Net Sihirbazı] buildProgramFromAppwriteV2:", e && e.message ? e.message : e);
@@ -332,6 +362,7 @@ export function buildProgramFromAppwriteV2(uniDoc, programDoc) {
  */
 export function buildMotorDisplayRows(program, opts) {
   opts = opts || {};
+  var exact = !!opts.exactYokAtlasTargets;
   if (!program || !program.rows) return [];
   var pg = program.puanGroup || "sayisal";
   var progId = String(program.id || "");
@@ -339,7 +370,9 @@ export function buildMotorDisplayRows(program, opts) {
     var cap = clampRowTargetNet(r, pg === "tyt_only" ? "sayisal" : pg);
     var t = Number(r.targetNet);
     if (isNaN(t)) t = 0;
-    t = Math.min(cap, t);
+    if (!exact) {
+      t = Math.min(cap, t);
+    }
     var key = String(r.section) + "_" + String(r.name);
     var cur =
       typeof opts.currentNetForRow === "function"
@@ -347,7 +380,7 @@ export function buildMotorDisplayRows(program, opts) {
         : 0;
     if (isNaN(cur)) cur = 0;
     cur = Math.round(Math.min(cap, Math.max(0, cur)) * 10) / 10;
-    var kalan = Math.round((t - cur) * 10) / 10;
+    var kalan = exact ? t - cur : Math.round((t - cur) * 10) / 10;
     return {
       label: r.label || String(r.section) + " " + String(r.name),
       section: r.section,
@@ -378,6 +411,7 @@ function sumDisplaySection(displayRows, sectionUpper) {
 export function netSihirbaziV2ResultHtml(displayRows, program, uiMeta) {
   program = program || {};
   uiMeta = uiMeta || {};
+  var exact = !!(program && program.exactYokAtlasTargets);
   var pctAgg = computeMotorSuccessPercent(displayRows);
   var tytAgg = sumDisplaySection(displayRows, "TYT");
   var aytAgg = sumDisplaySection(displayRows, "AYT");
@@ -403,6 +437,9 @@ export function netSihirbaziV2ResultHtml(displayRows, program, uiMeta) {
       '<p class="text-xs text-slate-500 mt-1">' + esc(String(uiMeta.currentNetSummary)) + "</p>";
   }
 
+  var tytHead = exact ? esc(formatYokNetDisplay(tT)) : esc(tT.toFixed(1));
+  var aytHead = exact ? esc(formatYokNetDisplay(aT)) : esc(aT.toFixed(1));
+
   var strip =
     '<div class="mb-5 rounded-2xl border border-violet-200/90 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-4 shadow-md shadow-violet-100/50">' +
     '<div class="flex flex-wrap items-end justify-between gap-3">' +
@@ -410,9 +447,9 @@ export function netSihirbaziV2ResultHtml(displayRows, program, uiMeta) {
     '<p class="text-xs font-extrabold uppercase tracking-wider text-violet-600">YÖK Atlas hedef netler</p>' +
     '<p class="text-sm font-semibold text-slate-700">' +
     "TYT: <span class=\"text-violet-700 tabular-nums\">" +
-    esc(tT.toFixed(1)) +
+    tytHead +
     "</span> · AYT: <span class=\"text-fuchsia-700 tabular-nums\">" +
-    esc(aT.toFixed(1)) +
+    aytHead +
     "</span></p>" +
     currentLine +
     "</div>" +
@@ -439,13 +476,19 @@ export function netSihirbaziV2ResultHtml(displayRows, program, uiMeta) {
       var kalan = r.diff;
       var diffCls =
         kalan < 0 ? "text-rose-600 font-bold" : "text-emerald-600 font-bold";
-      var diffTxt = kalan === 0 ? "0.0" : (kalan > 0 ? "+" : "") + kalan.toFixed(1);
+      var diffTxt;
+      if (exact) {
+        diffTxt =
+          kalan === 0 ? "0" : (kalan > 0 ? "+" : "") + formatYokNetDisplay(kalan);
+      } else {
+        diffTxt = kalan === 0 ? "0.0" : (kalan > 0 ? "+" : "") + kalan.toFixed(1);
+      }
       return (
         "<tr class=\"border-b border-violet-100/80\">" +
         '<td class="py-2.5 pr-3 text-sm font-medium text-slate-800">' +
         esc(r.label) +
         '</td><td class="py-2.5 px-2 text-center text-sm tabular-nums text-slate-700">' +
-        r.target.toFixed(1) +
+        (exact ? esc(formatYokNetDisplay(r.target)) : r.target.toFixed(1)) +
         '</td><td class="py-2.5 px-2 text-center text-sm tabular-nums text-slate-700">' +
         r.current.toFixed(1) +
         '</td><td class="py-2.5 pl-2 text-right text-sm tabular-nums ' +

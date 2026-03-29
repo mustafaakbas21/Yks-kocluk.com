@@ -2,7 +2,19 @@
  * Deneme Analizi — Premium Karne (Appwrite: exams + ExamResults, mock yok)
  * Chart.js: radar + öğrenci vs kurum ortalaması (koçun tüm denemelerinden)
  */
-import { collection, query, where, getDocs, db } from "./appwrite-compat.js";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  db,
+  serverTimestamp,
+  Timestamp,
+} from "./appwrite-compat.js";
 import { APPWRITE_COLLECTION_EXAM_RESULTS } from "./appwrite-config.js";
 import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN, netFromDyWithRule } from "./yks-exam-structure.js";
 
@@ -805,6 +817,405 @@ import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN, netFromDyWithRule } from "./yks-exam
   function destroyDenemeAnaliziPremium() {
     destroyCharts();
   }
+
+  /* ——— Denemeler: koç planlama (exams + recordType coach_exam_plan) ——— */
+  var DNM_RECORD = "coach_exam_plan";
+  var dnmPlanBound = false;
+  var dnmPlansCache = [];
+
+  var DNM_YAYIN_LABELS = {
+    "3d": "3D Yayınları",
+    bilgi_sarmal: "Bilgi Sarmal",
+    "345": "345 Yayınları",
+    acil: "Acil Yayınları",
+    paraf: "Paraf Yayınları",
+    tonguc: "Tonguç Akademi",
+    ens: "En Sınav",
+    ozdebir: "Özdebir",
+    dig: "Diğer",
+  };
+
+  function dnmYayinLabel(key) {
+    return DNM_YAYIN_LABELS[key] || key || "—";
+  }
+
+  function dnmFormatDate(s) {
+    if (!s) return "—";
+    var d = String(s).slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      var p = d.split("-");
+      return p[2] + "." + p[1] + "." + p[0];
+    }
+    return s;
+  }
+
+  function dnmExamDateToIso(data) {
+    var v = data.examDate;
+    if (v && typeof v.toDate === "function") {
+      try {
+        return v.toDate().toISOString().slice(0, 10);
+      } catch (e) {}
+    }
+    if (typeof v === "string" && v.length >= 10) return v.slice(0, 10);
+    var d = data.date;
+    if (typeof d === "string" && d.length >= 10) return d.slice(0, 10);
+    return "";
+  }
+
+  function dnmZorlukLabel(z) {
+    var k = String(z || "orta").toLowerCase();
+    if (k === "kolay") return "Kolay";
+    if (k === "zor") return "Zor";
+    return "Orta";
+  }
+
+  function dnmIsCoachPlan(x) {
+    return x && (x.recordType === DNM_RECORD || x.isCoachExamPlan === true);
+  }
+
+  async function dnmFetchPlans(coachId) {
+    if (!coachId) return [];
+    var snap = await getDocs(query(collection(db, "exams"), where("coach_id", "==", coachId)));
+    var out = [];
+    snap.forEach(function (d) {
+      var x = typeof d.data === "function" ? d.data() : {};
+      var row = Object.assign({ id: d.id }, x);
+      if (!dnmIsCoachPlan(row)) return;
+      out.push(row);
+    });
+    out.sort(function (a, b) {
+      var da = dnmExamDateToIso(a) || "";
+      var db = dnmExamDateToIso(b) || "";
+      return db.localeCompare(da);
+    });
+    return out;
+  }
+
+  function dnmSinavBadgeClass(tur) {
+    var t = String(tur || "").toUpperCase();
+    if (t === "TYT") return "dnm-badge-exam dnm-badge-exam--tyt";
+    if (t === "AYT") return "dnm-badge-exam dnm-badge-exam--ayt";
+    if (t === "YDT") return "dnm-badge-exam dnm-badge-exam--ydt";
+    if (t === "LGS") return "dnm-badge-exam dnm-badge-exam--lgs";
+    return "dnm-badge-exam dnm-badge-exam--muted";
+  }
+
+  function dnmStatusPillClass(st) {
+    var s = String(st || "Bekliyor");
+    if (s === "Uygulandı" || s === "Uygulandi") return "dnm-pill dnm-pill--done";
+    return "dnm-pill dnm-pill--plan";
+  }
+
+  function dnmZorlukMiniClass(z) {
+    var k = String(z || "orta").toLowerCase();
+    if (k === "kolay") return "dnm-zmini dnm-zmini--kolay";
+    if (k === "zor") return "dnm-zmini dnm-zmini--zor";
+    return "dnm-zmini dnm-zmini--orta";
+  }
+
+  function dnmRenderTable() {
+    var tbody = document.getElementById("dnmTableBody");
+    var wrap = document.getElementById("dnmTableWrap");
+    var block = document.getElementById("dnmTableBlock");
+    var empty = document.getElementById("dnmEmptyState");
+    if (!tbody || !wrap) return;
+    tbody.innerHTML = "";
+    if (!dnmPlansCache.length) {
+      if (block) block.hidden = true;
+      if (empty) empty.hidden = false;
+      wrap.classList.add("dnm-table-wrap--empty");
+      return;
+    }
+    if (block) block.hidden = false;
+    if (empty) empty.hidden = true;
+    wrap.classList.remove("dnm-table-wrap--empty");
+    dnmPlansCache.forEach(function (row) {
+      var tur = String(row.examType || row.tur || "TYT").toUpperCase();
+      var st = row.planStatus || row.status || "Bekliyor";
+      if (st === "Planlandı") st = "Bekliyor";
+      var tr = document.createElement("tr");
+      tr.className = "dnm-tr";
+      tr.dataset.dnmId = row.id;
+      tr.innerHTML =
+        '<td class="dnm-td dnm-td--name"><span class="dnm-cell-title" title="' +
+        escapeHtml(row.examName || "") +
+        '">' +
+        escapeHtml(row.examName || "—") +
+        "</span></td>" +
+        '<td class="dnm-td"><span class="' +
+        dnmSinavBadgeClass(tur) +
+        '">' +
+        escapeHtml(tur) +
+        "</span></td>" +
+        '<td class="dnm-td dnm-td--muted">' +
+        escapeHtml(dnmYayinLabel(row.publisher || row.yayin_evi)) +
+        "</td>" +
+        '<td class="dnm-td dnm-td--muted">' +
+        escapeHtml(dnmFormatDate(dnmExamDateToIso(row))) +
+        "</td>" +
+        '<td class="dnm-td"><span class="' +
+        dnmZorlukMiniClass(row.difficulty) +
+        '">' +
+        escapeHtml(dnmZorlukLabel(row.difficulty)) +
+        "</span></td>" +
+        '<td class="dnm-td"><span class="' +
+        dnmStatusPillClass(st) +
+        '"><span class="dnm-pill__dot" aria-hidden="true">●</span> ' +
+        escapeHtml(st) +
+        "</span></td>" +
+        '<td class="dnm-td dnm-td--actions">' +
+        '<button type="button" class="dnm-icon-btn dnm-icon-btn--edit" data-dnm-edit="' +
+        escapeHtml(row.id) +
+        '" title="Düzenle" aria-label="Düzenle"><i class="fa-solid fa-pen"></i></button>' +
+        '<button type="button" class="dnm-icon-btn dnm-icon-btn--del" data-dnm-del="' +
+        escapeHtml(row.id) +
+        '" title="Sil" aria-label="Sil"><i class="fa-solid fa-trash"></i></button>' +
+        "</td>";
+      tbody.appendChild(tr);
+    });
+  }
+
+  function dnmSetZorlukPills(val) {
+    var hid = document.getElementById("dnmPlanZorluk");
+    if (hid) hid.value = val || "orta";
+    document.querySelectorAll("[data-dnm-zorluk]").forEach(function (b) {
+      var on = b.getAttribute("data-dnm-zorluk") === val;
+      b.classList.toggle("is-selected", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+
+  function dnmOpenModal(isEdit) {
+    var m = document.getElementById("dnmModal");
+    var t = document.getElementById("dnmModalTitle");
+    if (!m) return;
+    if (t) t.textContent = isEdit ? "Denemeyi düzenle" : "Yeni Deneme Planla";
+    m.hidden = false;
+    m.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+  }
+
+  function dnmCloseModal() {
+    var m = document.getElementById("dnmModal");
+    if (!m) return;
+    m.hidden = true;
+    m.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+    var err = document.getElementById("dnmModalFetchErr");
+    if (err) err.hidden = true;
+  }
+
+  function dnmResetPlanForm() {
+    var eid = document.getElementById("dnmEditingDocId");
+    if (eid) eid.value = "";
+    var n = document.getElementById("dnmPlanName");
+    if (n) n.value = "";
+    var st = document.getElementById("dnmPlanSinavTuru");
+    if (st) st.value = "";
+    var y = document.getElementById("dnmPlanYayin");
+    if (y) y.value = "";
+    var d = document.getElementById("dnmPlanDate");
+    if (d) d.value = new Date().toISOString().slice(0, 10);
+    dnmSetZorlukPills("orta");
+  }
+
+  function dnmFillFormFromRow(row) {
+    var eid = document.getElementById("dnmEditingDocId");
+    if (eid) eid.value = row.id || "";
+    var n = document.getElementById("dnmPlanName");
+    if (n) n.value = row.examName || "";
+    var st = document.getElementById("dnmPlanSinavTuru");
+    if (st) st.value = String(row.examType || row.tur || "TYT").toUpperCase();
+    var y = document.getElementById("dnmPlanYayin");
+    if (y) y.value = row.publisher || "";
+    var d = document.getElementById("dnmPlanDate");
+    if (d) d.value = dnmExamDateToIso(row) || new Date().toISOString().slice(0, 10);
+    dnmSetZorlukPills(row.difficulty || "orta");
+  }
+
+  async function dnmReloadList() {
+    var load = document.getElementById("dnmLoading");
+    var errEl = document.getElementById("dnmError");
+    var cid = getCoachId();
+    if (errEl) errEl.hidden = true;
+    if (!cid) {
+      dnmPlansCache = [];
+      dnmRenderTable();
+      return;
+    }
+    if (load) load.hidden = false;
+    try {
+      dnmPlansCache = await dnmFetchPlans(cid);
+      dnmRenderTable();
+    } catch (err) {
+      console.error("[dnm]", err);
+      if (errEl) {
+        errEl.textContent = "Denemeler yüklenemedi. Bağlantı veya koleksiyon izinlerini kontrol edin.";
+        errEl.hidden = false;
+      }
+    } finally {
+      if (load) load.hidden = true;
+    }
+  }
+
+  async function dnmSavePlan() {
+    var cid = getCoachId();
+    if (!cid) {
+      alert("Oturum bulunamadı.");
+      return;
+    }
+    var nameEl = document.getElementById("dnmPlanName");
+    var turEl = document.getElementById("dnmPlanSinavTuru");
+    var yayEl = document.getElementById("dnmPlanYayin");
+    var dateEl = document.getElementById("dnmPlanDate");
+    var zEl = document.getElementById("dnmPlanZorluk");
+    var editEl = document.getElementById("dnmEditingDocId");
+    var errBox = document.getElementById("dnmModalFetchErr");
+    var examName = nameEl ? String(nameEl.value || "").trim() : "";
+    var tur = turEl ? String(turEl.value || "").trim().toUpperCase() : "";
+    var pub = yayEl ? String(yayEl.value || "").trim() : "";
+    var dateStr = dateEl ? String(dateEl.value || "").trim() : "";
+    var diff = zEl ? String(zEl.value || "orta").toLowerCase() : "orta";
+    if (!examName || !tur || !pub || !dateStr) {
+      if (errBox) {
+        errBox.textContent = "Tüm zorunlu alanları doldurun.";
+        errBox.hidden = false;
+      }
+      return;
+    }
+    if (errBox) errBox.hidden = true;
+    var examDateTs = Timestamp.fromDate(new Date(dateStr + "T12:00:00"));
+    var editId = editEl ? String(editEl.value || "").trim() : "";
+    var payload = {
+      coach_id: cid,
+      recordType: DNM_RECORD,
+      isCoachExamPlan: true,
+      examName: examName,
+      examType: tur,
+      tur: tur,
+      publisher: pub,
+      yayin_evi: pub,
+      date: dateStr,
+      examDate: examDateTs,
+      difficulty: diff,
+      planStatus: "Bekliyor",
+      status: "Bekliyor",
+    };
+    try {
+      if (editId) {
+        payload.updatedAt = serverTimestamp();
+        await updateDoc(doc(db, "exams", editId), payload);
+      } else {
+        payload.createdAt = serverTimestamp();
+        await addDoc(collection(db, "exams"), payload);
+      }
+      dnmCloseModal();
+      dnmResetPlanForm();
+      await dnmReloadList();
+      if (global.YKSPanel && typeof global.YKSPanel.toast === "function") {
+        global.YKSPanel.toast(editId ? "Deneme güncellendi." : "Deneme planı kaydedildi.");
+      }
+    } catch (err) {
+      console.error("[dnm save]", err);
+      if (errBox) {
+        errBox.textContent = (err && err.message) || String(err);
+        errBox.hidden = false;
+      }
+    }
+  }
+
+  function dnmBindOnce() {
+    if (dnmPlanBound) return;
+    var root = document.getElementById("view-deneme-analiz-denemeler");
+    if (!root) return;
+    dnmPlanBound = true;
+
+    document.getElementById("btnDnmNewExam") &&
+      document.getElementById("btnDnmNewExam").addEventListener("click", function () {
+        dnmResetPlanForm();
+        dnmOpenModal(false);
+      });
+
+    document.getElementById("btnDnmSave") &&
+      document.getElementById("btnDnmSave").addEventListener("click", function () {
+        void dnmSavePlan();
+      });
+
+    root.querySelectorAll("[data-dnm-close]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        dnmCloseModal();
+      });
+    });
+
+    document.querySelectorAll("[data-dnm-zorluk]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        dnmSetZorlukPills(b.getAttribute("data-dnm-zorluk") || "orta");
+      });
+    });
+
+    root.addEventListener("click", function (ev) {
+      var ed = ev.target.closest && ev.target.closest("[data-dnm-edit]");
+      if (ed) {
+        var id = ed.getAttribute("data-dnm-edit");
+        var row = dnmPlansCache.find(function (r) {
+          return r.id === id;
+        });
+        if (row) {
+          dnmFillFormFromRow(row);
+          dnmOpenModal(true);
+        }
+        return;
+      }
+      var del = ev.target.closest && ev.target.closest("[data-dnm-del]");
+      if (del) {
+        var did = del.getAttribute("data-dnm-del");
+        if (!did || !confirm("Bu deneme planını silmek istediğinize emin misiniz?")) return;
+        void (async function () {
+          try {
+            await deleteDoc(doc(db, "exams", did));
+            await dnmReloadList();
+            if (global.YKSPanel && typeof global.YKSPanel.toast === "function") {
+              global.YKSPanel.toast("Silindi.");
+            }
+          } catch (e) {
+            console.error(e);
+            alert((e && e.message) || String(e));
+          }
+        })();
+      }
+    });
+
+    document.addEventListener("keydown", function (ev) {
+      var m = document.getElementById("dnmModal");
+      if (!m || m.hidden) return;
+      if (ev.key === "Escape") dnmCloseModal();
+    });
+  }
+
+  function initDenemePlanlamaPage() {
+    dnmBindOnce();
+    void dnmReloadList();
+  }
+
+  function registerDenemePlanlamaNav() {
+    function hook() {
+      if (!global.YKSPanel || typeof global.YKSPanel.onNavigate !== "function") return false;
+      global.YKSPanel.onNavigate(function (view) {
+        if (view === "deneme-analiz-denemeler") initDenemePlanlamaPage();
+      });
+      return true;
+    }
+    if (!hook()) {
+      var n = 0;
+      var t = setInterval(function () {
+        if (hook() || ++n > 100) clearInterval(t);
+      }, 50);
+    }
+  }
+
+  registerDenemePlanlamaNav();
+
+  global.initDenemePlanlamaPage = initDenemePlanlamaPage;
 
   global.initDenemeAnaliziPremium = initDenemeAnaliziPremium;
   global.destroyDenemeAnaliziPremium = destroyDenemeAnaliziPremium;

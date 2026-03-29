@@ -423,35 +423,10 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
-function renderKarnesi(tasks) {
-  var root = document.getElementById("goKarnesiBody");
-  if (!root) return;
-  if (!tasks.length) {
-    root.innerHTML = '<p class="go-muted">Geçen hafta bu öğrenci için görev kaydı yok.</p>';
-    return;
-  }
-  var done = tasks.filter(function (t) {
-    return String(t.column || "") === "done";
-  }).length;
-  var pct = Math.round((done / Math.max(1, tasks.length)) * 100);
-  var h =
-    '<div class="go-karnesi__row"><span>Tamamlanan</span><span class="go-karnesi__pct">' +
-    done +
-    " / " +
-    tasks.length +
-    " (" +
-    pct +
-    "%)</span></div>";
-  tasks.forEach(function (t) {
-    var ok = String(t.column || "") === "done";
-    h +=
-      '<div class="go-karnesi__row"><span>' +
-      escapeHtml(t.title || "Görev") +
-      '</span><span class="go-karnesi__pct">' +
-      (ok ? "✓" : "✗") +
-      "</span></div>";
-  });
-  root.innerHTML = h;
+function renderKarnesi(_tasks) {
+  try {
+    if (typeof window.refreshGoHpWeeklyView === "function") window.refreshGoHpWeeklyView();
+  } catch (e) {}
 }
 
 function coachTasksForStudentWeek(getTasks, studentId, weekMonday) {
@@ -629,7 +604,11 @@ export function initGorusmeOdasiCockpit() {
       destroyTrendChart();
       document.getElementById("goWeakList").innerHTML = "";
       document.getElementById("goHedefBars").innerHTML = "";
-      document.getElementById("goKarnesiBody").innerHTML = "";
+      var kOld = document.getElementById("goKarnesiBody");
+      if (kOld) kOld.innerHTML = "";
+      try {
+        if (typeof window.refreshGoHpWeeklyView === "function") window.refreshGoHpWeeklyView();
+      } catch (e) {}
       weakTopicsCache = [];
       return;
     }

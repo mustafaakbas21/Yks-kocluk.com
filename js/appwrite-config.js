@@ -51,6 +51,11 @@ export const APPWRITE_BUCKET_AVATARLAR = "soru_havuzu";
 export const APPWRITE_COLLECTION_GLOBAL_DENEMELER = "global_denemeler";
 /** Eski Net Sihirbazı hedef satırları (isteğe bağlı) */
 export const APPWRITE_COLLECTION_YKS_NET_TARGETS = "yks_net_sihirbazi_targets";
+/**
+ * YKS Puan Hesaplama — koç kayıtlı hesaplama + not (koç paneli).
+ * Console’da `yks_puan_notes` koleksiyonu: coach_id, title, coach_note, tyt_ham, ayt_ham, yer_toplam, alan_label, created_at (string ISO).
+ */
+export const APPWRITE_COLLECTION_YKS_PUAN_NOTES = "yks_puan_notes";
 /** Geriye dönük uyumluluk — Net Sihirbazı / hedef seçici artık `src/data/yks-data.json` kullanır */
 export const APPWRITE_COLLECTION_UNIVERSITIES = "Universities";
 export const APPWRITE_COLLECTION_PROGRAMS = "Programs";
