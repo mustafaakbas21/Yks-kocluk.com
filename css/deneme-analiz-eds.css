@@ -2215,3 +2215,206 @@
   color: #334155;
   line-height: 1.5;
 }
+
+/* ——— Denemeler planlama: premium modal, boş durum, rozetler ——— */
+.dnm-modal__backdrop--premium {
+  background: rgba(15, 23, 42, 0.52);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.dnm-modal__panel--premium {
+  border-radius: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+    0 25px 60px -15px rgba(15, 23, 42, 0.35);
+  max-width: min(520px, 100%);
+}
+.dnm-modal__head--premium {
+  background: linear-gradient(135deg, #faf5ff 0%, #fff 55%, #f8fafc 100%);
+  border-bottom: 1px solid #f1f5f9;
+  border-radius: 16px 16px 0 0;
+}
+.dnm-modal__eyebrow {
+  margin: 0 0 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7c3aed;
+}
+.dnm-modal__foot--premium {
+  background: linear-gradient(180deg, #fafafa 0%, #f4f4f5 100%);
+}
+.dnm-btn--glow {
+  box-shadow: 0 4px 20px rgba(79, 70, 229, 0.35);
+}
+.dnm-btn--glow:hover {
+  box-shadow: 0 6px 28px rgba(79, 70, 229, 0.45);
+}
+.dnm-form-grid--premium {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+.dnm-field--full {
+  grid-column: 1 / -1;
+}
+.dnm-zorluk {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.dnm-zorluk__pill {
+  flex: 1;
+  min-width: 5.5rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border: 2px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s;
+}
+.dnm-zorluk__pill--kolay {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+.dnm-zorluk__pill--orta {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
+}
+.dnm-zorluk__pill--zor {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+.dnm-zorluk__pill:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+.dnm-zorluk__pill.is-selected {
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.45);
+  border-color: #818cf8;
+}
+.dnm-details-advanced {
+  margin-top: 1rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  border: 1px dashed #e2e8f0;
+  background: #fafafa;
+}
+.dnm-details-advanced__summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #64748b;
+  list-style: none;
+}
+.dnm-details-advanced__summary::-webkit-details-marker {
+  display: none;
+}
+.dnm-table-wrap--empty .dnm-table-block {
+  display: none;
+}
+.dnm-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2.75rem 1.5rem 3rem;
+  min-height: 280px;
+}
+.dnm-empty-state__art {
+  margin-bottom: 1rem;
+}
+.dnm-empty-state__svg {
+  width: min(200px, 72vw);
+  height: auto;
+  opacity: 0.95;
+}
+.dnm-empty-state__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #334155;
+  letter-spacing: -0.02em;
+}
+.dnm-empty-state__text {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #64748b;
+  font-weight: 500;
+  max-width: 22rem;
+  line-height: 1.55;
+}
+.dnm-badge-exam {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+.dnm-badge-exam--tyt {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+}
+.dnm-badge-exam--ayt {
+  background: #ffedd5;
+  color: #c2410c;
+  border: 1px solid #fdba74;
+}
+.dnm-badge-exam--ydt {
+  background: #e0e7ff;
+  color: #4338ca;
+  border: 1px solid #a5b4fc;
+}
+.dnm-badge-exam--lgs {
+  background: #ccfbf1;
+  color: #0f766e;
+  border: 1px solid #5eead4;
+}
+.dnm-badge-exam--muted {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+.dnm-zmini {
+  display: inline-flex;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.dnm-zmini--kolay {
+  background: #ecfdf5;
+  color: #047857;
+}
+.dnm-zmini--orta {
+  background: #fffbeb;
+  color: #b45309;
+}
+.dnm-zmini--zor {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+.dnm-th-actions {
+  width: 6.5rem;
+  text-align: right;
+}
+.dnm-icon-btn + .dnm-icon-btn {
+  margin-left: 0.25rem;
+}
+.dnm-icon-btn--edit:hover {
+  background: #eff6ff;
+  color: #2563eb;
+}
+.dnm-icon-btn--del:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import os
@@ -33,6 +34,12 @@ OPTION_INLINE_RE = re.compile(r"\b([A-E])\)\s")
 # Kırpma sonrası homojen beyaz boşluk (PDF point ≈ 15px ekran görünümü)
 FINAL_PAD_PT = 15.0
 GUTTER_PAD_PT = 2.5
+# Dar boşlukları soru arası saymak için satır birleştirme toleransı (düşük = daha çok satır)
+BASE_LINE_Y_TOL = 2.35
+# İki sütun tespiti: zayıf sütun oranı eşiği (düşük = daha kolay iki sütun)
+TWO_COL_MIN_RATIO = 0.075
+# Rekürsif bölme: alan yüksekliği / sayfa yüksekliği üst sınırı
+OVERSIZE_HEIGHT_FRAC = 0.38
 
 
 @dataclass
@@ -141,7 +148,7 @@ def _detect_gutter_and_mode(words: List[tuple], page_w: float) -> Tuple[float, b
     total = left + right
     if total < 4:
         return page_w * 0.5, False
-    if min(left, right) < total * 0.11:
+    if min(left, right) < total * TWO_COL_MIN_RATIO:
         return page_w * 0.5, False
     lo = int(bins * 0.25)
     hi = int(bins * 0.75)
@@ -155,14 +162,18 @@ def _detect_gutter_and_mode(words: List[tuple], page_w: float) -> Tuple[float, b
     return gutter, True
 
 
-def _merge_words_to_lines(words: List[tuple], page_w: float) -> Tuple[List[LineRow], float, bool]:
+def _merge_words_to_lines(
+    words: List[tuple], page_w: float, gap_strictness: float
+) -> Tuple[List[LineRow], float, bool]:
     if not words:
         return [], page_w * 0.5, False
     gutter_x, two_col = _detect_gutter_and_mode(words, page_w)
     # words tuple: (x0,y0,x1,y1,"word", block_no, line_no, word_no)
     words_sorted = sorted(words, key=lambda w: (round(float(w[1]), 1), float(w[0])))
     rows: List[List[tuple]] = []
-    y_tol = 3.8
+    gs = max(0.55, min(1.65, float(gap_strictness or 1.0)))
+    # Düşük gap_strictness → daha sıkı y_tol → daha fazla satır (dar boşlukları kaçırmaz)
+    y_tol = max(1.45, BASE_LINE_Y_TOL - (gs - 1.0) * 0.95)
     for w in words_sorted:
         if not rows:
             rows.append([w])
@@ -244,10 +255,79 @@ def _extract_images_on_page(page: fitz.Page) -> List[fitz.Rect]:
     return out
 
 
-def _segment_page_questions(page: fitz.Page, sensitivity: float) -> List[CropSegment]:
+def _extract_first_question_number(text: str) -> Optional[int]:
+    for line in (text or "").splitlines():
+        t = line.strip()
+        m = QNUM_RE.match(t)
+        if m:
+            g = m.group(1) or m.group(2)
+            if g:
+                try:
+                    return int(g)
+                except ValueError:
+                    continue
+        m2 = re.match(r"^\s*Soru\s*(\d{1,3})\s*$", t, re.I)
+        if m2:
+            try:
+                return int(m2.group(1))
+            except ValueError:
+                continue
+    return None
+
+
+def _split_rect_by_horizontal_valley(
+    page: fitz.Page, rect: fitz.Rect, sensitivity: float, gap_strictness: float
+) -> Optional[Tuple[fitz.Rect, fitz.Rect]]:
+    """Bitişik iki soru için yatay mürekkep projeksiyonu ile bölme."""
+    page_rect = page.rect
+    if rect.height < page_rect.height * 0.14:
+        return None
+    z = 2.05
+    thr = max(208, min(250, int(242 - (sensitivity - 1.0) * 24)))
+    try:
+        pix = page.get_pixmap(matrix=fitz.Matrix(z, z), clip=rect, alpha=False)
+    except Exception:
+        return None
+    mode = "RGB" if pix.n == 3 else "RGBA"
+    img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
+    gray = img.convert("L")
+    bw = gray.point(lambda p: 0 if p <= thr else 255)
+    w, h = bw.size
+    if h < 16 or w < 16:
+        return None
+    row_ink: List[float] = []
+    for y in range(h):
+        row = bw.crop((0, y, w, y + 1))
+        vals = row.getdata()
+        ink = sum(1 for v in vals if v == 0)
+        row_ink.append(ink / max(1, w))
+    gs = max(0.55, min(1.65, float(gap_strictness or 1.0)))
+    lo = int(h * (0.2 + 0.06 * (1.15 - gs)))
+    hi = int(h * (0.8 - 0.06 * (1.15 - gs)))
+    lo = max(2, min(lo, h - 4))
+    hi = max(lo + 3, min(hi, h - 2))
+    sub = row_ink[lo:hi]
+    if not sub:
+        return None
+    j_rel = sub.index(min(sub))
+    j = lo + j_rel
+    gap_score = row_ink[j]
+    if gap_score > 0.088 + 0.028 * max(0.0, gs - 0.85):
+        return None
+    y_doc = rect.y0 + j / z
+    if y_doc - rect.y0 < 16 or rect.y1 - y_doc < 16:
+        return None
+    r1 = fitz.Rect(rect.x0, rect.y0, rect.x1, y_doc)
+    r2 = fitz.Rect(rect.x0, y_doc, rect.x1, rect.y1)
+    return (r1, r2)
+
+
+def _segment_page_questions(
+    page: fitz.Page, sensitivity: float, gap_strictness: float, recursive_split: bool
+) -> List[CropSegment]:
     words = page.get_text("words") or []
     page_rect = page.rect
-    lines, gutter_x, two_col = _merge_words_to_lines(words, page_rect.width)
+    lines, gutter_x, two_col = _merge_words_to_lines(words, page_rect.width, gap_strictness)
     if not lines:
         return []
 
@@ -295,28 +375,56 @@ def _segment_page_questions(page: fitz.Page, sensitivity: float) -> List[CropSeg
                     y1 = max(y1, ir.y1)
 
             inner = fitz.Rect(x0, y0, x1, y1)
-            refined = _refine_bbox_ink(page, inner, sensitivity)
-            if refined is not None:
-                rect = refined
-            else:
+            emit_blocks: List[List[LineRow]] = [block]
+            if recursive_split and inner.height > page_rect.height * OVERSIZE_HEIGHT_FRAC:
+                sp = _split_rect_by_horizontal_valley(page, inner, sensitivity, gap_strictness)
+                if sp is not None:
+                    r1, r2 = sp
+                    sy = (r1.y1 + r2.y0) * 0.5
+                    part_a = [ln for ln in block if (ln.y0 + ln.y1) * 0.5 < sy]
+                    part_b = [ln for ln in block if (ln.y0 + ln.y1) * 0.5 >= sy]
+                    if len(part_a) >= 1 and len(part_b) >= 1:
+                        emit_blocks = [part_a, part_b]
+
+            for sub_block in emit_blocks:
+                sx0 = max(x_min_c, min(ln.x0 for ln in sub_block))
+                sy0 = min(ln.y0 for ln in sub_block)
+                sx1 = min(x_max_c, max(ln.x1 for ln in sub_block))
+                sy1 = max(ln.y1 for ln in sub_block)
+                s_band = fitz.Rect(x_min_c, sy0, x_max_c, sy1)
+                for ir in images:
+                    if s_band.intersects(ir):
+                        ix0 = max(x_min_c, ir.x0)
+                        ix1 = min(x_max_c, ir.x1)
+                        if ix1 <= ix0:
+                            continue
+                        sx0 = min(sx0, ix0)
+                        sy0 = min(sy0, ir.y0)
+                        sx1 = max(sx1, ix1)
+                        sy1 = max(sy1, ir.y1)
+                sinner = fitz.Rect(sx0, sy0, sx1, sy1)
+                refined = _refine_bbox_ink(page, sinner, sensitivity)
+                if refined is not None:
+                    rect = refined
+                else:
+                    rect = fitz.Rect(
+                        max(page_rect.x0, sx0 - pad_x),
+                        max(page_rect.y0, sy0 - pad_y),
+                        min(page_rect.x1, sx1 + pad_x),
+                        min(page_rect.y1, sy1 + pad_y),
+                    )
+                rect = _clip_rect_to_column(rect, page_rect, col, gutter_x, two_col)
+                rect = _apply_final_padding(rect, page_rect)
                 rect = fitz.Rect(
-                    max(page_rect.x0, x0 - pad_x),
-                    max(page_rect.y0, y0 - pad_y),
-                    min(page_rect.x1, x1 + pad_x),
-                    min(page_rect.y1, y1 + pad_y),
+                    max(rect.x0, page_rect.x0),
+                    max(rect.y0, page_rect.y0),
+                    min(rect.x1, page_rect.x1),
+                    min(rect.y1, page_rect.y1),
                 )
-            rect = _clip_rect_to_column(rect, page_rect, col, gutter_x, two_col)
-            rect = _apply_final_padding(rect, page_rect)
-            rect = fitz.Rect(
-                max(rect.x0, page_rect.x0),
-                max(rect.y0, page_rect.y0),
-                min(rect.x1, page_rect.x1),
-                min(rect.y1, page_rect.y1),
-            )
-            if rect.width < 20 or rect.height < 20:
-                continue
-            txt = "\n".join(ln.text for ln in block).strip()
-            segments.append(CropSegment(bbox=rect, text=txt))
+                if rect.width < 20 or rect.height < 20:
+                    continue
+                txt = "\n".join(ln.text for ln in sub_block).strip()
+                segments.append(CropSegment(bbox=rect, text=txt))
 
     segments.sort(
         key=lambda s: (
@@ -434,6 +542,8 @@ async def crop_pdf(
     pdf: UploadFile = File(...),
     sensitivity: float = Form(1.0),
     render_scale: float = Form(DEFAULT_RENDER_ZOOM),
+    gap_strictness: float = Form(1.0),
+    recursive_split: str = Form("1"),
 ):
     if not pdf.filename or not pdf.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Yalnızca PDF dosyası kabul edilir.")
@@ -444,6 +554,8 @@ async def crop_pdf(
         raise HTTPException(status_code=413, detail="PDF boyutu çok büyük.")
     sens = _clamp_sensitivity(sensitivity)
     render_zoom = _clamp_render_zoom(render_scale)
+    gap_gs = max(0.55, min(1.65, float(gap_strictness or 1.0)))
+    recursive_on = str(recursive_split or "1").strip().lower() not in ("0", "false", "off", "")
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         tmp.write(content)
@@ -455,7 +567,8 @@ async def crop_pdf(
         try:
             for page_idx in range(doc.page_count):
                 page = doc.load_page(page_idx)
-                segments = _segment_page_questions(page, sens)
+                segments = _segment_page_questions(page, sens, gap_gs, recursive_on)
+                await asyncio.sleep(0)
                 for seg_idx, seg in enumerate(segments):
                     pix = page.get_pixmap(
                         matrix=fitz.Matrix(render_zoom, render_zoom),
@@ -465,12 +578,15 @@ async def crop_pdf(
                     data_url = _pixmap_to_data_url(pix)
                     text = _ocr_fallback_if_needed(page, seg)
                     ai_tag = _ai_suggest_tag(text)
+                    qn = _extract_first_question_number(text)
                     out.append(
                         {
                             "page": page_idx + 1,
-                            "index": seg_idx + 1,
+                            "index": len(out) + 1,
+                            "segment_on_page": seg_idx + 1,
                             "base64_image": data_url,
                             "ai_suggested_tag": ai_tag,
+                            "detected_qnum": qn,
                         }
                     )
         finally:

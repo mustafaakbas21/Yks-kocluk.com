@@ -23,6 +23,7 @@
   <link rel="stylesheet" href="css/osp-student-ders.css" />
   <link rel="stylesheet" href="css/site-credit.css" />
   <link rel="stylesheet" href="css/derece-interactive-modules.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" crossorigin="anonymous" />
   <link rel="stylesheet" href="css/sorun-bildir.css" />
   <style>
     .osp-dash2-chart-card__canvas { position: relative; }
@@ -397,26 +398,16 @@
         <!-- TYT-AYT Net Sihirbazı -->
         <section class="osp-view osp-net-sihirbazi-page" data-osp-view="net-sihirbazi" id="ospViewNetSihirbazi" hidden>
           <p class="net-sihirbazi-hint" style="margin:0 0 0.75rem;font-size:0.88rem;color:var(--osp-muted);">
-            Net Sihirbazı V2: üniversite ve bölüm listesi <code class="text-xs">yks-data.json</code> statik dosyasından gelir. Güncel netler deneme kayıtlarınızdaki YKS branş detayından gelir (mock veri yok).
+            Veri kaynağı koç panelindeki Hedef Simülatörü ile aynı: <code class="text-xs">yok-atlas.json</code> / <code class="text-xs">yks-data.json</code>. Bölüm listesi üniversite içinde tekilleştirilmiştir. Güncel netler deneme kayıtlarınızdaki YKS branş detayından gelir.
           </p>
-          <div class="osp-hedef-atlas-bar">
-            <div class="net-sihirbazi-select-row osp-net-sihirbazi-row">
-              <div class="net-sihirbazi-select net-sihirbazi-select--search">
-                <label for="ospNsUniFilter">Üniversite ara</label>
-                <input type="search" id="ospNsUniFilter" class="net-sihirbazi-search" placeholder="Yazarak filtreleyin…" autocomplete="off" />
-              </div>
-              <div class="net-sihirbazi-select">
-                <label for="ospNsUniSelect">Üniversite</label>
-                <select id="ospNsUniSelect" aria-label="Üniversite seçimi"></select>
-              </div>
-              <div class="net-sihirbazi-select net-sihirbazi-select--search">
-                <label for="ospNsDeptFilter">Bölüm ara</label>
-                <input type="search" id="ospNsDeptFilter" class="net-sihirbazi-search" placeholder="Yazarak filtreleyin…" autocomplete="off" disabled />
-              </div>
-              <div class="net-sihirbazi-select">
-                <label for="ospNsDeptSelect">Bölüm</label>
-                <select id="ospNsDeptSelect" aria-label="Bölüm seçimi" disabled></select>
-              </div>
+          <div class="osp-hedef-atlas-bar dp-hedef-atlas-bar net-sihirbazi-select-row dp-hedef-atlas-bar--two-col">
+            <div class="net-sihirbazi-select">
+              <label for="ospNsUniSelect">Üniversite</label>
+              <select id="ospNsUniSelect" aria-label="Üniversite seçimi"></select>
+            </div>
+            <div class="net-sihirbazi-select">
+              <label for="ospNsDeptSelect">Bölüm</label>
+              <select id="ospNsDeptSelect" aria-label="Bölüm seçimi" disabled></select>
             </div>
           </div>
           <div class="osp-hedef-hero">
@@ -498,6 +489,27 @@
           </p>
           <div class="yks-puan-card yks-puan-card--wide" style="margin:0;">
             <form id="ospYksPuanForm" class="yks-puan-form osp-yks-puan-form" onsubmit="return false;">
+              <div class="yks-puan-obp-block yks-puan-obp-block--top yks-puan-diploma-card">
+                <h4 class="yks-puan-obp-block__title"><i class="fa-solid fa-graduation-cap"></i> Diploma notu (OBP)</h4>
+                <p class="yks-puan-diploma-card__desc">
+                  Yerleştirme puanı hesaplanabilmesi için diploma notu (50–100) veya OBP (30–60) girin.
+                </p>
+                <div class="yks-obp-mode-row" role="radiogroup" aria-label="OBP giriş türü">
+                  <label class="yks-obp-radio"
+                    ><input type="radio" name="ospYksObpMode" id="ospYksObpModeDiploma" value="diploma" checked /> Diploma notu (100 üzerinden, 50–100)</label
+                  >
+                  <label class="yks-obp-radio"
+                    ><input type="radio" name="ospYksObpMode" id="ospYksObpModeObp60" value="obp60" /> OBP puanı (60 üzerinden, 30–60)</label
+                  >
+                </div>
+                <div class="form-group">
+                  <label for="ospYksObpValue" id="ospYksObpValueLabel">Diploma notu (OBP, 50–100)</label>
+                  <input type="number" id="ospYksObpValue" min="50" max="100" step="0.01" inputmode="decimal" placeholder="Max: 100" />
+                </div>
+                <label class="yks-obp-kirik"
+                  ><input type="checkbox" id="ospYksObpKirik" /> Kırık OBP (daha önce yerleştim) — katkı yarıya iner</label
+                >
+              </div>
               <div class="yks-puan-block">
                 <h3 class="yks-puan-block__title"><i class="fa-solid fa-layer-group"></i> TYT — Doğru / Yanlış</h3>
                 <div class="yks-puan-grid yks-puan-grid--dyb">
@@ -508,7 +520,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksTytTrD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksTytTrY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="ospYksTytTrNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksTytTrNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -518,7 +530,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksTytSosD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksTytSosY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="ospYksTytSosNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksTytSosNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -528,7 +540,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksTytMatD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksTytMatY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="ospYksTytMatNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksTytMatNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -538,7 +550,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksTytFenD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksTytFenY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="ospYksTytFenNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksTytFenNet">—</span></div>
                     </div>
                   </div>
                 </div>
@@ -562,7 +574,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSayMatD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSayMatY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="ospYksAytSayMatNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSayMatNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -572,7 +584,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSayFizD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSayFizY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="ospYksAytSayFizNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSayFizNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -582,7 +594,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSayKimD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSayKimY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="ospYksAytSayKimNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSayKimNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -592,7 +604,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSayBioD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSayBioY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="ospYksAytSayBioNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSayBioNet">—</span></div>
                     </div>
                   </div>
                 </div>
@@ -607,7 +619,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytEaMatD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytEaMatY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="ospYksAytEaMatNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytEaMatNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -617,7 +629,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytEaEdebD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytEaEdebY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="ospYksAytEaEdebNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytEaEdebNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -627,7 +639,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytEaTar1D" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytEaTar1Y" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="ospYksAytEaTar1Net">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytEaTar1Net">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -637,7 +649,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytEaCog1D" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytEaCog1Y" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="ospYksAytEaCog1Net">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytEaCog1Net">—</span></div>
                     </div>
                   </div>
                 </div>
@@ -652,7 +664,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSozEdebD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSozEdebY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="ospYksAytSozEdebNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSozEdebNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -662,7 +674,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSozTar1D" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSozTar1Y" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="ospYksAytSozTar1Net">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSozTar1Net">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -672,7 +684,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSozCog1D" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSozCog1Y" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="ospYksAytSozCog1Net">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSozCog1Net">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -682,7 +694,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSozTar2D" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSozTar2Y" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="ospYksAytSozTar2Net">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSozTar2Net">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -692,7 +704,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSozCog2D" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSozCog2Y" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="ospYksAytSozCog2Net">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSozCog2Net">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -702,7 +714,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSozFelD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSozFelY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="ospYksAytSozFelNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSozFelNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -712,7 +724,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSozDkabD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSozDkabY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="ospYksAytSozDkabNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSozDkabNet">—</span></div>
                     </div>
                   </div>
                 </div>
@@ -727,7 +739,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytDilYdD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytDilYdY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="ospYksAytDilYdNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytDilYdNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -737,34 +749,56 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytDilEdebD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytDilEdebY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="ospYksAytDilEdebNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytDilEdebNet">—</span></div>
                     </div>
                   </div>
                 </div>
-              </div>
-              <div class="yks-puan-obp-block">
-                <h4 class="yks-puan-obp-block__title"><i class="fa-solid fa-graduation-cap"></i> OBP</h4>
-                <div class="yks-obp-mode-row" role="radiogroup" aria-label="OBP giriş türü">
-                  <label class="yks-obp-radio"
-                    ><input type="radio" name="ospYksObpMode" id="ospYksObpModeDiploma" value="diploma" checked /> Diploma notu (100 üzerinden, 50–100)</label
-                  >
-                  <label class="yks-obp-radio"
-                    ><input type="radio" name="ospYksObpMode" id="ospYksObpModeObp60" value="obp60" /> OBP puanı (60 üzerinden, 30–60)</label
-                  >
-                </div>
-                <div class="form-group">
-                  <label for="ospYksObpValue" id="ospYksObpValueLabel">Diploma notu</label>
-                  <input type="number" id="ospYksObpValue" min="0" max="100" step="0.01" inputmode="decimal" placeholder="Örn. 85" />
-                </div>
-                <label class="yks-obp-kirik"
-                  ><input type="checkbox" id="ospYksObpKirik" /> Kırık OBP (daha önce yerleştim) — katkı yarıya iner</label
-                >
               </div>
               <div class="yks-puan-actions">
                 <button type="button" class="osp-btn-primary" id="ospYksPuanHesaplaBtn">Hesapla</button>
                 <button type="button" class="osp-btn-secondary yks-puan-actions__reset" id="ospYksPuanResetBtn">Sıfırla</button>
               </div>
             </form>
+            <aside class="yks-puan-live-dashboard" id="ospYksPuanLiveDashboard" aria-live="polite">
+              <div class="yks-puan-live-dashboard__head">
+                <h3 class="yks-puan-live-dashboard__title"><i class="fa-solid fa-gauge-high"></i> Canlı Sonuç Panosu</h3>
+                <p class="yks-puan-live-dashboard__sub" id="ospYksPuanLiveDashboardSub">Gerçek zamanlı</p>
+              </div>
+              <div class="yks-puan-live-dashboard__grid">
+                <div class="yks-live-card yks-live-card--tyt">
+                  <span class="yks-live-card__label">TYT ham puanı</span>
+                  <span class="yks-live-card__val" id="ospYksPuanDashTytHam">—</span>
+                  <span class="yks-live-card__hint">Taban 100 + katsayı × net</span>
+                </div>
+                <div class="yks-live-card yks-live-card--tyt2">
+                  <span class="yks-live-card__label">Yerleştirmede TYT payı</span>
+                  <span class="yks-live-card__val" id="ospYksPuanDashTytYer">—</span>
+                  <span class="yks-live-card__hint">0,40 × TYT ham</span>
+                </div>
+                <div class="yks-live-card yks-live-card--ayt">
+                  <span class="yks-live-card__label" id="ospYksPuanDashAytLabel">AYT ham puanı</span>
+                  <span class="yks-live-card__val" id="ospYksPuanDashAytHam">—</span>
+                  <span class="yks-live-card__hint" id="ospYksPuanDashAytHint">Seçilen alan</span>
+                </div>
+                <div class="yks-live-card yks-live-card--ayt2">
+                  <span class="yks-live-card__label">Yerleştirmede AYT payı</span>
+                  <span class="yks-live-card__val" id="ospYksPuanDashAytYer">—</span>
+                  <span class="yks-live-card__hint">0,60 × AYT ham</span>
+                </div>
+                <div class="yks-live-card yks-live-card--obp">
+                  <span class="yks-live-card__label">OBP katkısı</span>
+                  <span class="yks-live-card__val" id="ospYksPuanDashObp">—</span>
+                  <span class="yks-live-card__hint">Diploma / OBP60</span>
+                </div>
+                <div class="yks-live-card yks-live-card--total">
+                  <span class="yks-live-card__label">Toplam yerleştirme göstergesi</span>
+                  <span class="yks-live-card__val" id="ospYksPuanDashYerToplam">—</span>
+                  <span class="yks-live-card__hint">Birleşik ham + OBP</span>
+                </div>
+              </div>
+              <p class="yks-puan-live-dashboard__warn" id="ospYksPuanDashWarn" role="status"></p>
+              <p class="yks-puan-live-dashboard__coeff" id="ospYksPuanDashCoeff"></p>
+            </aside>
             <div class="yks-puan-out-grid" id="ospYksPuanOutWrap" hidden aria-live="polite">
               <div class="yks-puan-out-card">
                 <h4 class="yks-puan-out-card__title">Ham puanlar</h4>
@@ -1153,8 +1187,6 @@
             uniTitleId: "ospNsUniTitle",
             deptTitleId: "ospNsDeptSub",
             subtitleId: "ospNsTabanSub",
-            uniFilterId: "ospNsUniFilter",
-            deptFilterId: "ospNsDeptFilter",
             resolveExams: function () {
               try {
                 return (window.OSP && window.OSP.lastFetchedExams) || [];
@@ -2115,6 +2147,8 @@
   }
 })();
   </script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js" crossorigin="anonymous"></script>
   <script type="module" src="js/sorun-bildir.js"></script>
   <script type="module" src="js/ogrenci-panel-app.js"></script>
 </body>

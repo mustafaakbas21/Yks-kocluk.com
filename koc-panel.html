@@ -1271,21 +1271,58 @@
       box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
     }
     .kk-acc__head {
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 0.45rem;
+      padding: 0.85rem 1rem 0.85rem 0.85rem;
+    }
+    .kk-acc__head-toggle {
+      flex: 1;
+      min-width: 0;
       width: 100%;
       display: grid;
       grid-template-columns: 1fr auto;
       gap: 0.75rem 1rem;
       align-items: center;
-      padding: 0.85rem 1rem;
+      padding: 0 0 0 0.15rem;
       background: transparent;
       border: none;
       cursor: pointer;
       text-align: left;
       font-family: inherit;
       color: inherit;
+      border-radius: 10px;
     }
-    .kk-acc__head:hover {
+    .kk-acc__head-toggle:hover {
       background: rgba(124, 58, 237, 0.08);
+    }
+    .kk-acc__del {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      margin-top: 0.05rem;
+      padding: 0.35rem 0.5rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      color: #f87171;
+      background: rgba(248, 113, 113, 0.1);
+      border: 1px solid rgba(248, 113, 113, 0.35);
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+    .kk-acc__del:hover {
+      color: #fecaca;
+      background: rgba(248, 113, 113, 0.22);
+      border-color: rgba(248, 113, 113, 0.55);
+    }
+    .kk-acc__del i {
+      font-size: 0.8rem;
     }
     .kk-acc__head-main {
       min-width: 0;
@@ -1633,16 +1670,37 @@
     .hp-workspace { margin-top: 0.5rem; }
     .hp-dual-board {
       display: grid;
-      grid-template-columns: 1fr minmax(120px, auto) 1fr;
-      grid-template-areas: "past bridge plan";
-      gap: 0.75rem;
+      grid-template-columns: 1fr;
+      grid-template-areas: "past" "bridge" "plan";
+      gap: 1rem;
       align-items: stretch;
     }
-    @media (max-width: 1100px) {
-      .hp-dual-board {
-        grid-template-columns: 1fr;
-        grid-template-areas: "past" "bridge" "plan";
-      }
+    .go-hp-fullwidth {
+      grid-column: 1 / -1;
+      margin-top: 1.25rem;
+      padding: 1rem 0 2rem;
+      border-top: 1px solid rgba(139, 92, 246, 0.22);
+    }
+    .go-hp-fullwidth__head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .go-hp-fullwidth__head h2 {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #f5f3ff;
+      letter-spacing: -0.02em;
+    }
+    .go-hp-fullwidth__head p {
+      margin: 0.35rem 0 0;
+      font-size: 0.85rem;
+      color: #94a3b8;
+      max-width: 52ch;
     }
     .hp-panel--past { grid-area: past; }
     .hp-bridge {
@@ -3268,6 +3326,20 @@
   <link rel="stylesheet" href="css/derece-board.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
   <!-- TestMaker: Cropper.js + pdf.js (head’de CSS); script’ler body sonunda (html2pdf, cropper, pdf) -->
+  <style>
+    @keyframes koc-sidebar-page-refresh-spin {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(360deg);
+      }
+    }
+    #btnSidebarPageRefresh i.is-refresh-spinning {
+      display: inline-block;
+      animation: koc-sidebar-page-refresh-spin 1s linear forwards;
+    }
+  </style>
 </head>
 <body class="has-site-credit">
   <div class="app app--elite-layout app--sidebar-readable">
@@ -3347,6 +3419,9 @@
               <button type="button" class="sidebar__sublink" data-nav="ders-board" title="Beyaz tahta — DereceBoard">
                 <i class="fa-solid fa-pen-ruler"></i><span>Board</span>
               </button>
+              <button type="button" class="sidebar__sublink" data-nav="board-library" title="Kayıtlı tahtalar — Board Kütüphanesi">
+                <span aria-hidden="true">📚</span><span>Board Kütüphanesi</span>
+              </button>
             </div>
           </li>
           <li class="sidebar__item--mr has-submenu">
@@ -3419,7 +3494,7 @@
               <button type="button" class="sidebar__sublink" data-nav="hedef-simulator" title="Hedef üniversite ve net simülasyonu">
                 <i class="fa-solid fa-bullseye"></i><span>Hedef Simülatörü</span>
               </button>
-              <button type="button" class="sidebar__sublink" data-nav="net-sihirbazi" title="TYT-AYT Net Sihirbazı — yks-data.json">
+              <button type="button" class="sidebar__sublink" data-nav="net-sihirbazi" title="TYT-AYT Net Sihirbazı — YÖK Atlas katalog">
                 <i class="fa-solid fa-crosshairs"></i><span>TYT-AYT Net Sihirbazı</span>
               </button>
               <button type="button" class="sidebar__sublink" data-nav="tercih-sihirbazi" title="Tercih Sihirbazı — yks-data.json filtre">
@@ -3494,6 +3569,19 @@
           </li>
         </ul>
         <ul class="sidebar__menu sidebar__menu--footer">
+          <li class="tw-important-root">
+            <button
+              type="button"
+              class="group sidebar__link sidebar__link--refresh flex w-full items-center gap-2 rounded-lg border-0 bg-transparent px-[0.65rem] py-2 min-h-[2.5rem] text-left text-[0.92rem] font-semibold text-slate-700 shadow-none transition-colors duration-200 hover:bg-violet-50 hover:text-violet-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
+              id="btnSidebarPageRefresh"
+              aria-label="Sayfayı yenile"
+              title="Sayfayı yenile (önbellek temizlenerek)"
+              onclick="(function (btn) { var ic = btn.querySelector('i'); if (ic) ic.classList.add('is-refresh-spinning'); setTimeout(function () { try { window.location.reload(true); } catch (_e) { window.location.reload(); } }, 1000); })(this);"
+            >
+              <i class="fa-solid fa-arrows-rotate shrink-0 text-[1rem] text-slate-500 transition-colors duration-200 group-hover:text-violet-600" aria-hidden="true"></i>
+              <span>Sayfayı Yenile</span>
+            </button>
+          </li>
           <li>
             <button type="button" class="sidebar__link sidebar__link--logout" id="btnLogout">
               <i class="fa-solid fa-right-from-bracket"></i><span>Çıkış Yap</span>
@@ -3712,11 +3800,6 @@
                   <h2 class="go-card__title"><i class="fa-solid fa-scale-balanced"></i> Hedef vs. gerçeklik (net)</h2>
                   <div id="goHedefBars" class="go-hedef-bars"></div>
                 </article>
-
-                <article class="go-card">
-                  <h2 class="go-card__title"><i class="fa-solid fa-clipboard-check"></i> Geçen haftanın görev karnesi</h2>
-                  <div id="goKarnesiBody" class="go-karnesi"></div>
-                </article>
               </div>
 
               <div class="go-cockpit__col go-cockpit__col--aksiyon">
@@ -3746,6 +3829,68 @@
                 </article>
               </div>
             </div>
+
+            <section class="go-hp-fullwidth" id="goHpWeeklyEmbed" aria-label="Haftalık program">
+              <div class="go-hp-fullwidth__head">
+                <div>
+                  <h2><i class="fa-solid fa-calendar-week"></i> Haftalık program</h2>
+                  <p>Geçen hafta karnesi ve yeni hafta planı — Görev Takibi ile aynı <strong>coach_tasks</strong> verisi; kayıt öğrenci paneli planına aktarılır.</p>
+                </div>
+                <button type="button" class="btn btn--purple" id="goBtnHpSaveWeeklyProgram" style="font-weight:800;padding:0.65rem 1.35rem;box-shadow:0 8px 28px rgba(109,40,217,0.35)">
+                  💾 Haftalık Programı Kaydet
+                </button>
+              </div>
+              <div id="goHpEmptyState" class="hp-empty">
+                <i class="fa-solid fa-arrow-up"></i>
+                <p>Öğrenci seçildiğinde geçen hafta özeti ve planlayıcı burada görünür.</p>
+              </div>
+              <div id="goHpWorkspace" class="hp-workspace" hidden>
+                <div class="hp-dual-board">
+                  <div class="hp-panel hp-panel--past" aria-label="Geçen haftanın karnesi">
+                    <div class="hp-panel__head">
+                      <h3 class="hp-panel__title"><i class="fa-solid fa-clipboard-check"></i> Geçen haftanın karnesi</h3>
+                      <p class="hp-panel__sub" id="goHpPrevWeekRangeLabel" aria-live="polite"></p>
+                    </div>
+                    <div class="hp-week-wrap hp-week-wrap--readonly">
+                      <div class="hp-week-grid hp-week-grid--readonly" id="goHpPrevWeekGrid" role="group" aria-label="Geçen hafta günleri"></div>
+                    </div>
+                  </div>
+                  <div class="hp-bridge">
+                    <button type="button" class="btn btn--sm btn--purple hp-bridge__btn" id="goHpBtnCarryIncomplete" title="Geçen hafta tamamlanmamış görevleri bu haftanın aynı günlerine kopyala">
+                      <i class="fa-solid fa-arrow-right-arrow-left"></i>
+                      <span>Yapılmayanları bu haftaya aktar</span>
+                    </button>
+                  </div>
+                  <div class="hp-panel hp-panel--plan" aria-label="Yeni hafta planlayıcı">
+                    <div class="hp-panel__head">
+                      <h3 class="hp-panel__title"><i class="fa-solid fa-calendar-plus"></i> Yeni hafta planlayıcı</h3>
+                      <p class="hp-panel__sub" id="goHpWeekRangeLabel" aria-live="polite"></p>
+                    </div>
+                    <div class="hp-layout">
+                      <aside class="hp-toolbox" aria-label="Araç kutusu">
+                        <h3 class="hp-toolbox__title"><i class="fa-solid fa-toolbox"></i> Araç kutusu</h3>
+                        <p class="hp-toolbox__hint">Kartı güne sürükleyin; detay formu açılır</p>
+                        <div class="hp-tool hp-tool--konu" draggable="true" data-hp-tool="konu" title="Konu Çalışma">
+                          <span class="hp-tool__ico" aria-hidden="true">📖</span>
+                          <span class="hp-tool__txt">Konu Çalışma</span>
+                        </div>
+                        <div class="hp-tool hp-tool--soru" draggable="true" data-hp-tool="soru" title="Soru Çözme">
+                          <span class="hp-tool__ico" aria-hidden="true">📝</span>
+                          <span class="hp-tool__txt">Soru Çözme</span>
+                        </div>
+                        <div class="hp-tool hp-tool--deneme" draggable="true" data-hp-tool="deneme" title="Deneme Çözme">
+                          <span class="hp-tool__ico" aria-hidden="true">🎯</span>
+                          <span class="hp-tool__txt">Deneme Çözme</span>
+                        </div>
+                      </aside>
+                      <div class="hp-week-wrap">
+                        <div class="hp-week-grid" id="goHpWeekGrid" role="group" aria-label="Bu haftanın günleri"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
           </div>
         </div>
 
@@ -4089,9 +4234,9 @@
           </div>
           <section class="yks-pro-root" aria-label="Haftalık program">
             <div class="yks-pro-hero">
-              <span class="yks-pro-hero__badge">Dual-Board</span>
+              <span class="yks-pro-hero__badge">Haftalık</span>
               <h1>Haftalık çalışma programı</h1>
-              <p>Solda geçen haftanın karnesi (salt okunur), sağda bu haftanın sürükle-bırak planlayıcısı. Tüm görevler Appwrite <strong>coach_tasks</strong> ile kayıtlıdır ve <strong>Görev Takibi</strong> ile anlık senkron olur.</p>
+              <p>Üstte geçen haftanın karnesi (salt okunur), altta bu haftanın sürükle-bırak planlayıcısı ve araç kutusu. Tüm görevler Appwrite <strong>coach_tasks</strong> ile kayıtlıdır; <strong>Görüşme Odası</strong> ve <strong>Görev Takibi</strong> ile anlık senkron olur.</p>
             </div>
             <div class="hp-student-bar">
               <div class="hp-student-bar__row">
@@ -4158,24 +4303,19 @@
                   </div>
                 </div>
               </div>
+              <div class="hp-save-bar" style="margin-top:1.25rem;display:flex;flex-wrap:wrap;justify-content:center;gap:0.75rem">
+                <button type="button" class="btn btn--purple" id="btnHpSaveWeeklyProgram" style="font-weight:800;padding:0.65rem 1.35rem;box-shadow:0 8px 28px rgba(109,40,217,0.35)">
+                  💾 Haftalık Programı Kaydet
+                </button>
+              </div>
             </div>
           </section>
         </div>
 
         <div class="main-view tw-important-root" data-view="ders-board" id="view-ders-board" hidden>
           <div class="derece-board" id="dereceBoardRoot">
+            <input type="file" id="dereceBoardPdfInput" accept="application/pdf,.pdf" hidden aria-hidden="true" />
             <aside class="derece-board__toolbar" aria-label="Çizim araçları">
-              <div class="derece-board__toolbar-save">
-                <button type="button" class="derece-board__btn-save-lib" data-db-save-lib title="Tüm sayfaları Appwrite kütüphanesine kaydet">
-                  <i class="fa-solid fa-handshake" aria-hidden="true"></i>
-                  <span>Kütüphaneye Kaydet</span>
-                </button>
-                <button type="button" class="derece-board__btn-pdf" data-db-pdf title="PDF ilk sayfa — arka plan">
-                  <i class="fa-solid fa-file-pdf" aria-hidden="true"></i>
-                  <span>PDF</span>
-                </button>
-              </div>
-              <input type="file" id="dereceBoardPdfInput" accept="application/pdf,.pdf" hidden aria-hidden="true" />
               <button type="button" class="derece-board__tool derece-board__tool--pen-black is-active" data-db-tool="pen-black" title="Siyah kalem">
                 <i class="fa-solid fa-pencil" aria-hidden="true"></i>
               </button>
@@ -4187,6 +4327,9 @@
               </button>
               <button type="button" class="derece-board__tool" data-db-tool="eraser" title="Silgi">
                 <i class="fa-solid fa-eraser" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="derece-board__tool derece-board__tool--hand" data-db-tool="hand" title="El — gezinme (pan)">
+                <i class="fa-solid fa-hand-paper" aria-hidden="true"></i>
               </button>
               <button type="button" class="derece-board__tool derece-board__tool--shapes" data-db-shapes-toggle title="Şekiller">
                 <i class="fa-solid fa-ruler-combined" aria-hidden="true"></i>
@@ -4205,6 +4348,9 @@
               <button type="button" class="derece-board__tool" data-db-redo title="İleri al">
                 <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
               </button>
+              <button type="button" class="derece-board__tool" data-db-clear-canvas title="Tüm çizimi sil">
+                <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+              </button>
               <button type="button" class="derece-board__tool" data-db-tool="text" title="Metin">
                 <span style="font-weight:800;font-size:1rem">T</span>
               </button>
@@ -4219,23 +4365,34 @@
               </div>
             </aside>
             <div class="derece-board__main">
+              <div class="derece-board__topbar" role="toolbar" aria-label="Tahta üst menü">
+                <button type="button" class="derece-board__topbar-btn" data-db-save-lib title="Tüm sayfaları kütüphaneye kaydet">
+                  <span class="derece-board__topbar-ico" aria-hidden="true">💾</span><span>Kütüphaneye Kaydet</span>
+                </button>
+                <button type="button" class="derece-board__topbar-btn" data-db-pdf-import title="PDF ilk sayfayı arka plan olarak yükle">
+                  <span class="derece-board__topbar-ico" aria-hidden="true">📥</span><span>PDF Aktar</span>
+                </button>
+                <button type="button" class="derece-board__topbar-btn" data-db-page-add-top title="Yeni sayfa ekle">
+                  <span class="derece-board__topbar-ico" aria-hidden="true">➕</span><span>Sayfa Ekle</span>
+                </button>
+                <button type="button" class="derece-board__topbar-btn" data-db-toggle-edit title="Sayfa silme ve şerit modu">
+                  <span class="derece-board__topbar-ico" aria-hidden="true">✏️</span><span class="derece-board__toggle-edit-label">Düzenle</span>
+                </button>
+                <button type="button" class="derece-board__topbar-btn" data-db-pdf-export title="Tahtayı HD PDF olarak indir">
+                  <span class="derece-board__topbar-ico" aria-hidden="true">⬇️</span><span>PDF İndir</span>
+                </button>
+                <button type="button" class="derece-board__topbar-btn derece-board__topbar-btn--primary" data-db-share-open title="Seçili öğrencilere gönder">
+                  <span class="derece-board__topbar-ico" aria-hidden="true">🚀</span><span>Öğrenciye Gönder</span>
+                </button>
+              </div>
               <div class="derece-board__titlebar">
                 <h1>DereceBoard</h1>
                 <input type="text" id="dereceBoardTitleInput" maxlength="120" placeholder="Tahta başlığı…" value="Yeni tahta" />
-                <div class="derece-board__titlebar-actions">
-                  <button type="button" class="derece-board__btn-title-action" data-db-pdf-export title="Tahtayı HD PDF olarak indir">
-                    <i class="fa-solid fa-file-pdf" aria-hidden="true"></i> PDF İndir
-                  </button>
-                  <button type="button" class="derece-board__btn-share-top" data-db-share-open title="Seçili öğrencilere gönder">
-                    <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Öğrenciye Gönder
-                  </button>
-                </div>
               </div>
               <div class="derece-board__sheet-wrap">
                 <!-- Fabric canvas sayfaları JS ile eklenir -->
               </div>
             </div>
-            <button type="button" class="derece-board__fab-edit">Düzenle</button>
             <div class="derece-board__page-strip" aria-label="Sayfa önizlemeleri"></div>
             <div class="derece-board__popover" id="dereceBoardPopover" aria-hidden="true">
               <label for="dereceBoardBrushRange">Kalınlık</label>
@@ -4264,6 +4421,16 @@
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div class="main-view tw-important-root" data-view="board-library" id="view-board-library" hidden>
+          <div class="page-head" style="padding: 1rem 1.25rem 0.5rem">
+            <h1 class="page-head__title">📚 Board Kütüphanesi</h1>
+            <p class="page-desc" style="margin: 0.5rem 0 1rem; color: #64748b; max-width: 42rem">
+              Kayıtlı tahtalarınız Appwrite <code>boards</code> koleksiyonunda saklanır. Board sayfasında «Kütüphaneye Kaydet» ile kaydedebilirsiniz.
+            </p>
+            <button type="button" class="btn btn--purple" data-nav="ders-board">Tahtaya git</button>
           </div>
         </div>
 
@@ -4365,53 +4532,94 @@
             <h1 class="page-head__title">📚 Kütüphanem</h1>
             <p class="page-head__meta" style="margin:0;font-size:0.88rem;color:#64748b">Kitap havuzunuzu oluşturun; öğrencilere «Kaynak / Kitap Takibi» üzerinden atayın.</p>
           </div>
-          <section class="yks-pro-root kutu-page" aria-label="Kütüphane">
-            <div class="kutu-hero">
-              <span class="yks-pro-hero__badge">Appwrite</span>
-              <h2>Koç kütüphanesi</h2>
-              <p>Eklediğiniz kitaplar <code>kaynaklar</code> koleksiyonunda saklanır ve yalnızca sizin hesabınıza bağlıdır.</p>
+          <section class="yks-pro-root kutu-page tw-important-root max-w-6xl mx-auto px-1 sm:px-0" aria-label="Kütüphane">
+            <div class="rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-6 md:p-8 shadow-sm mb-6">
+              <span class="inline-flex items-center rounded-full bg-violet-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-violet-800">Appwrite</span>
+              <h2 class="mt-3 text-xl md:text-2xl font-extrabold text-violet-950 tracking-tight">Koç kütüphanesi</h2>
+              <p class="mt-2 text-sm text-slate-600 leading-relaxed max-w-2xl">Eklediğiniz kitaplar <code class="rounded-md bg-violet-100/80 px-1.5 py-0.5 text-xs font-mono text-violet-800">kaynaklar</code> koleksiyonunda saklanır; yalnızca hesabınıza bağlıdır.</p>
             </div>
-            <div class="kutu-form-card">
-              <h3 class="kutu-form-card__title"><i class="fa-solid fa-plus-circle"></i> Yeni kitap ekle</h3>
-              <form id="formKutuphaneYeni" class="kutu-form-grid">
-                <div class="form-group">
-                  <label class="form-required" for="kutuKitapAdi">Kitap adı</label>
-                  <input type="text" id="kutuKitapAdi" name="title" required maxlength="200" placeholder="Örn. 345 TYT Matematik" autocomplete="off" />
-                </div>
-                <div class="form-group">
-                  <label class="form-required" for="kutuDers">Ders</label>
-                  <select id="kutuDers" name="subject" required>
-                    <option value="">— Seçin —</option>
-                    <option value="Matematik">Matematik</option>
-                    <option value="Geometri">Geometri</option>
-                    <option value="Türkçe">Türkçe</option>
-                    <option value="Paragraf">Paragraf</option>
-                    <option value="Fizik">Fizik</option>
-                    <option value="Kimya">Kimya</option>
-                    <option value="Biyoloji">Biyoloji</option>
-                    <option value="Tarih">Tarih</option>
-                    <option value="Coğrafya">Coğrafya</option>
-                    <option value="Felsefe">Felsefe</option>
-                    <option value="Edebiyat">Edebiyat</option>
-                    <option value="İngilizce">İngilizce</option>
-                    <option value="AYT Matematik">AYT Matematik</option>
-                    <option value="AYT Edebiyat">AYT Edebiyat</option>
-                    <option value="Genel">Genel</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label class="form-required" for="kutuToplam">Toplam sayfa / test sayısı</label>
-                  <input type="number" id="kutuToplam" name="totalPages" required min="1" max="99999" step="1" placeholder="Örn. 320" />
-                </div>
-                <div class="form-group kutu-form-actions">
-                  <button type="submit" class="btn btn--purple"><i class="fa-solid fa-cloud-arrow-up"></i> Kütüphaneye kaydet</button>
+
+            <div class="rounded-2xl border border-slate-200/80 bg-white p-5 md:p-7 shadow-sm mb-6">
+              <h3 class="text-lg font-bold text-slate-900 mb-5 flex items-center gap-3">
+                <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-md"><i class="fa-solid fa-book-medical"></i></span>
+                Yeni kitap ekle
+              </h3>
+              <form id="formKutuphaneYeni" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+                <label class="block min-w-0">
+                  <span class="text-xs font-semibold text-slate-500 mb-1.5 block">Kitap adı <span class="text-rose-500">*</span></span>
+                  <div class="relative">
+                    <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-violet-400"><i class="fa-solid fa-book"></i></span>
+                    <input type="text" id="kutuKitapAdi" name="title" required maxlength="200" placeholder="Örn. 345 TYT Matematik" autocomplete="off" class="w-full rounded-xl border border-slate-200 bg-slate-50/90 pl-10 pr-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-inner focus:border-violet-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-200" />
+                  </div>
+                </label>
+                <label class="block min-w-0">
+                  <span class="text-xs font-semibold text-slate-500 mb-1.5 block">Ders <span class="text-rose-500">*</span></span>
+                  <div class="relative">
+                    <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-violet-400 z-[1]"><i class="fa-solid fa-tag"></i></span>
+                    <select id="kutuDers" name="subject" required class="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/90 pl-10 pr-8 py-2.5 text-sm text-slate-900 shadow-inner focus:border-violet-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-200">
+                      <option value="">— Seçin —</option>
+                      <option value="Matematik">Matematik</option>
+                      <option value="Geometri">Geometri</option>
+                      <option value="Türkçe">Türkçe</option>
+                      <option value="Paragraf">Paragraf</option>
+                      <option value="Fizik">Fizik</option>
+                      <option value="Kimya">Kimya</option>
+                      <option value="Biyoloji">Biyoloji</option>
+                      <option value="Tarih">Tarih</option>
+                      <option value="Coğrafya">Coğrafya</option>
+                      <option value="Felsefe">Felsefe</option>
+                      <option value="Edebiyat">Edebiyat</option>
+                      <option value="İngilizce">İngilizce</option>
+                      <option value="AYT Matematik">AYT Matematik</option>
+                      <option value="AYT Edebiyat">AYT Edebiyat</option>
+                      <option value="Genel">Genel</option>
+                    </select>
+                    <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"><i class="fa-solid fa-chevron-down"></i></span>
+                  </div>
+                </label>
+                <label class="block min-w-0">
+                  <span class="text-xs font-semibold text-slate-500 mb-1.5 block">Kitap Türü <span class="text-rose-500">*</span></span>
+                  <div class="relative">
+                    <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-violet-400 z-[1]"><i class="fa-solid fa-layer-group"></i></span>
+                    <select id="kutuKitapTuru" name="kitap_turu" required class="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/90 pl-10 pr-8 py-2.5 text-sm text-slate-900 shadow-inner focus:border-violet-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-200">
+                      <option value="" selected disabled>Tür Seçin</option>
+                      <option value="soru_bankasi">Soru Bankası</option>
+                      <option value="konu_anlatimi">Konu Anlatımı</option>
+                      <option value="deneme_sinavi">Deneme Sınavı</option>
+                      <option value="fasikul">Fasikül</option>
+                      <option value="okuma_kitabi">Okuma Kitabı</option>
+                    </select>
+                    <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"><i class="fa-solid fa-chevron-down"></i></span>
+                  </div>
+                </label>
+                <label class="block min-w-0">
+                  <span class="text-xs font-semibold text-slate-500 mb-1.5 block">Sayfa / test sayısı <span class="text-rose-500">*</span></span>
+                  <div class="relative">
+                    <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-violet-400"><i class="fa-solid fa-hashtag"></i></span>
+                    <input type="number" id="kutuToplam" name="totalPages" required min="1" max="99999" step="1" placeholder="Örn. 320" class="w-full rounded-xl border border-slate-200 bg-slate-50/90 pl-10 pr-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-inner focus:border-violet-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-200" />
+                  </div>
+                </label>
+                <div class="md:col-span-2 lg:col-span-4 flex flex-wrap justify-end gap-2 pt-1">
+                  <button type="submit" class="group inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition hover:shadow-lg hover:from-violet-500 hover:to-indigo-500 focus:outline-none focus:ring-2 focus:ring-violet-300 focus:ring-offset-2">
+                    <i class="fa-solid fa-plus transition group-hover:scale-110"></i> Kütüphaneye kaydet
+                  </button>
                 </div>
               </form>
             </div>
-            <div class="kutu-list-card">
-              <h3 class="kutu-form-card__title"><i class="fa-solid fa-layer-group"></i> Kayıtlı kitaplar</h3>
-              <div id="kutuphaneListRoot" class="kutu-list-root">
-                <p class="kk-lib-empty" style="margin:0">Yükleniyor…</p>
+
+            <div class="rounded-2xl border border-slate-200/80 bg-white p-5 md:p-7 shadow-sm">
+              <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-5">
+                <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600"><i class="fa-solid fa-layer-group"></i></span>
+                  Kayıtlı kitaplar
+                </h3>
+                <div class="relative w-full sm:max-w-md">
+                  <i class="fa-solid fa-magnifying-glass pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                  <input type="search" id="kutuphaneSearchInput" autocomplete="off" placeholder="Kitaplarda ara…" class="w-full rounded-full border border-slate-200 bg-slate-50/80 py-3 pl-11 pr-4 text-sm text-slate-800 placeholder:text-slate-400 shadow-sm transition focus:border-violet-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-200" />
+                </div>
+              </div>
+              <div id="kutuphaneListRoot" class="min-h-[120px]">
+                <p class="text-center text-sm text-slate-500 py-8">Yükleniyor…</p>
               </div>
             </div>
           </section>
@@ -4551,79 +4759,132 @@
               </div>
               <div id="dnmError" class="dnm-alert dnm-alert--err" hidden role="alert"></div>
               <div class="dnm-table-wrap" id="dnmTableWrap">
-                <table class="dnm-table" aria-label="Deneme listesi">
-                  <thead>
-                    <tr>
-                      <th>Deneme adı</th>
-                      <th>Tarih</th>
-                      <th>Yayın türü</th>
-                      <th>Durum</th>
-                      <th class="dnm-th-actions">İşlemler</th>
-                    </tr>
-                  </thead>
-                  <tbody id="dnmTableBody"></tbody>
-                </table>
-                <p id="dnmEmpty" class="dnm-empty" hidden>Henüz kayıtlı deneme yok. Yeni deneme planlayarak başlayın.</p>
+                <div id="dnmTableBlock" class="dnm-table-block">
+                  <table class="dnm-table" aria-label="Deneme listesi">
+                    <thead>
+                      <tr>
+                        <th>Deneme adı</th>
+                        <th>Sınav türü</th>
+                        <th>Yayın evi</th>
+                        <th>Uygulama tarihi</th>
+                        <th>Zorluk</th>
+                        <th>Durum</th>
+                        <th class="dnm-th-actions">İşlemler</th>
+                      </tr>
+                    </thead>
+                    <tbody id="dnmTableBody"></tbody>
+                  </table>
+                </div>
+                <div id="dnmEmptyState" class="dnm-empty-state" hidden>
+                  <div class="dnm-empty-state__art" aria-hidden="true">
+                    <svg class="dnm-empty-state__svg" viewBox="0 0 200 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="24" y="28" width="152" height="108" rx="12" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="2" />
+                      <rect x="40" y="48" width="120" height="8" rx="4" fill="#e2e8f0" />
+                      <rect x="40" y="64" width="88" height="8" rx="4" fill="#e2e8f0" />
+                      <rect x="40" y="88" width="36" height="28" rx="6" fill="#e0e7ff" stroke="#a5b4fc" stroke-width="1.5" />
+                      <rect x="82" y="88" width="36" height="28" rx="6" fill="#fef3c7" stroke="#fcd34d" stroke-width="1.5" />
+                      <rect x="124" y="88" width="36" height="28" rx="6" fill="#fce7f3" stroke="#f9a8d4" stroke-width="1.5" />
+                      <path d="M100 118 L100 132 M94 126 L106 126" stroke="#6366f1" stroke-width="2.5" stroke-linecap="round" />
+                      <circle cx="156" cy="44" r="18" fill="#eef2ff" stroke="#818cf8" stroke-width="2" />
+                      <path d="M150 44 L154 48 L164 38" stroke="#4f46e5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+                    </svg>
+                  </div>
+                  <p class="dnm-empty-state__title">Henüz planlanmış bir deneme bulunmuyor.</p>
+                  <p class="dnm-empty-state__text">Yeni bir deneme planlayarak süreci başlatın.</p>
+                </div>
               </div>
             </div>
           </div>
 
           <div class="dnm-modal" id="dnmModal" hidden aria-hidden="true">
-            <div class="dnm-modal__backdrop" data-dnm-close tabindex="-1"></div>
-            <div class="dnm-modal__panel" role="dialog" aria-modal="true" aria-labelledby="dnmModalTitle">
-              <div class="dnm-modal__head">
-                <h2 id="dnmModalTitle" class="dnm-modal__title">Yeni Deneme Planla</h2>
+            <div class="dnm-modal__backdrop dnm-modal__backdrop--premium" data-dnm-close tabindex="-1"></div>
+            <div class="dnm-modal__panel dnm-modal__panel--premium" role="dialog" aria-modal="true" aria-labelledby="dnmModalTitle">
+              <div class="dnm-modal__head dnm-modal__head--premium">
+                <div>
+                  <p class="dnm-modal__eyebrow">Deneme planlama</p>
+                  <h2 id="dnmModalTitle" class="dnm-modal__title">Yeni Deneme Planla</h2>
+                </div>
                 <button type="button" class="dnm-modal__x" data-dnm-close aria-label="Kapat">&times;</button>
               </div>
               <div class="dnm-modal__body">
+                <input type="hidden" id="dnmEditingDocId" value="" />
                 <p id="dnmModalFetchErr" class="dnm-alert dnm-alert--err" hidden role="alert"></p>
-                <div class="dnm-form-grid">
-                  <label class="dnm-field">
+                <div class="dnm-form-grid dnm-form-grid--premium">
+                  <label class="dnm-field dnm-field--full">
                     <span class="dnm-label">Deneme adı</span>
-                    <input type="text" id="dnmExamName" class="dnm-input" maxlength="500" required placeholder="Örn. Aralık TYT-3" autocomplete="off" />
+                    <input type="text" id="dnmPlanName" class="dnm-input" maxlength="500" required placeholder="Örn. Özdebir Türkiye Geneli 4" autocomplete="off" />
                   </label>
                   <label class="dnm-field">
-                    <span class="dnm-label">Tarih</span>
-                    <input type="datetime-local" id="dnmExamDate" class="dnm-input" required />
-                  </label>
-                  <label class="dnm-field">
-                    <span class="dnm-label">Yayın türü</span>
-                    <select id="dnmExamType" class="dnm-input" required>
+                    <span class="dnm-label">Sınav türü</span>
+                    <select id="dnmPlanSinavTuru" class="dnm-input" required>
                       <option value="">Seçin</option>
-                      <option value="Kurum İçi">Kurum İçi</option>
-                      <option value="Türkiye Geneli">Türkiye Geneli</option>
+                      <option value="TYT">TYT</option>
+                      <option value="AYT">AYT</option>
+                      <option value="YDT">YDT</option>
+                      <option value="LGS">LGS</option>
                     </select>
                   </label>
-                </div>
-                <div class="dnm-matrix-head">
-                  <span class="dnm-section-title">Cevap anahtarı ve kazanım eşlemesi</span>
-                  <div class="dnm-matrix-controls">
-                    <label class="dnm-field dnm-field--inline">
-                      <span class="dnm-label">Soru sayısı</span>
-                      <input type="number" id="dnmQCount" class="dnm-input dnm-input--sm" min="1" max="200" step="1" placeholder="120" />
-                    </label>
-                    <button type="button" class="dnm-btn dnm-btn--secondary" id="btnDnmBuildMatrix">Matrisi oluştur</button>
+                  <label class="dnm-field">
+                    <span class="dnm-label">Yayın evi</span>
+                    <select id="dnmPlanYayin" class="dnm-input" required>
+                      <option value="">Yayın seçin</option>
+                      <option value="3d">3D Yayınları</option>
+                      <option value="bilgi_sarmal">Bilgi Sarmal</option>
+                      <option value="345">345 Yayınları</option>
+                      <option value="acil">Acil Yayınları</option>
+                      <option value="paraf">Paraf Yayınları</option>
+                      <option value="tonguc">Tonguç Akademi</option>
+                      <option value="ens">En Sınav</option>
+                      <option value="ozdebir">Özdebir</option>
+                      <option value="dig">Diğer</option>
+                    </select>
+                  </label>
+                  <label class="dnm-field">
+                    <span class="dnm-label">Uygulama tarihi</span>
+                    <input type="date" id="dnmPlanDate" class="dnm-input" required />
+                  </label>
+                  <div class="dnm-field dnm-field--full">
+                    <span class="dnm-label">Zorluk derecesi</span>
+                    <input type="hidden" id="dnmPlanZorluk" value="orta" />
+                    <div class="dnm-zorluk" role="group" aria-label="Zorluk">
+                      <button type="button" class="dnm-zorluk__pill dnm-zorluk__pill--kolay" data-dnm-zorluk="kolay" aria-pressed="false">Kolay</button>
+                      <button type="button" class="dnm-zorluk__pill dnm-zorluk__pill--orta is-selected" data-dnm-zorluk="orta" aria-pressed="true">Orta</button>
+                      <button type="button" class="dnm-zorluk__pill dnm-zorluk__pill--zor" data-dnm-zorluk="zor" aria-pressed="false">Zor</button>
+                    </div>
                   </div>
                 </div>
-                <p id="dnmMatrixHint" class="dnm-hint">Ders ve konular Appwrite’tan yüklenir. Her satırda yalnızca listeden seçim yapılır.</p>
-                <div class="dnm-matrix-scroll">
-                  <table class="dnm-matrix-table" id="dnmMatrixTable" hidden>
-                    <thead>
-                      <tr>
-                        <th class="dnm-col-n">Soru</th>
-                        <th>Ders</th>
-                        <th>Konu / kazanım</th>
-                        <th class="dnm-col-ans">Doğru cevap</th>
-                      </tr>
-                    </thead>
-                    <tbody id="dnmMatrixBody"></tbody>
-                  </table>
-                </div>
+                <details class="dnm-details-advanced">
+                  <summary class="dnm-details-advanced__summary">İleri düzey — cevap anahtarı matrisi (isteğe bağlı)</summary>
+                  <div class="dnm-matrix-head">
+                    <span class="dnm-section-title">Cevap anahtarı ve kazanım eşlemesi</span>
+                    <div class="dnm-matrix-controls">
+                      <label class="dnm-field dnm-field--inline">
+                        <span class="dnm-label">Soru sayısı</span>
+                        <input type="number" id="dnmQCount" class="dnm-input dnm-input--sm" min="1" max="200" step="1" placeholder="120" />
+                      </label>
+                      <button type="button" class="dnm-btn dnm-btn--secondary" id="btnDnmBuildMatrix" disabled title="Yakında">Matrisi oluştur</button>
+                    </div>
+                  </div>
+                  <p id="dnmMatrixHint" class="dnm-hint">Matris bağlantısı sonraki sürümde aktif olacak.</p>
+                  <div class="dnm-matrix-scroll">
+                    <table class="dnm-matrix-table" id="dnmMatrixTable" hidden>
+                      <thead>
+                        <tr>
+                          <th class="dnm-col-n">Soru</th>
+                          <th>Ders</th>
+                          <th>Konu / kazanım</th>
+                          <th class="dnm-col-ans">Doğru cevap</th>
+                        </tr>
+                      </thead>
+                      <tbody id="dnmMatrixBody"></tbody>
+                    </table>
+                  </div>
+                </details>
               </div>
-              <div class="dnm-modal__foot">
+              <div class="dnm-modal__foot dnm-modal__foot--premium">
                 <button type="button" class="dnm-btn dnm-btn--ghost" data-dnm-close>İptal</button>
-                <button type="button" class="dnm-btn dnm-btn--primary" id="btnDnmSave">
-                  <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Kaydet
+                <button type="button" class="dnm-btn dnm-btn--primary dnm-btn--glow" id="btnDnmSave">
+                  <i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Kaydet ve Planla
                 </button>
               </div>
             </div>
@@ -5326,44 +5587,95 @@
                 <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="deneme-analiz-karne"><i class="fa-solid fa-chart-line"></i> Analiz</button>
               </nav>
             </header>
-            <div class="tm-auto-cropper-shell">
-              <section class="tm-auto-cropper-panel">
-                <h2 class="tm-auto-cropper-title"><i class="fa-solid fa-file-arrow-up"></i> PDF yükle ve otomatik kırp</h2>
-                <div class="tm-auto-cropper-drop" id="tmAutoCropDropzone" tabindex="0" role="button" aria-label="PDF sürükle bırak alanı">
-                  <input type="file" id="tmAutoCropFileInput" accept=".pdf,application/pdf" />
-                  <i class="fa-solid fa-cloud-arrow-up"></i>
-                  <p><strong>PDF dosyasını</strong> buraya bırakın veya tıklayın</p>
-                  <p class="tm-auto-cropper-drop__file" id="tmAutoCropFileName">Dosya seçilmedi</p>
+            <div class="tw-important-root tm-auto-cropper-root">
+              <div class="flex flex-col lg:flex-row gap-4 px-4 pt-3 pb-2 lg:px-6 lg:pt-4 lg:items-start">
+                <div class="flex flex-col gap-4 min-w-0 flex-1 order-1">
+                  <div>
+                    <h2 class="text-lg font-extrabold text-violet-900 tracking-tight flex items-center gap-2">
+                      <i class="fa-solid fa-scissors text-violet-600"></i> Soru Kırpma
+                    </h2>
+                    <p class="text-sm text-slate-500 mt-1">PDF yükleyin; motor soruları otomatik ayırır. Önizleme ve havuz kaydı bu alanda.</p>
+                  </div>
+                  <section class="tm-auto-cropper-panel border border-violet-200/70 rounded-2xl p-4 bg-white/90 shadow-sm">
+                    <h3 class="text-sm font-bold text-violet-900 mb-3 flex items-center gap-2">
+                      <i class="fa-solid fa-file-arrow-up"></i> PDF yükleme
+                    </h3>
+                    <div class="tm-auto-cropper-drop" id="tmAutoCropDropzone" tabindex="0" role="button" aria-label="PDF sürükle bırak alanı">
+                      <input type="file" id="tmAutoCropFileInput" accept=".pdf,application/pdf" />
+                      <i class="fa-solid fa-cloud-arrow-up"></i>
+                      <p><strong>PDF dosyasını</strong> buraya bırakın veya tıklayın</p>
+                      <p class="tm-auto-cropper-drop__file" id="tmAutoCropFileName">Dosya seçilmedi</p>
+                    </div>
+                    <div class="tm-auto-cropper-toolbar mt-4" role="group" aria-label="Ders ve konu seçimi">
+                      <label><span>Sınav</span><select id="tmAutoCropExam"><option value="TYT">TYT</option><option value="AYT">AYT</option><option value="YDT">YDT</option></select></label>
+                      <label><span>Ders seçiniz</span><select id="tmAutoCropDersSelect"><option value="">— Ders seçiniz —</option></select></label>
+                      <label><span>Konu seçiniz</span><select id="tmAutoCropKonuSelect"><option value="">— Önce ders —</option></select></label>
+                      <label><span>Zorluk</span><select id="tmAutoCropZorluk"><option value="Kolay">Kolay</option><option value="Orta" selected>Orta</option><option value="Zor">Zor</option></select></label>
+                    </div>
+                  </section>
+                  <section class="tm-auto-cropper-result border border-violet-200/70 rounded-2xl p-4 bg-gradient-to-b from-white to-violet-50/40 shadow-sm min-w-0">
+                    <div class="tm-auto-cropper-result__head">
+                      <h3 class="text-base font-bold text-slate-800">Önizleme — kırpılan sorular</h3>
+                      <button type="button" class="tm-ai-gen-btn shrink-0" id="tmAutoCropSaveBtn" disabled>
+                        <i class="fa-solid fa-database"></i> Soru Havuzuna Kaydet
+                      </button>
+                    </div>
+                    <div class="tm-auto-cropper-tools">
+                      <label><span>Sayfa filtresi</span><select id="tmAutoCropPageFilter"><option value="all">Tümü</option></select></label>
+                      <button type="button" class="btn btn--ghost" id="tmAutoCropApplyToolbarMeta" title="Üstteki ders/konuyu görünen sayfadaki tüm öğelere uygular">Üst ders/konuyu uygula</button>
+                      <button type="button" class="btn btn--ghost" id="tmAutoCropSelectAll">Tümünü Seç</button>
+                      <button type="button" class="btn btn--ghost" id="tmAutoCropSelectNone">Seçimi Kaldır</button>
+                    </div>
+                    <p class="tm-auto-cropper-result__hint" id="tmAutoCropHint">Henüz kırpılmış soru yok.</p>
+                    <div class="tm-auto-cropper-grid" id="tmAutoCropGrid"></div>
+                  </section>
                 </div>
-                <label class="tm-auto-cropper-sens">
-                  <span>Hassasiyet (Sensitivity): <strong id="tmAutoCropSensVal">1.00</strong></span>
-                  <input type="range" id="tmAutoCropSensitivity" min="0.65" max="1.45" step="0.05" value="1.00" />
-                </label>
-                <div class="tm-auto-cropper-toolbar" role="group" aria-label="Ders ve konu seçimi">
-                  <label><span>Sınav</span><select id="tmAutoCropExam"><option value="TYT">TYT</option><option value="AYT">AYT</option><option value="YDT">YDT</option></select></label>
-                  <label><span>Ders seçiniz</span><select id="tmAutoCropDersSelect"><option value="">— Ders seçiniz —</option></select></label>
-                  <label><span>Konu seçiniz</span><select id="tmAutoCropKonuSelect"><option value="">— Önce ders —</option></select></label>
-                  <label><span>Zorluk</span><select id="tmAutoCropZorluk"><option value="Kolay">Kolay</option><option value="Orta" selected>Orta</option><option value="Zor">Zor</option></select></label>
-                </div>
-                <div class="tm-auto-cropper-actions">
-                  <button type="button" class="tm-ai-gen-btn" id="tmAutoCropRunBtn"><i class="fa-solid fa-wand-magic-sparkles"></i> Otomatik Kırp</button>
-                  <button type="button" class="btn btn--ghost" id="tmAutoCropClearBtn">Temizle</button>
-                </div>
-              </section>
-              <section class="tm-auto-cropper-result">
-                <div class="tm-auto-cropper-result__head">
-                  <h3>Önizleme</h3>
-                  <button type="button" class="tm-ai-gen-btn" id="tmAutoCropSaveBtn" disabled><i class="fa-solid fa-database"></i> Soru Havuzuna Kaydet</button>
-                </div>
-                <div class="tm-auto-cropper-tools">
-                  <label><span>Sayfa filtresi</span><select id="tmAutoCropPageFilter"><option value="all">Tümü</option></select></label>
-                  <button type="button" class="btn btn--ghost" id="tmAutoCropApplyToolbarMeta" title="Üstteki ders/konuyu görünen sayfadaki tüm öğelere uygular">Üst ders/konuyu uygula</button>
-                  <button type="button" class="btn btn--ghost" id="tmAutoCropSelectAll">Tümünü Seç</button>
-                  <button type="button" class="btn btn--ghost" id="tmAutoCropSelectNone">Seçimi Kaldır</button>
-                </div>
-                <p class="tm-auto-cropper-result__hint" id="tmAutoCropHint">Henüz kırpılmış soru yok.</p>
-                <div class="tm-auto-cropper-grid" id="tmAutoCropGrid"></div>
-              </section>
+                <aside
+                  class="order-2 lg:order-2 lg:w-[min(100%,20rem)] xl:w-80 shrink-0 rounded-2xl border border-violet-200/80 bg-gradient-to-br from-violet-50/90 to-white p-4 shadow-sm ring-1 ring-violet-100"
+                  aria-labelledby="tmAutoCropSettingsTitle"
+                >
+                  <h3 id="tmAutoCropSettingsTitle" class="text-sm font-bold text-violet-900 flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-sliders"></i> Otomatik Kırpıcı Ayarları
+                  </h3>
+                  <label class="block text-xs font-semibold text-slate-600 mb-1">Hassasiyet <span class="text-violet-700" id="tmAutoCropSensVal">1.00</span></label>
+                  <input
+                    type="range"
+                    id="tmAutoCropSensitivity"
+                    class="w-full h-2 rounded-lg accent-violet-600 mb-3"
+                    min="0.65"
+                    max="1.45"
+                    step="0.05"
+                    value="1.00"
+                  />
+                  <label class="block text-xs font-semibold text-slate-600 mb-1">Boşluk sıkılığı (düşük = daha agresif ayırma)</label>
+                  <input
+                    type="range"
+                    id="tmAutoCropGapStrict"
+                    class="w-full h-2 rounded-lg accent-slate-600 mb-1"
+                    min="0.55"
+                    max="1.65"
+                    step="0.05"
+                    value="1.00"
+                  />
+                  <p class="text-[11px] text-slate-500 mb-3"><span id="tmAutoCropGapVal">1.00</span> — dar boşlukları soru aralığı sayar.</p>
+                  <label class="flex items-center justify-between gap-3 cursor-pointer select-none mb-4">
+                    <span class="text-xs font-semibold text-slate-700">Büyük kutuları ikiye böl (rekürsif)</span>
+                    <span class="relative inline-flex shrink-0">
+                      <input type="checkbox" id="tmAutoCropRecursive" class="peer sr-only" checked />
+                      <span
+                        class="block w-11 h-6 rounded-full bg-slate-300 peer-focus-visible:ring-2 peer-focus-visible:ring-violet-400 transition-colors peer-checked:bg-emerald-500 after:content-[''] after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:after:translate-x-[1.25rem]"
+                        aria-hidden="true"
+                      ></span>
+                    </span>
+                  </label>
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button" class="tm-ai-gen-btn flex-1 min-w-[8rem] justify-center" id="tmAutoCropRunBtn">
+                      <i class="fa-solid fa-wand-magic-sparkles"></i> Otomatik Kırp
+                    </button>
+                    <button type="button" class="btn btn--ghost px-3" id="tmAutoCropClearBtn">Temizle</button>
+                  </div>
+                </aside>
+              </div>
             </div>
             <div id="tmAutoCropSavingOverlay" class="tm-auto-crop-saving-overlay" hidden aria-live="polite">
               <div class="tm-auto-crop-saving-overlay__box">
@@ -5766,53 +6078,23 @@
           <div class="page-head" style="margin: 0 1.5rem 1rem">
             <h1 class="page-head__title">Hedef Simülatörü</h1>
             <p class="page-desc">
-              Öğrenci seçin; üniversite ve bölüm listesi <code class="text-xs">src/data/yks-data.json</code> dosyasından gelir. Liste boşsa dosyaya katalog ekleyin.
+              Veri kaynağı: <code class="text-xs">src/data/yok-atlas.json</code> (varsa); aksi halde <code class="text-xs">yks-data.json</code>. Aynı bölüm adı üniversite içinde tek satırda listelenir.
             </p>
           </div>
           <div class="dp-hedef-student-bar">
-            <label for="dpHedefStudentSelect">Öğrenci</label>
-            <select id="dpHedefStudentSelect" aria-label="Hedef simülatörü için öğrenci">
+            <label for="studentSelect">Öğrenci</label>
+            <select id="studentSelect" aria-label="Hedef simülatörü için öğrenci">
               <option value="">— Öğrenci seçin —</option>
             </select>
           </div>
-          <div class="dp-hedef-filters net-sihirbazi-select-row" style="margin: 0 1.5rem 1rem">
+          <div class="dp-hedef-atlas-bar net-sihirbazi-select-row dp-hedef-atlas-bar--two-col" style="margin: 0 1.5rem 1.25rem">
             <div class="net-sihirbazi-select">
-              <label for="dpHedefFilterCity">Şehir</label>
-              <select id="dpHedefFilterCity" aria-label="Üniversite şehri filtresi"></select>
-            </div>
-            <div class="net-sihirbazi-select">
-              <label for="dpHedefFilterPuan">Puan türü</label>
-              <select id="dpHedefFilterPuan" aria-label="Program puan türü filtresi">
-                <option value="">Tümü</option>
-                <option value="sayisal">Sayısal ağırlıklı</option>
-                <option value="sozel_ea">Sözel / EA</option>
-                <option value="dil">Dil</option>
-              </select>
+              <label for="universitySelect">Üniversite</label>
+              <select id="universitySelect" aria-label="Hedef üniversite (YÖK katalog)"></select>
             </div>
             <div class="net-sihirbazi-select">
-              <label for="dpHedefFilterClose">Net yakınlığı</label>
-              <select id="dpHedefFilterClose" aria-label="Mevcut netlere göre sıralama">
-                <option value="">A–Z (bölüm adı)</option>
-                <option value="near">Mevcut netlerime en yakın bölümler</option>
-              </select>
-            </div>
-          </div>
-          <div class="dp-hedef-atlas-bar net-sihirbazi-select-row" style="margin: 0 1.5rem 1rem">
-            <div class="net-sihirbazi-select net-sihirbazi-select--search">
-              <label for="dpHedefUniFilter">Üniversite ara</label>
-              <input type="search" id="dpHedefUniFilter" class="net-sihirbazi-search" placeholder="Yazarak filtreleyin…" autocomplete="off" />
-            </div>
-            <div class="net-sihirbazi-select">
-              <label for="dpHedefUniSelect">Üniversite</label>
-              <select id="dpHedefUniSelect" aria-label="Hedef üniversite"></select>
-            </div>
-            <div class="net-sihirbazi-select net-sihirbazi-select--search">
-              <label for="dpHedefDeptFilter">Bölüm ara</label>
-              <input type="search" id="dpHedefDeptFilter" class="net-sihirbazi-search" placeholder="Yazarak filtreleyin…" autocomplete="off" />
-            </div>
-            <div class="net-sihirbazi-select">
-              <label for="dpHedefDeptSelect">Bölüm / program</label>
-              <select id="dpHedefDeptSelect" aria-label="Hedef bölüm veya program (yerel katalog)"></select>
+              <label for="departmentSelect">Bölüm / program</label>
+              <select id="departmentSelect" aria-label="Hedef bölüm (aynı isim tekilleştirilmiş)"></select>
             </div>
           </div>
           <div class="dp-hedef-page" style="margin: 0 1.5rem">
@@ -5826,7 +6108,7 @@
                 <strong class="dp-hedef-prob__pct" id="dpHedefProbPct">—</strong>
               </div>
               <div class="dp-hedef-prob__track" aria-hidden="true"><div class="dp-hedef-prob__fill" id="dpHedefProbFill"></div></div>
-              <p class="dp-hedef-prob__hint">Güncel netler ile yks-data.json’daki program hedefleri birleştirilerek yaklaşık gösterilir; resmî yerleştirme değildir.</p>
+              <p class="dp-hedef-prob__hint">Hedef netler seçilen programın YÖK/katalog satırlarından okunur; olasılık gösterimi simülasyondur.</p>
             </div>
             <div id="dpHedefPerSubjectGaps" class="dp-hedef-subgap" aria-live="polite"></div>
             <div class="dp-hedef-chart-wrap">
@@ -5842,25 +6124,17 @@
           <div class="page-head" style="margin: 0 1.5rem 1rem">
             <h1 class="page-head__title">TYT-AYT Net Sihirbazı</h1>
             <p class="page-desc">
-              Liste <code class="text-xs">yks-data.json</code> statik kataloğundan gelir; sahte bölüm gösterilmez. Hedef dağılım <code class="text-xs">rowsJson</code> ile yüklenir. Güncel netler, açık öğrenci detayındaki denemelerin YKS branş detayından okunur (mock yok).
+              Veri kaynağı Hedef Simülatörü ile aynı: <code class="text-xs">src/data/yok-atlas.json</code> (öncelik), yedek <code class="text-xs">yks-data.json</code>. YÖK hedef netleri tabloda dosyadaki değerlerle birebir gösterilir. Güncel netler öğrenci detayındaki denemelerin YKS branş detayından okunur.
             </p>
           </div>
           <div class="net-sihirbazi-page" style="margin: 0 1.5rem 2rem">
             <p class="net-sihirbazi-hint">
-              Önce üniversite seçin; bölüm menüsü seçilen üniversitenin <code style="font-size:0.85em">uniId</code> değerine göre <code style="font-size:0.85em">yks-data.json</code> içinden gelir.
+              Üniversite ve bölüm seçin; bölüm listesi seçilen üniversitede aynı isim tek satırda (tekilleştirilmiş) listelenir.
             </p>
-            <div class="dp-hedef-atlas-bar net-sihirbazi-select-row">
-              <div class="net-sihirbazi-select net-sihirbazi-select--search">
-                <label for="dpNsUniFilter">Üniversite ara</label>
-                <input type="search" id="dpNsUniFilter" class="net-sihirbazi-search" placeholder="Yazarak filtreleyin…" autocomplete="off" />
-              </div>
+            <div class="dp-hedef-atlas-bar net-sihirbazi-select-row dp-hedef-atlas-bar--two-col" style="margin: 0">
               <div class="net-sihirbazi-select">
                 <label for="dpNsUniSelect">Üniversite</label>
                 <select id="dpNsUniSelect" aria-label="Üniversite seçimi" size="1"></select>
-              </div>
-              <div class="net-sihirbazi-select net-sihirbazi-select--search">
-                <label for="dpNsDeptFilter">Bölüm ara</label>
-                <input type="search" id="dpNsDeptFilter" class="net-sihirbazi-search" placeholder="Yazarak filtreleyin…" autocomplete="off" disabled />
               </div>
               <div class="net-sihirbazi-select">
                 <label for="dpNsDeptSelect">Bölüm</label>
@@ -5869,7 +6143,7 @@
             </div>
             <div class="dp-hedef-hero net-sihirbazi-hero">
               <h1 id="dpNsUniTitle">Üniversite ve bölüm seçin</h1>
-              <p id="dpNsDeptSub">Net Sihirbazı V2 — yks-data.json</p>
+              <p id="dpNsDeptSub">Net Sihirbazı V2 — YÖK Atlas katalog</p>
               <p id="dpNsTabanSub" class="net-sihirbazi-meta">Veri yükleniyor…</p>
             </div>
             <div id="dpNsNetTableWrap" class="dp-hedef-net-table-host net-sihirbazi-table-host" aria-live="polite"></div>
@@ -5880,20 +6154,24 @@
           <div class="page-head" style="margin: 0 1.5rem 1rem">
             <h1 class="page-head__title">Tercih Sihirbazı</h1>
             <p class="page-desc">
-              Katalog <code class="text-xs">src/data/yks-data.json</code> üzerinden listelenir; tablo sütunları YKS tercih formatına uyarlanmıştır. Varsayılan sıralama <strong>Başarı Sırası</strong> (küçükten büyüğe, matematiksel). Kontenjan / taban puan alanları JSON’da yoksa “-” gösterilir. Güncel resmî veriler için yokatlas.yok.gov.tr kullanın.
+              Veri kaynağı Hedef Simülatörü / Net Sihirbazı ile aynı: <code class="text-xs">yok-atlas.json</code> (öncelik), yedek <code class="text-xs">yks-data.json</code>. Başarı sırası, taban puan ve kontenjan doğrudan katalog alanlarından okunur; yoksa «-» gösterilir. Sonuçlar yalnızca «Filtrele» ile yüklenir.
             </p>
           </div>
-          <form id="dpTsForm" class="ts-wizard-form ts-wizard-form--grid" autocomplete="off">
-            <div class="form-group form-group--wide">
-              <label for="dpTsUniSearch">Üniversite Ara</label>
-              <input type="search" id="dpTsUniSearch" name="uniSearch" placeholder="Üniversite adı (anlık)" />
-            </div>
-            <div class="form-group form-group--wide">
-              <label for="dpTsBolumSearch">Bölüm Ara</label>
-              <input type="search" id="dpTsBolumSearch" name="bolumSearch" placeholder="Bölüm / program (anlık)" />
+          <form id="dpTsForm" class="ts-wizard-form ts-wizard-form--grid dp-ts-filter-bar" autocomplete="off">
+            <div class="form-group">
+              <label for="dpTsUniSelect">Üniversite</label>
+              <select id="dpTsUniSelect" name="uniId" aria-label="Üniversite (isteğe bağlı daralt)">
+                <option value="">— Tüm üniversiteler —</option>
+              </select>
             </div>
             <div class="form-group">
-              <label for="dpTsCity">Şehir Seçiniz</label>
+              <label for="dpTsDeptSelect">Bölüm</label>
+              <select id="dpTsDeptSelect" name="programId" aria-label="Bölüm" disabled>
+                <option value="">— Önce üniversite seçin —</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="dpTsCity">Şehir</label>
               <select id="dpTsCity" name="city" aria-label="Şehir">
                 <option value="">Tüm şehirler</option>
               </select>
@@ -5938,7 +6216,7 @@
               <button type="submit" class="btn btn--filter">Filtrele</button>
             </div>
           </form>
-          <p id="dpTsMeta" class="net-sihirbazi-hint" style="margin: 0 1.5rem 0.75rem">Veri yükleniyor…</p>
+          <p id="dpTsMeta" class="net-sihirbazi-hint" style="margin: 0 1.5rem 0.75rem">Katalog yükleniyor…</p>
           <div id="dpTsTableWrap" class="ts-table-scroll" aria-live="polite"></div>
         </div>
 
@@ -5949,6 +6227,27 @@
           </div>
           <div class="yks-puan-card yks-puan-card--wide" style="margin: 0 1.5rem 2rem">
             <form id="yksPuanForm" class="yks-puan-form" onsubmit="return false;">
+              <div class="yks-puan-obp-block yks-puan-obp-block--top yks-puan-diploma-card">
+                <h4 class="yks-puan-obp-block__title"><i class="fa-solid fa-graduation-cap"></i> Diploma notu (OBP)</h4>
+                <p class="yks-puan-diploma-card__desc">
+                  Yerleştirme puanı hesaplanabilmesi için diploma notu (50–100) veya OBP (30–60) girin.
+                </p>
+                <div class="yks-obp-mode-row" role="radiogroup" aria-label="OBP giriş türü">
+                  <label class="yks-obp-radio"
+                    ><input type="radio" name="yksObpMode" id="yksObpModeDiploma" value="diploma" checked /> Diploma notu (100 üzerinden, 50–100)</label
+                  >
+                  <label class="yks-obp-radio"
+                    ><input type="radio" name="yksObpMode" id="yksObpModeObp60" value="obp60" /> OBP puanı (60 üzerinden, 30–60)</label
+                  >
+                </div>
+                <div class="form-group">
+                  <label for="yksObpValue" id="yksObpValueLabel">Diploma notu (OBP, 50–100)</label>
+                  <input type="number" id="yksObpValue" min="50" max="100" step="0.01" inputmode="decimal" placeholder="Max: 100" />
+                </div>
+                <label class="yks-obp-kirik"
+                  ><input type="checkbox" id="yksObpKirik" /> Kırık OBP (daha önce yerleştim) — katkı yarıya iner</label
+                >
+              </div>
               <div class="yks-puan-block">
                 <h3 class="yks-puan-block__title"><i class="fa-solid fa-layer-group"></i> TYT — Doğru / Yanlış</h3>
                 <div class="yks-puan-grid yks-puan-grid--dyb">
@@ -5959,7 +6258,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="yksTytTrD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="yksTytTrY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="yksTytTrNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="yksTytTrNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -5969,7 +6268,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="yksTytSosD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="yksTytSosY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="yksTytSosNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="yksTytSosNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -5979,7 +6278,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="yksTytMatD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="yksTytMatY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="yksTytMatNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="yksTytMatNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -5989,7 +6288,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="yksTytFenD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="yksTytFenY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="yksTytFenNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="yksTytFenNet">—</span></div>
                     </div>
                   </div>
                 </div>
@@ -6013,7 +6312,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="yksAytSayMatD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="yksAytSayMatY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="yksAytSayMatNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="yksAytSayMatNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -6023,7 +6322,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="yksAytSayFizD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="yksAytSayFizY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="yksAytSayFizNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="yksAytSayFizNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -6033,7 +6332,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="yksAytSayKimD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="yksAytSayKimY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="yksAytSayKimNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="yksAytSayKimNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -6043,7 +6342,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="yksAytSayBioD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="yksAytSayBioY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="yksAytSayBioNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="yksAytSayBioNet">—</span></div>
                     </div>
                   </div>
                 </div>
@@ -6058,7 +6357,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="yksAytEaMatD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="yksAytEaMatY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="yksAytEaMatNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="yksAytEaMatNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -6068,7 +6367,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="yksAytEaEdebD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="yksAytEaEdebY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="yksAytEaEdebNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="yksAytEaEdebNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -6078,7 +6377,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="yksAytEaTar1D" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="yksAytEaTar1Y" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="yksAytEaTar1Net">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="yksAytEaTar1Net">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -6088,7 +6387,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="yksAytEaCog1D" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="yksAytEaCog1Y" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="yksAytEaCog1Net">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="yksAytEaCog1Net">—</span></div>
                     </div>
                   </div>
                 </div>
@@ -6103,7 +6402,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="yksAytSozEdebD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="yksAytSozEdebY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="yksAytSozEdebNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="yksAytSozEdebNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -6113,7 +6412,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="yksAytSozTar1D" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="yksAytSozTar1Y" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="yksAytSozTar1Net">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="yksAytSozTar1Net">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -6123,7 +6422,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="yksAytSozCog1D" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="yksAytSozCog1Y" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="yksAytSozCog1Net">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="yksAytSozCog1Net">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -6133,7 +6432,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="yksAytSozTar2D" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="yksAytSozTar2Y" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="yksAytSozTar2Net">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="yksAytSozTar2Net">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -6143,7 +6442,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="yksAytSozCog2D" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="yksAytSozCog2Y" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="yksAytSozCog2Net">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="yksAytSozCog2Net">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -6153,7 +6452,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="yksAytSozFelD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="yksAytSozFelY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="yksAytSozFelNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="yksAytSozFelNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -6163,7 +6462,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="yksAytSozDkabD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="yksAytSozDkabY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="yksAytSozDkabNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="yksAytSozDkabNet">—</span></div>
                     </div>
                   </div>
                 </div>
@@ -6178,7 +6477,7 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="yksAytDilYdD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="yksAytDilYdY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="yksAytDilYdNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="yksAytDilYdNet">—</span></div>
                     </div>
                   </div>
                   <div class="form-group yks-field">
@@ -6188,34 +6487,56 @@
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="yksAytDilEdebD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="yksAytDilEdebY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
                         </div>
-                      <div class="yks-net-pill" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-pill__lbl">Net</span><span class="yks-net-pill__val" id="yksAytDilEdebNet">—</span></div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="yksAytDilEdebNet">—</span></div>
                     </div>
                   </div>
                 </div>
-              </div>
-              <div class="yks-puan-obp-block">
-                <h4 class="yks-puan-obp-block__title"><i class="fa-solid fa-graduation-cap"></i> OBP</h4>
-                <div class="yks-obp-mode-row" role="radiogroup" aria-label="OBP giriş türü">
-                  <label class="yks-obp-radio"
-                    ><input type="radio" name="yksObpMode" id="yksObpModeDiploma" value="diploma" checked /> Diploma notu (100 üzerinden, 50–100)</label
-                  >
-                  <label class="yks-obp-radio"
-                    ><input type="radio" name="yksObpMode" id="yksObpModeObp60" value="obp60" /> OBP puanı (60 üzerinden, 30–60)</label
-                  >
-                </div>
-                <div class="form-group">
-                  <label for="yksObpValue" id="yksObpValueLabel">Diploma notu</label>
-                  <input type="number" id="yksObpValue" min="0" max="100" step="0.01" inputmode="decimal" placeholder="Örn. 85" />
-                </div>
-                <label class="yks-obp-kirik"
-                  ><input type="checkbox" id="yksObpKirik" /> Kırık OBP (daha önce yerleştim) — katkı yarıya iner</label
-                >
               </div>
               <div class="yks-puan-actions">
                 <button type="button" class="btn btn--purple" id="yksPuanHesaplaBtn">Hesapla</button>
                 <button type="button" class="btn btn--outline yks-puan-actions__reset" id="yksPuanResetBtn">Sıfırla</button>
               </div>
             </form>
+            <aside class="yks-puan-live-dashboard" id="yksPuanLiveDashboard" aria-live="polite">
+              <div class="yks-puan-live-dashboard__head">
+                <h3 class="yks-puan-live-dashboard__title"><i class="fa-solid fa-gauge-high"></i> Canlı Sonuç Panosu</h3>
+                <p class="yks-puan-live-dashboard__sub" id="yksPuanLiveDashboardSub">Gerçek zamanlı</p>
+              </div>
+              <div class="yks-puan-live-dashboard__grid">
+                <div class="yks-live-card yks-live-card--tyt">
+                  <span class="yks-live-card__label">TYT ham puanı</span>
+                  <span class="yks-live-card__val" id="yksPuanDashTytHam">—</span>
+                  <span class="yks-live-card__hint">Taban 100 + katsayı × net</span>
+                </div>
+                <div class="yks-live-card yks-live-card--tyt2">
+                  <span class="yks-live-card__label">Yerleştirmede TYT payı</span>
+                  <span class="yks-live-card__val" id="yksPuanDashTytYer">—</span>
+                  <span class="yks-live-card__hint">0,40 × TYT ham</span>
+                </div>
+                <div class="yks-live-card yks-live-card--ayt">
+                  <span class="yks-live-card__label" id="yksPuanDashAytLabel">AYT ham puanı</span>
+                  <span class="yks-live-card__val" id="yksPuanDashAytHam">—</span>
+                  <span class="yks-live-card__hint" id="yksPuanDashAytHint">Seçilen alan</span>
+                </div>
+                <div class="yks-live-card yks-live-card--ayt2">
+                  <span class="yks-live-card__label">Yerleştirmede AYT payı</span>
+                  <span class="yks-live-card__val" id="yksPuanDashAytYer">—</span>
+                  <span class="yks-live-card__hint">0,60 × AYT ham</span>
+                </div>
+                <div class="yks-live-card yks-live-card--obp">
+                  <span class="yks-live-card__label">OBP katkısı</span>
+                  <span class="yks-live-card__val" id="yksPuanDashObp">—</span>
+                  <span class="yks-live-card__hint">Diploma / OBP60</span>
+                </div>
+                <div class="yks-live-card yks-live-card--total">
+                  <span class="yks-live-card__label">Toplam yerleştirme göstergesi</span>
+                  <span class="yks-live-card__val" id="yksPuanDashYerToplam">—</span>
+                  <span class="yks-live-card__hint">Birleşik ham + OBP</span>
+                </div>
+              </div>
+              <p class="yks-puan-live-dashboard__warn" id="yksPuanDashWarn" role="status"></p>
+              <p class="yks-puan-live-dashboard__coeff" id="yksPuanDashCoeff"></p>
+            </aside>
             <div class="yks-puan-out-grid" id="yksPuanOutWrap" hidden aria-live="polite">
               <div class="yks-puan-out-card">
                 <h4 class="yks-puan-out-card__title">Ham puanlar</h4>
@@ -6231,6 +6552,55 @@
               </div>
             </div>
             <p class="yks-puan-legal-hint" id="yksPuanHint"></p>
+          </div>
+          <div class="yks-puan-save-toolbar">
+            <button type="button" class="btn btn--purple yks-puan-save-open-btn" id="yksPuanSaveOpenBtn" disabled>
+              💾 Sonucu ve Notu Kaydet
+            </button>
+          </div>
+          <section class="yks-puan-saved-section" aria-labelledby="yksPuanSavedHeading">
+            <h2 id="yksPuanSavedHeading" class="yks-puan-saved-section__title">Geçmiş Hesaplamalar ve Notlar</h2>
+            <div id="yksPuanSavedGrid" class="yks-puan-saved-grid" role="list"></div>
+            <p id="yksPuanSavedEmpty" class="yks-puan-saved-empty" hidden>Henüz kayıtlı hesaplama yok.</p>
+          </section>
+          <div
+            id="yksPuanSaveModal"
+            class="yks-puan-modal"
+            hidden
+            aria-modal="true"
+            role="dialog"
+            aria-labelledby="yksPuanSaveModalTitle"
+          >
+            <div class="yks-puan-modal__backdrop" aria-hidden="true"></div>
+            <div class="yks-puan-modal__panel">
+              <div class="yks-puan-modal__header">
+                <h3 id="yksPuanSaveModalTitle" class="yks-puan-modal__title">Sonucu ve notu kaydet</h3>
+                <p class="yks-puan-modal__lead">Hesaplama özeti aşağıdadır; başlık ve notu düzenleyip kaydedin.</p>
+              </div>
+              <div class="yks-puan-modal__field">
+                <label for="yksPuanSaveTitle">Hesaplama başlığı</label>
+                <input type="text" id="yksPuanSaveTitle" class="yks-puan-modal__input" maxlength="200" placeholder="Örn: Mart Ayı Hedef Simülasyonu" autocomplete="off" />
+              </div>
+              <div class="yks-puan-modal__badges-row" aria-label="Puan özeti">
+                <span class="yks-puan-modal__rozet yks-puan-modal__rozet--tyt"
+                  >TYT <strong id="yksPuanSaveBadgeTyt">—</strong></span
+                >
+                <span class="yks-puan-modal__rozet yks-puan-modal__rozet--ayt"
+                  >AYT <strong id="yksPuanSaveBadgeAyt">—</strong></span
+                >
+                <span class="yks-puan-modal__rozet yks-puan-modal__rozet--yer"
+                  >Yerleştirme <strong id="yksPuanSaveBadgeYer">—</strong></span
+                >
+              </div>
+              <div class="yks-puan-modal__field">
+                <label for="yksPuanSaveNote">Koçun notu</label>
+                <textarea id="yksPuanSaveNote" class="yks-puan-modal__textarea" rows="5" placeholder="Gözlemlerinizi, hedefi veya öğrenciye özel notunuzu yazın…"></textarea>
+              </div>
+              <div class="yks-puan-modal__actions">
+                <button type="button" class="btn btn--outline" id="yksPuanSaveModalCancel">İptal</button>
+                <button type="button" class="btn btn--purple" id="yksPuanSaveModalSubmit">Kaydet</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -7255,6 +7625,68 @@
       </div>
     </div>
 
+    <!-- Kütüphanem — kitap düzenle -->
+    <div class="modal modal--lg" id="kutuphaneEditModal" role="dialog" aria-labelledby="kutuphaneEditModalTitle" hidden>
+      <form id="formKutuphaneEdit" class="modal__form">
+        <div class="modal__head">
+          <div>
+            <h2 class="modal__title" id="kutuphaneEditModalTitle"><i class="fa-solid fa-pen-to-square"></i> Kitabı düzenle</h2>
+            <p class="modal__subtitle">Kütüphane kaydı Appwrite <code>kaynaklar</code> koleksiyonunda güncellenir.</p>
+          </div>
+          <button type="button" class="modal__close" data-close-modal aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal__body">
+          <input type="hidden" id="kutuEditDocId" />
+          <div class="form-grid form-grid--2">
+            <label class="form-group form-group--full">
+              <span class="form-required">Kitap adı</span>
+              <input type="text" id="kutuEditTitle" required maxlength="200" autocomplete="off" />
+            </label>
+            <label class="form-group">
+              <span class="form-required">Ders</span>
+              <select id="kutuEditSubject" required>
+                <option value="">— Seçin —</option>
+                <option value="Matematik">Matematik</option>
+                <option value="Geometri">Geometri</option>
+                <option value="Türkçe">Türkçe</option>
+                <option value="Paragraf">Paragraf</option>
+                <option value="Fizik">Fizik</option>
+                <option value="Kimya">Kimya</option>
+                <option value="Biyoloji">Biyoloji</option>
+                <option value="Tarih">Tarih</option>
+                <option value="Coğrafya">Coğrafya</option>
+                <option value="Felsefe">Felsefe</option>
+                <option value="Edebiyat">Edebiyat</option>
+                <option value="İngilizce">İngilizce</option>
+                <option value="AYT Matematik">AYT Matematik</option>
+                <option value="AYT Edebiyat">AYT Edebiyat</option>
+                <option value="Genel">Genel</option>
+              </select>
+            </label>
+            <label class="form-group">
+              <span class="form-required">Kitap Türü</span>
+              <select id="kutuEditKitapTuru" required>
+                <option value="">Tür Seçin</option>
+                <option value="soru_bankasi">Soru Bankası</option>
+                <option value="konu_anlatimi">Konu Anlatımı</option>
+                <option value="deneme_sinavi">Deneme Sınavı</option>
+                <option value="fasikul">Fasikül</option>
+                <option value="okuma_kitabi">Okuma Kitabı</option>
+              </select>
+            </label>
+            <label class="form-group">
+              <span class="form-required">Sayfa / test sayısı</span>
+              <input type="number" id="kutuEditTotal" required min="1" max="99999" step="1" />
+            </label>
+          </div>
+        </div>
+        <div class="modal__foot" style="margin: 0 -1.5rem -1.5rem;">
+          <button type="button" class="btn-modal-secondary" data-close-modal>Vazgeç</button>
+          <button type="submit" class="btn-modal-primary" id="btnKutuphaneEditSave"><i class="fa-solid fa-floppy-disk"></i> Kaydet</button>
+        </div>
+      </form>
+    </div>
+
     <!-- Koçluk görüşme notu — Appwrite meeting_logs -->
     <div class="modal modal--lg modal--kgl" id="koclukGorusmeModal" role="dialog" aria-labelledby="koclukGorusmeModalTitle" hidden>
       <form id="formKoclukGorusme" class="modal__form">
@@ -7600,6 +8032,9 @@
     })();
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js" crossorigin="anonymous"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" crossorigin="anonymous" />
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js" crossorigin="anonymous"></script>
   <script type="module" src="js/koc-panel.js"></script>
   <script type="module" src="js/derece-board.js"></script>
 </body>

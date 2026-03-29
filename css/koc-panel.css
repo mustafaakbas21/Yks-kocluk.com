@@ -2087,11 +2087,11 @@ button.sidebar__sublink.is-active > i:first-of-type {
 
 .kanban-col__cards {
   flex: 1;
-  min-height: 200px;
-  padding: 0.65rem;
+  min-height: 160px;
+  padding: 0.45rem 0.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.35rem;
   overflow-y: auto;
   transition: background-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -2113,6 +2113,48 @@ button.sidebar__sublink.is-active > i:first-of-type {
   transition:
     transform 0.15s ease,
     box-shadow 0.15s ease;
+}
+
+.kanban-card--compact {
+  padding: 0.35rem 0.45rem 0.4rem;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+}
+
+.kanban-card--compact .kanban-card__text {
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.28;
+}
+
+.kanban-card--compact .kanban-card__del {
+  width: 1.4rem;
+  height: 1.4rem;
+  font-size: 0.68rem;
+}
+
+.kanban-card__student {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+  min-width: 0;
+}
+
+.kanban-card__student-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.kanban-card__student-name {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .kanban-card--pri-high {
