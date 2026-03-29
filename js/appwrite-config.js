@@ -70,6 +70,10 @@ export const APPWRITE_COLLECTION_MR_PROFILES = "mr_student_profiles";
 export const APPWRITE_COLLECTION_STUDENTS = "students";
 /** Görüşme Odası — koç notları (Quill HTML); setup-appwrite.js ile oluşturulmalı */
 export const APPWRITE_COLLECTION_MEETING_LOGS = "meeting_logs";
+/** DereceBoard — Ders Anlatımı tuval sayfaları (Fabric JSON + küçük resim özetleri); Console’da `boards` koleksiyonu + şema */
+export const APPWRITE_COLLECTION_BOARDS = "boards";
+/** Koç → öğrenci tahta paylaşımı (board_id + çoklu student_ids) */
+export const APPWRITE_COLLECTION_SHARED_BOARDS = "SharedBoards";
 
 const client = new Client()
   .setEndpoint(APPWRITE_ENDPOINT)

@@ -84,6 +84,7 @@ import {
   storage,
   APPWRITE_COLLECTION_ATANAN_KAYNAKLAR,
   APPWRITE_COLLECTION_MEETING_LOGS,
+  APPWRITE_COLLECTION_EXAM_RESULTS,
   APPWRITE_BUCKET_AVATARLAR,
 } from "./appwrite-config.js";
 import { initGorusmeOdasiCockpit } from "./gorusme-odasi-cockpit.js";
@@ -3262,6 +3263,10 @@ function initTmColorStudio() {
 let apptCarouselOffset = 0;
 let randevuChartInstance = null;
 let netBasariChartInstance = null;
+let meetingAnalysisChartInstance = null;
+var dashboardMeetingChartPeriod = "week";
+var dashboardMeetingLogsCache = [];
+var dashboardMeetingActivityBound = false;
 let examTypeFilter = "all";
 let examsPageFilter = "all";
 let searchQuery = "";
@@ -7050,9 +7055,360 @@ function renderNetBasariChart() {
   });
 }
 
+var DASH_WD_TR = ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"];
+var DASH_MONTHS_TR = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
+
+function parseDocDateAny(v) {
+  if (v == null || v === "") return null;
+  if (typeof v === "object" && typeof v.toDate === "function") {
+    var d0 = v.toDate();
+    return d0 && !isNaN(d0.getTime()) ? d0 : null;
+  }
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+  if (typeof v === "string") {
+    var d1 = new Date(v);
+    return isNaN(d1.getTime()) ? null : d1;
+  }
+  return null;
+}
+
+function meetingLogEventDate(raw) {
+  return (
+    parseDocDateAny(raw.saved_at) ||
+    parseDocDateAny(raw.date) ||
+    parseDocDateAny(raw.$createdAt) ||
+    null
+  );
+}
+
+function formatRelativeTimeTr(date) {
+  if (!date || isNaN(date.getTime())) return "—";
+  var sec = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (sec < 45) return "Az önce";
+  if (sec < 3600) return Math.floor(sec / 60) + " dakika önce";
+  if (sec < 86400) return Math.floor(sec / 3600) + " saat önce";
+  if (sec < 604800) return Math.floor(sec / 86400) + " gün önce";
+  if (sec < 2592000) return Math.floor(sec / 604800) + " hafta önce";
+  if (sec < 31536000) return Math.floor(sec / 2592000) + " ay önce";
+  return Math.floor(sec / 31536000) + " yıl önce";
+}
+
+function ymdKey(d) {
+  var y = d.getFullYear();
+  var m = String(d.getMonth() + 1).padStart(2, "0");
+  var day = String(d.getDate()).padStart(2, "0");
+  return y + "-" + m + "-" + day;
+}
+
+function startOfDay(d) {
+  var x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function aggregateMeetingsForChart(logs, period) {
+  var now = new Date();
+  var labels = [];
+  var data = [];
+  var i;
+  var d;
+  var counts;
+  var key;
+  if (period === "week") {
+    counts = {};
+    for (i = 6; i >= 0; i--) {
+      d = new Date(now);
+      d.setDate(d.getDate() - i);
+      d = startOfDay(d);
+      key = ymdKey(d);
+      counts[key] = 0;
+      labels.push(DASH_WD_TR[d.getDay()]);
+    }
+    (logs || []).forEach(function (raw) {
+      var ev = meetingLogEventDate(raw);
+      if (!ev) return;
+      ev = startOfDay(ev);
+      key = ymdKey(ev);
+      if (Object.prototype.hasOwnProperty.call(counts, key)) counts[key]++;
+    });
+    labels = [];
+    for (i = 6; i >= 0; i--) {
+      d = new Date(now);
+      d.setDate(d.getDate() - i);
+      d = startOfDay(d);
+      key = ymdKey(d);
+      labels.push(DASH_WD_TR[d.getDay()]);
+      data.push(counts[key] != null ? counts[key] : 0);
+    }
+    return { labels: labels, data: data };
+  }
+  if (period === "month") {
+    var anchorM = startOfDay(now);
+    var countsM = [0, 0, 0, 0];
+    for (i = 0; i < 28; i++) {
+      d = new Date(anchorM);
+      d.setDate(d.getDate() - (27 - i));
+      d = startOfDay(d);
+      key = ymdKey(d);
+      var bucket = Math.floor(i / 7);
+      (logs || []).forEach(function (raw) {
+        var ev = meetingLogEventDate(raw);
+        if (!ev) return;
+        ev = startOfDay(ev);
+        if (ymdKey(ev) === key) countsM[bucket]++;
+      });
+    }
+    labels = ["1. Hafta", "2. Hafta", "3. Hafta", "4. Hafta"];
+    data = countsM;
+    return { labels: labels, data: data };
+  }
+  labels = [];
+  data = [];
+  for (i = 11; i >= 0; i--) {
+    d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    var ym = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+    labels.push(DASH_MONTHS_TR[d.getMonth()] + " " + String(d.getFullYear()).slice(-2));
+    var cnt = 0;
+    (logs || []).forEach(function (raw) {
+      var ev = meetingLogEventDate(raw);
+      if (!ev) return;
+      var yk = ev.getFullYear() + "-" + String(ev.getMonth() + 1).padStart(2, "0");
+      if (yk === ym) cnt++;
+    });
+    data.push(cnt);
+  }
+  return { labels: labels, data: data };
+}
+
+function renderMeetingAnalysisChartFromCache() {
+  var canvas = document.getElementById("meetingAnalysisChart");
+  var emptyEl = document.getElementById("meetingAnalysisChartEmpty");
+  if (!canvas || typeof Chart === "undefined") return;
+  var agg = aggregateMeetingsForChart(dashboardMeetingLogsCache, dashboardMeetingChartPeriod);
+  var total = (agg.data || []).reduce(function (a, b) {
+    return a + b;
+  }, 0);
+  if (meetingAnalysisChartInstance) {
+    meetingAnalysisChartInstance.destroy();
+    meetingAnalysisChartInstance = null;
+  }
+  if (total === 0) {
+    canvas.hidden = true;
+    if (emptyEl) emptyEl.hidden = false;
+    return;
+  }
+  canvas.hidden = false;
+  if (emptyEl) emptyEl.hidden = true;
+  var ctx = canvas.getContext("2d");
+  meetingAnalysisChartInstance = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: agg.labels,
+      datasets: [
+        {
+          label: "Görüşme",
+          data: agg.data,
+          backgroundColor: "rgba(124, 58, 237, 0.85)",
+          borderRadius: 8,
+          borderSkipped: false,
+          maxBarThickness: 36,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "#fff",
+          titleColor: "#334155",
+          bodyColor: "#475569",
+          borderColor: "#e2e8f0",
+          borderWidth: 1,
+          padding: 10,
+          callbacks: {
+            label: function (item) {
+              return "Görüşme: " + item.raw;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: "#64748b", font: { weight: "600", size: 11 } },
+        },
+        y: {
+          beginAtZero: true,
+          suggestedMax: Math.max(4, Math.max.apply(null, (agg.data || []).concat([1])) + 1),
+          ticks: {
+            stepSize: 1,
+            precision: 0,
+            color: "#64748b",
+            callback: function (val) {
+              if (Number.isInteger(val)) return val;
+            },
+          },
+          grid: { color: "rgba(124, 58, 237, 0.06)" },
+        },
+      },
+    },
+  });
+}
+
+function studentDisplayNameById(studentId) {
+  var sid = String(studentId || "").trim();
+  if (!sid) return "Öğrenci";
+  var st = cachedStudents.find(function (s) {
+    return String(s.id) === sid;
+  });
+  if (st) return String(st.name || st.studentName || "Öğrenci").trim() || "Öğrenci";
+  return "Öğrenci";
+}
+
+function renderDashboardActivityFeed(meetingRows, examRows) {
+  var ul = document.getElementById("dashboardActivityFeed");
+  var emptyP = document.getElementById("dashboardActivityEmpty");
+  if (!ul) return;
+  var items = [];
+  (meetingRows || []).forEach(function (row) {
+    var t = parseDocDateAny(row.ts);
+    if (!t) return;
+    items.push({
+      type: "meeting",
+      ts: t,
+      text:
+        "<strong>" +
+        escapeHtml(row.studentName || "Öğrenci") +
+        "</strong> ile görüşme notu kaydedildi.",
+      icon: "fa-clipboard-list",
+    });
+  });
+  (cachedStudents || []).forEach(function (s) {
+    var t = parseDocDateAny(s.$createdAt);
+    if (!t) return;
+    var nm = String(s.name || s.studentName || "Öğrenci").trim() || "Öğrenci";
+    items.push({
+      type: "student",
+      ts: t,
+      text: "Yeni öğrenci eklendi: <strong>" + escapeHtml(nm) + "</strong>.",
+      icon: "fa-user-plus",
+    });
+  });
+  (examRows || []).forEach(function (ex) {
+    var t = parseDocDateAny(ex.saved_at || ex.$createdAt);
+    if (!t) return;
+    var sn = studentDisplayNameById(ex.student_id);
+    var en = String(ex.exam_name || "Deneme").trim() || "Deneme";
+    items.push({
+      type: "exam",
+      ts: t,
+      text:
+        "<strong>" +
+        escapeHtml(sn) +
+        "</strong> için yeni deneme sonucu <strong>" +
+        escapeHtml(en) +
+        "</strong> kaydedildi.",
+      icon: "fa-file-lines",
+    });
+  });
+  items.sort(function (a, b) {
+    return b.ts.getTime() - a.ts.getTime();
+  });
+  items = items.slice(0, 25);
+  if (items.length === 0) {
+    ul.innerHTML = "";
+    if (emptyP) {
+      emptyP.hidden = false;
+    }
+    return;
+  }
+  if (emptyP) emptyP.hidden = true;
+  ul.innerHTML = items
+    .map(function (it) {
+      return (
+        '<li class="dash-activity-item">' +
+        '<div class="dash-activity-item__icon' +
+        (it.type === "exam" ? " dash-activity-item__icon--muted" : "") +
+        '"><i class="fa-solid ' +
+        it.icon +
+        '" aria-hidden="true"></i></div>' +
+        '<div class="dash-activity-item__body">' +
+        '<p class="dash-activity-item__text">' +
+        it.text +
+        "</p>" +
+        '<p class="dash-activity-item__time">' +
+        escapeHtml(formatRelativeTimeTr(it.ts)) +
+        "</p>" +
+        "</div>" +
+        "</li>"
+      );
+    })
+    .join("");
+}
+
+async function refreshDashboardMeetingActivity() {
+  var cid = getCoachId();
+  var canvas = document.getElementById("meetingAnalysisChart");
+  if (!cid || !canvas) return;
+  try {
+    var mSnap = await getDocs(
+      query(collection(db, APPWRITE_COLLECTION_MEETING_LOGS), where("coach_id", "==", cid))
+    );
+    dashboardMeetingLogsCache = mSnap.docs.map(function (d) {
+      return typeof d.data === "function" ? d.data() : {};
+    });
+    renderMeetingAnalysisChartFromCache();
+    var meetingForFeed = dashboardMeetingLogsCache
+      .map(function (raw) {
+        return {
+          ts: meetingLogEventDate(raw) || parseDocDateAny(raw.$createdAt),
+          studentName: String(raw.student_name || "").trim() || "Öğrenci",
+        };
+      })
+      .filter(function (row) {
+        return row.ts != null;
+      });
+    var eSnap = await getDocs(
+      query(collection(db, APPWRITE_COLLECTION_EXAM_RESULTS), where("coach_id", "==", cid))
+    );
+    var examDocs = eSnap.docs.map(function (d) {
+      return typeof d.data === "function" ? d.data() : {};
+    });
+    renderDashboardActivityFeed(meetingForFeed, examDocs);
+  } catch (err) {
+    console.error("[dashboard meeting activity]", err);
+    dashboardMeetingLogsCache = [];
+    renderMeetingAnalysisChartFromCache();
+    renderDashboardActivityFeed([], []);
+  }
+}
+
+function initDashboardMeetingActivityToggles() {
+  if (dashboardMeetingActivityBound) return;
+  var host = document.querySelector(".dash-period-toggles");
+  if (!host) return;
+  dashboardMeetingActivityBound = true;
+  host.addEventListener("click", function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest("[data-meeting-period]") : null;
+    if (!btn) return;
+    var p = String(btn.getAttribute("data-meeting-period") || "").trim();
+    if (p !== "week" && p !== "month" && p !== "year") return;
+    dashboardMeetingChartPeriod = p;
+    host.querySelectorAll("[data-meeting-period]").forEach(function (b) {
+      var on = b === btn;
+      b.classList.toggle("is-active", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    renderMeetingAnalysisChartFromCache();
+  });
+}
+
 function refreshDashboardAnalytics() {
   renderDashboardKpis();
   renderNetBasariChart();
+  void refreshDashboardMeetingActivity();
 }
 
 function renderStudentsList(docs) {
@@ -14782,6 +15138,14 @@ function navigateTo(view) {
     mrAcc.classList.toggle("sidebar__link--active", inMr);
     mrAcc.setAttribute("aria-expanded", inMr ? "true" : "false");
   }
+  var dersLi = document.querySelector(".sidebar__item--ders-anlatim");
+  var dersAcc = document.getElementById("sidebarDersToggle");
+  if (dersLi && dersAcc) {
+    var inDers = view === "ders-board";
+    dersLi.classList.toggle("sidebar__item--ders-anlatim-open", inDers);
+    dersAcc.classList.toggle("sidebar__link--active", inDers);
+    dersAcc.setAttribute("aria-expanded", inDers ? "true" : "false");
+  }
   var ogrLi = document.querySelector(".sidebar__item--ogrenci");
   var ogrAcc = document.getElementById("sidebarOgrToggle");
   if (ogrLi && ogrAcc) {
@@ -14892,6 +15256,13 @@ function navigateTo(view) {
       initMrCockpit(view);
     } catch (e) {
       console.warn("[mr-cockpit]", e);
+    }
+  }
+  if (view === "ders-board" && typeof window.initDereceBoard === "function") {
+    try {
+      window.initDereceBoard();
+    } catch (e) {
+      console.warn("[derece-board]", e);
     }
   }
   if (view === "ogrenciler") renderStudentsPage();
@@ -15470,6 +15841,7 @@ function closeSidebarAccordionsExcept(exceptLi) {
     [".sidebar__item--testmaker", "sidebar__item--tm-open", "sidebarTmToggle"],
     [".sidebar__item--deneme-analizi", "sidebar__item--dana-open", "sidebarDanaToggle"],
     [".sidebar__item--mr", "sidebar__item--mr-open", "sidebarMrToggle"],
+    [".sidebar__item--ders-anlatim", "sidebar__item--ders-anlatim-open", "sidebarDersToggle"],
     [".sidebar__item--ogrenci", "sidebar__item--ogr-open", "sidebarOgrToggle"],
     [".sidebar__item--randevu", "sidebar__item--rv-open", "sidebarRvToggle"],
     [".sidebar__item--simulasyon", "sidebar__item--sim-open", "sidebarSimToggle"],
@@ -15528,6 +15900,7 @@ function initNavigation() {
       { liSel: ".sidebar__item--testmaker", openClass: "sidebar__item--tm-open", btnId: "sidebarTmToggle" },
       { liSel: ".sidebar__item--deneme-analizi", openClass: "sidebar__item--dana-open", btnId: "sidebarDanaToggle" },
       { liSel: ".sidebar__item--mr", openClass: "sidebar__item--mr-open", btnId: "sidebarMrToggle" },
+      { liSel: ".sidebar__item--ders-anlatim", openClass: "sidebar__item--ders-anlatim-open", btnId: "sidebarDersToggle" },
       { liSel: ".sidebar__item--ogrenci", openClass: "sidebar__item--ogr-open", btnId: "sidebarOgrToggle" },
       { liSel: ".sidebar__item--randevu", openClass: "sidebar__item--rv-open", btnId: "sidebarRvToggle" },
       { liSel: ".sidebar__item--simulasyon", openClass: "sidebar__item--sim-open", btnId: "sidebarSimToggle" },
@@ -16457,6 +16830,7 @@ function kglSubmitModal(ev) {
       showToast("Görüşme notu kaydedildi.");
       closeModal("koclukGorusmeModal");
       refreshKoclukGorusmeList();
+      refreshDashboardAnalytics();
     })
     .catch(function (err) {
       console.error(err);
@@ -17438,6 +17812,7 @@ function bootstrapKocPanelAfterAuth() {
   initDashboardYksCountdownWidget();
   updateCoachProfile();
   subscribeFirestore();
+  initDashboardMeetingActivityToggles();
   try {
     initGorusmeOdasiCockpit();
   } catch (e) {

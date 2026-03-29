@@ -164,6 +164,7 @@ function compileConstraints(constraints) {
   (constraints || []).forEach(function (c) {
     if (!c || c.__type !== "where") return;
     if (c.op === "==") out.push(AQuery.equal(c.field, c.value));
+    else if (c.op === "contains") out.push(AQuery.contains(c.field, c.value));
     else if (c.op === "!=") out.push(AQuery.notEqual(c.field, c.value));
     else if (c.op === ">=") out.push(AQuery.greaterThanEqual(c.field, c.value));
     else if (c.op === "<=") out.push(AQuery.lessThanEqual(c.field, c.value));

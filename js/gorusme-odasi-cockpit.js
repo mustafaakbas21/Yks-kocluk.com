@@ -12,7 +12,7 @@ import {
   hedefProgramDisplayName,
 } from "./hedef-appwrite-catalog.js";
 import { buildProgramFromAppwriteV2 } from "./net-sihirbazi-engine.js";
-import { createCurrentNetForRowResolver } from "./net-sihirbazi-current-nets.js";
+import { createCurrentNetForRowResolver } from "./net-sihirbazi-branch-nets.js";
 import { collection, addDoc, getDocs, query, where, serverTimestamp, db } from "./appwrite-compat.js";
 import { APPWRITE_COLLECTION_MEETING_LOGS } from "./appwrite-config.js";
 
