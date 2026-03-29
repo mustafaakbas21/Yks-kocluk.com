@@ -18,7 +18,10 @@ import {
   netSihirbaziSkeletonHtml,
   netSihirbaziV2ResultHtml,
 } from "./net-sihirbazi-engine.js";
-import { createCurrentNetForRowResolver } from "./net-sihirbazi-branch-nets.js";
+import {
+  createCurrentNetForRowResolver,
+  hasAnyBranchNetData,
+} from "./net-sihirbazi-branch-nets.js";
 
 export { YKS2026_Mufredat };
 
