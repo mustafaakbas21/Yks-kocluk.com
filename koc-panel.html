@@ -3898,9 +3898,10 @@
           <div class="page-head">
             <h1 class="page-head__title">Öğrencilerim</h1>
             <div class="page-head__actions">
-              <button type="button" class="btn btn--sm btn--xs" id="btnPageBulkStudentImport" title="Excel veya CSV ile liste yükleyin">
+              <button type="button" class="btn btn--sm btn--xs" id="btnPageBulkStudentImport" title="Excel veya CSV ile liste yükleyin · Çift tık: şablon / sürükle-bırak">
                 <i class="fa-solid fa-file-excel"></i> Excel ile Toplu Ekle
               </button>
+              <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" class="hidden" style="display: none;" aria-hidden="true" />
               <button type="button" class="btn btn--sm btn--purple" id="btnPageAddStudent"><i class="fa-solid fa-user-plus"></i> Yeni Öğrenci</button>
             </div>
           </div>
@@ -4369,7 +4370,7 @@
                 <button type="button" class="derece-board__topbar-btn" data-db-save-lib title="Tüm sayfaları kütüphaneye kaydet">
                   <span class="derece-board__topbar-ico" aria-hidden="true">💾</span><span>Kütüphaneye Kaydet</span>
                 </button>
-                <button type="button" class="derece-board__topbar-btn" data-db-pdf-import title="PDF ilk sayfayı arka plan olarak yükle">
+                <button type="button" class="derece-board__topbar-btn" data-db-pdf-import title="Tüm PDF sayfalarını alt alta tahtaya aktar (50+ sayfada görünürken yüklenir)">
                   <span class="derece-board__topbar-ico" aria-hidden="true">📥</span><span>PDF Aktar</span>
                 </button>
                 <button type="button" class="derece-board__topbar-btn" data-db-page-add-top title="Yeni sayfa ekle">
@@ -4384,13 +4385,34 @@
                 <button type="button" class="derece-board__topbar-btn derece-board__topbar-btn--primary" data-db-share-open title="Seçili öğrencilere gönder">
                   <span class="derece-board__topbar-ico" aria-hidden="true">🚀</span><span>Öğrenciye Gönder</span>
                 </button>
+                <label class="derece-board__topbar-page-size">
+                  <span class="derece-board__topbar-page-size-label">Sayfa boyutu</span>
+                  <select id="dereceBoardPageSize" class="derece-board__page-size-select" data-db-page-size title="Yeni sayfalar için kağıt boyutu" aria-label="Sayfa boyutu">
+                    <option value="A4" selected>A4 (210×297 mm)</option>
+                    <option value="A3">A3 (297×420 mm)</option>
+                    <option value="A5">A5 (148×210 mm)</option>
+                  </select>
+                </label>
+              </div>
+              <div class="derece-board__page-pager" role="navigation" aria-label="Sayfa konumu">
+                <button type="button" class="derece-board__pager-btn" data-db-page-prev title="Önceki sayfaya kaydır" aria-label="Önceki sayfa">
+                  <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+                </button>
+                <div class="derece-board__pager-counter">
+                  <span id="dereceBoardPageCurrent" class="derece-board__pager-num">1</span>
+                  <span class="derece-board__pager-sep" aria-hidden="true">/</span>
+                  <span id="dereceBoardPageTotal" class="derece-board__pager-den">1</span>
+                </div>
+                <button type="button" class="derece-board__pager-btn" data-db-page-next title="Sonraki sayfaya kaydır" aria-label="Sonraki sayfa">
+                  <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+                </button>
               </div>
               <div class="derece-board__titlebar">
                 <h1>DereceBoard</h1>
                 <input type="text" id="dereceBoardTitleInput" maxlength="120" placeholder="Tahta başlığı…" value="Yeni tahta" />
               </div>
-              <div class="derece-board__sheet-wrap">
-                <!-- Fabric canvas sayfaları JS ile eklenir -->
+              <div class="derece-board__sheet-wrap" id="dereceBoardSheetScroll" aria-label="Tahta sayfaları — kaydırın">
+                <!-- Fabric canvas sayfaları JS ile eklenir (dikey yığın) -->
               </div>
             </div>
             <div class="derece-board__page-strip" aria-label="Sayfa önizlemeleri"></div>
@@ -4795,98 +4817,99 @@
               </div>
             </div>
           </div>
+        </div>
 
-          <div class="dnm-modal" id="dnmModal" hidden aria-hidden="true">
-            <div class="dnm-modal__backdrop dnm-modal__backdrop--premium" data-dnm-close tabindex="-1"></div>
-            <div class="dnm-modal__panel dnm-modal__panel--premium" role="dialog" aria-modal="true" aria-labelledby="dnmModalTitle">
-              <div class="dnm-modal__head dnm-modal__head--premium">
-                <div>
-                  <p class="dnm-modal__eyebrow">Deneme planlama</p>
-                  <h2 id="dnmModalTitle" class="dnm-modal__title">Yeni Deneme Planla</h2>
-                </div>
-                <button type="button" class="dnm-modal__x" data-dnm-close aria-label="Kapat">&times;</button>
+        <!-- Deneme planlama modalı: tüm deneme görünümlerinden erişim; gizli main-view dışında (takvimden de açılabilsin) -->
+        <div class="dnm-modal" id="denemePlanlaModal" hidden aria-hidden="true">
+          <div class="dnm-modal__backdrop dnm-modal__backdrop--premium" data-dnm-close tabindex="-1"></div>
+          <div class="dnm-modal__panel dnm-modal__panel--premium" role="dialog" aria-modal="true" aria-labelledby="dnmModalTitle">
+            <div class="dnm-modal__head dnm-modal__head--premium">
+              <div>
+                <p class="dnm-modal__eyebrow">Deneme planlama</p>
+                <h2 id="dnmModalTitle" class="dnm-modal__title">Yeni Deneme Planla</h2>
               </div>
-              <div class="dnm-modal__body">
-                <input type="hidden" id="dnmEditingDocId" value="" />
-                <p id="dnmModalFetchErr" class="dnm-alert dnm-alert--err" hidden role="alert"></p>
-                <div class="dnm-form-grid dnm-form-grid--premium">
-                  <label class="dnm-field dnm-field--full">
-                    <span class="dnm-label">Deneme adı</span>
-                    <input type="text" id="dnmPlanName" class="dnm-input" maxlength="500" required placeholder="Örn. Özdebir Türkiye Geneli 4" autocomplete="off" />
-                  </label>
-                  <label class="dnm-field">
-                    <span class="dnm-label">Sınav türü</span>
-                    <select id="dnmPlanSinavTuru" class="dnm-input" required>
-                      <option value="">Seçin</option>
-                      <option value="TYT">TYT</option>
-                      <option value="AYT">AYT</option>
-                      <option value="YDT">YDT</option>
-                      <option value="LGS">LGS</option>
-                    </select>
-                  </label>
-                  <label class="dnm-field">
-                    <span class="dnm-label">Yayın evi</span>
-                    <select id="dnmPlanYayin" class="dnm-input" required>
-                      <option value="">Yayın seçin</option>
-                      <option value="3d">3D Yayınları</option>
-                      <option value="bilgi_sarmal">Bilgi Sarmal</option>
-                      <option value="345">345 Yayınları</option>
-                      <option value="acil">Acil Yayınları</option>
-                      <option value="paraf">Paraf Yayınları</option>
-                      <option value="tonguc">Tonguç Akademi</option>
-                      <option value="ens">En Sınav</option>
-                      <option value="ozdebir">Özdebir</option>
-                      <option value="dig">Diğer</option>
-                    </select>
-                  </label>
-                  <label class="dnm-field">
-                    <span class="dnm-label">Uygulama tarihi</span>
-                    <input type="date" id="dnmPlanDate" class="dnm-input" required />
-                  </label>
-                  <div class="dnm-field dnm-field--full">
-                    <span class="dnm-label">Zorluk derecesi</span>
-                    <input type="hidden" id="dnmPlanZorluk" value="orta" />
-                    <div class="dnm-zorluk" role="group" aria-label="Zorluk">
-                      <button type="button" class="dnm-zorluk__pill dnm-zorluk__pill--kolay" data-dnm-zorluk="kolay" aria-pressed="false">Kolay</button>
-                      <button type="button" class="dnm-zorluk__pill dnm-zorluk__pill--orta is-selected" data-dnm-zorluk="orta" aria-pressed="true">Orta</button>
-                      <button type="button" class="dnm-zorluk__pill dnm-zorluk__pill--zor" data-dnm-zorluk="zor" aria-pressed="false">Zor</button>
-                    </div>
+              <button type="button" class="dnm-modal__x" data-dnm-close aria-label="Kapat">&times;</button>
+            </div>
+            <div class="dnm-modal__body">
+              <input type="hidden" id="dnmEditingDocId" value="" />
+              <p id="dnmModalFetchErr" class="dnm-alert dnm-alert--err" hidden role="alert"></p>
+              <div class="dnm-form-grid dnm-form-grid--premium">
+                <label class="dnm-field dnm-field--full">
+                  <span class="dnm-label">Deneme adı</span>
+                  <input type="text" id="dnmPlanName" class="dnm-input" maxlength="500" required placeholder="Örn. Özdebir Türkiye Geneli 4" autocomplete="off" />
+                </label>
+                <label class="dnm-field">
+                  <span class="dnm-label">Sınav türü</span>
+                  <select id="dnmPlanSinavTuru" class="dnm-input" required>
+                    <option value="">Seçin</option>
+                    <option value="TYT">TYT</option>
+                    <option value="AYT">AYT</option>
+                    <option value="YDT">YDT</option>
+                    <option value="LGS">LGS</option>
+                  </select>
+                </label>
+                <label class="dnm-field">
+                  <span class="dnm-label">Yayın evi</span>
+                  <select id="dnmPlanYayin" class="dnm-input" required>
+                    <option value="">Yayın seçin</option>
+                    <option value="3d">3D Yayınları</option>
+                    <option value="bilgi_sarmal">Bilgi Sarmal</option>
+                    <option value="345">345 Yayınları</option>
+                    <option value="acil">Acil Yayınları</option>
+                    <option value="paraf">Paraf Yayınları</option>
+                    <option value="tonguc">Tonguç Akademi</option>
+                    <option value="ens">En Sınav</option>
+                    <option value="ozdebir">Özdebir</option>
+                    <option value="dig">Diğer</option>
+                  </select>
+                </label>
+                <label class="dnm-field">
+                  <span class="dnm-label">Uygulama tarihi</span>
+                  <input type="date" id="dnmPlanDate" class="dnm-input" required />
+                </label>
+                <div class="dnm-field dnm-field--full">
+                  <span class="dnm-label">Zorluk derecesi</span>
+                  <input type="hidden" id="dnmPlanZorluk" value="orta" />
+                  <div class="dnm-zorluk" role="group" aria-label="Zorluk">
+                    <button type="button" class="dnm-zorluk__pill dnm-zorluk__pill--kolay" data-dnm-zorluk="kolay" aria-pressed="false">Kolay</button>
+                    <button type="button" class="dnm-zorluk__pill dnm-zorluk__pill--orta is-selected" data-dnm-zorluk="orta" aria-pressed="true">Orta</button>
+                    <button type="button" class="dnm-zorluk__pill dnm-zorluk__pill--zor" data-dnm-zorluk="zor" aria-pressed="false">Zor</button>
                   </div>
                 </div>
-                <details class="dnm-details-advanced">
-                  <summary class="dnm-details-advanced__summary">İleri düzey — cevap anahtarı matrisi (isteğe bağlı)</summary>
-                  <div class="dnm-matrix-head">
-                    <span class="dnm-section-title">Cevap anahtarı ve kazanım eşlemesi</span>
-                    <div class="dnm-matrix-controls">
-                      <label class="dnm-field dnm-field--inline">
-                        <span class="dnm-label">Soru sayısı</span>
-                        <input type="number" id="dnmQCount" class="dnm-input dnm-input--sm" min="1" max="200" step="1" placeholder="120" />
-                      </label>
-                      <button type="button" class="dnm-btn dnm-btn--secondary" id="btnDnmBuildMatrix" disabled title="Yakında">Matrisi oluştur</button>
-                    </div>
-                  </div>
-                  <p id="dnmMatrixHint" class="dnm-hint">Matris bağlantısı sonraki sürümde aktif olacak.</p>
-                  <div class="dnm-matrix-scroll">
-                    <table class="dnm-matrix-table" id="dnmMatrixTable" hidden>
-                      <thead>
-                        <tr>
-                          <th class="dnm-col-n">Soru</th>
-                          <th>Ders</th>
-                          <th>Konu / kazanım</th>
-                          <th class="dnm-col-ans">Doğru cevap</th>
-                        </tr>
-                      </thead>
-                      <tbody id="dnmMatrixBody"></tbody>
-                    </table>
-                  </div>
-                </details>
               </div>
-              <div class="dnm-modal__foot dnm-modal__foot--premium">
-                <button type="button" class="dnm-btn dnm-btn--ghost" data-dnm-close>İptal</button>
-                <button type="button" class="dnm-btn dnm-btn--primary dnm-btn--glow" id="btnDnmSave">
-                  <i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Kaydet ve Planla
-                </button>
-              </div>
+              <details class="dnm-details-advanced">
+                <summary class="dnm-details-advanced__summary">İleri düzey — cevap anahtarı matrisi (isteğe bağlı)</summary>
+                <div class="dnm-matrix-head">
+                  <span class="dnm-section-title">Cevap anahtarı ve kazanım eşlemesi</span>
+                  <div class="dnm-matrix-controls">
+                    <label class="dnm-field dnm-field--inline">
+                      <span class="dnm-label">Soru sayısı</span>
+                      <input type="number" id="dnmQCount" class="dnm-input dnm-input--sm" min="1" max="200" step="1" placeholder="120" />
+                    </label>
+                    <button type="button" class="dnm-btn dnm-btn--secondary" id="btnDnmBuildMatrix" disabled title="Yakında">Matrisi oluştur</button>
+                  </div>
+                </div>
+                <p id="dnmMatrixHint" class="dnm-hint">Matris bağlantısı sonraki sürümde aktif olacak.</p>
+                <div class="dnm-matrix-scroll">
+                  <table class="dnm-matrix-table" id="dnmMatrixTable" hidden>
+                    <thead>
+                      <tr>
+                        <th class="dnm-col-n">Soru</th>
+                        <th>Ders</th>
+                        <th>Konu / kazanım</th>
+                        <th class="dnm-col-ans">Doğru cevap</th>
+                      </tr>
+                    </thead>
+                    <tbody id="dnmMatrixBody"></tbody>
+                  </table>
+                </div>
+              </details>
+            </div>
+            <div class="dnm-modal__foot dnm-modal__foot--premium">
+              <button type="button" class="dnm-btn dnm-btn--ghost" data-dnm-close>İptal</button>
+              <button type="button" class="dnm-btn dnm-btn--primary dnm-btn--glow" id="btnDnmSave">
+                <i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Kaydet ve Planla
+              </button>
             </div>
           </div>
         </div>
@@ -4898,7 +4921,7 @@
                 <h1>Global Deneme Takvimi</h1>
                 <p>Koç denemeleriniz Appwrite <strong>Exams</strong> koleksiyonundan yüklenir; takvim ve ajanda canlı veridir.</p>
               </div>
-              <button type="button" class="btn--dana-cta" id="btnDanaNewExamPlan"><i class="fa-solid fa-plus"></i> Yeni Deneme Planla</button>
+              <button type="button" class="btn--dana-cta" id="btnOpenDenemeModal" aria-haspopup="dialog" aria-controls="denemePlanlaModal"><i class="fa-solid fa-plus"></i> Yeni Deneme Planla</button>
             </div>
             <div class="dana-takvim-layout">
               <div class="dana-takvim-main">
@@ -5609,7 +5632,7 @@
                     <div class="tm-auto-cropper-toolbar mt-4" role="group" aria-label="Ders ve konu seçimi">
                       <label><span>Sınav</span><select id="tmAutoCropExam"><option value="TYT">TYT</option><option value="AYT">AYT</option><option value="YDT">YDT</option></select></label>
                       <label><span>Ders seçiniz</span><select id="tmAutoCropDersSelect"><option value="">— Ders seçiniz —</option></select></label>
-                      <label><span>Konu seçiniz</span><select id="tmAutoCropKonuSelect"><option value="">— Önce ders —</option></select></label>
+                      <label for="selectSoruKonu"><span>Konu seçiniz</span><select id="selectSoruKonu"><option value="">— Önce ders —</option></select></label>
                       <label><span>Zorluk</span><select id="tmAutoCropZorluk"><option value="Kolay">Kolay</option><option value="Orta" selected>Orta</option><option value="Zor">Zor</option></select></label>
                     </div>
                   </section>
@@ -5880,6 +5903,14 @@
                       <option value="YKS tipi">YKS tipi</option>
                     </select>
                   </label>
+                  <label class="tm-pdf-cropper-field">
+                    <span>Aktif PDF sayfası</span>
+                    <span id="tmPdfCropSayfaEcho" class="tm-pdf-cropper-field__echo" title="Seçim yaptığınız sayfa kayıtta kullanılır">—</span>
+                  </label>
+                  <label class="tm-pdf-cropper-field">
+                    <span>Soru no</span>
+                    <input type="number" id="tmPdfCropSoruNo" min="1" step="1" value="1" inputmode="numeric" class="tm-input-elite" style="max-width:6rem" title="Kayıtta kullanılacak soru sırası; sayfa değişince 1 olur" />
+                  </label>
                   <button type="button" class="tm-pdf-cropper-save" id="tmPdfCropSavePool">
                     <i class="fa-solid fa-crop"></i> Manuel Seçimi Kaydet
                   </button>
@@ -6078,37 +6109,47 @@
           <div class="page-head" style="margin: 0 1.5rem 1rem">
             <h1 class="page-head__title">Hedef Simülatörü</h1>
             <p class="page-desc">
-              Veri kaynağı: <code class="text-xs">src/data/yok-atlas.json</code> (varsa); aksi halde <code class="text-xs">yks-data.json</code>. Aynı bölüm adı üniversite içinde tek satırda listelenir.
+              Görünüm seçtiğiniz öğrencinin <strong>profilde kayıtlı hedef üniversite ve bölümüne</strong> kilitlenir. Netler, YÖK Atlas (<code class="text-xs">yok-atlas.json</code>) ile <strong>tam ad eşleşmesi</strong> bulunursa o programa göre hesaplanır.
             </p>
           </div>
           <div class="dp-hedef-student-bar">
-            <label for="studentSelect">Öğrenci</label>
+            <label for="studentSelect">Öğrenci seç</label>
             <select id="studentSelect" aria-label="Hedef simülatörü için öğrenci">
               <option value="">— Öğrenci seçin —</option>
             </select>
           </div>
-          <div class="dp-hedef-atlas-bar net-sihirbazi-select-row dp-hedef-atlas-bar--two-col" style="margin: 0 1.5rem 1.25rem">
-            <div class="net-sihirbazi-select">
-              <label for="universitySelect">Üniversite</label>
-              <select id="universitySelect" aria-label="Hedef üniversite (YÖK katalog)"></select>
-            </div>
-            <div class="net-sihirbazi-select">
-              <label for="departmentSelect">Bölüm / program</label>
-              <select id="departmentSelect" aria-label="Hedef bölüm (aynı isim tekilleştirilmiş)"></select>
-            </div>
-          </div>
           <div class="dp-hedef-page" style="margin: 0 1.5rem">
-            <div class="dp-hedef-hero">
-              <h1 id="dpHedefUniTitle">Boğaziçi Üniversitesi</h1>
-              <p id="dpHedefBolumSub">Bilgisayar Mühendisliği — Güncel vs hedef net</p>
+            <div class="dp-hedef-hero" id="dpHedefHeroBlock">
+              <h1 id="dpHedefUniTitle">Öğrenci seçin</h1>
+              <p id="dpHedefBolumSub">Öğrenci profilindeki hedef üniversite ve bölüm burada gösterilir.</p>
             </div>
+            <div
+              id="dpHedefTargetEmpty"
+              class="dp-hedef-target-empty"
+              hidden
+              role="status"
+              style="
+                margin: 1rem 0 1.25rem;
+                padding: 1.35rem 1.5rem;
+                border-radius: 16px;
+                border: 1px dashed #cbd5e1;
+                background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+                color: #475569;
+                font-size: 0.95rem;
+                line-height: 1.55;
+                max-width: 40rem;
+              "
+            >
+              Bu öğrenci için henüz bir hedef belirlenmemiş. Lütfen öğrenci profilinden hedef ekleyin.
+            </div>
+            <div id="dpHedefSimulatorContent">
             <div class="dp-hedef-prob-block" id="dpHedefProbBlock" hidden>
               <div class="dp-hedef-prob__row">
                 <span class="dp-hedef-prob__lbl">Kazanma olasılığı (simülasyon)</span>
                 <strong class="dp-hedef-prob__pct" id="dpHedefProbPct">—</strong>
               </div>
               <div class="dp-hedef-prob__track" aria-hidden="true"><div class="dp-hedef-prob__fill" id="dpHedefProbFill"></div></div>
-              <p class="dp-hedef-prob__hint">Hedef netler seçilen programın YÖK/katalog satırlarından okunur; olasılık gösterimi simülasyondur.</p>
+              <p class="dp-hedef-prob__hint">Hedef netler, profildeki hedefle YÖK Atlas’ta tam eşleşen program satırlarından okunur; olasılık gösterimi simülasyondur.</p>
             </div>
             <div id="dpHedefPerSubjectGaps" class="dp-hedef-subgap" aria-live="polite"></div>
             <div class="dp-hedef-chart-wrap">
@@ -6117,6 +6158,7 @@
             <div class="dp-hedef-bars-coach" id="dpHedefBarsCoach" aria-live="polite"></div>
             <div class="dp-hedef-gap" id="dpHedefGapCoach">—</div>
             <div id="dpHedefNetTableWrap" class="dp-hedef-net-table-host" aria-live="polite"></div>
+            </div>
           </div>
         </div>
 
@@ -6154,19 +6196,26 @@
           <div class="page-head" style="margin: 0 1.5rem 1rem">
             <h1 class="page-head__title">Tercih Sihirbazı</h1>
             <p class="page-desc">
-              Veri kaynağı Hedef Simülatörü / Net Sihirbazı ile aynı: <code class="text-xs">yok-atlas.json</code> (öncelik), yedek <code class="text-xs">yks-data.json</code>. Başarı sırası, taban puan ve kontenjan doğrudan katalog alanlarından okunur; yoksa «-» gösterilir. Sonuçlar yalnızca «Filtrele» ile yüklenir.
+              Program türünü seçtiğinizde ilgili dosya yüklenir: <code class="text-xs">src/data/yok-atlas-lisans.json</code> veya <code class="text-xs">yok-atlas-onlisans.json</code> (scraper çıktısını bu klasöre kopyalayın). Tablo «Filtrele» ile dolar; sayfa başına 50 satır.
             </p>
           </div>
-          <form id="dpTsForm" class="ts-wizard-form ts-wizard-form--grid dp-ts-filter-bar" autocomplete="off">
+          <form id="dpTsForm" class="ts-wizard-form ts-wizard-form--grid dp-ts-filter-bar ts-filter-surface" autocomplete="off">
+            <div class="form-group">
+              <label for="dpTsProgramTur">Program türü</label>
+              <select id="dpTsProgramTur" name="programTuru" aria-label="Program türü (veri kaynağı)">
+                <option value="lisans" selected>Lisans (4 Yıllık)</option>
+                <option value="onlisans">Önlisans (2 Yıllık)</option>
+              </select>
+            </div>
             <div class="form-group">
               <label for="dpTsUniSelect">Üniversite</label>
-              <select id="dpTsUniSelect" name="uniId" aria-label="Üniversite (isteğe bağlı daralt)">
+              <select id="dpTsUniSelect" name="universite" aria-label="Üniversite (isteğe bağlı daralt)">
                 <option value="">— Tüm üniversiteler —</option>
               </select>
             </div>
             <div class="form-group">
               <label for="dpTsDeptSelect">Bölüm</label>
-              <select id="dpTsDeptSelect" name="programId" aria-label="Bölüm" disabled>
+              <select id="dpTsDeptSelect" name="bolum" aria-label="Bölüm" disabled>
                 <option value="">— Önce üniversite seçin —</option>
               </select>
             </div>
@@ -6217,7 +6266,10 @@
             </div>
           </form>
           <p id="dpTsMeta" class="net-sihirbazi-hint" style="margin: 0 1.5rem 0.75rem">Katalog yükleniyor…</p>
-          <div id="dpTsTableWrap" class="ts-table-scroll" aria-live="polite"></div>
+          <div class="ts-sihirbaz-stack" style="margin: 0 1.5rem 2rem">
+            <div id="dpTsTableScroll" class="ts-table-scroll ts-table-scroll--inner" aria-live="polite"></div>
+            <div id="dpTsPagerHost" class="ts-pager-host" aria-live="polite"></div>
+          </div>
         </div>
 
         <div class="main-view" data-view="yks-puan" id="view-yks-puan" hidden>
@@ -7813,12 +7865,12 @@
       </div>
       <form class="modal__body modal__body--flush" id="formProfileSettings" novalidate>
         <div class="student-erp-tabs" role="tablist" aria-label="Profil ayarları sekmeleri">
-          <button type="button" class="student-erp-tab is-active" role="tab" id="profileTabBtn0" aria-selected="true" aria-controls="profileTabPanel0" data-profile-tab="0">👤 Kişisel Bilgiler</button>
-          <button type="button" class="student-erp-tab" role="tab" id="profileTabBtn1" aria-selected="false" aria-controls="profileTabPanel1" data-profile-tab="1">🔒 Güvenlik (Şifre)</button>
-          <button type="button" class="student-erp-tab" role="tab" id="profileTabBtn2" aria-selected="false" aria-controls="profileTabPanel2" data-profile-tab="2">🎨 Görünüm ve Avatar</button>
+          <button type="button" class="student-erp-tab is-active" role="tab" id="profileTabBtn0" aria-selected="true" aria-controls="panel-kisisel" data-profile-tab="0" data-target="panel-kisisel">👤 Kişisel Bilgiler</button>
+          <button type="button" class="student-erp-tab" role="tab" id="profileTabBtn1" aria-selected="false" aria-controls="panel-guvenlik" data-profile-tab="1" data-target="panel-guvenlik">🔒 Güvenlik (Şifre)</button>
+          <button type="button" class="student-erp-tab" role="tab" id="profileTabBtn2" aria-selected="false" aria-controls="panel-gorunum" data-profile-tab="2" data-target="panel-gorunum">🎨 Görünüm ve Avatar</button>
         </div>
         <div class="student-erp-panels">
-          <div class="student-erp-panel" role="tabpanel" id="profileTabPanel0" aria-labelledby="profileTabBtn0" data-profile-panel="0">
+          <div class="student-erp-panel" role="tabpanel" id="panel-kisisel" aria-labelledby="profileTabBtn0" data-profile-panel="0">
             <div class="student-erp-grid">
               <p class="student-erp-section-title">Kimlik</p>
               <div class="form-group" style="grid-column: 1 / -1;">
@@ -7831,7 +7883,7 @@
               </div>
             </div>
           </div>
-          <div class="student-erp-panel" role="tabpanel" id="profileTabPanel1" aria-labelledby="profileTabBtn1" data-profile-panel="1" hidden>
+          <div class="student-erp-panel" role="tabpanel" id="panel-guvenlik" aria-labelledby="profileTabBtn1" data-profile-panel="1" hidden>
             <div class="student-erp-grid">
               <p class="student-erp-section-title">Şifre</p>
               <p class="modal__subtitle" style="grid-column:1/-1;margin:0;font-size:0.82rem;">Şifrenizi değiştirmek için alanları doldurun. Sadece ad veya avatar güncelliyorsanız bu sekmeyi atlayabilirsiniz.</p>
@@ -7867,7 +7919,7 @@
               </div>
             </div>
           </div>
-          <div class="student-erp-panel" role="tabpanel" id="profileTabPanel2" aria-labelledby="profileTabBtn2" data-profile-panel="2" hidden>
+          <div class="student-erp-panel" role="tabpanel" id="panel-gorunum" aria-labelledby="profileTabBtn2" data-profile-panel="2" hidden>
             <div class="student-erp-grid">
               <p class="student-erp-section-title">Profil fotoğrafı</p>
               <div class="form-group" style="grid-column: 1 / -1;">

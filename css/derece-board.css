@@ -272,14 +272,109 @@
   line-height: 1;
 }
 
-.derece-board__sheet-wrap {
-  flex: 1;
+.derece-board__topbar-page-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-left: auto;
+}
+.derece-board__topbar-page-size-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  white-space: nowrap;
+}
+.derece-board__page-size-select {
+  min-width: 9.5rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #1e293b;
+  font-family: inherit;
+  cursor: pointer;
+}
+.derece-board__page-size-select:focus {
+  outline: 2px solid rgba(99, 102, 241, 0.45);
+  outline-offset: 1px;
+}
+
+.derece-board__page-pager {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem 0.65rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border-bottom: 1px solid var(--db-border);
+}
+.derece-board__pager-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.12s;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+.derece-board__pager-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+.derece-board__pager-btn:active {
+  transform: scale(0.96);
+}
+.derece-board__pager-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none;
+}
+.derece-board__pager-counter {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  min-width: 5.5rem;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: #0f172a;
+  letter-spacing: 0.02em;
+}
+.derece-board__pager-sep {
+  font-weight: 700;
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+.derece-board__pager-den {
+  color: #64748b;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.derece-board__sheet-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
   padding: 1rem 1.25rem 5.5rem;
-  overflow: auto;
-  background: #f8fafc;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #f1f5f9;
 }
 
 .derece-board__sheet {
@@ -289,11 +384,89 @@
   border: 1px solid #e2e8f0;
   position: relative;
   max-width: 100%;
+  flex-shrink: 0;
+}
+
+.derece-board__sheet--stack:not(:first-child) {
+  margin-top: 1.25rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #cbd5e1;
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.derece-board__sheet--current {
+  outline: 2px solid rgba(59, 130, 246, 0.45);
+  outline-offset: 4px;
+}
+
+.derece-board__page-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.5rem 0.5rem;
+  background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 4px 4px 0 0;
+}
+
+.derece-board__page-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
 }
 
 .derece-board__canvas-host {
   display: block;
   line-height: 0;
+  position: relative;
+}
+
+/* Beyaz çizgili kağıt dokusu — tuval şeffaf olduğunda görünür; PDF harici alanlarda da okunur */
+.derece-board__canvas-host--ruled {
+  background-color: #fafafa;
+  background-image: repeating-linear-gradient(
+    transparent 0,
+    transparent 26px,
+    rgba(240, 240, 242, 0.98) 26px,
+    rgba(240, 240, 242, 0.98) 27px
+  );
+  box-shadow: inset 0 0 0 1px rgba(226, 232, 240, 0.6);
+}
+
+.derece-board__infinite-tail {
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 100%;
+  min-height: min(140vh, 2000px);
+  margin-top: 1.5rem;
+  border-radius: 4px;
+  border: 1px dashed #cbd5e1;
+  background-color: #fafbfc;
+  background-image: repeating-linear-gradient(
+    transparent 0,
+    transparent 26px,
+    rgba(240, 240, 242, 0.98) 26px,
+    rgba(240, 240, 242, 0.98) 27px
+  );
+  position: relative;
+  box-sizing: border-box;
+}
+.derece-board__infinite-tail::after {
+  content: "Sonsuz çalışma alanı — aşağı kaydırmaya devam edin veya Sayfa Ekle ile yeni blok ekleyin";
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  transform: translate(-50%, -50%);
+  max-width: 18rem;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #94a3b8;
+  line-height: 1.45;
+  pointer-events: none;
+  padding: 0 1rem;
 }
 
 .derece-board__canvas-host canvas {

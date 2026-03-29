@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "source": "Patron tarafından düzenlenecek düz tablo (Excel/CSV → JSON). Sütun adları sabittir.",
+  "rows": [
+    {
+      "Universite": "Haliç Üniversitesi",
+      "Bolum": "Ulaştırma Hizmetleri Bölümü",
+      "UniversiteTuru": "Vakıf",
+      "BursDurumu": "Burslu",
+      "PuanTuru": "SAY",
+      "Sehir": "İstanbul",
+      "Kontenjan": 40,
+      "TabanPuan": 250.123,
+      "BasariSirasi": 191538
+    },
+    {
+      "Universite": "Haliç Üniversitesi",
+      "Bolum": "Dijital Oyun Tasarımı Bölümü",
+      "UniversiteTuru": "Vakıf",
+      "BursDurumu": "%50 İndirimli",
+      "PuanTuru": "SAY",
+      "Sehir": "İstanbul",
+      "Kontenjan": 25,
+      "TabanPuan": 300.5,
+      "BasariSirasi": 1412615
+    },
+    {
+      "Universite": "Haliç Üniversitesi",
+      "Bolum": "Matematik Bölümü",
+      "UniversiteTuru": "Vakıf",
+      "BursDurumu": "Ücretli",
+      "PuanTuru": "SAY",
+      "Sehir": "İstanbul",
+      "Kontenjan": 30,
+      "TabanPuan": 350.45,
+      "BasariSirasi": 1135711
+    },
+    {
+      "Universite": "İstanbul Teknik Üniversitesi",
+      "Bolum": "Bilgisayar Mühendisliği",
+      "UniversiteTuru": "Devlet",
+      "BursDurumu": "Ücretli",
+      "PuanTuru": "SAY",
+      "Sehir": "İstanbul",
+      "Kontenjan": 120,
+      "TabanPuan": 489.75,
+      "BasariSirasi": 8500
+    },
+    {
+      "Universite": "Orta Doğu Teknik Üniversitesi",
+      "Bolum": "Makine Mühendisliği",
+      "UniversiteTuru": "Devlet",
+      "BursDurumu": "Ücretli",
+      "PuanTuru": "SAY",
+      "Sehir": "Ankara",
+      "Kontenjan": 80,
+      "TabanPuan": 475.2,
+      "BasariSirasi": 12000
+    }
+  ]
+}
