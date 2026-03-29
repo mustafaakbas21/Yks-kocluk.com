@@ -34,6 +34,35 @@ var paperSelectProgrammatic = false;
 var shapesPopoverEl = null;
 var lastInkColor = "#0f172a";
 var isRestoringCanvas = false;
+/** 50+ PDF sayfasında raster sadece görünür alana yaklaşınca yüklenir */
+var BOARD_LAZY_PDF_PAGES = 50;
+var boardPdfObserver = null;
+/** Yeni sayfa / Sayfa Ekle için seçili ISO kağıt boyutu */
+var boardPageSizeKey = "A4";
+/** Kaydırma ile hangi sayfanın önde olduğunu izler (sayfa sayacı) */
+var boardNavObserver = null;
+var boardNavFlushRaf = null;
+var boardNavSheetRatios = new WeakMap();
+
+function boardPageDimensionsFor(sizeKey) {
+  var k = sizeKey || boardPageSizeKey || "A4";
+  if (k === "A3") {
+    var w3 = 900;
+    return { w: w3, h: Math.round((w3 * 420) / 297) };
+  }
+  if (k === "A5") {
+    var w5 = 520;
+    return { w: w5, h: Math.round((w5 * 210) / 148) };
+  }
+  var w4 = 816;
+  return { w: w4, h: Math.round((w4 * 297) / 210) };
+}
+
+function boardNavThresholds() {
+  var a = [];
+  for (var t = 0; t <= 20; t++) a.push(t / 20);
+  return a;
+}
 
 function getCoachId() {
   try {
@@ -245,7 +274,7 @@ function applyPaperTypeToCanvas(canvas, type, state) {
   if (state) state.paperType = type;
   if (type === "white") {
     canvas.setBackgroundImage(null, function () {
-      canvas.setBackgroundColor("#ffffff", function () {
+      canvas.setBackgroundColor("rgba(255,255,255,0)", function () {
         canvas.requestRenderAll();
       });
     });
@@ -324,56 +353,289 @@ function closeShapesPopover() {
   if (shapesPopoverEl) shapesPopoverEl.classList.remove("is-open");
 }
 
-async function importPdfToCurrentPage(file) {
+function getBoardSheetScrollRoot() {
+  return rootEl ? rootEl.querySelector(".derece-board__sheet-wrap") : null;
+}
+
+function ensureBoardPdfObserver() {
+  if (boardPdfObserver || typeof IntersectionObserver === "undefined") return;
+  var root = getBoardSheetScrollRoot();
+  if (!root) return;
+  boardPdfObserver = new IntersectionObserver(
+    function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        var sheet = en.target;
+        var st = null;
+        for (var i = 0; i < pages.length; i++) {
+          if (pages[i].sheet === sheet) {
+            st = pages[i];
+            break;
+          }
+        }
+        if (!st || !st.pdfLazyPending || st.pdfBgDone) return;
+        st.pdfLazyPending = false;
+        boardPdfObserver.unobserve(sheet);
+        void renderPdfOntoFabricState(st);
+      });
+    },
+    { root: root, rootMargin: "280px 0px", threshold: 0.01 }
+  );
+}
+
+function disconnectBoardPdfObserver() {
+  if (boardPdfObserver) {
+    boardPdfObserver.disconnect();
+    boardPdfObserver = null;
+  }
+}
+
+function disconnectBoardNavObserver() {
+  if (boardNavObserver) {
+    boardNavObserver.disconnect();
+    boardNavObserver = null;
+  }
+  boardNavFlushRaf = null;
+}
+
+function fallbackPageIndexByViewportCenter() {
+  var root = getBoardSheetScrollRoot();
+  if (!root || !pages.length) return 0;
+  var r = root.getBoundingClientRect();
+  var mid = r.top + r.height / 2;
+  var best = 0;
+  var bestDist = Infinity;
+  for (var i = 0; i < pages.length; i++) {
+    var sh = pages[i].sheet;
+    if (!sh || !sh.isConnected) continue;
+    var sr = sh.getBoundingClientRect();
+    if (sr.height < 1) continue;
+    var c = sr.top + sr.height / 2;
+    var d = Math.abs(c - mid);
+    if (d < bestDist) {
+      bestDist = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
+function flushBoardNavIntersection() {
+  boardNavFlushRaf = null;
+  if (!rootEl || !pages.length) return;
+  var bestI = pageIndex;
+  var bestR = -1;
+  for (var i = 0; i < pages.length; i++) {
+    var sh = pages[i].sheet;
+    if (!sh) continue;
+    var ratio = boardNavSheetRatios.get(sh);
+    if (typeof ratio !== "number") ratio = 0;
+    if (ratio > bestR) {
+      bestR = ratio;
+      bestI = i;
+    }
+  }
+  if (bestR < 0.02 && pages.length) {
+    bestI = fallbackPageIndexByViewportCenter();
+  }
+  applyVisiblePageIndexFromScroll(bestI);
+}
+
+function ensureBoardNavObserver() {
+  var root = getBoardSheetScrollRoot();
+  if (!root || boardNavObserver || typeof IntersectionObserver === "undefined") return;
+  boardNavObserver = new IntersectionObserver(
+    function (entries) {
+      entries.forEach(function (en) {
+        boardNavSheetRatios.set(en.target, en.intersectionRatio);
+      });
+      if (!boardNavFlushRaf) {
+        boardNavFlushRaf = requestAnimationFrame(flushBoardNavIntersection);
+      }
+    },
+    { root: root, rootMargin: "-12% 0px -12% 0px", threshold: boardNavThresholds() }
+  );
+}
+
+function observeBoardNavSheet(sheet) {
+  if (!sheet) return;
+  ensureBoardNavObserver();
+  if (boardNavObserver) boardNavObserver.observe(sheet);
+}
+
+function ensureInfiniteWhiteTail() {
+  var wrap = getBoardSheetScrollRoot();
+  if (!wrap) return;
+  var tail = wrap.querySelector(".derece-board__infinite-tail");
+  if (!tail) {
+    tail = document.createElement("div");
+    tail.className = "derece-board__infinite-tail";
+    tail.setAttribute("aria-hidden", "true");
+    wrap.appendChild(tail);
+  } else {
+    wrap.appendChild(tail);
+  }
+}
+
+function updatePaginationBar() {
+  if (!rootEl) return;
+  var cur = rootEl.querySelector("#dereceBoardPageCurrent");
+  var tot = rootEl.querySelector("#dereceBoardPageTotal");
+  var n = Math.max(1, pages.length);
+  var idx = pages.length ? Math.min(n - 1, Math.max(0, pageIndex)) : 0;
+  if (cur) cur.textContent = String(idx + 1);
+  if (tot) tot.textContent = String(n);
+}
+
+function refreshPagerButtons() {
+  if (!rootEl) return;
+  var prev = rootEl.querySelector("[data-db-page-prev]");
+  var next = rootEl.querySelector("[data-db-page-next]");
+  if (prev) prev.disabled = pages.length < 2 || pageIndex <= 0;
+  if (next) next.disabled = pages.length < 2 || pageIndex >= pages.length - 1;
+}
+
+function applyVisiblePageIndexFromScroll(i) {
+  if (i < 0 || i >= pages.length) return;
+  if (i === pageIndex) {
+    updatePaginationBar();
+    refreshPagerButtons();
+    return;
+  }
+  pageIndex = i;
+  pages.forEach(function (p, pi) {
+    p.sheet.classList.toggle("derece-board__sheet--current", pi === i);
+    p.sheet.hidden = false;
+  });
+  rootEl.querySelectorAll(".derece-board__thumb").forEach(function (tw, pi) {
+    tw.classList.toggle("is-current", pi === i);
+  });
+  syncPaperSelectFromPage();
+  var c = getCurrentCanvas();
+  if (c) {
+    try {
+      c.calcOffset();
+    } catch (_e) {}
+    applyToolToCanvas(c, currentTool);
+  }
+  updatePaginationBar();
+  refreshPagerButtons();
+}
+
+async function renderPdfOntoFabricState(state) {
+  if (!state || state.pdfBgDone || !state._pdfDocRef || state.pdfPageIndex == null) return;
+  if (state._pdfRendering) return;
+  state._pdfRendering = true;
+  var pdf = state._pdfDocRef;
+  var canvas = state.canvas;
+  try {
+    var boxW = Math.floor(canvas.getWidth());
+    var boxH = Math.floor(canvas.getHeight());
+    if (boxW < 1 || boxH < 1) {
+      var el = canvas.getElement && canvas.getElement();
+      if (el) {
+        boxW = el.width || 816;
+        boxH = el.height || 1154;
+      }
+    }
+    var page = await pdf.getPage(state.pdfPageIndex);
+    var baseVp = page.getViewport({ scale: 1 });
+    var sc = Math.min(boxW / baseVp.width, boxH / baseVp.height);
+    var viewport = page.getViewport({ scale: sc });
+    var rw = Math.floor(viewport.width);
+    var rh = Math.floor(viewport.height);
+    var off = document.createElement("canvas");
+    off.width = rw;
+    off.height = rh;
+    var ctx = off.getContext("2d");
+    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+    var dataUrl = off.toDataURL("image/png");
+    await new Promise(function (resolve, reject) {
+      fabric.Image.fromURL(
+        dataUrl,
+        function (img) {
+          if (!img) {
+            state._pdfRendering = false;
+            reject(new Error("pdf_image"));
+            return;
+          }
+          var iw = img.width || rw;
+          var ih = img.height || rh;
+          canvas.setDimensions({ width: boxW, height: boxH });
+          var ox = Math.max(0, (boxW - rw) / 2);
+          var oy = Math.max(0, (boxH - rh) / 2);
+          img.set({
+            scaleX: rw / iw,
+            scaleY: rh / ih,
+            left: ox,
+            top: oy,
+            originX: "left",
+            originY: "top",
+          });
+          canvas.setBackgroundImage(img, function () {
+            state.paperType = "white";
+            canvas.setBackgroundColor("rgba(255,255,255,0)", function () {
+              syncPaperSelectFromPage();
+              canvas.renderAll();
+              pushHistoryFor(canvas, state);
+              scheduleAutoSave();
+              scheduleThumbUpdate(state);
+              state.pdfBgDone = true;
+              state._pdfRendering = false;
+              try {
+                canvas.calcOffset();
+              } catch (_e) {}
+              resolve();
+            });
+          });
+        },
+        { crossOrigin: "anonymous" }
+      );
+    });
+  } catch (err) {
+    state._pdfRendering = false;
+    console.error("[DereceBoard] PDF sayfa", state.pdfPageIndex, err);
+    toast("PDF sayfa " + state.pdfPageIndex + " yüklenemedi.");
+  }
+}
+
+async function importPdfAllPages(file) {
   if (!file) return;
   var pdfjs = typeof pdfjsLib !== "undefined" ? pdfjsLib : null;
   if (!pdfjs || !pdfjs.getDocument) {
     toast("PDF.js yüklenemedi; sayfayı yenileyin.");
     return;
   }
-  var st = pages[pageIndex];
-  var canvas = getCurrentCanvas();
-  if (!st || !canvas) return;
   try {
     var buf = await file.arrayBuffer();
     var pdf = await pdfjs.getDocument({ data: buf }).promise;
-    var page = await pdf.getPage(1);
-    var baseVp = page.getViewport({ scale: 1 });
-    var maxW = 960;
-    var sc = maxW / baseVp.width;
-    var viewport = page.getViewport({ scale: sc });
-    var w = Math.floor(viewport.width);
-    var h = Math.floor(viewport.height);
-    var off = document.createElement("canvas");
-    off.width = w;
-    off.height = h;
-    var ctx = off.getContext("2d");
-    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-    var dataUrl = off.toDataURL("image/png");
-    fabric.Image.fromURL(
-      dataUrl,
-      function (img) {
-        var iw = img.width || w;
-        var ih = img.height || h;
-        canvas.setDimensions({ width: w, height: h });
-        img.set({
-          scaleX: w / iw,
-          scaleY: h / ih,
-          left: 0,
-          top: 0,
-          originX: "left",
-          originY: "top",
-        });
-        canvas.setBackgroundImage(img, function () {
-          st.paperType = "white";
-          syncPaperSelectFromPage();
-          canvas.renderAll();
-          pushHistoryFor(canvas, st);
-          scheduleAutoSave();
-        });
-      },
-      { crossOrigin: "anonymous" }
-    );
+    var n = pdf.numPages;
+    if (n < 1) {
+      toast("PDF boş.");
+      return;
+    }
+    var useLazy = n >= BOARD_LAZY_PDF_PAGES && typeof IntersectionObserver !== "undefined";
+    if (useLazy) ensureBoardPdfObserver();
+    var a4 = boardPageDimensionsFor("A4");
+
+    for (var pnum = 1; pnum <= n; pnum++) {
+      var st = createPageInternal(null, a4.w, a4.h, {
+        skipShowPage: true,
+        pdfDocRef: pdf,
+        pdfPageIndex: pnum,
+        lazyPdf: useLazy,
+      });
+      if (!st) break;
+      if (!useLazy) {
+        await renderPdfOntoFabricState(st);
+      } else if (boardPdfObserver) {
+        boardPdfObserver.observe(st.sheet);
+      }
+    }
+    showPage(pages.length - 1, { scroll: true });
+    updatePaginationBar();
+    refreshPagerButtons();
+    toast(n + " PDF sayfası tahtaya eklendi (A4 tuval, sığdırılmış).");
   } catch (err) {
     console.error("[DereceBoard] PDF", err);
     toast("PDF okunamadı.");
@@ -784,32 +1046,84 @@ function addTextAt(canvas, x, y) {
   canvas.add(t);
   canvas.setActiveObject(t);
   canvas.requestRenderAll();
-  pushHistoryFor(canvas, pages[pageIndex]);
+  var stForHist = null;
+  for (var hi = 0; hi < pages.length; hi++) {
+    if (pages[hi].canvas === canvas) {
+      stForHist = pages[hi];
+      break;
+    }
+  }
+  pushHistoryFor(canvas, stForHist || pages[pageIndex]);
   scheduleAutoSave();
 }
 
-function createPage(initialJson) {
-  if (!ensureFabric()) return;
+function activatePageFromCanvas(state) {
+  var pi = pages.indexOf(state);
+  if (pi < 0 || !rootEl) return;
+  pageIndex = pi;
+  rootEl.querySelectorAll(".derece-board__thumb").forEach(function (tw, tpi) {
+    tw.classList.toggle("is-current", tpi === pi);
+  });
+  pages.forEach(function (p, i) {
+    p.sheet.classList.toggle("derece-board__sheet--current", i === pi);
+    p.sheet.hidden = false;
+  });
+  syncPaperSelectFromPage();
+  try {
+    state.canvas.calcOffset();
+  } catch (_e) {}
+  applyToolToCanvas(state.canvas, currentTool);
+  updatePaginationBar();
+  refreshPagerButtons();
+}
+
+function syncStackPageLabels() {
+  pages.forEach(function (p, pi) {
+    if (p.pageLabelEl) p.pageLabelEl.textContent = "Sayfa " + (pi + 1);
+    if (p.thumbImg) p.thumbImg.alt = "Sayfa " + (pi + 1);
+  });
+}
+
+function createPageInternal(initialJson, w, h, options) {
+  options = options || {};
+  if (!ensureFabric()) return null;
+  if (typeof w !== "number" || w < 1) w = 1000;
+  if (typeof h !== "number" || h < 1) h = 680;
   var idx = pages.length;
   var sheet = document.createElement("div");
-  sheet.className = "derece-board__sheet";
-  sheet.hidden = true;
+  sheet.className = "derece-board__sheet derece-board__sheet--stack";
+  sheet.hidden = false;
+
+  var labelRow = document.createElement("div");
+  labelRow.className = "derece-board__page-label-row";
+  var labelEl = document.createElement("span");
+  labelEl.className = "derece-board__page-label";
+  labelEl.textContent = "Sayfa " + (idx + 1);
+  labelRow.appendChild(labelEl);
+  sheet.appendChild(labelRow);
+
   var host = document.createElement("div");
-  host.className = "derece-board__canvas-host";
+  host.className = "derece-board__canvas-host derece-board__canvas-host--ruled";
   var canvasEl = document.createElement("canvas");
-  var w = 1000;
-  var h = 680;
   canvasEl.width = w;
   canvasEl.height = h;
   host.appendChild(canvasEl);
   sheet.appendChild(host);
-  rootEl.querySelector(".derece-board__sheet-wrap").appendChild(sheet);
+  var wrap = rootEl.querySelector(".derece-board__sheet-wrap");
+  ensureInfiniteWhiteTail();
+  var tailEl = wrap.querySelector(".derece-board__infinite-tail");
+  if (tailEl) wrap.insertBefore(sheet, tailEl);
+  else wrap.appendChild(sheet);
 
   var canvas = new fabric.Canvas(canvasEl, {
-    backgroundColor: "#ffffff",
+    backgroundColor: "rgba(255,255,255,0)",
     preserveObjectStacking: true,
+    width: w,
+    height: h,
   });
 
+  var hasPdf = !!options.pdfDocRef && options.pdfPageIndex != null;
+  var lazyPdf = !!options.lazyPdf && hasPdf;
   var state = {
     canvas: canvas,
     sheet: sheet,
@@ -818,6 +1132,12 @@ function createPage(initialJson) {
     thumbImg: null,
     thumbWrap: null,
     paperType: "white",
+    pageLabelEl: labelEl,
+    _pdfDocRef: options.pdfDocRef || null,
+    pdfPageIndex: hasPdf ? options.pdfPageIndex : null,
+    pdfLazyPending: lazyPdf,
+    pdfBgDone: !hasPdf,
+    _pdfRendering: false,
   };
 
   function bindHistory() {
@@ -851,6 +1171,10 @@ function createPage(initialJson) {
   }
   bindHistory();
 
+  canvas.on("mouse:down", function () {
+    activatePageFromCanvas(state);
+  });
+
   bindShapeInteractions(canvas, state);
   bindHandPan(canvas);
 
@@ -872,16 +1196,28 @@ function createPage(initialJson) {
       state.history = [canvasHistoryJson(canvas)];
       state.histStep = 0;
       state.paperType = state.paperType || "white";
+      applyPaperTypeToCanvas(canvas, state.paperType, state);
     });
   } else {
     state.history = [canvasHistoryJson(canvas)];
     state.histStep = 0;
+    applyPaperTypeToCanvas(canvas, state.paperType || "white", state);
   }
 
   applyToolToCanvas(canvas, currentTool);
   addPageThumbnail(state, idx);
-  showPage(idx);
+  observeBoardNavSheet(sheet);
+  updatePaginationBar();
+  refreshPagerButtons();
+  if (!options.skipShowPage) {
+    showPage(idx, { scroll: true, smooth: true });
+  }
   return state;
+}
+
+function createPage(initialJson) {
+  var dim = boardPageDimensionsFor(boardPageSizeKey);
+  return createPageInternal(initialJson, dim.w, dim.h, {});
 }
 
 function addPageThumbnail(state, idx) {
@@ -911,23 +1247,37 @@ function addPageThumbnail(state, idx) {
   state.thumbWrap = wrap;
   wrap.addEventListener("click", function () {
     var i = parseInt(wrap.dataset.pageIndex, 10);
-    if (!isNaN(i)) showPage(i);
+    if (!isNaN(i)) showPage(i, { scroll: true });
   });
   scheduleThumbUpdate(state);
 }
 
-function showPage(i) {
+function showPage(i, opts) {
+  opts = opts || {};
+  var doScroll = opts.scroll !== false;
   if (i < 0 || i >= pages.length) return;
   pageIndex = i;
   pages.forEach(function (p, pi) {
-    p.sheet.hidden = pi !== i;
+    p.sheet.hidden = false;
+    p.sheet.classList.toggle("derece-board__sheet--current", pi === i);
   });
   rootEl.querySelectorAll(".derece-board__thumb").forEach(function (tw, pi) {
     tw.classList.toggle("is-current", pi === i);
   });
   var c = getCurrentCanvas();
-  if (c) applyToolToCanvas(c, currentTool);
+  if (c) {
+    try {
+      c.calcOffset();
+    } catch (_e) {}
+    applyToolToCanvas(c, currentTool);
+  }
   syncPaperSelectFromPage();
+  if (doScroll && pages[i].sheet) {
+    var behavior = opts.smooth ? "smooth" : "auto";
+    pages[i].sheet.scrollIntoView({ behavior: behavior, block: "nearest" });
+  }
+  updatePaginationBar();
+  refreshPagerButtons();
 }
 
 function removePage(idx) {
@@ -947,8 +1297,9 @@ function removePage(idx) {
   pages.forEach(function (p, i) {
     if (p.thumbWrap) p.thumbWrap.dataset.pageIndex = String(i);
   });
+  syncStackPageLabels();
   if (pageIndex >= pages.length) pageIndex = pages.length - 1;
-  showPage(pageIndex);
+  showPage(pageIndex, { scroll: true });
   scheduleAutoSave();
 }
 
@@ -1188,6 +1539,26 @@ function wireToolbar() {
     });
   });
 
+  var pagePrev = rootEl.querySelector("[data-db-page-prev]");
+  if (pagePrev) {
+    pagePrev.addEventListener("click", function () {
+      if (pageIndex > 0) showPage(pageIndex - 1, { scroll: true, smooth: true });
+    });
+  }
+  var pageNext = rootEl.querySelector("[data-db-page-next]");
+  if (pageNext) {
+    pageNext.addEventListener("click", function () {
+      if (pageIndex < pages.length - 1) showPage(pageIndex + 1, { scroll: true, smooth: true });
+    });
+  }
+  var pageSizeSel = rootEl.querySelector("[data-db-page-size]");
+  if (pageSizeSel) {
+    pageSizeSel.value = boardPageSizeKey || "A4";
+    pageSizeSel.addEventListener("change", function () {
+      boardPageSizeKey = pageSizeSel.value || "A4";
+    });
+  }
+
   var pdfIn = rootEl.querySelector("#dereceBoardPdfInput");
   var pdfImportBtns = rootEl.querySelectorAll("[data-db-pdf-import]");
   if (pdfIn) {
@@ -1198,7 +1569,7 @@ function wireToolbar() {
     });
     pdfIn.addEventListener("change", function () {
       var f = pdfIn.files && pdfIn.files[0];
-      if (f) void importPdfToCurrentPage(f);
+      if (f) void importPdfAllPages(f);
       pdfIn.value = "";
     });
   }
@@ -1283,7 +1654,9 @@ export function initDereceBoard() {
   rootEl = document.getElementById("dereceBoardRoot");
   if (!rootEl || !ensureFabric()) return;
   if (initialized) {
-    showPage(pageIndex);
+    showPage(pageIndex, { scroll: false });
+    updatePaginationBar();
+    refreshPagerButtons();
     return;
   }
   initialized = true;
@@ -1293,6 +1666,8 @@ export function initDereceBoard() {
 
   pages = [];
   pageIndex = 0;
+  disconnectBoardPdfObserver();
+  disconnectBoardNavObserver();
   rootEl.querySelector(".derece-board__sheet-wrap").innerHTML = "";
   rootEl.querySelector(".derece-board__page-strip").innerHTML =
     '<button type="button" class="derece-board__page-add" data-db-page-add title="Sayfa ekle">+</button>';
@@ -1303,9 +1678,40 @@ export function initDereceBoard() {
 
   createPage(null);
 
+  var sheetScroll = rootEl.querySelector(".derece-board__sheet-wrap");
+  var boardScrollCalcRaf = null;
+  if (sheetScroll && !sheetScroll.dataset.dbScrollBound) {
+    sheetScroll.dataset.dbScrollBound = "1";
+    sheetScroll.addEventListener(
+      "scroll",
+      function () {
+        if (boardScrollCalcRaf) return;
+        boardScrollCalcRaf = requestAnimationFrame(function () {
+          boardScrollCalcRaf = null;
+          pages.forEach(function (p) {
+            if (p.canvas) {
+              try {
+                p.canvas.calcOffset();
+              } catch (_e) {}
+            }
+          });
+          if (typeof IntersectionObserver === "undefined" && pages.length) {
+            applyVisiblePageIndexFromScroll(fallbackPageIndexByViewportCenter());
+          }
+        });
+      },
+      { passive: true }
+    );
+  }
+
   window.addEventListener("resize", function () {
-    var c = getCurrentCanvas();
-    if (c) c.calcOffset();
+    pages.forEach(function (p) {
+      if (p.canvas) {
+        try {
+          p.canvas.calcOffset();
+        } catch (_e) {}
+      }
+    });
   });
 }
 

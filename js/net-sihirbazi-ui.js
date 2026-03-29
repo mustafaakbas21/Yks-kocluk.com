@@ -73,12 +73,66 @@ export function initNetSihirbazi(options) {
   function resetDepartmentUi() {
     try {
       dSel.innerHTML = '<option value="">— Önce üniversite seçin —</option>';
+      dSel.setAttribute("disabled", "disabled");
       dSel.disabled = true;
+      if (typeof jQuery !== "undefined" && jQuery.fn.select2) {
+        var $d = jQuery(dSel);
+        $d.prop("disabled", true);
+      }
     } catch (e) {
       console.error("[Net Sihirbazı V2] resetDepartmentUi:", e);
     }
   }
 
+  var nsSelect2Lang = {
+    noResults: function () { return "Sonuç yok"; },
+    searching: function () { return "Aranıyor…"; },
+  };
+
+  /** Yalnızca üniversite kutusu — bölümü her değişimde yok etmeyelim (Select2 + value senkronu). */
+  function nsInitUniversitySelect2Once() {
+    try {
+      if (typeof jQuery === "undefined" || !jQuery.fn.select2) return;
+      var $u = jQuery(uSel);
+      if ($u.hasClass("select2-hidden-accessible")) return;
+      $u.select2({
+        width: "100%",
+        placeholder: "Üniversite seçin",
+        allowClear: true,
+        language: nsSelect2Lang,
+      });
+    } catch (e) {
+      console.error("[Net Sihirbazı V2] nsInitUniversitySelect2Once:", e);
+    }
+  }
+
+  /** Bölüm kutusunu güncel DOM + disabled durumuyla Select2’ye yeniden bağla. */
+  function nsRefreshDepartmentSelect2() {
+    try {
+      if (typeof jQuery === "undefined" || !jQuery.fn.select2) return;
+      var $d = jQuery(dSel);
+      if ($d.hasClass("select2-hidden-accessible")) {
+        try {
+          $d.select2("destroy");
+        } catch (_e) {}
+      }
+      var ph = dSel.disabled ? "Önce üniversite seçin" : "Bölüm / program seçin";
+      $d.select2({
+        width: "100%",
+        placeholder: ph,
+        allowClear: true,
+        language: nsSelect2Lang,
+      });
+      $d.prop("disabled", !!dSel.disabled);
+      try {
+        $d.trigger("change");
+      } catch (_e2) {}
+    } catch (e) {
+      console.error("[Net Sihirbazı V2] nsRefreshDepartmentSelect2:", e);
+    }
+  }
+
+  /** Eski tam yenileme: ilk kurulum veya jQuery yoksa */
   function nsBindSelect2() {
     try {
       if (typeof jQuery === "undefined" || !jQuery.fn.select2) return;
@@ -86,22 +140,19 @@ export function initNetSihirbazi(options) {
       var $d = jQuery(dSel);
       if ($u.hasClass("select2-hidden-accessible")) $u.select2("destroy");
       if ($d.hasClass("select2-hidden-accessible")) $d.select2("destroy");
-      var lang = {
-        noResults: function () { return "Sonuç yok"; },
-        searching: function () { return "Aranıyor…"; },
-      };
       jQuery(uSel).select2({
         width: "100%",
         placeholder: "Üniversite seçin",
         allowClear: true,
-        language: lang,
+        language: nsSelect2Lang,
       });
       jQuery(dSel).select2({
         width: "100%",
-        placeholder: "Önce üniversite seçin",
+        placeholder: dSel.disabled ? "Önce üniversite seçin" : "Bölüm / program seçin",
         allowClear: true,
-        language: lang,
+        language: nsSelect2Lang,
       });
+      jQuery(dSel).prop("disabled", !!dSel.disabled);
     } catch (e) {
       console.error("[Net Sihirbazı V2] nsBindSelect2:", e);
     }
@@ -121,16 +172,72 @@ export function initNetSihirbazi(options) {
     }
   }
 
+  function normDedupeKeyNs(s) {
+    return String(s || "")
+      .trim()
+      .toLocaleLowerCase("tr")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ");
+  }
+
+  /**
+   * Katalog + $id + görünen ad Set ile tekilleştir (YÖK Atlas SSOT satırları).
+   */
+  function uniqueProgramsForSelect(list) {
+    var raw = Array.isArray(list) ? list.slice() : [];
+    var byId = new Set();
+    var byName = new Set();
+    var out = [];
+    raw.forEach(function (p) {
+      var id = String((p && p.$id) || "").trim();
+      var nm = normDedupeKeyNs(hedefProgramDisplayName(p));
+      if (!id || byId.has(id)) return;
+      if (nm && byName.has(nm)) return;
+      byId.add(id);
+      if (nm) byName.add(nm);
+      out.push(p);
+    });
+    return out;
+  }
+
   function fillDepartmentSelect(list) {
     try {
-      dSel.innerHTML = '<option value="">— Bölüm seçin —</option>';
-      list.forEach(function (p) {
+      var raw = Array.isArray(list) ? list : [];
+      var uniq = uniqueProgramsForSelect(raw);
+      dSel.innerHTML = "";
+
+      if (!uniq.length) {
+        var emptyOpt = document.createElement("option");
+        emptyOpt.value = "";
+        emptyOpt.textContent =
+          raw.length === 0
+            ? "— Bu üniversite için katalogda bölüm yok —"
+            : "— Bölüm listesi oluşturulamadı —";
+        dSel.appendChild(emptyOpt);
+        dSel.setAttribute("disabled", "disabled");
+        dSel.disabled = true;
+        if (typeof jQuery !== "undefined") {
+          jQuery(dSel).prop("disabled", true);
+        }
+        return;
+      }
+
+      var def = document.createElement("option");
+      def.value = "";
+      def.textContent = "— Bölüm / program seçin —";
+      dSel.appendChild(def);
+      uniq.forEach(function (p) {
         var o = document.createElement("option");
         o.value = p.$id;
         o.textContent = hedefProgramDisplayName(p) || p.$id;
         dSel.appendChild(o);
       });
+      dSel.removeAttribute("disabled");
       dSel.disabled = false;
+      if (typeof jQuery !== "undefined") {
+        jQuery(dSel).prop("disabled", false);
+      }
     } catch (e) {
       console.error("[Net Sihirbazı V2] fillDepartmentSelect:", e);
     }
@@ -217,12 +324,88 @@ export function initNetSihirbazi(options) {
   renderEmptyState("Üniversiteler yükleniyor…");
   wrap.innerHTML = netSihirbaziSkeletonHtml();
 
+  var uniChangeRaf = null;
+  function scheduleUniversityChange() {
+    if (uniChangeRaf != null) {
+      try {
+        cancelAnimationFrame(uniChangeRaf);
+      } catch (_c) {}
+    }
+    uniChangeRaf = requestAnimationFrame(function () {
+      uniChangeRaf = null;
+      handleNetSihirbaziUniversityChange();
+    });
+  }
+
+  function handleNetSihirbaziUniversityChange() {
+    try {
+      var uid = String(uSel.value || "").trim();
+      var uniName = "";
+      if (uid) {
+        var uFound = unis.find(function (x) {
+          return String(x.$id) === uid;
+        });
+        uniName = uFound ? hedefUniDisplayName(uFound) || uid : uid;
+      }
+      resetDepartmentUi();
+      nsRefreshDepartmentSelect2();
+      renderEmptyState(
+        uid
+          ? "Bölümler yükleniyor…"
+          : "Önce üniversite seçin; bölüm listesi seçilen üniversiteye göre tekilleştirilmiş olarak gelir."
+      );
+      if (!uid) {
+        if (uniTitle) uniTitle.textContent = "Üniversite ve bölüm seçin";
+        return;
+      }
+      if (uniName && uniTitle) uniTitle.textContent = uniName;
+      wrap.innerHTML = netSihirbaziSkeletonHtml();
+      var rawList = getDedupedProgramsForUniversity(uid) || [];
+      var list = uniqueProgramsForSelect(rawList);
+      try {
+        if (!list.length) {
+          fillDepartmentSelect([]);
+          nsRefreshDepartmentSelect2();
+          try {
+            if (typeof jQuery !== "undefined" && jQuery.fn.select2) {
+              jQuery(dSel).val(null).trigger("change");
+            }
+          } catch (_t) {}
+          wrap.innerHTML =
+            '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Bu üniversite için kayıtlı bölüm yok.</p>';
+          if (subEl) subEl.textContent = "Bu üniversite için katalogda program yok.";
+          return;
+        }
+        fillDepartmentSelect(list);
+        nsRefreshDepartmentSelect2();
+        try {
+          if (typeof jQuery !== "undefined" && jQuery.fn.select2) {
+            jQuery(dSel).val(null).trigger("change");
+          }
+        } catch (_t2) {}
+        renderEmptyState(null);
+      } catch (inner) {
+        console.error("[Net Sihirbazı V2] uni change:", inner);
+        renderEmptyState("Bölüm listesi işlenemedi.");
+      }
+    } catch (err) {
+      console.error("[Net Sihirbazı V2] handleNetSihirbaziUniversityChange:", err);
+    }
+  }
+
+  uSel.addEventListener("change", scheduleUniversityChange);
+
   (async function bootstrap() {
     try {
       await ensureHedefSimulatorAppwriteData();
       unis = getHedefAppwriteUniversities();
       fillUniversitySelect();
-      nsBindSelect2();
+      nsInitUniversitySelect2Once();
+      if (typeof jQuery !== "undefined" && jQuery.fn.select2 && !uSel.dataset.nsUniSelect2Ev) {
+        uSel.dataset.nsUniSelect2Ev = "1";
+        jQuery(uSel).on("select2:select select2:clear", scheduleUniversityChange);
+      }
+      nsRefreshDepartmentSelect2();
       if (!unis.length) {
         renderEmptyState("YÖK Atlas / yks-data.json boş veya yüklenemedi. src/data/yok-atlas.json veya yks-data.json dosyasını kontrol edin.");
         wrap.innerHTML =
@@ -239,42 +422,6 @@ export function initNetSihirbazi(options) {
       } catch (_e2) {}
     }
   })();
-
-  uSel.addEventListener("change", function () {
-    try {
-      var uid = String(uSel.value || "").trim();
-      resetDepartmentUi();
-      nsBindSelect2();
-      renderEmptyState(
-        uid ? "Bölümler yükleniyor…" : "Önce üniversite seçin; bölüm listesi seçilen üniversiteye göre tekilleştirilmiş olarak gelir."
-      );
-      if (!uid) {
-        if (uniTitle) uniTitle.textContent = "Üniversite ve bölüm seçin";
-        return;
-      }
-      wrap.innerHTML = netSihirbaziSkeletonHtml();
-      var list = getDedupedProgramsForUniversity(uid) || [];
-      try {
-        if (!list.length) {
-          fillDepartmentSelect([]);
-          dSel.disabled = true;
-          nsBindSelect2();
-          wrap.innerHTML =
-            '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Bu üniversite için kayıtlı bölüm yok.</p>';
-          if (subEl) subEl.textContent = "Bu üniversite için katalogda program yok.";
-          return;
-        }
-        fillDepartmentSelect(list);
-        nsBindSelect2();
-        renderEmptyState(null);
-      } catch (inner) {
-        console.error("[Net Sihirbazı V2] uni change:", inner);
-        renderEmptyState("Bölüm listesi işlenemedi.");
-      }
-    } catch (err) {
-      console.error("[Net Sihirbazı V2] uSel change:", err);
-    }
-  });
 
   dSel.addEventListener("change", function () {
     renderTable().catch(function (e) {

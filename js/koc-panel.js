@@ -27,7 +27,6 @@ import {
   netTemplateTableHtml,
   sumGap,
   parseStudentNetVal as parseStudentNetValAtlas,
-  sortNamedItemsAlphabeticalTr,
   normalizeStudentYksAlanKey,
   studentAytTableSectionTitle,
   filterSimulatorRowsForStudentAlan,
@@ -35,6 +34,7 @@ import {
   hedefProbabilityBarClass,
 } from "./hedef-atlas-helpers.js";
 import { initNetSihirbazi, initYksPuanHesaplama } from "./net-sihirbazi-ui.js";
+import "./yks-puan-hesaplama.js";
 import { initYksPuanNotesCoach } from "./yks-puan-notes.js";
 import { initTercihSihirbazi } from "./tercih-sihirbazi.js";
 import {
@@ -74,6 +74,12 @@ import {
   listSoruHavuzuFiltered,
   normalizeSoruPoolDocForAi,
 } from "./soru-havuzu-core.js";
+import {
+  skComputeCropPixels,
+  skShouldWarnTallSelection,
+  skWarnIfSparseCrop,
+  skEncodeCropSource,
+} from "./soru-kirpici.js";
 import { parseFlexibleDate, formatDateTimeTr } from "./date-format.js";
 import {
   configureZohoInboxPreset,
@@ -3359,133 +3365,54 @@ function dpHedefNormKey(s) {
     .replace(/\s+/g, " ");
 }
 
-function dpHedefMatchUniversity(name, list) {
-  var n = dpHedefNormKey(name);
-  if (!n) return null;
-  var best = null;
-  var bestLen = -1;
-  for (var i = 0; i < list.length; i++) {
-    var u = list[i];
-    var un = dpHedefNormKey(hedefUniDisplayName(u));
-    if (!un) continue;
-    if (un === n) return u;
-    if (n.indexOf(un) !== -1 || un.indexOf(n) !== -1) {
-      var L = Math.min(un.length, n.length);
-      if (L > bestLen) {
-        bestLen = L;
-        best = u;
-      }
-    }
-  }
-  return best;
-}
-
-function dpHedefMatchProgram(name, programs) {
-  var n = dpHedefNormKey(name);
-  if (!n) return null;
-  var best = null;
-  var bestLen = -1;
-  for (var i = 0; i < programs.length; i++) {
-    var p = programs[i];
-    var pn = dpHedefNormKey(hedefProgramDisplayName(p));
-    if (!pn) continue;
-    if (pn === n) return p;
-    if (n.indexOf(pn) !== -1 || pn.indexOf(n) !== -1) {
-      var L = Math.min(pn.length, n.length);
-      if (L > bestLen) {
-        bestLen = L;
-        best = p;
-      }
-    }
-  }
-  return best;
-}
-
-function dpHedefFillUniversityOptions(uniSel) {
-  if (!uniSel) return;
-  var keep = uniSel.value;
-  uniSel.innerHTML = '<option value="">— Üniversite seçin —</option>';
-  var unis = sortNamedItemsAlphabeticalTr(
-    getHedefAppwriteUniversities().map(function (u) {
-      return { id: u.$id, name: hedefUniDisplayName(u) };
-    })
-  );
-  unis.forEach(function (u) {
-    var o = document.createElement("option");
-    o.value = u.id;
-    o.textContent = u.name;
-    uniSel.appendChild(o);
-  });
-  if (keep && unis.some(function (x) { return x.id === keep; })) uniSel.value = keep;
-}
-
-function dpHedefFillDepartmentOptions(deptSel, uniId) {
-  if (!deptSel) return;
-  var keep = deptSel.value;
-  deptSel.innerHTML = '<option value="">— Bölüm / program seçin —</option>';
-  var uid = String(uniId || "").trim();
-  if (!uid) return;
-  var progs = getDedupedProgramsForUniversity(uid);
-  progs.forEach(function (p) {
-    var o = document.createElement("option");
-    o.value = p.$id;
-    o.textContent = hedefProgramDisplayName(p);
-    deptSel.appendChild(o);
-  });
-  if (keep && progs.some(function (x) { return x.$id === keep; })) deptSel.value = keep;
-}
-
-function dpHedefApplyStudentTargetPrefill() {
-  var stSel = document.getElementById("studentSelect");
-  var uniSel = document.getElementById("universitySelect");
-  var deptSel = document.getElementById("departmentSelect");
-  if (!stSel || !uniSel || !deptSel) return;
-  var sid = String(stSel.value || "").trim();
-  if (!sid) return;
-  var student = cachedStudents.find(function (x) { return x.id === sid; });
-  if (!student) return;
+/**
+ * Öğrenci profilindeki hedef metinleri ile katalogda normalize edilmiş TAM eşleşme (üniversite adı + bölüm adı).
+ */
+function dpHedefResolveExactAtlasFromStudent(student) {
+  if (!student) return null;
   var tu = String(student.targetUniversity || "").trim();
   var td = String(student.targetDepartment || "").trim();
-  if (!tu && !td) return;
+  if (!tu || !td) return null;
+  var nU = dpHedefNormKey(tu);
+  var nD = dpHedefNormKey(td);
   var unis = getHedefAppwriteUniversities();
-  if (!unis.length) return;
-  var mu = tu ? dpHedefMatchUniversity(tu, unis) : null;
-  if (!mu) return;
-  uniSel.value = mu.$id;
-  dpHedefFillDepartmentOptions(deptSel, mu.$id);
-  if (td) {
-    var progs = getDedupedProgramsForUniversity(mu.$id);
-    var mp = dpHedefMatchProgram(td, progs);
-    if (mp) deptSel.value = mp.$id;
+  var matchedUni = null;
+  for (var i = 0; i < unis.length; i++) {
+    var u = unis[i];
+    if (dpHedefNormKey(hedefUniDisplayName(u)) === nU) {
+      matchedUni = u;
+      break;
+    }
   }
+  if (!matchedUni) return null;
+  var progs = getDedupedProgramsForUniversity(matchedUni.$id) || [];
+  for (var j = 0; j < progs.length; j++) {
+    var p = progs[j];
+    if (dpHedefNormKey(hedefProgramDisplayName(p)) === nD) {
+      return findAtlasProgramById(String(matchedUni.$id) + "__" + String(p.$id));
+    }
+  }
+  return null;
 }
 
-function dpHedefDestroySelect2IfNeeded() {
-  if (typeof jQuery === "undefined" || !jQuery.fn.select2) return;
-  var $u = jQuery("#universitySelect");
-  var $d = jQuery("#departmentSelect");
-  if ($u.length && $u.hasClass("select2-hidden-accessible")) $u.select2("destroy");
-  if ($d.length && $d.hasClass("select2-hidden-accessible")) $d.select2("destroy");
-}
-
-function dpHedefInitSelect2IfPossible() {
-  if (typeof jQuery === "undefined" || !jQuery.fn.select2) return;
-  var lang = {
-    noResults: function () { return "Sonuç yok"; },
-    searching: function () { return "Aranıyor…"; },
-  };
-  jQuery("#universitySelect").select2({
-    width: "100%",
-    placeholder: "Üniversite seçin",
-    allowClear: true,
-    language: lang,
-  });
-  jQuery("#departmentSelect").select2({
-    width: "100%",
-    placeholder: "Önce üniversite seçin",
-    allowClear: true,
-    language: lang,
-  });
+function dpHedefClearSimulatorVisuals() {
+  var canvas = document.getElementById("dpHedefRadarCanvas");
+  var barsEl = document.getElementById("dpHedefBarsCoach");
+  var gapEl = document.getElementById("dpHedefGapCoach");
+  var tableWrap = document.getElementById("dpHedefNetTableWrap");
+  var probBlock = document.getElementById("dpHedefProbBlock");
+  var subGaps = document.getElementById("dpHedefPerSubjectGaps");
+  if (dpHedefRadarChart) {
+    try {
+      dpHedefRadarChart.destroy();
+    } catch (_e) {}
+    dpHedefRadarChart = null;
+  }
+  if (barsEl) barsEl.innerHTML = "";
+  if (gapEl) gapEl.textContent = "—";
+  if (tableWrap) tableWrap.innerHTML = "";
+  if (probBlock) probBlock.hidden = true;
+  if (subGaps) subGaps.innerHTML = "";
 }
 
 function renderDpHedefSimulatorChartsOnly() {
@@ -3495,45 +3422,60 @@ function renderDpHedefSimulatorChartsOnly() {
   var tableWrap = document.getElementById("dpHedefNetTableWrap");
   if (!canvas || typeof Chart === "undefined") return;
 
+  var emptyEl = document.getElementById("dpHedefTargetEmpty");
+  var contentEl = document.getElementById("dpHedefSimulatorContent");
+  var uniEl = document.getElementById("dpHedefUniTitle");
+  var bolEl = document.getElementById("dpHedefBolumSub");
+
   var stSel = document.getElementById("studentSelect");
   var sid = stSel && stSel.value ? String(stSel.value) : "";
   var student = sid ? cachedStudents.find(function (x) { return x.id === sid; }) : null;
-  var studentLike = student
-    ? {
-        currentTytNet: student.currentTytNet,
-        targetTytNet: student.targetTytNet,
-      }
-    : null;
 
-  var uniSel = document.getElementById("universitySelect");
-  var deptSel = document.getElementById("departmentSelect");
-  var uniId = uniSel && uniSel.value ? String(uniSel.value) : "";
-  var progId = deptSel && deptSel.value ? String(deptSel.value) : "";
-  var atlasId = uniId && progId ? uniId + "__" + progId : "";
-  var atlasProgram = atlasId ? findAtlasProgramById(atlasId) : null;
-
-  var uniEl = document.getElementById("dpHedefUniTitle");
-  var bolEl = document.getElementById("dpHedefBolumSub");
-  if (atlasProgram) {
-    if (uniEl) uniEl.textContent = atlasProgram.university;
-    if (bolEl) {
-      var srcNote =
-        atlasProgram.dataSource === "yok-atlas"
-          ? "YÖK Atlas alanları (hedef netler dosyadaki değerlerle)"
-          : "Program satırları (katalog)";
-      bolEl.textContent = atlasProgram.department + " — " + srcNote;
-    }
-  } else if (student) {
-    var u = (student.targetUniversity || "").trim();
-    var b = (student.targetDepartment || "").trim();
-    if (uniEl) uniEl.textContent = u || "Hedef üniversite kayıtlı değil";
-    if (bolEl) bolEl.textContent = (b || "Hedef bölüm kayıtlı değil") + " — Güncel vs hedef net";
-  } else {
-    if (uniEl) uniEl.textContent = "Öğrenci veya program seçin";
-    if (bolEl) bolEl.textContent = "Öğrenci kartından hedef atanabilir; üniversite ve bölümü aşağıdan seçin.";
+  if (!sid || !student) {
+    dpHedefClearSimulatorVisuals();
+    if (uniEl) uniEl.textContent = "Öğrenci seçin";
+    if (bolEl) bolEl.textContent = "Soldan bir öğrenci seçerek hedef simülasyonunu görün.";
+    if (emptyEl) emptyEl.hidden = true;
+    if (contentEl) contentEl.hidden = true;
+    return;
   }
 
-  var alanKey = student ? normalizeStudentYksAlanKey(student) : "sayisal";
+  var tu = String(student.targetUniversity || "").trim();
+  var td = String(student.targetDepartment || "").trim();
+
+  if (!tu || !td) {
+    dpHedefClearSimulatorVisuals();
+    if (uniEl) uniEl.textContent = "Hedef bekleniyor";
+    if (bolEl) bolEl.textContent = "";
+    if (emptyEl) emptyEl.hidden = false;
+    if (contentEl) contentEl.hidden = true;
+    return;
+  }
+
+  if (emptyEl) emptyEl.hidden = true;
+  if (contentEl) contentEl.hidden = false;
+
+  if (uniEl) uniEl.textContent = tu;
+
+  var atlasProgram = dpHedefResolveExactAtlasFromStudent(student);
+  var studentLike = {
+    currentTytNet: student.currentTytNet,
+    targetTytNet: student.targetTytNet,
+  };
+
+  if (atlasProgram && bolEl) {
+    var srcNote =
+      atlasProgram.dataSource === "yok-atlas"
+        ? "YÖK Atlas — profil metniyle tam eşleşen program"
+        : "Katalog — profil metniyle tam eşleşen program";
+    bolEl.textContent = td + " — " + srcNote;
+  } else if (bolEl) {
+    bolEl.textContent =
+      td +
+      " — YÖK Atlas kataloğunda bu üniversite ve bölüm adıyla tam eşleşen satır bulunamadı; tablolar öğrenci netlerine göre örneklenir.";
+  }
+
+  var alanKey = normalizeStudentYksAlanKey(student);
   var rows = buildSimulatorRows(atlasProgram, studentLike);
   rows = filterSimulatorRowsForStudentAlan(rows, alanKey);
   var labels = rows.map(function (r) {
@@ -3575,10 +3517,10 @@ function renderDpHedefSimulatorChartsOnly() {
       "Kalan net farkı (branş toplamı): " +
       totalGap.toFixed(1) +
       (atlasProgram
-        ? " — Hedef sütunu YÖK/katalog satırlarıyla aynı; güncel net TYT oranından ölçeklenir."
-        : student && parseStudentNetValAtlas(studentLike && studentLike.currentTytNet) != null
-          ? " — TYT net alanından ölçeklendirildi."
-          : " — Varsayılan örnek veri (öğrencide güncel/hedef net girilince güncellenir).");
+        ? " — Hedef sütunu YÖK Atlas satırlarıyla aynı (tam eşleşme); güncel net TYT oranından ölçeklenir."
+        : parseStudentNetValAtlas(studentLike && studentLike.currentTytNet) != null
+          ? " — Tam Atlas eşleşmesi yok; TYT net alanından ölçeklendirilmiş örnek hedefler."
+          : " — Tam Atlas eşleşmesi yok; öğrenci netleri girilince güncellenir.");
   }
   if (tableWrap) {
     tableWrap.innerHTML = netTemplateTableHtml(rows, { aytSectionTitle: studentAytTableSectionTitle(alanKey) });
@@ -3605,7 +3547,7 @@ function renderDpHedefSimulatorChartsOnly() {
         return r.target - r.current > 0.05;
       })
       .sort(function (a, b) {
-        return b.target - r.current - (a.target - a.current);
+        return b.target - b.current - (a.target - a.current);
       })
       .slice(0, 12)
       .map(function (r) {
@@ -3619,13 +3561,19 @@ function renderDpHedefSimulatorChartsOnly() {
         );
       })
       .join("");
-    subGaps.innerHTML = atlasProgram
-      ? need
+    if (atlasProgram) {
+      subGaps.innerHTML = need
         ? '<p class="dp-hedef-subgap__title">Net hedefi farkı</p><ul class="dp-hedef-subgap__list">' +
           need +
-          '</ul><p class="dp-hedef-subgap__note">Hedef netler seçilen programın YÖK/katalog satırlarıdır.</p>'
-        : '<p class="dp-hedef-subgap__muted">Bu programda tüm satırlarda hedefe ulaşılmış veya üzeri görünüyor.</p>'
-      : '<p class="dp-hedef-subgap__muted">Üniversite ve bölüm seçince ders bazlı net farkı listelenir.</p>';
+          '</ul><p class="dp-hedef-subgap__note">Hedef netler, profildeki hedefle YÖK Atlas’ta tam eşleşen program satırlarından gelir.</p>'
+        : '<p class="dp-hedef-subgap__muted">Bu programda tüm satırlarda hedefe ulaşılmış veya üzeri görünüyor.</p>';
+    } else {
+      subGaps.innerHTML = need
+        ? '<p class="dp-hedef-subgap__title">Net hedefi farkı (örnek hedefler)</p><ul class="dp-hedef-subgap__list">' +
+          need +
+          '</ul><p class="dp-hedef-subgap__note">YÖK Atlas’ta tam eşleşme yok; hedef netler öğrenci netlerine göre ölçeklenir. Profildeki üniversite ve bölüm adını katalogla birebir eşleştirin.</p>'
+        : '<p class="dp-hedef-subgap__muted">Atlas’ta tam eşleşen program bulunamadı veya henüz yeterli net yok; profildeki üniversite ve bölüm adını katalogla birebir eşleştirin.</p>';
+    }
   }
 
   var ctx = canvas.getContext("2d");
@@ -3646,7 +3594,7 @@ function renderDpHedefSimulatorChartsOnly() {
           pointBackgroundColor: "#6c5ce7",
         },
         {
-          label: "Hedef net (YÖK Atlas)",
+          label: atlasProgram ? "Hedef net (YÖK Atlas)" : "Hedef net (örnek)",
           data: target,
           borderColor: "#10b981",
           backgroundColor: "rgba(16, 185, 129, 0.18)",
@@ -3673,8 +3621,6 @@ function renderDpHedefSimulator() {
   if (!canvas || typeof Chart === "undefined") return;
 
   ensureHedefSimulatorAppwriteData().then(function () {
-    dpHedefDestroySelect2IfNeeded();
-
     var sel = document.getElementById("studentSelect");
     if (sel) {
       var keep = sel.value;
@@ -3689,54 +3635,10 @@ function renderDpHedefSimulator() {
       if (!sel.dataset.dpHedefStudentBound) {
         sel.dataset.dpHedefStudentBound = "1";
         sel.addEventListener("change", function () {
-          dpHedefDestroySelect2IfNeeded();
-          dpHedefApplyStudentTargetPrefill();
-          var uniSync = document.getElementById("universitySelect");
-          if (uniSync) uniSync.dataset.dpHedefLastUni = String(uniSync.value || "");
-          dpHedefInitSelect2IfPossible();
-          try {
-            jQuery("#universitySelect").trigger("change.select2");
-            jQuery("#departmentSelect").trigger("change.select2");
-          } catch (_e) {}
           renderDpHedefSimulatorChartsOnly();
         });
       }
     }
-
-    var uniSel = document.getElementById("universitySelect");
-    var deptSel = document.getElementById("departmentSelect");
-
-    if (uniSel && !uniSel.dataset.dpHedefCatalogInit) {
-      uniSel.dataset.dpHedefCatalogInit = "1";
-      dpHedefFillUniversityOptions(uniSel);
-    }
-
-    if (uniSel && deptSel) {
-      var curU = String(uniSel.value || "");
-      if (uniSel.dataset.dpHedefLastUni !== curU) {
-        uniSel.dataset.dpHedefLastUni = curU;
-        dpHedefFillDepartmentOptions(deptSel, curU);
-      }
-      if (!uniSel.dataset.dpHedefUniDeptBound) {
-        uniSel.dataset.dpHedefUniDeptBound = "1";
-        uniSel.addEventListener("change", function () {
-          dpHedefDestroySelect2IfNeeded();
-          var u = String(uniSel.value || "");
-          uniSel.dataset.dpHedefLastUni = u;
-          dpHedefFillDepartmentOptions(deptSel, u);
-          dpHedefInitSelect2IfPossible();
-          try {
-            jQuery("#departmentSelect").val(null).trigger("change");
-          } catch (_e2) {}
-          renderDpHedefSimulatorChartsOnly();
-        });
-        deptSel.addEventListener("change", function () {
-          renderDpHedefSimulatorChartsOnly();
-        });
-      }
-    }
-
-    dpHedefInitSelect2IfPossible();
     renderDpHedefSimulatorChartsOnly();
   });
 }
@@ -7622,9 +7524,11 @@ async function submitProfileSettings() {
 function openProfileSettingsModal() {
   fillProfileSettingsForm()
     .then(function () {
+      setProfileSettingsTab(0);
       openModal("profileSettingsModal");
     })
     .catch(function () {
+      setProfileSettingsTab(0);
       openModal("profileSettingsModal");
     });
 }
@@ -8469,6 +8373,38 @@ function initStudentErpTabs() {
     btn.addEventListener("click", function () {
       var i = parseInt(btn.getAttribute("data-student-tab"), 10);
       if (!isNaN(i)) setStudentErpTab(i);
+    });
+  });
+}
+
+/** Profil ve Hesap Ayarları modalı — sekmeler (Kişisel / Güvenlik / Görünüm) */
+function setProfileSettingsTab(index) {
+  var modal = document.getElementById("profileSettingsModal");
+  if (!modal) return;
+  var tabs = modal.querySelectorAll("[data-profile-tab]");
+  var panels = modal.querySelectorAll("[data-profile-panel]");
+  tabs.forEach(function (btn) {
+    var i = parseInt(btn.getAttribute("data-profile-tab"), 10);
+    if (isNaN(i)) return;
+    var on = i === index;
+    btn.classList.toggle("is-active", on);
+    btn.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  panels.forEach(function (panel) {
+    var i = parseInt(panel.getAttribute("data-profile-panel"), 10);
+    if (isNaN(i)) return;
+    panel.hidden = i !== index;
+  });
+}
+
+function initProfileSettingsTabs() {
+  var modal = document.getElementById("profileSettingsModal");
+  if (!modal || modal.dataset.profileTabsBound) return;
+  modal.dataset.profileTabsBound = "1";
+  modal.querySelectorAll("[data-profile-tab]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var i = parseInt(btn.getAttribute("data-profile-tab"), 10);
+      if (!isNaN(i)) setProfileSettingsTab(i);
     });
   });
 }
@@ -9945,6 +9881,7 @@ var MODAL_IDS = [
   "profileSettingsModal",
   "coachInboxModal",
   "tmPageDeleteConfirmModal",
+  "bulkStudentImportModal",
 ];
 var tmPendingDeletePaper = null;
 
@@ -10222,6 +10159,417 @@ async function submitStudentAddForm(e) {
     if (err.code === "auth/email-already-in-use" || /already exists|409|duplicate|user_already/i.test(msg))
       msg = "Bu kullanıcı adı zaten kayıtlı.";
     alert("Kayıt hatası: " + msg);
+  }
+}
+
+/** Toplu Excel — portal şifresi yoksa manuel formdaki varsayılan ile uyumlu */
+var BULK_IMPORT_DEFAULT_PORTAL_PASSWORD = "YksDerece2026!";
+
+function stripExcelHeaderKey(k) {
+  return String(k || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, "_")
+    .replace(/[^a-z0-9_ğüşıöç]/g, "");
+}
+
+function pickBulkField(norm, aliases) {
+  for (var i = 0; i < aliases.length; i++) {
+    var key = stripExcelHeaderKey(aliases[i]);
+    if (Object.prototype.hasOwnProperty.call(norm, key)) {
+      var v = norm[key];
+      if (v !== "" && v != null) return String(v).trim();
+    }
+  }
+  return "";
+}
+
+function excelRowToStudentFieldMap(row) {
+  var norm = {};
+  Object.keys(row).forEach(function (k) {
+    norm[stripExcelHeaderKey(k)] = row[k];
+  });
+  var firstName = pickBulkField(norm, ["firstName", "ad", "isim", "ogrenci_adi", "ogrenciadi"]);
+  var lastName = pickBulkField(norm, ["lastName", "soyad", "soyisim"]);
+  var full = pickBulkField(norm, ["ad_soyad", "tam_ad", "name", "ogrenci"]);
+  if ((!firstName || !lastName) && full) {
+    var parts = full.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      firstName = firstName || parts[0];
+      lastName = lastName || parts.slice(1).join(" ");
+    } else if (parts.length === 1) {
+      firstName = firstName || parts[0];
+    }
+  }
+  return {
+    norm: norm,
+    firstName: firstName,
+    lastName: lastName,
+    parentPhone: pickBulkField(norm, [
+      "parentPhone",
+      "veli_telefonu",
+      "veli_telefon",
+      "telefon",
+      "gsm",
+      "phone",
+      "ceptelefonu",
+    ]),
+    gender: pickBulkField(norm, ["gender", "cinsiyet"]),
+    tcKimlikNo: pickBulkField(norm, ["tcKimlikNo", "tckn", "tc_kimlik", "tc", "kimlik"]),
+    schoolName: pickBulkField(norm, ["schoolName", "okul", "okul_adi"]),
+    classGrade: pickBulkField(norm, ["classGrade", "sinif", "sinif_subesi"]),
+    examGroup: pickBulkField(norm, ["examGroup", "sinav_grubu", "sinavgrubu", "paket"]),
+    fieldType: pickBulkField(norm, ["fieldType", "alan", "yks_alani"]),
+    currentTytNet: pickBulkField(norm, ["currentTytNet", "guncel_tyt_net", "tyt_net"]),
+    targetTytNet: pickBulkField(norm, ["targetTytNet", "hedef_tyt_net"]),
+    portalUsername: pickBulkField(norm, ["portalUsername", "portal", "kullanici_adi", "kullaniciadi", "username"]),
+    studentPassword: pickBulkField(norm, ["studentPassword", "password", "sifre", "portal_sifre"]),
+    targetUniversity: pickBulkField(norm, ["targetUniversity", "hedef_universite", "universite", "hedef"]),
+    targetDepartment: pickBulkField(norm, ["targetDepartment", "hedef_bolum", "bolum"]),
+    parentFullName: pickBulkField(norm, ["parentFullName", "veli_adi", "veli_ad_soyad"]),
+    parentRelation: pickBulkField(norm, ["parentRelation", "yakinlik", "veli_yakinlik"]),
+    emergencyContactName: pickBulkField(norm, ["emergencyContactName", "acil_kisi"]),
+    registrationDate: pickBulkField(norm, ["registrationDate", "kayit_tarihi", "tarih"]),
+    agreedTotalFee: pickBulkField(norm, ["agreedTotalFee", "ucret", "toplam_ucret"]),
+    installmentCount: pickBulkField(norm, ["installmentCount", "taksit", "taksit_sayisi"]),
+  };
+}
+
+function readExcelFileToJsonRows(file) {
+  return new Promise(function (resolve, reject) {
+    var reader = new FileReader();
+    reader.onload = function (ev) {
+      try {
+        if (typeof XLSX === "undefined" || !XLSX.read) {
+          reject(new Error("SheetJS (XLSX) yüklenmedi."));
+          return;
+        }
+        var data = new Uint8Array(ev.target.result);
+        var wb = XLSX.read(data, { type: "array" });
+        var name = wb.SheetNames[0];
+        if (!name) {
+          resolve([]);
+          return;
+        }
+        var ws = wb.Sheets[name];
+        var json = XLSX.utils.sheet_to_json(ws, { defval: "", raw: false });
+        resolve(Array.isArray(json) ? json : []);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = function () {
+      reject(new Error("Dosya okunamadı."));
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function importSingleStudentFromExcelRow(fieldMap) {
+  var first = (fieldMap.firstName || "").trim();
+  var last = (fieldMap.lastName || "").trim();
+  if (!first && !last) return "skip";
+  if (!first || !last) {
+    throw new Error("Ad ve soyad zorunludur.");
+  }
+  var parentPhone = (fieldMap.parentPhone || "").trim();
+  if (!parentPhone) {
+    throw new Error("Veli telefonu zorunludur.");
+  }
+  var tckn = String(fieldMap.tcKimlikNo != null ? fieldMap.tcKimlikNo : "").replace(/\D/g, "");
+  if (tckn && tckn.length !== 11) {
+    throw new Error("TCKN 11 hane olmalıdır (veya boş bırakın).");
+  }
+
+  var data = {};
+  data.firstName = first;
+  data.lastName = last;
+  data.name = (first + " " + last).trim();
+  data.gender = normalizeGender(fieldMap.gender || "Erkek");
+  data.parentPhone = parentPhone;
+  data.phone = parentPhone;
+  if (tckn) data.tcKimlikNo = tckn;
+  if (fieldMap.schoolName) data.schoolName = fieldMap.schoolName;
+  if (fieldMap.classGrade) data.classGrade = fieldMap.classGrade;
+  if (fieldMap.examGroup) data.examGroup = fieldMap.examGroup;
+  if (fieldMap.fieldType) data.fieldType = fieldMap.fieldType;
+  if (fieldMap.currentTytNet) data.currentTytNet = fieldMap.currentTytNet;
+  if (fieldMap.targetTytNet) data.targetTytNet = fieldMap.targetTytNet;
+  if (fieldMap.parentFullName) data.parentFullName = fieldMap.parentFullName;
+  if (fieldMap.parentRelation) data.parentRelation = fieldMap.parentRelation;
+  if (fieldMap.emergencyContactName) data.emergencyContactName = fieldMap.emergencyContactName;
+  if (fieldMap.registrationDate) data.registrationDate = fieldMap.registrationDate;
+  if (fieldMap.targetUniversity) data.targetUniversity = fieldMap.targetUniversity;
+  if (fieldMap.targetDepartment) data.targetDepartment = fieldMap.targetDepartment;
+
+  if (fieldMap.agreedTotalFee !== undefined && fieldMap.agreedTotalFee !== "") {
+    var fee = parseFloat(String(fieldMap.agreedTotalFee).replace(",", "."), 10);
+    if (!isNaN(fee)) data.agreedTotalFee = fee;
+  }
+  if (fieldMap.installmentCount !== undefined && fieldMap.installmentCount !== "") {
+    var ins = parseInt(fieldMap.installmentCount, 10);
+    if (!isNaN(ins)) data.installmentCount = Math.min(36, Math.max(1, ins));
+  }
+
+  data.avatarUrl = getAvatarByGender(data.gender);
+  data.track = data.examGroup && data.examGroup !== "" ? data.examGroup : "TYT + AYT";
+  data.status = "Aktif";
+
+  var portalRaw = (fieldMap.portalUsername || "").trim();
+  var pass = String(fieldMap.studentPassword != null ? fieldMap.studentPassword : "").trim();
+  var wantAuth = !!(portalRaw || pass);
+  if (wantAuth) {
+    var u = sanitizeStudentPortalUsername(portalRaw);
+    if (!u) {
+      throw new Error("Portal kullanıcı adı yalnızca a-z, 0-9 ve _ içerebilir.");
+    }
+    if (!pass || pass.length < 8) pass = BULK_IMPORT_DEFAULT_PORTAL_PASSWORD;
+    if (pass.length < 8) {
+      throw new Error("Giriş şifresi en az 8 karakter olmalıdır.");
+    }
+    data.portalUsername = u;
+    var email = data.portalUsername + STUDENT_EMAIL_DOMAIN;
+    try {
+      var cred = await createEmailPasswordUserNoSession(email, pass);
+      await setDoc(doc(db, "users", cred.user.uid), {
+        username: data.portalUsername,
+        role: "student",
+        coach_id: getCoachId(),
+        fullName: data.name || null,
+        frozen: false,
+        plainPassword: pass,
+        createdAt: serverTimestamp(),
+        lastPasswordChangeAt: serverTimestamp(),
+      });
+      data.studentAuthUid = cred.user.uid;
+    } catch (authErr) {
+      console.warn("[bulk student] Portal hesabı oluşturulamadı:", authErr);
+      data.portalAuthPending = true;
+    }
+  } else {
+    delete data.portalUsername;
+  }
+
+  data.createdAt = serverTimestamp();
+  data.coach_id = getCoachId();
+  await addDoc(collection(db, "students"), data);
+  return "ok";
+}
+
+function downloadBulkStudentTemplateXlsx() {
+  if (typeof XLSX === "undefined" || !XLSX.utils) {
+    showToast("SheetJS yüklenmedi.", { variant: "danger" });
+    return;
+  }
+  var headers = [
+    "firstName",
+    "lastName",
+    "parentPhone",
+    "gender",
+    "tcKimlikNo",
+    "schoolName",
+    "classGrade",
+    "examGroup",
+    "fieldType",
+    "currentTytNet",
+    "targetTytNet",
+    "portalUsername",
+    "studentPassword",
+    "targetUniversity",
+    "targetDepartment",
+    "parentFullName",
+    "parentRelation",
+    "emergencyContactName",
+    "registrationDate",
+    "agreedTotalFee",
+    "installmentCount",
+  ];
+  var example = [
+    "Ahmet",
+    "Yılmaz",
+    "05551112233",
+    "Erkek",
+    "",
+    "",
+    "",
+    "TYT + AYT",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "İstanbul Üniversitesi",
+    "Bilgisayar Mühendisliği",
+    "",
+    "Baba",
+    "",
+    "",
+    "",
+    "",
+  ];
+  var ws = XLSX.utils.aoa_to_sheet([headers, example]);
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Ogrenciler");
+  XLSX.writeFile(wb, "derecepanel-ogrenci-sablon.xlsx");
+}
+
+function setBulkImportProgress(pct, label) {
+  var wrap = document.getElementById("bulkImportProgress");
+  var fill = document.getElementById("bulkImportProgressFill");
+  var lab = document.getElementById("bulkImportProgressLabel");
+  if (wrap) wrap.hidden = false;
+  if (fill) fill.style.width = Math.max(0, Math.min(100, pct)) + "%";
+  if (lab) lab.textContent = label || "";
+}
+
+function hideBulkImportProgress() {
+  var wrap = document.getElementById("bulkImportProgress");
+  if (wrap) wrap.hidden = true;
+  var fill = document.getElementById("bulkImportProgressFill");
+  if (fill) fill.style.width = "0%";
+}
+
+async function runBulkStudentImportFromFile(file) {
+  if (!file) return;
+  var coachId = getCoachId();
+  if (!coachId) {
+    showToast("Oturum bulunamadı.", { variant: "danger" });
+    return;
+  }
+  var rows;
+  try {
+    rows = await readExcelFileToJsonRows(file);
+  } catch (err) {
+    console.error(err);
+    showToast("Dosya okunamadı: " + (err.message || String(err)), { variant: "danger" });
+    return;
+  }
+  if (!rows.length) {
+    showToast("Tabloda veri satırı yok (başlık dışında).", { variant: "danger" });
+    return;
+  }
+  setBulkImportProgress(2, "İçe aktarılıyor…");
+  var ok = 0;
+  var skipped = 0;
+  var errors = [];
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    setBulkImportProgress(Math.round((100 * i) / rows.length), "Satır " + (i + 1) + " / " + rows.length);
+    var fm = excelRowToStudentFieldMap(row);
+    try {
+      var r = await importSingleStudentFromExcelRow(fm);
+      if (r === "skip") {
+        skipped++;
+        continue;
+      }
+      ok++;
+    } catch (rowErr) {
+      errors.push({ line: i + 2, msg: rowErr.message || String(rowErr) });
+    }
+  }
+  setBulkImportProgress(100, "Tamam");
+  hideBulkImportProgress();
+  if (ok > 0) {
+    showToast("Öğrenciler başarıyla içe aktarıldı", { variant: "success" });
+    if (currentView === "ogrenciler") renderStudentsPage();
+    var bulkModal = document.getElementById("bulkStudentImportModal");
+    if (bulkModal && !bulkModal.hidden) closeModal("bulkStudentImportModal");
+  }
+  if (errors.length) {
+    showToast(
+      ok
+        ? "Bazı satırlar atlandı: " + errors.length + " hata (ilk: satır " + errors[0].line + " — " + errors[0].msg + ")"
+        : "İçe aktarma tamamlanamadı: " + errors[0].msg,
+      { variant: ok ? "danger" : "danger" }
+    );
+  } else if (ok === 0 && skipped === rows.length) {
+    showToast("Boş satırlar atlandı; kayıt eklenmedi.", { variant: "danger" });
+  }
+}
+
+var bulkStudentExcelImportBound = false;
+function initBulkStudentExcelImport() {
+  if (bulkStudentExcelImportBound) return;
+  bulkStudentExcelImportBound = true;
+
+  var btn = document.getElementById("btnPageBulkStudentImport");
+  var fin = document.getElementById("excelFileInput");
+  var bulkImportClickTimer = null;
+  if (btn && fin) {
+    btn.addEventListener("click", function () {
+      if (bulkImportClickTimer) {
+        clearTimeout(bulkImportClickTimer);
+        bulkImportClickTimer = null;
+        return;
+      }
+      bulkImportClickTimer = setTimeout(function () {
+        bulkImportClickTimer = null;
+        fin.click();
+      }, 300);
+    });
+    btn.addEventListener("dblclick", function (e) {
+      e.preventDefault();
+      if (bulkImportClickTimer) {
+        clearTimeout(bulkImportClickTimer);
+        bulkImportClickTimer = null;
+      }
+      openModal("bulkStudentImportModal");
+    });
+  }
+  if (fin) {
+    fin.addEventListener("change", function () {
+      var f = fin.files && fin.files[0];
+      fin.value = "";
+      if (f) void runBulkStudentImportFromFile(f);
+    });
+  }
+
+  var bulkIn = document.getElementById("bulkImportFileInput");
+  if (bulkIn) {
+    bulkIn.addEventListener("change", function () {
+      var f = bulkIn.files && bulkIn.files[0];
+      bulkIn.value = "";
+      if (f) void runBulkStudentImportFromFile(f);
+    });
+  }
+
+  var dz = document.getElementById("bulkImportDropzone");
+  if (dz && bulkIn) {
+    dz.addEventListener("click", function () {
+      bulkIn.click();
+    });
+    dz.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        bulkIn.click();
+      }
+    });
+    ["dragenter", "dragover"].forEach(function (evName) {
+      dz.addEventListener(evName, function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dz.classList.add("is-dragover");
+      });
+    });
+    ["dragleave", "drop"].forEach(function (evName) {
+      dz.addEventListener(evName, function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dz.classList.remove("is-dragover");
+      });
+    });
+    dz.addEventListener("drop", function (e) {
+      var fl = e.dataTransfer && e.dataTransfer.files;
+      if (fl && fl[0]) void runBulkStudentImportFromFile(fl[0]);
+    });
+  }
+
+  var tpl = document.getElementById("bulkImportDownloadTemplate");
+  if (tpl) {
+    tpl.addEventListener("click", function () {
+      downloadBulkStudentTemplateXlsx();
+    });
   }
 }
 
@@ -10779,6 +11127,7 @@ function initModals() {
       submitProfileSettings();
     });
   }
+  initProfileSettingsTabs();
 }
 
 function subscribeFirestore() {
@@ -11523,39 +11872,44 @@ function tmWsManualCropBindOnce() {
       tmWsManualCropRemoveSelection();
       return;
     }
-    var cr = mainCanvas.getBoundingClientRect();
+    if (skShouldWarnTallSelection(Hb)) {
+      if (
+        !window.confirm(
+          "Seçim yüksekliği çok büyük (" +
+            Math.round(Hb) +
+            " px). Birden fazla soru seçmiş olabilirsiniz; devam edilsin mi?"
+        )
+      ) {
+        tmWsManualCropRemoveSelection();
+        console.warn("[SoruKirpici/WS] Uzun seçim iptal.");
+        return;
+      }
+    }
     var wr2 = mainCanvas.closest(".pdf-canvas-wrapper");
     if (!wr2) {
       tmWsManualCropRemoveSelection();
       return;
     }
+    var cr = mainCanvas.getBoundingClientRect();
     var wr = wr2.getBoundingClientRect();
     var cOffL = cr.left - wr.left;
     var cOffT = cr.top - wr.top;
     var dispL = L - cOffL;
     var dispT = T - cOffT;
-    var dw = cr.width;
-    var dh = cr.height;
-    var ix0 = Math.max(0, dispL);
-    var iy0 = Math.max(0, dispT);
-    var ix1 = Math.min(dw, dispL + Wb);
-    var iy1 = Math.min(dh, dispT + Hb);
-    var dispWi = ix1 - ix0;
-    var dispHi = iy1 - iy0;
-    if (dispWi < 4 || dispHi < 4) {
+    var cropWs = skComputeCropPixels(mainCanvas, dispL, dispT, Wb, Hb);
+    if (!cropWs.ok) {
+      showToast(cropWs.reason || "Geçersiz seçim.");
       tmWsManualCropRemoveSelection();
       return;
     }
-    var scaleX = mainCanvas.width / Math.max(dw, 1);
-    var scaleY = mainCanvas.height / Math.max(dh, 1);
-    var x = Math.round(ix0 * scaleX);
-    var y = Math.round(iy0 * scaleY);
-    var w = Math.round(dispWi * scaleX);
-    var h = Math.round(dispHi * scaleY);
-    x = Math.max(0, Math.min(x, mainCanvas.width - 1));
-    y = Math.max(0, Math.min(y, mainCanvas.height - 1));
-    w = Math.min(w, mainCanvas.width - x);
-    h = Math.min(h, mainCanvas.height - y);
+    var x = cropWs.x;
+    var y = cropWs.y;
+    var w = cropWs.w;
+    var h = cropWs.h;
+    var ctxWs = mainCanvas.getContext("2d");
+    if (ctxWs) {
+      skWarnIfSparseCrop(ctxWs, mainCanvas.width, mainCanvas.height, { x: x, y: y, w: w, h: h });
+    }
     var off = document.createElement("canvas");
     off.width = w;
     off.height = h;
@@ -12991,6 +13345,12 @@ var tmPdfCropSlotPromises = {};
 /** 1 = panel genişliğine sığdır; 1'den büyük = yakınlaştırma (daha çok piksel, daha net kırpma) */
 var tmPdfCropZoom = 1;
 var tmPdfCropPanMode = false;
+/** Sayfa değişince soru no alanını 1’e sıfırlamak için son senkron sayfa */
+var tmPdfCropQuestionFieldPage = null;
+/** mousedown anındaki PDF sayfa numarası (mouseup’ta kırpma eşlemesi) */
+var tmPdfCropDragPage = null;
+/** Son seçimin yapıldığı PDF sayfası — Kaydet’te Appwrite meta */
+var tmPdfCropLastSelectionPage = 1;
 var TM_PDF_CROP_ZOOM_MIN = 0.5;
 var TM_PDF_CROP_ZOOM_MAX = 2.75;
 var TM_PDF_CROP_ZOOM_STEP = 1.12;
@@ -13045,6 +13405,19 @@ function tmPdfCropUpdateNav() {
   if (prev) prev.disabled = !tmPdfCropDoc || tmPdfCropPage <= 1;
   if (next) next.disabled = !tmPdfCropDoc || !total || tmPdfCropPage >= total;
   tmPdfCropUpdateZoomUi();
+  tmPdfCropSyncQuestionFieldToPage();
+}
+
+function tmPdfCropSyncQuestionFieldToPage() {
+  var p = tmPdfCropPage;
+  var qInp = document.getElementById("tmPdfCropSoruNo");
+  var echo = document.getElementById("tmPdfCropSayfaEcho");
+  if (echo) echo.textContent = tmPdfCropDoc ? String(p) : "—";
+  if (!qInp) return;
+  if (tmPdfCropQuestionFieldPage !== p) {
+    tmPdfCropQuestionFieldPage = p;
+    qInp.value = "1";
+  }
 }
 
 function tmPdfCropRemoveCropSelectionBox() {
@@ -13353,6 +13726,9 @@ function initPdfCropperModule() {
           wrap.classList.remove("tm-pdf-cropper--pan-mode", "tm-pdf-cropper--pan-dragging");
           tmPdfCropClearPreview();
           tmPdfCropPage = 1;
+          tmPdfCropQuestionFieldPage = null;
+          tmPdfCropDragPage = null;
+          tmPdfCropLastSelectionPage = 1;
           tmPdfCropUpdateNav();
           return tmPdfCropBuildContinuousView(doc);
         })
@@ -13462,7 +13838,12 @@ function initPdfCropperModule() {
     var holder = mainCanvas.closest(".pdf-canvas-wrapper");
     if (!holder) return;
     var pageNum = parseInt(slot.getAttribute("data-page"), 10);
-    if (!isNaN(pageNum)) tmPdfCropPage = pageNum;
+    if (!isNaN(pageNum)) {
+      tmPdfCropPage = pageNum;
+      tmPdfCropDragPage = pageNum;
+    } else {
+      tmPdfCropDragPage = null;
+    }
     tmPdfCropRemoveCropSelectionBox();
     var wr = holder.getBoundingClientRect();
     var ox = e.clientX - wr.left;
@@ -13525,39 +13906,68 @@ function initPdfCropperModule() {
     var T = parseFloat(dragBox.style.top) || 0;
     var Wb = parseFloat(dragBox.style.width) || 0;
     var Hb = parseFloat(dragBox.style.height) || 0;
+    if (Wb < 4 || Hb < 4) {
+      tmPdfCropRemoveCropSelectionBox();
+      dragging = false;
+      dragMain = null;
+      dragWrapper = null;
+      dragBox = null;
+      tmPdfCropDragPage = null;
+      return;
+    }
+    if (skShouldWarnTallSelection(Hb)) {
+      var okTall = window.confirm(
+        "Seçim alanı yüksekliği çok büyük (" +
+          Math.round(Hb) +
+          " px). Birden fazla soru seçmiş olabilirsiniz; devam edilsin mi?"
+      );
+      if (!okTall) {
+        tmPdfCropRemoveCropSelectionBox();
+        dragging = false;
+        dragMain = null;
+        dragWrapper = null;
+        dragBox = null;
+        tmPdfCropDragPage = null;
+        console.warn("[SoruKirpici] Uzun seçim kullanıcı tarafından iptal edildi.");
+        return;
+      }
+      console.warn(
+        "[SoruKirpici] Uzun seçim onaylandı (yükseklik " + Math.round(Hb) + " px). Çoklu soru riski."
+      );
+    }
     tmPdfCropRemoveCropSelectionBox();
     dragging = false;
     dragMain = null;
     dragWrapper = null;
     dragBox = null;
-    if (Wb < 4 || Hb < 4) return;
-    var cr = mainCanvas.getBoundingClientRect();
     var wr2 = mainCanvas.closest(".pdf-canvas-wrapper");
-    if (!wr2) return;
+    if (!wr2) {
+      tmPdfCropDragPage = null;
+      return;
+    }
+    var cr = mainCanvas.getBoundingClientRect();
     var wr = wr2.getBoundingClientRect();
     var cOffL = cr.left - wr.left;
     var cOffT = cr.top - wr.top;
     var dispL = L - cOffL;
     var dispT = T - cOffT;
-    var dw = cr.width;
-    var dh = cr.height;
-    var ix0 = Math.max(0, dispL);
-    var iy0 = Math.max(0, dispT);
-    var ix1 = Math.min(dw, dispL + Wb);
-    var iy1 = Math.min(dh, dispT + Hb);
-    var dispWi = ix1 - ix0;
-    var dispHi = iy1 - iy0;
-    if (dispWi < 4 || dispHi < 4) return;
-    var scaleX = mainCanvas.width / Math.max(dw, 1);
-    var scaleY = mainCanvas.height / Math.max(dh, 1);
-    var x = Math.round(ix0 * scaleX);
-    var y = Math.round(iy0 * scaleY);
-    var w = Math.round(dispWi * scaleX);
-    var h = Math.round(dispHi * scaleY);
-    x = Math.max(0, Math.min(x, mainCanvas.width - 1));
-    y = Math.max(0, Math.min(y, mainCanvas.height - 1));
-    w = Math.min(w, mainCanvas.width - x);
-    h = Math.min(h, mainCanvas.height - y);
+    var crop = skComputeCropPixels(mainCanvas, dispL, dispT, Wb, Hb);
+    if (!crop.ok) {
+      showToast(crop.reason || "Geçersiz seçim.");
+      tmPdfCropDragPage = null;
+      return;
+    }
+    tmPdfCropLastSelectionPage =
+      tmPdfCropDragPage != null && !isNaN(tmPdfCropDragPage) ? tmPdfCropDragPage : tmPdfCropPage;
+    tmPdfCropDragPage = null;
+    var x = crop.x;
+    var y = crop.y;
+    var w = crop.w;
+    var h = crop.h;
+    var ctxFull = mainCanvas.getContext("2d");
+    if (ctxFull) {
+      skWarnIfSparseCrop(ctxFull, mainCanvas.width, mainCanvas.height, { x: x, y: y, w: w, h: h });
+    }
     var off = document.createElement("canvas");
     off.width = w;
     off.height = h;
@@ -13588,7 +13998,8 @@ function initPdfCropperModule() {
       }
       var sinavTipi = (document.getElementById("tmCropSinav") || {}).value || "TYT";
       var ders = (document.getElementById("tmCropDers") || {}).value || "";
-      var konu = (document.getElementById("tmCropKonu") || {}).value || "";
+      var konuRaw = String((document.getElementById("tmCropKonu") || {}).value || "").trim();
+      var konu = konuRaw || "Genel";
       var zorluk = (document.getElementById("tmCropZorluk") || {}).value || "";
       var cidCrop = getCoachId();
       if (!cidCrop) {
@@ -13605,6 +14016,11 @@ function initPdfCropperModule() {
         saveBtn.disabled = false;
         return;
       }
+      var soruNoInp = document.getElementById("tmPdfCropSoruNo");
+      var soruNoVal = parseInt(soruNoInp && soruNoInp.value, 10);
+      if (isNaN(soruNoVal) || soruNoVal < 1) soruNoVal = 1;
+      var sayfaMeta = tmPdfCropLastSelectionPage || tmPdfCropPage || 1;
+      var cropTag = skEncodeCropSource("pdf_crop", sayfaMeta, soruNoVal);
       saveSoruHavuzuEntry({
         coachKey: cidCrop,
         imageBlob: blob,
@@ -13613,9 +14029,15 @@ function initPdfCropperModule() {
         zorluk: zorluk,
         sinavTipi: sinavTipi,
         source: "pdf_crop",
+        cropSourceTag: cropTag,
       })
         .then(function () {
           showToast("Kırpma soru_havuzu koleksiyonuna kaydedildi.");
+          if (soruNoInp) {
+            var n = parseInt(soruNoInp.value, 10);
+            if (!isNaN(n) && n >= 1) soruNoInp.value = String(n + 1);
+            else soruNoInp.value = "2";
+          }
         })
         .catch(function (err) {
           console.error("[soru_havuzu] pdf_crop kayıt:", err);
@@ -15385,11 +15807,13 @@ function navigateTo(view) {
   if (view === "tercih-sihirbazi") {
     initTercihSihirbazi({
       formId: "dpTsForm",
-      tableWrapId: "dpTsTableWrap",
+      tableWrapId: "dpTsTableScroll",
+      pagerWrapId: "dpTsPagerHost",
       metaId: "dpTsMeta",
       citySelectId: "dpTsCity",
       uniSelectId: "dpTsUniSelect",
       deptSelectId: "dpTsDeptSelect",
+      programTurSelectId: "dpTsProgramTur",
     });
   }
   if (view === "gelen-sorular") {
@@ -15449,7 +15873,7 @@ var tmAutoCropResults = [];
 function tmAutoCropFillDersKonuFromExam() {
   var exEl = document.getElementById("tmAutoCropExam");
   var dersEl = document.getElementById("tmAutoCropDersSelect");
-  var konuEl = document.getElementById("tmAutoCropKonuSelect");
+  var konuEl = document.getElementById("selectSoruKonu");
   if (!exEl || !dersEl || !konuEl) return;
   var ex = exEl.value || "TYT";
   var bag = yksAiCurriculum[ex] || {};
@@ -15718,7 +16142,9 @@ async function tmAutoCropSaveSelected() {
     return;
   }
   var ders = ((document.getElementById("tmAutoCropDersSelect") || {}).value || "").trim();
-  var konu = ((document.getElementById("tmAutoCropKonuSelect") || {}).value || "").trim();
+  var secilenKonuToolbar = String(
+    (document.getElementById("selectSoruKonu") || {}).value || ""
+  ).trim();
   var zorluk = ((document.getElementById("tmAutoCropZorluk") || {}).value || "Orta").trim();
   var saveBtn = document.getElementById("tmAutoCropSaveBtn");
   var selected = tmAutoCropResults.filter(function (x) {
@@ -15735,7 +16161,8 @@ async function tmAutoCropSaveSelected() {
       var dataUrl = selected[i].imageBase64;
       var blob = dataUrlToBlob(dataUrl);
       var dersUse = String(selected[i].editedDers || "").trim() || ders;
-      var konuUse = String(selected[i].editedKonu || "").trim() || konu;
+      var editedKonuKart = String(selected[i].editedKonu || "").trim();
+      var konuUse = secilenKonuToolbar || editedKonuKart || "Genel";
       var dc = String(selected[i].dogruCevap || "").trim().toUpperCase();
       await saveSoruHavuzuEntry({
         coachKey: cid,
@@ -15851,7 +16278,7 @@ function initTmAutoCropperModule() {
   if (applyToolbarMeta) {
     applyToolbarMeta.addEventListener("click", function () {
       var dSel = document.getElementById("tmAutoCropDersSelect");
-      var kSel = document.getElementById("tmAutoCropKonuSelect");
+      var kSel = document.getElementById("selectSoruKonu");
       var d = String((dSel && dSel.value) || "").trim();
       var k = String((kSel && kSel.value) || "").trim();
       if (!d && !k) {
@@ -17365,18 +17792,12 @@ function bindKutuphanemPageExtrasOnce() {
       var tEl = document.getElementById("kutuEditTitle");
       var sEl = document.getElementById("kutuEditSubject");
       var totEl = document.getElementById("kutuEditTotal");
-      var turEl = document.getElementById("kutuEditKitapTuru");
       var id = docId ? String(docId.value || "").trim() : "";
       var title = tEl ? String(tEl.value || "").trim() : "";
       var subject = sEl ? String(sEl.value || "").trim() : "";
-      var kitapTuru = turEl ? String(turEl.value || "").trim() : "";
       var total = totEl ? parseInt(totEl.value, 10) : 0;
       if (!id || !title || !subject) {
         showToast("Kitap adı ve ders zorunludur.");
-        return;
-      }
-      if (!kitapTuru) {
-        showToast("Kitap türü seçin.");
         return;
       }
       if (isNaN(total) || total < 1) {
@@ -17387,7 +17808,6 @@ function bindKutuphanemPageExtrasOnce() {
         await updateDoc(doc(db, "kaynaklar", id), {
           title: title,
           subject: subject,
-          kitap_turu: kitapTuru,
           totalPages: total,
         });
         closeModal("kutuphaneEditModal");
@@ -17490,18 +17910,12 @@ function bindKutuphanemFormOnce() {
     }
     var titleEl = document.getElementById("kutuKitapAdi");
     var subEl = document.getElementById("kutuDers");
-    var turEl = document.getElementById("kutuKitapTuru");
     var totEl = document.getElementById("kutuToplam");
     var title = titleEl ? String(titleEl.value || "").trim() : "";
     var subject = subEl ? String(subEl.value || "").trim() : "";
-    var kitapTuru = turEl ? String(turEl.value || "").trim() : "";
     var total = totEl ? parseInt(totEl.value, 10) : 0;
     if (!title || !subject) {
       showToast("Kitap adı ve ders zorunludur.");
-      return;
-    }
-    if (!kitapTuru) {
-      showToast("Kitap türü seçin.");
       return;
     }
     if (isNaN(total) || total < 1) {
@@ -17513,7 +17927,6 @@ function bindKutuphanemFormOnce() {
         coach_id: cid,
         title: title,
         subject: subject,
-        kitap_turu: kitapTuru,
         totalPages: total,
         createdAt: serverTimestamp(),
       });
@@ -18247,6 +18660,7 @@ function initAllButtons() {
       return;
     }
   });
+  initBulkStudentExcelImport();
 }
 
 window.YKSPanel = {

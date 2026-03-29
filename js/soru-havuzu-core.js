@@ -428,6 +428,12 @@ export async function saveSoruHavuzuEntry(p) {
 
   var docId = ID.unique();
 
+  var srcTag = String((p && p.cropSourceTag) || (p && p.source) || "").trim();
+  if (!srcTag && p && (p.pdfSayfa != null || p.soruNo != null)) {
+    srcTag =
+      "pdf_crop|p" + String(p.pdfSayfa != null ? p.pdfSayfa : "") + "|q" + String(p.soruNo != null ? p.soruNo : "");
+  }
+
   var payload = {
     ders: String((p && p.ders) || ""),
     konu: String((p && p.konu) || ""),
@@ -435,6 +441,13 @@ export async function saveSoruHavuzuEntry(p) {
     soru_resim_id: uploadedFileId,
     dogru_cevap: "",
   };
+  if (srcTag) {
+    payload.source = srcTag.slice(0, 64);
+  }
+  var sinavStr = String((p && p.sinavTipi) || (p && p.sinav) || "").trim();
+  if (sinavStr) {
+    payload.sinav = sinavStr.slice(0, 128);
+  }
   var dc = String((p && p.dogruCevap) || (p && p.dogru_cevap) || "")
     .trim()
     .toUpperCase();
@@ -457,6 +470,8 @@ export async function saveSoruHavuzuEntry(p) {
           soru_resim_id: payload.soru_resim_id,
           dogru_cevap: payload.dogru_cevap,
         };
+        if (payload.source) payload2.source = payload.source;
+        if (payload.sinav) payload2.sinav = payload.sinav;
         await databases.createDocument(DATABASE_ID, COLLECTION_ID, docId, payload2);
         console.warn("[soru_havuzu] coach_id şemada yok; kayıt coach_id olmadan oluşturuldu.");
         return docId;

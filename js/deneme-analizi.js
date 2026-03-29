@@ -930,7 +930,7 @@ import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN, netFromDyWithRule } from "./yks-exam
     if (empty) empty.hidden = true;
     wrap.classList.remove("dnm-table-wrap--empty");
     dnmPlansCache.forEach(function (row) {
-      var tur = String(row.examType || row.tur || "TYT").toUpperCase();
+      var tur = String(row.type || row.examType || row.tur || "TYT").toUpperCase();
       var st = row.planStatus || row.status || "Bekliyor";
       if (st === "Planlandı") st = "Bekliyor";
       var tr = document.createElement("tr");
@@ -985,8 +985,12 @@ import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN, netFromDyWithRule } from "./yks-exam
     });
   }
 
+  function dnmGetModalEl() {
+    return document.getElementById("denemePlanlaModal") || document.getElementById("dnmModal");
+  }
+
   function dnmOpenModal(isEdit) {
-    var m = document.getElementById("dnmModal");
+    var m = dnmGetModalEl();
     var t = document.getElementById("dnmModalTitle");
     if (!m) return;
     if (t) t.textContent = isEdit ? "Denemeyi düzenle" : "Yeni Deneme Planla";
@@ -996,7 +1000,7 @@ import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN, netFromDyWithRule } from "./yks-exam
   }
 
   function dnmCloseModal() {
-    var m = document.getElementById("dnmModal");
+    var m = dnmGetModalEl();
     if (!m) return;
     m.hidden = true;
     m.setAttribute("aria-hidden", "true");
@@ -1025,7 +1029,7 @@ import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN, netFromDyWithRule } from "./yks-exam
     var n = document.getElementById("dnmPlanName");
     if (n) n.value = row.examName || "";
     var st = document.getElementById("dnmPlanSinavTuru");
-    if (st) st.value = String(row.examType || row.tur || "TYT").toUpperCase();
+    if (st) st.value = String(row.type || row.examType || row.tur || "TYT").toUpperCase();
     var y = document.getElementById("dnmPlanYayin");
     if (y) y.value = row.publisher || "";
     var d = document.getElementById("dnmPlanDate");
@@ -1091,6 +1095,7 @@ import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN, netFromDyWithRule } from "./yks-exam
       recordType: DNM_RECORD,
       isCoachExamPlan: true,
       examName: examName,
+      type: tur,
       examType: tur,
       tur: tur,
       publisher: pub,
@@ -1127,25 +1132,33 @@ import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN, netFromDyWithRule } from "./yks-exam
   function dnmBindOnce() {
     if (dnmPlanBound) return;
     var root = document.getElementById("view-deneme-analiz-denemeler");
-    if (!root) return;
+    var modalHost = dnmGetModalEl();
+    if (!root && !modalHost) return;
     dnmPlanBound = true;
 
-    document.getElementById("btnDnmNewExam") &&
-      document.getElementById("btnDnmNewExam").addEventListener("click", function () {
+    function wireOpenDenemeModal(btn) {
+      if (!btn || btn.dataset.dnmOpenBound) return;
+      btn.dataset.dnmOpenBound = "1";
+      btn.addEventListener("click", function () {
         dnmResetPlanForm();
         dnmOpenModal(false);
       });
+    }
+    wireOpenDenemeModal(document.getElementById("btnDnmNewExam"));
+    wireOpenDenemeModal(document.getElementById("btnOpenDenemeModal"));
 
     document.getElementById("btnDnmSave") &&
       document.getElementById("btnDnmSave").addEventListener("click", function () {
         void dnmSavePlan();
       });
 
-    root.querySelectorAll("[data-dnm-close]").forEach(function (el) {
-      el.addEventListener("click", function () {
-        dnmCloseModal();
+    if (modalHost) {
+      modalHost.querySelectorAll("[data-dnm-close]").forEach(function (el) {
+        el.addEventListener("click", function () {
+          dnmCloseModal();
+        });
       });
-    });
+    }
 
     document.querySelectorAll("[data-dnm-zorluk]").forEach(function (b) {
       b.addEventListener("click", function () {
@@ -1153,40 +1166,42 @@ import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN, netFromDyWithRule } from "./yks-exam
       });
     });
 
-    root.addEventListener("click", function (ev) {
-      var ed = ev.target.closest && ev.target.closest("[data-dnm-edit]");
-      if (ed) {
-        var id = ed.getAttribute("data-dnm-edit");
-        var row = dnmPlansCache.find(function (r) {
-          return r.id === id;
-        });
-        if (row) {
-          dnmFillFormFromRow(row);
-          dnmOpenModal(true);
-        }
-        return;
-      }
-      var del = ev.target.closest && ev.target.closest("[data-dnm-del]");
-      if (del) {
-        var did = del.getAttribute("data-dnm-del");
-        if (!did || !confirm("Bu deneme planını silmek istediğinize emin misiniz?")) return;
-        void (async function () {
-          try {
-            await deleteDoc(doc(db, "exams", did));
-            await dnmReloadList();
-            if (global.YKSPanel && typeof global.YKSPanel.toast === "function") {
-              global.YKSPanel.toast("Silindi.");
-            }
-          } catch (e) {
-            console.error(e);
-            alert((e && e.message) || String(e));
+    if (root) {
+      root.addEventListener("click", function (ev) {
+        var ed = ev.target.closest && ev.target.closest("[data-dnm-edit]");
+        if (ed) {
+          var id = ed.getAttribute("data-dnm-edit");
+          var row = dnmPlansCache.find(function (r) {
+            return r.id === id;
+          });
+          if (row) {
+            dnmFillFormFromRow(row);
+            dnmOpenModal(true);
           }
-        })();
-      }
-    });
+          return;
+        }
+        var del = ev.target.closest && ev.target.closest("[data-dnm-del]");
+        if (del) {
+          var did = del.getAttribute("data-dnm-del");
+          if (!did || !confirm("Bu deneme planını silmek istediğinize emin misiniz?")) return;
+          void (async function () {
+            try {
+              await deleteDoc(doc(db, "exams", did));
+              await dnmReloadList();
+              if (global.YKSPanel && typeof global.YKSPanel.toast === "function") {
+                global.YKSPanel.toast("Silindi.");
+              }
+            } catch (e) {
+              console.error(e);
+              alert((e && e.message) || String(e));
+            }
+          })();
+        }
+      });
+    }
 
     document.addEventListener("keydown", function (ev) {
-      var m = document.getElementById("dnmModal");
+      var m = dnmGetModalEl();
       if (!m || m.hidden) return;
       if (ev.key === "Escape") dnmCloseModal();
     });
@@ -1201,7 +1216,7 @@ import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN, netFromDyWithRule } from "./yks-exam
     function hook() {
       if (!global.YKSPanel || typeof global.YKSPanel.onNavigate !== "function") return false;
       global.YKSPanel.onNavigate(function (view) {
-        if (view === "deneme-analiz-denemeler") initDenemePlanlamaPage();
+        if (view === "deneme-analiz-denemeler" || view === "deneme-analiz-takvim") initDenemePlanlamaPage();
       });
       return true;
     }
