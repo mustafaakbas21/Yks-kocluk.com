@@ -1,7 +1,7 @@
 /**
  * Öğrenci paneli — müfredat accordion (TYT/AYT → ders → konu checkbox)
  */
-import { mufredatData } from "./mufredat-data.js";
+import { mufredatData } from "./yks-mufredat.js";
 
 var STORAGE_KEY = "osp_mufredat_topic_done_v1";
 

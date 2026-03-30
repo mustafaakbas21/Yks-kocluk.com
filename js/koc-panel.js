@@ -4,16 +4,17 @@
  */
 
 import {
+  YKS2026_Mufredat,
+  yks2026DersKeys,
   YKS_TYT_BRANCHES,
   YKS_AYT_BY_ALAN,
   netFromDy,
   netFromDyWithRule,
   clampDy,
-} from "./yks-exam-structure.js";
+  yksMufredatDatasi,
+} from "./yks-mufredat.js";
 import { initExamDefinitionProfessionalUI } from "./exam-definition-module.js";
 import { initOptikAdvancedBindings } from "./optik-advanced-module.js";
-import { yksMufredatDatasi } from "./mufredat-data.js";
-import { YKS2026_Mufredat, yks2026DersKeys } from "./yks-mufredat.js";
 import { findAtlasProgramById } from "./yok-atlas-data.js";
 import {
   ensureHedefSimulatorAppwriteData,
@@ -649,7 +650,7 @@ function tmSyncRibbonActive(view) {
   });
 }
 
-/** TYT/AYT müfredat mock verisi — `js/mufredat-data.js` (yksMufredatDatasi) */
+/** TYT/AYT müfredat — `js/yks-mufredat.js` → yksMufredatDatasi */
 var yksAiCurriculum = yksMufredatDatasi;
 try {
   window.yksMufredatDatasi = yksMufredatDatasi;
@@ -3916,8 +3917,13 @@ function renderDashboardExams() {
   const filtered = plain.filter(examMatchesFilters);
   const slice = filtered.slice(0, 15);
   if (slice.length === 0) {
+    const noDb = plain.length === 0;
     tbody.innerHTML =
-      '<tr><td colspan="6" class="table-empty">Kayıt yok veya filtreye uymuyor.</td></tr>';
+      '<tr><td colspan="6" class="table-empty">' +
+      (noDb
+        ? "Henüz hiç deneme kaydı yok. Öğrenci deneme sonuçlarını eklediğinizde liste burada görünür."
+        : "Filtreye uyan deneme yok; arama veya TYT/AYT filtresini kontrol edin.") +
+      "</td></tr>";
     return;
   }
   tbody.innerHTML = slice.map(function (row) {
@@ -4588,6 +4594,15 @@ function examsForStudent(sid) {
 function renderStudentDetailTrendChart(sid) {
   var canvas = document.getElementById("studentDetailTrendChart");
   if (!canvas || typeof Chart === "undefined") return;
+  var wrap = canvas.closest(".sd-chart-wrap");
+  var hint = wrap ? wrap.querySelector("[data-sd-trend-empty]") : null;
+  if (!hint && wrap) {
+    hint = document.createElement("p");
+    hint.setAttribute("data-sd-trend-empty", "1");
+    hint.className = "empty-hint";
+    hint.style.marginTop = "0.5rem";
+    wrap.appendChild(hint);
+  }
   var ex = examsForStudent(sid)
     .slice()
     .sort(function (a, b) {
@@ -4595,7 +4610,15 @@ function renderStudentDetailTrendChart(sid) {
     });
   var existing = Chart.getChart(canvas);
   if (existing) existing.destroy();
-  if (ex.length === 0) return;
+  if (ex.length === 0) {
+    if (hint) {
+      hint.hidden = false;
+      hint.textContent =
+        "Henüz deneme kaydı olmadığı için trend grafiği oluşturulamıyor. İlk kayıttan sonra sonuçlar burada çizilir.";
+    }
+    return;
+  }
+  if (hint) hint.hidden = true;
   var labels = ex.map(function (e, i) {
     var n = e.examName || e.exam || "D" + (i + 1);
     return n.length > 18 ? n.slice(0, 16) + "…" : n;
@@ -15873,7 +15896,7 @@ var tmAutoCropResults = [];
 function tmAutoCropFillDersKonuFromExam() {
   var exEl = document.getElementById("tmAutoCropExam");
   var dersEl = document.getElementById("tmAutoCropDersSelect");
-  var konuEl = document.getElementById("selectSoruKonu");
+  var konuEl = document.getElementById("tmAutoCropKonuSelect");
   if (!exEl || !dersEl || !konuEl) return;
   var ex = exEl.value || "TYT";
   var bag = yksAiCurriculum[ex] || {};
@@ -15916,6 +15939,25 @@ function tmParseAiTag(tag) {
     };
   }
   return { ders: "", konu: t };
+}
+
+/** AI/heuristik konu etiketleri; gerçek seçim yok sayılır (toolbar/kart önceliği için). */
+function tmAutoCropIsPlaceholderKonu(k) {
+  var s = String(k || "").trim().toLowerCase();
+  return !s || s === "genel" || s === "belirsiz konu";
+}
+
+function tmAutoCropEffectiveKonuForSave(editedKonu, konuToolbar) {
+  var t = String(konuToolbar || "").trim();
+  var c = String(editedKonu || "").trim();
+  if (tmAutoCropIsPlaceholderKonu(c)) c = "";
+  return (c || t).trim();
+}
+
+function tmAutoCropEffectiveDersForSave(editedDers, dersToolbar) {
+  var t = String(dersToolbar || "").trim();
+  var c = String(editedDers || "").trim();
+  return (c || t).trim();
 }
 
 function tmAutoCropSetHint(msg) {
@@ -16067,6 +16109,12 @@ async function tmAutoCropRun() {
   var sensEl = document.getElementById("tmAutoCropSensitivity");
   var sens = parseFloat((sensEl && sensEl.value) || "1") || 1;
   var renderScale = Math.min(3.2, Math.max(2.15, 2.15 + (sens - 0.65) * 0.55));
+  var dersToolbarRun = String(
+    ((document.getElementById("tmAutoCropDersSelect") || {}).value || "").trim()
+  );
+  var konuToolbarRun = String(
+    ((document.getElementById("tmAutoCropKonuSelect") || {}).value || "").trim()
+  );
   var fd = new FormData();
   fd.append("pdf", tmAutoCropFile);
   fd.append("sensitivity", String(sens));
@@ -16098,6 +16146,8 @@ async function tmAutoCropRun() {
         if (!img) return null;
         var tag = String((q && q.ai_suggested_tag) || "").trim();
         var parsed = tmParseAiTag(tag);
+        var pk = String(parsed.konu || "").trim();
+        if (tmAutoCropIsPlaceholderKonu(pk)) pk = "";
         var gIdx = parseInt((q && q.index) || i + 1, 10) || i + 1;
         var dq = q && q.detected_qnum;
         var qNum =
@@ -16114,8 +16164,8 @@ async function tmAutoCropRun() {
           dogruCevap: "",
           suggestedDers: parsed.ders,
           suggestedKonu: parsed.konu,
-          editedDers: parsed.ders,
-          editedKonu: parsed.konu,
+          editedDers: dersToolbarRun || parsed.ders || "",
+          editedKonu: konuToolbarRun || pk || "",
         };
       })
       .filter(Boolean);
@@ -16141,10 +16191,12 @@ async function tmAutoCropSaveSelected() {
     showToast("Koç oturumu gerekli.");
     return;
   }
-  var ders = ((document.getElementById("tmAutoCropDersSelect") || {}).value || "").trim();
-  var secilenKonuToolbar = String(
-    (document.getElementById("selectSoruKonu") || {}).value || ""
-  ).trim();
+  var dersToolbar = String(
+    ((document.getElementById("tmAutoCropDersSelect") || {}).value || "").trim()
+  );
+  var konuToolbar = String(
+    ((document.getElementById("tmAutoCropKonuSelect") || {}).value || "").trim()
+  );
   var zorluk = ((document.getElementById("tmAutoCropZorluk") || {}).value || "Orta").trim();
   var saveBtn = document.getElementById("tmAutoCropSaveBtn");
   var selected = tmAutoCropResults.filter(function (x) {
@@ -16158,11 +16210,22 @@ async function tmAutoCropSaveSelected() {
   var okCount = 0;
   try {
     for (var i = 0; i < selected.length; i++) {
+      var dersUse = tmAutoCropEffectiveDersForSave(selected[i].editedDers, dersToolbar);
+      var konuUse = tmAutoCropEffectiveKonuForSave(selected[i].editedKonu, konuToolbar);
+      if (!dersUse) {
+        window.alert(
+          "Kayıt için ders gerekli: üstteki «Ders seçiniz» listesinden seçin veya soru kartındaki ders alanına yazın."
+        );
+        return;
+      }
+      if (!konuUse) {
+        window.alert(
+          "Kayıt için konu gerekli: üstteki «Konu seçiniz» listesinden seçin veya soru kartındaki konu alanına yazın."
+        );
+        return;
+      }
       var dataUrl = selected[i].imageBase64;
       var blob = dataUrlToBlob(dataUrl);
-      var dersUse = String(selected[i].editedDers || "").trim() || ders;
-      var editedKonuKart = String(selected[i].editedKonu || "").trim();
-      var konuUse = secilenKonuToolbar || editedKonuKart || "Genel";
       var dc = String(selected[i].dogruCevap || "").trim().toUpperCase();
       await saveSoruHavuzuEntry({
         coachKey: cid,
@@ -16278,7 +16341,7 @@ function initTmAutoCropperModule() {
   if (applyToolbarMeta) {
     applyToolbarMeta.addEventListener("click", function () {
       var dSel = document.getElementById("tmAutoCropDersSelect");
-      var kSel = document.getElementById("selectSoruKonu");
+      var kSel = document.getElementById("tmAutoCropKonuSelect");
       var d = String((dSel && dSel.value) || "").trim();
       var k = String((kSel && kSel.value) || "").trim();
       if (!d && !k) {

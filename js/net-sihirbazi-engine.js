@@ -4,7 +4,7 @@
  * Kalan net = Hedef net − Güncel net (negatif → kırmızı, sıfır/pozitif → yeşil).
  */
 
-import { YKS_AYT_BY_ALAN } from "./yks-exam-structure.js";
+import { YKS_AYT_BY_ALAN } from "./yks-mufredat.js";
 
 /** Soru üst sınırı — hedef net clamp */
 export const MAX_QUESTIONS = {

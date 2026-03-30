@@ -1,7 +1,7 @@
 /**
  * Görüşme Odası — Premium Kokpit (gerçek Appwrite + yks-data + TestMaker köprüsü)
  */
-import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN, netFromDy } from "./yks-exam-structure.js";
+import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN, netFromDy } from "./yks-mufredat.js";
 import { normalizeStudentYksAlanKey } from "./hedef-atlas-helpers.js";
 import { YKS2026_Mufredat } from "./yks-mufredat.js";
 import {
@@ -210,14 +210,21 @@ function destroyTrendChart() {
   }
   goTrendChart = null;
   var iv = document.getElementById("goTrendIvme");
-  if (iv) iv.textContent = "";
+  if (iv) iv.innerHTML = "";
 }
 
 function renderTrendChart(last5) {
   var canvas = document.getElementById("goTrendCanvas");
+  var ivme = document.getElementById("goTrendIvme");
   if (!canvas || typeof Chart === "undefined") return;
   destroyTrendChart();
-  if (!last5 || !last5.length) return;
+  if (!last5 || !last5.length) {
+    if (ivme) {
+      ivme.innerHTML =
+        '<span class="go-chart-empty" style="display:block;color:#64748b;font-size:0.9rem;line-height:1.45">Bu öğrenci için grafik üretilecek deneme kaydı yok. Deneme eklendikçe son 5 sınavın TYT/AYT net trendi burada görünür.</span>';
+    }
+    return;
+  }
   var labels = last5.map(function (e, i) {
     var n = e.examName || e.exam || "D" + (i + 1);
     return n.length > 16 ? n.slice(0, 14) + "…" : n;

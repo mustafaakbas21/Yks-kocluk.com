@@ -2,7 +2,7 @@
  * Hedef Simülatörü — YÖK Atlas örnek verisi ile radar / bar / net tablosu ortak mantığı
  */
 
-import { YKS_AYT_BY_ALAN } from "./yks-exam-structure.js";
+import { YKS_AYT_BY_ALAN } from "./yks-mufredat.js";
 
 export function parseStudentNetVal(v) {
   var n = parseFloat(String(v == null ? "" : v).replace(",", "."));

@@ -37,15 +37,26 @@ var isRestoringCanvas = false;
 /** 50+ PDF sayfasında raster sadece görünür alana yaklaşınca yüklenir */
 var BOARD_LAZY_PDF_PAGES = 50;
 var boardPdfObserver = null;
-/** Yeni sayfa / Sayfa Ekle için seçili ISO kağıt boyutu */
-var boardPageSizeKey = "A4";
+/** Yeni sayfa / Sayfa Ekle için seçili boyut — varsayılan: Serbest (geniş tuval) */
+var boardPageSizeKey = "free";
 /** Kaydırma ile hangi sayfanın önde olduğunu izler (sayfa sayacı) */
 var boardNavObserver = null;
 var boardNavFlushRaf = null;
 var boardNavSheetRatios = new WeakMap();
 
 function boardPageDimensionsFor(sizeKey) {
-  var k = sizeKey || boardPageSizeKey || "A4";
+  var k = sizeKey || boardPageSizeKey || "free";
+  if (k === "free") {
+    var ww =
+      typeof window !== "undefined"
+        ? Math.min(Math.max(960, window.innerWidth - 140), 1920)
+        : 1400;
+    var hh =
+      typeof window !== "undefined"
+        ? Math.min(Math.max(720, Math.floor(window.innerHeight * 0.82)), 1600)
+        : 1000;
+    return { w: ww, h: hh };
+  }
   if (k === "A3") {
     var w3 = 900;
     return { w: w3, h: Math.round((w3 * 420) / 297) };
@@ -274,7 +285,7 @@ function applyPaperTypeToCanvas(canvas, type, state) {
   if (state) state.paperType = type;
   if (type === "white") {
     canvas.setBackgroundImage(null, function () {
-      canvas.setBackgroundColor("rgba(255,255,255,0)", function () {
+      canvas.setBackgroundColor("#ffffff", function () {
         canvas.requestRenderAll();
       });
     });
@@ -908,6 +919,31 @@ function bindHandPanGlobalListeners() {
   window.addEventListener("touchend", endHandPanGlobal, { passive: true });
 }
 
+/**
+ * Kalem / fosforlu / silgi fırçasını ayarla. Silgi: destination-out + opak beyaz stroke (Fabric path uyumu).
+ */
+function applyDrawingBrushSettings(brush, tool) {
+  if (!brush) return;
+  brush.shadow = null;
+  if (tool === "pen-black") {
+    brush.color = penColors["pen-black"];
+    brush.width = brushWidths.pen;
+    brush.globalCompositeOperation = "source-over";
+  } else if (tool === "pen-red") {
+    brush.color = penColors["pen-red"];
+    brush.width = brushWidths.pen;
+    brush.globalCompositeOperation = "source-over";
+  } else if (tool === "highlighter") {
+    brush.color = penColors.highlighter;
+    brush.width = brushWidths.highlighter;
+    brush.globalCompositeOperation = "source-over";
+  } else if (tool === "eraser") {
+    brush.width = brushWidths.eraser;
+    brush.globalCompositeOperation = "destination-out";
+    brush.color = "rgba(255,255,255,1)";
+  }
+}
+
 function applyToolToCanvas(canvas, tool) {
   if (!canvas || !ensureFabric()) return;
 
@@ -969,25 +1005,8 @@ function applyToolToCanvas(canvas, tool) {
 
   canvas.isDrawingMode = true;
   var b = new fabric.PencilBrush(canvas);
-  b.decimate = 2.5;
-
-  if (tool === "pen-black") {
-    b.color = penColors["pen-black"];
-    b.width = brushWidths.pen;
-    b.globalCompositeOperation = "source-over";
-  } else if (tool === "pen-red") {
-    b.color = penColors["pen-red"];
-    b.width = brushWidths.pen;
-    b.globalCompositeOperation = "source-over";
-  } else if (tool === "highlighter") {
-    b.color = penColors.highlighter;
-    b.width = brushWidths.highlighter;
-    b.globalCompositeOperation = "source-over";
-  } else if (tool === "eraser") {
-    b.color = "rgba(0,0,0,1)";
-    b.width = brushWidths.eraser;
-    b.globalCompositeOperation = "destination-out";
-  }
+  b.decimate = tool === "eraser" ? 1.2 : 2.5;
+  applyDrawingBrushSettings(b, tool);
   canvas.freeDrawingBrush = b;
 }
 
@@ -1103,7 +1122,7 @@ function createPageInternal(initialJson, w, h, options) {
   sheet.appendChild(labelRow);
 
   var host = document.createElement("div");
-  host.className = "derece-board__canvas-host derece-board__canvas-host--ruled";
+  host.className = "derece-board__canvas-host";
   var canvasEl = document.createElement("canvas");
   canvasEl.width = w;
   canvasEl.height = h;
@@ -1116,7 +1135,7 @@ function createPageInternal(initialJson, w, h, options) {
   else wrap.appendChild(sheet);
 
   var canvas = new fabric.Canvas(canvasEl, {
-    backgroundColor: "rgba(255,255,255,0)",
+    backgroundColor: "#ffffff",
     preserveObjectStacking: true,
     width: w,
     height: h,
@@ -1154,6 +1173,18 @@ function createPageInternal(initialJson, w, h, options) {
       if (currentTool === "laser" && opt.path) {
         setupLaserFade(opt.path, canvas);
         return;
+      }
+      if (opt.path && currentTool === "eraser") {
+        try {
+          opt.path.set({
+            globalCompositeOperation: "destination-out",
+            stroke: "rgba(255,255,255,1)",
+            fill: "",
+            shadow: null,
+            strokeLineCap: "round",
+            strokeLineJoin: "round",
+          });
+        } catch (_e) {}
       }
       if (opt.path) {
         opt.path.set({ selectable: true, evented: true });
@@ -1553,9 +1584,9 @@ function wireToolbar() {
   }
   var pageSizeSel = rootEl.querySelector("[data-db-page-size]");
   if (pageSizeSel) {
-    pageSizeSel.value = boardPageSizeKey || "A4";
+    pageSizeSel.value = boardPageSizeKey || "free";
     pageSizeSel.addEventListener("change", function () {
-      boardPageSizeKey = pageSizeSel.value || "A4";
+      boardPageSizeKey = pageSizeSel.value || "free";
     });
   }
 

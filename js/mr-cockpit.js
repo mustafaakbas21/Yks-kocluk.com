@@ -2,8 +2,7 @@
  * MR (Emar) — Konu / Soru / Deneme akademik röntgen
  * Müfredat: yks-mufredat.js · Kaynak: atanan_kaynaklar · Deneme: exams.yksBranchDetail
  */
-import { YKS2026_Mufredat } from "./yks-mufredat.js";
-import { clampDy } from "./yks-exam-structure.js";
+import { YKS2026_Mufredat, clampDy } from "./yks-mufredat.js";
 import { collection, query, where, onSnapshot, doc, setDoc, getDoc, db } from "./appwrite-compat.js";
 import { APPWRITE_COLLECTION_MR_PROFILES, APPWRITE_COLLECTION_ATANAN_KAYNAKLAR } from "./appwrite-config.js";
 
@@ -507,11 +506,23 @@ function renderAccordionDeneme(mount) {
     mount.innerHTML = '<p class="mr-empty">Katman bulunamadı.</p>';
     return;
   }
-  var html = '<div class="mr-acc">';
   if (!ex.length) {
-    html +=
-      '<p class="mr-empty" style="margin:0 0 1rem">Bu öğrenci için henüz <strong>deneme kaydı</strong> yok. Akıllı Optik veya deneme girişi sonrası branş D/Y burada özetlenir.</p>';
+    mount.innerHTML =
+      '<div class="mr-empty-state mr-empty-state--deneme" style="padding:1.25rem;border-radius:12px;border:1px dashed #c4b5fd;background:#faf5ff">' +
+      '<p class="mr-empty" style="margin:0 0 0.5rem"><strong>Henüz deneme kaydı yok.</strong></p>' +
+      '<p class="mr-hint" style="margin:0;color:#64748b;font-size:0.88rem">Bu öğrenci için <code>exams</code> koleksiyonunda kayıt oluşunca (deneme sonucu / optik) branş özeti burada görünür. Şu an gösterilecek gerçek D/Y verisi yok.</p>' +
+      "</div>";
+    return;
   }
+  if (!Object.keys(branchAgg).length) {
+    mount.innerHTML =
+      '<div class="mr-empty-state mr-empty-state--deneme" style="padding:1.25rem;border-radius:12px;border:1px dashed #94a3b8;background:#f8fafc">' +
+      '<p class="mr-empty" style="margin:0 0 0.5rem"><strong>Branş detayı (D/Y/B) bulunamadı.</strong></p>' +
+      '<p class="mr-hint" style="margin:0;color:#64748b;font-size:0.88rem">Deneme kayıtları var ancak <code>yksBranchDetail</code> doldurulmamış. Akıllı Optik veya manuel branş girişi yaptığınızda konu dağılımı hesaplanır; sahte sıfır tabloları göstermiyoruz.</p>' +
+      "</div>";
+    return;
+  }
+  var html = '<div class="mr-acc">';
   mufredatLessonsList().forEach(function (lessonName) {
     var topics = block[lessonName] || [];
     var keys = lessonKeysForDeneme(layer, lessonName);

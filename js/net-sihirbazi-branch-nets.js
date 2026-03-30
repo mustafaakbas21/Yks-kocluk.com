@@ -3,7 +3,7 @@
  * (Önceki dosya adı net-sihirbazi-current-nets.js; yeniden adlandırıldı — CDN/önbellek uyumu.)
  */
 
-import { YKS_AYT_BY_ALAN, YKS_TYT_BRANCHES } from "./yks-exam-structure.js";
+import { YKS_AYT_BY_ALAN, YKS_TYT_BRANCHES } from "./yks-mufredat.js";
 import { parseStudentNetVal } from "./hedef-atlas-helpers.js";
 
 function normLabel(s) {

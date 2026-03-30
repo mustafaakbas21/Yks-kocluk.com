@@ -1,7 +1,7 @@
 /**
  * Profesyonel deneme tanımı — Appwrite `exam_definitions`, konu hiyerarşisi + cevap anahtarı.
  */
-import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN } from "./yks-exam-structure.js";
+import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN } from "./yks-mufredat.js";
 import {
   collection,
   addDoc,
@@ -159,7 +159,7 @@ export function initExamDefinitionProfessionalUI(ctx) {
   root.innerHTML =
     '<div class="exam-def-pro">' +
     '<h3 class="exam-def-pro__title"><i class="fa-solid fa-clipboard-list"></i> Profesyonel deneme tanımı</h3>' +
-    '<p class="exam-def-pro__lead">TYT / AYT yapısı ÖSYM soru sayılarına göre üretilir. Konular <code>yks-exam-structure</code> ile eşlenir; Appwrite’da <strong>' +
+    '<p class="exam-def-pro__lead">TYT / AYT yapısı ÖSYM soru sayılarına göre üretilir. Branş/konu <code>yks-mufredat.js</code> (YKS_TYT_BRANCHES) ile eşlenir; Appwrite’da <strong>' +
     esc(EXAM_DEFINITIONS_COLLECTION) +
     "</strong> koleksiyonuna yazılır.</p>" +
     '<div class="exam-def-pro__grid">' +

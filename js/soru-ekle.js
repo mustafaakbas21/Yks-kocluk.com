@@ -2,7 +2,7 @@
  * Soru havuzu — görsel yükleme + Appwrite döküman (storage fileId → soru_resim_id köprüsü)
  */
 import { saveSoruHavuzuEntry, getPoolCoachKey } from "./soru-havuzu-core.js";
-import { yksMufredatDatasi } from "./mufredat-data.js";
+import { yksMufredatDatasi } from "./yks-mufredat.js";
 import "./appwrite-config.js";
 
 var curriculum = yksMufredatDatasi || {};

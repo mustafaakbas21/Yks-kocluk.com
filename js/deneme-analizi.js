@@ -16,7 +16,7 @@ import {
   Timestamp,
 } from "./appwrite-compat.js";
 import { APPWRITE_COLLECTION_EXAM_RESULTS } from "./appwrite-config.js";
-import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN, netFromDyWithRule } from "./yks-exam-structure.js";
+import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN, netFromDyWithRule } from "./yks-mufredat.js";
 
 (function (global) {
   "use strict";
@@ -289,7 +289,7 @@ import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN, netFromDyWithRule } from "./yks-exam
 
   function buildViewModelFromExam(exam, mode, aytKey) {
     var det = exam.yksBranchDetail;
-    if (!det || !det.rows) return null;
+    if (!det || !det.rows || typeof det.rows !== "object" || !Object.keys(det.rows).length) return null;
     var em = String(det.examMode || mode).toUpperCase();
     var alan = normalizeAytAlanKey(det.aytAlan || aytKey || "sayisal");
     var rows = det.rows;
@@ -758,8 +758,19 @@ import { YKS_TYT_BRANCHES, YKS_AYT_BY_ALAN, netFromDyWithRule } from "./yks-exam
         fetchState.coachExams = await fetchAllCoachExams(cid);
       }
       var latest = pickLatestForMode(docs, m.mode, m.aytKey);
-      if (!latest || !latest.yksBranchDetail || !latest.yksBranchDetail.rows) {
-        mountEmpty(content, "Bu öğrenciye ait henüz deneme verisi bulunmamaktadır.");
+      if (
+        !latest ||
+        !latest.yksBranchDetail ||
+        !latest.yksBranchDetail.rows ||
+        typeof latest.yksBranchDetail.rows !== "object" ||
+        !Object.keys(latest.yksBranchDetail.rows).length
+      ) {
+        mountEmpty(
+          content,
+          docs.length
+            ? "Son denemelerin branş detayı (D/Y) kaydı yok. Optik veya manuel girişle tamamlayın."
+            : "Bu öğrenciye ait henüz deneme verisi bulunmamaktadır."
+        );
         return;
       }
       var view = buildViewModelFromExam(latest, m.mode, m.aytKey);

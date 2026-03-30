@@ -6,7 +6,7 @@ import {
   listSoruDocumentsForPdf,
   resolvePoolPreviewUrlFromDoc,
 } from "./soru-havuzu-core.js";
-import { yksMufredatDatasi } from "./mufredat-data.js";
+import { yksMufredatDatasi } from "./yks-mufredat.js";
 import "./appwrite-config.js";
 
 var curriculum = yksMufredatDatasi || {};
