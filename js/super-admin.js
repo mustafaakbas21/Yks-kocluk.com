@@ -33,13 +33,16 @@ import {
   verifyAppwriteAccount,
   getAppSettings,
   logAppwriteError,
+  databasesListDocumentsOrSoft,
+  databasesUpdateDocumentOrSoft,
+  databasesDeleteDocumentOrSoft,
+  isAppwriteWriteSoftFailure,
 } from "./appwrite-compat.js";
 import {
   storage,
   APPWRITE_BUCKET_DESTEK,
   APPWRITE_ADMIN_ROSTER_ROLE,
   APPWRITE_COLLECTION_QUOTE_REQUESTS,
-  databases,
   APPWRITE_DATABASE_ID,
   client,
   APPWRITE_COLLECTION_SORU_HAVUZU,
@@ -214,23 +217,37 @@ async function findProfileGateForLogin(authUser, fallbackUsername) {
   var uname = sanitizeUsernameGate(fallbackUsername || inferUsernameFromEmailGate(email));
 
   try {
-    var usersById = await databases.listDocuments(APPWRITE_DATABASE_ID, "users", [
+    var usersById = await databasesListDocumentsOrSoft(APPWRITE_DATABASE_ID, "users", [
       Query.equal("$id", uid),
       Query.limit(1),
     ]);
-    if (usersById && usersById.documents && usersById.documents.length) return usersById.documents[0];
+    if (!isAppwriteWriteSoftFailure(usersById) && usersById.documents && usersById.documents.length) {
+      return usersById.documents[0];
+    }
+    if (isAppwriteWriteSoftFailure(usersById)) {
+      logAppwriteError("super-admin.js/findProfileGateForLogin/usersById", { message: usersById.message || "soft" });
+    }
   } catch (e) {
     logAppwriteError("super-admin.js/findProfileGateForLogin/usersById", e);
   }
 
   if (uname) {
     try {
-      var usersByUsername = await databases.listDocuments(APPWRITE_DATABASE_ID, "users", [
+      var usersByUsername = await databasesListDocumentsOrSoft(APPWRITE_DATABASE_ID, "users", [
         Query.equal("username", uname),
         Query.limit(1),
       ]);
-      if (usersByUsername && usersByUsername.documents && usersByUsername.documents.length) {
+      if (
+        !isAppwriteWriteSoftFailure(usersByUsername) &&
+        usersByUsername.documents &&
+        usersByUsername.documents.length
+      ) {
         return usersByUsername.documents[0];
+      }
+      if (isAppwriteWriteSoftFailure(usersByUsername)) {
+        logAppwriteError("super-admin.js/findProfileGateForLogin/usersByUsername", {
+          message: usersByUsername.message || "soft",
+        });
       }
     } catch (e2) {
       logAppwriteError("super-admin.js/findProfileGateForLogin/usersByUsername", e2);
@@ -346,7 +363,12 @@ function saTeardownAdminSubscriptions() {
 var saRefreshBtn = document.getElementById("btnSaRefresh");
 if (saRefreshBtn) {
   saRefreshBtn.addEventListener("click", function () {
-    window.location.reload();
+    try {
+      subscribeCoachesList();
+      subscribeStudentsList();
+      subscribeQuoteRequests();
+      subscribeMaintenanceSettings();
+    } catch (_e) {}
   });
 }
 
@@ -2558,7 +2580,12 @@ document.addEventListener("change", async function (e) {
   var collId = String((tr && tr.getAttribute("data-quote-coll-id")) || APPWRITE_COLLECTION_QUOTE_REQUESTS).trim();
   t.disabled = true;
   try {
-    await databases.updateDocument(APPWRITE_DATABASE_ID, collId, id, { status: v });
+    var ur = await databasesUpdateDocumentOrSoft(APPWRITE_DATABASE_ID, collId, id, { status: v });
+    if (isAppwriteWriteSoftFailure(ur)) {
+      t.value = was;
+      alert("Durum güncellenemedi. Koleksiyon veya Appwrite izinlerini kontrol edin.");
+      return;
+    }
     t.setAttribute("data-was", v);
   } catch (err) {
     logAppwriteError("super-admin.js/quoteStatusChange", err);
@@ -2583,7 +2610,11 @@ document.addEventListener("click", async function (e) {
   if (!window.confirm("Bu teklif kaydı kalıcı olarak silinsin mi?")) return;
   del.disabled = true;
   try {
-    await databases.deleteDocument(APPWRITE_DATABASE_ID, collId, id);
+    var dr = await databasesDeleteDocumentOrSoft(APPWRITE_DATABASE_ID, collId, id);
+    if (isAppwriteWriteSoftFailure(dr)) {
+      alert("Kayıt silinemedi. Koleksiyon veya Appwrite izinlerini kontrol edin.");
+      return;
+    }
   } catch (err) {
     logAppwriteError("super-admin.js/quoteDelete", err);
     alert((err && err.message) || String(err));
@@ -3313,12 +3344,13 @@ async function saListDocumentsTotalSafe(collectionId, queries) {
   var q = (queries || []).slice();
   q.push(Query.limit(1));
   try {
-    var res = await databases.listDocuments({
+    var res = await databasesListDocumentsOrSoft({
       databaseId: APPWRITE_DATABASE_ID,
       collectionId: collectionId,
       queries: q,
       total: true,
     });
+    if (isAppwriteWriteSoftFailure(res)) return 0;
     return typeof res.total === "number" ? res.total : 0;
   } catch (e) {
     logAppwriteError("super-admin.js/saListDocumentsTotalSafe/" + collectionId, e);

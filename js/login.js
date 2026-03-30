@@ -14,10 +14,13 @@ import {
   verifyAppwriteAccount,
   getAppSettings,
   logAppwriteError,
+  databasesListDocumentsOrSoft,
+  databasesCreateDocumentOrSoft,
+  isAppwriteWriteSoftFailure,
 } from "./appwrite-compat.js";
 import "./appwrite-config.js";
 import { Query as AQuery } from "./appwrite-browser.js";
-import { databases, APPWRITE_DATABASE_ID } from "./appwrite-config.js";
+import { APPWRITE_DATABASE_ID } from "./appwrite-config.js";
 
 /** Koç, öğrenci ve kurucu girişinde kullanıcı adı bu alan adıyla e-postaya çevrilir (Appwrite createEmailPasswordSession). @koc.com vb. kullanılmaz. */
 const EMAIL_DOMAIN = "@sistem.com";
@@ -102,19 +105,38 @@ async function findProfileFromDatabase(authUser, fallbackUsername) {
   var uname = sanitizeUsernameForDb(fallbackUsername || inferUsernameFromEmail(email));
 
   try {
-    var usersById = await databases.listDocuments(APPWRITE_DATABASE_ID, "users", [AQuery.equal("$id", uid), AQuery.limit(1)]);
-    if (usersById && usersById.documents && usersById.documents.length) return usersById.documents[0];
+    var usersById = await databasesListDocumentsOrSoft(APPWRITE_DATABASE_ID, "users", [
+      AQuery.equal("$id", uid),
+      AQuery.limit(1),
+    ]);
+    if (!isAppwriteWriteSoftFailure(usersById) && usersById.documents && usersById.documents.length) {
+      return usersById.documents[0];
+    }
+    if (isAppwriteWriteSoftFailure(usersById)) {
+      logAppwriteError("login.js/findProfileFromDatabase/usersById", { message: usersById.message || "soft" });
+    }
   } catch (e) {
     logAppwriteError("login.js/findProfileFromDatabase/usersById", e);
   }
 
   if (uname) {
     try {
-      var usersByUsername = await databases.listDocuments(APPWRITE_DATABASE_ID, "users", [
+      var usersByUsername = await databasesListDocumentsOrSoft(APPWRITE_DATABASE_ID, "users", [
         AQuery.equal("username", uname),
         AQuery.limit(1),
       ]);
-      if (usersByUsername && usersByUsername.documents && usersByUsername.documents.length) return usersByUsername.documents[0];
+      if (
+        !isAppwriteWriteSoftFailure(usersByUsername) &&
+        usersByUsername.documents &&
+        usersByUsername.documents.length
+      ) {
+        return usersByUsername.documents[0];
+      }
+      if (isAppwriteWriteSoftFailure(usersByUsername)) {
+        logAppwriteError("login.js/findProfileFromDatabase/usersByUsername", {
+          message: usersByUsername.message || "soft",
+        });
+      }
     } catch (e2) {
       logAppwriteError("login.js/findProfileFromDatabase/usersByUsername", e2);
     }
@@ -122,11 +144,15 @@ async function findProfileFromDatabase(authUser, fallbackUsername) {
 
   if (uname) {
     try {
-      var coachesByUsername = await databases.listDocuments(APPWRITE_DATABASE_ID, "coaches", [
+      var coachesByUsername = await databasesListDocumentsOrSoft(APPWRITE_DATABASE_ID, "coaches", [
         AQuery.equal("username", uname),
         AQuery.limit(1),
       ]);
-      if (coachesByUsername && coachesByUsername.documents && coachesByUsername.documents.length) {
+      if (
+        !isAppwriteWriteSoftFailure(coachesByUsername) &&
+        coachesByUsername.documents &&
+        coachesByUsername.documents.length
+      ) {
         var coachDoc = coachesByUsername.documents[0];
         return {
           username: uname,
@@ -134,6 +160,11 @@ async function findProfileFromDatabase(authUser, fallbackUsername) {
           fullName: coachDoc.fullName || coachDoc.name || null,
           coach_id: uname,
         };
+      }
+      if (isAppwriteWriteSoftFailure(coachesByUsername)) {
+        logAppwriteError("login.js/findProfileFromDatabase/coachesByUsername", {
+          message: coachesByUsername.message || "soft",
+        });
       }
     } catch (e3) {
       logAppwriteError("login.js/findProfileFromDatabase/coachesByUsername", e3);
@@ -161,7 +192,10 @@ async function ensureProfileSynchronized(authUser, loginMode, rawUser) {
     lastLogin: serverTimestamp(),
   };
   try {
-    await databases.createDocument(APPWRITE_DATABASE_ID, "users", uid, payload);
+    var cr = await databasesCreateDocumentOrSoft(APPWRITE_DATABASE_ID, "users", uid, payload);
+    if (isAppwriteWriteSoftFailure(cr)) {
+      logAppwriteError("login.js/ensureProfileSynchronized/createDocument", { message: cr.message || "soft" });
+    }
   } catch (e) {
     var msg = e && e.message != null ? String(e.message) : "";
     logAppwriteError("login.js/ensureProfileSynchronized/createDocument", e);

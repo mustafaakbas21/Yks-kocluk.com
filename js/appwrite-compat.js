@@ -57,7 +57,45 @@ function __is404ishError(e) {
 
 function __isCollectionMissingError(e) {
   const msg = e && e.message != null ? String(e.message) : String(e || "");
-  return /collection.*not found|unknown collection|Invalid collection|could not be found/i.test(msg);
+  const type = e && e.type != null ? String(e.type).toLowerCase() : "";
+  if (type === "collection_not_found" || /collection_not_found/i.test(type)) return true;
+  return /collection.*not found|unknown collection|invalid collection|could not be found|collection with the requested id could not be found/i.test(
+    msg
+  );
+}
+
+/** createDocument / updateDocument: koleksiyon yok veya benzeri 404. */
+function __isWriteMissingCollectionError(e) {
+  if (__isCollectionMissingError(e)) return true;
+  if (__is404ishError(e)) {
+    const msg = String((e && e.message) || "");
+    if (/collection/i.test(msg)) return true;
+  }
+  return false;
+}
+
+function __rethrowAsCollectionMissing(err, collectionId) {
+  __blacklistedCollections.add(collectionId);
+  const hint =
+    'Appwrite’da «' +
+    collectionId +
+    '» koleksiyonu bulunamadı. Console’da bu veritabanında koleksiyonu oluşturun; gerekli attribute listesi için js/derece-board.js dosyası başındaki "APPWRITE GEREKSİNİMLERİ" yorumuna bakın (veya repo kökünde node appwrite-setup.js çalıştırın).';
+  console.warn("[Appwrite]", hint, err && err.message ? "(" + err.message + ")" : "");
+  const e2 = new Error(hint);
+  e2.code = "COLLECTION_MISSING";
+  e2.collectionId = collectionId;
+  e2.original = err;
+  throw e2;
+}
+
+/**
+ * UI / modüller: kullanıcıya gösterilecek eksik koleksiyon hatası mı?
+ * @param {unknown} e
+ */
+export function isAppwriteCollectionMissingError(e) {
+  if (!e) return false;
+  if (/** @type {{ code?: string }} */ (e).code === "COLLECTION_MISSING") return true;
+  return __isWriteMissingCollectionError(e);
 }
 
 /** Şemada olmayan attribute / geçersiz sorgu (400) — boş liste, konsol gürültüsü yok */
@@ -68,6 +106,28 @@ function __isInvalidQueryError(e) {
     code === 400 ||
     /invalid query|attribute.*not found|not found in schema|index.*not found/i.test(msg)
   );
+}
+
+/** Okuma/yazma: izin, forbidden, unauthorized — UI çökmeden yumuşak yol */
+function __isPermissionLikeError(e) {
+  if (!e) return false;
+  const code = e.code;
+  const type = String(e.type || "").toLowerCase();
+  const msg = String(e.message || "").toLowerCase();
+  if (code === 401 || code === 403 || code === "401" || code === "403") return true;
+  if (type.indexOf("unauthorized") !== -1 || type.indexOf("forbidden") !== -1) return true;
+  return (
+    /permission|forbidden|unauthorized|not allowed|insufficient|access.*denied/i.test(msg) ||
+    /missing scope|scopes/i.test(msg)
+  );
+}
+
+/**
+ * `addDoc` / `setDoc` / `updateDoc` dönüşünde `__softFail: true` ise izin veya koleksiyon/şema kaynaklı iptal.
+ * @param {unknown} r
+ */
+export function isAppwriteWriteSoftFailure(r) {
+  return !!(r && typeof r === "object" && /** @type {{ __softFail?: boolean }} */ (r).__softFail === true);
 }
 
 function nowIso() {
@@ -186,6 +246,23 @@ export async function addDoc(collectionRef, data) {
     const res = await databases.createDocument(APPWRITE_DATABASE_ID, c.collectionId, ID.unique(), payload);
     return { id: res.$id };
   } catch (err) {
+    if (__isWriteMissingCollectionError(err)) {
+      __blacklistedCollections.add(c.collectionId);
+      console.warn(
+        "[Appwrite] addDoc yumuşak iptal (koleksiyon/şema):",
+        c.collectionId,
+        err && err.message ? "(" + err.message + ")" : ""
+      );
+      return { id: null, __softFail: true, message: String((err && err.message) || "") };
+    }
+    if (__isPermissionLikeError(err)) {
+      console.warn(
+        "[Appwrite] addDoc yumuşak iptal (izin):",
+        c.collectionId,
+        err && err.message ? "(" + err.message + ")" : ""
+      );
+      return { id: null, __softFail: true, message: String((err && err.message) || "") };
+    }
     logAppwriteError("appwrite-compat.js/addDoc", err);
     throw err;
   }
@@ -194,12 +271,28 @@ export async function addDoc(collectionRef, data) {
 export async function setDoc(docRef, data) {
   const d = parseDocRef(docRef.pathSegments);
   const payload = normalizeValue(data || {});
+  function softReturn(err) {
+    if (__isWriteMissingCollectionError(err) || __isPermissionLikeError(err)) {
+      __blacklistedCollections.add(d.collectionId);
+      console.warn(
+        "[Appwrite] setDoc yumuşak iptal:",
+        d.collectionId,
+        err && err.message ? "(" + err.message + ")" : ""
+      );
+      return { __softFail: true, message: String((err && err.message) || "") };
+    }
+    return null;
+  }
   try {
     await databases.updateDocument(APPWRITE_DATABASE_ID, d.collectionId, d.docId, payload);
   } catch (_e) {
+    const sr = softReturn(_e);
+    if (sr) return sr;
     try {
       await databases.createDocument(APPWRITE_DATABASE_ID, d.collectionId, d.docId, payload);
     } catch (err) {
+      const sr2 = softReturn(err);
+      if (sr2) return sr2;
       logAppwriteError("appwrite-compat.js/setDoc", err);
       throw err;
     }
@@ -212,6 +305,15 @@ export async function updateDoc(docRef, data) {
   try {
     await databases.updateDocument(APPWRITE_DATABASE_ID, d.collectionId, d.docId, payload);
   } catch (err) {
+    if (__isWriteMissingCollectionError(err) || __isPermissionLikeError(err)) {
+      __blacklistedCollections.add(d.collectionId);
+      console.warn(
+        "[Appwrite] updateDoc yumuşak iptal:",
+        d.collectionId,
+        err && err.message ? "(" + err.message + ")" : ""
+      );
+      return { __softFail: true, message: String((err && err.message) || "") };
+    }
     logAppwriteError("appwrite-compat.js/updateDoc", err);
     throw err;
   }
@@ -222,7 +324,128 @@ export async function deleteDoc(docRef) {
   try {
     await databases.deleteDocument(APPWRITE_DATABASE_ID, d.collectionId, d.docId);
   } catch (err) {
+    if (__isWriteMissingCollectionError(err) || __isPermissionLikeError(err)) {
+      console.warn(
+        "[Appwrite] deleteDoc yumuşak iptal:",
+        d.collectionId,
+        err && err.message ? "(" + err.message + ")" : ""
+      );
+      return { __softFail: true, message: String((err && err.message) || "") };
+    }
     logAppwriteError("appwrite-compat.js/deleteDoc", err);
+    throw err;
+  }
+}
+
+/**
+ * Doğrudan `databases.listDocuments` — eksik koleksiyon / izin / geçersiz sorgu: boş liste + __softFail.
+ * Konum çağrı: `(databaseId, collectionId, queries)` veya tek nesne `{ databaseId, collectionId, queries, total? }`.
+ */
+export async function databasesListDocumentsOrSoft(arg1, arg2, arg3) {
+  const useObject =
+    arg1 &&
+    typeof arg1 === "object" &&
+    !Array.isArray(arg1) &&
+    (arg1.databaseId != null || arg1.collectionId != null) &&
+    arg2 === undefined;
+
+  let databaseId;
+  let collectionId;
+  let totalFlag = false;
+  if (useObject) {
+    databaseId = arg1.databaseId;
+    collectionId = String(arg1.collectionId || "");
+    totalFlag = !!arg1.total;
+  } else {
+    databaseId = arg1;
+    collectionId = String(arg2 || "");
+    totalFlag = false;
+  }
+
+  if (__blacklistedCollections.has(collectionId)) {
+    const empty = { documents: [], __softFail: true };
+    if (totalFlag) empty.total = 0;
+    return empty;
+  }
+
+  try {
+    return useObject ? await databases.listDocuments(arg1) : await databases.listDocuments(databaseId, collectionId, arg3 || []);
+  } catch (err) {
+    if (__is404ishError(err) || __isCollectionMissingError(err)) {
+      __blacklistedCollections.add(collectionId);
+    }
+    if (__isCollectionMissingError(err) || __isPermissionLikeError(err) || __isInvalidQueryError(err)) {
+      console.warn(
+        "[Appwrite] listDocuments yumuşak iptal:",
+        collectionId,
+        err && err.message ? "(" + err.message + ")" : ""
+      );
+      const soft = { documents: [], __softFail: true, message: String((err && err.message) || "") };
+      if (totalFlag) soft.total = 0;
+      return soft;
+    }
+    logAppwriteError("appwrite-compat.js/databasesListDocumentsOrSoft", err);
+    throw err;
+  }
+}
+
+/** Doğrudan `databases.createDocument` — izin / eksik koleksiyon: __softFail */
+export async function databasesCreateDocumentOrSoft(databaseId, collectionId, documentId, data) {
+  const cid = String(collectionId || "");
+  const payload = normalizeValue(data || {});
+  try {
+    return await databases.createDocument(databaseId, cid, documentId, payload);
+  } catch (err) {
+    if (__isWriteMissingCollectionError(err) || __isPermissionLikeError(err)) {
+      __blacklistedCollections.add(cid);
+      console.warn(
+        "[Appwrite] createDocument yumuşak iptal:",
+        cid,
+        err && err.message ? "(" + err.message + ")" : ""
+      );
+      return { __softFail: true, message: String((err && err.message) || "") };
+    }
+    logAppwriteError("appwrite-compat.js/databasesCreateDocumentOrSoft", err);
+    throw err;
+  }
+}
+
+/** Doğrudan `databases.updateDocument` — izin / eksik koleksiyon: __softFail */
+export async function databasesUpdateDocumentOrSoft(databaseId, collectionId, documentId, data) {
+  const cid = String(collectionId || "");
+  const payload = normalizeValue(data || {});
+  try {
+    await databases.updateDocument(databaseId, cid, documentId, payload);
+  } catch (err) {
+    if (__isWriteMissingCollectionError(err) || __isPermissionLikeError(err)) {
+      __blacklistedCollections.add(cid);
+      console.warn(
+        "[Appwrite] updateDocument yumuşak iptal:",
+        cid,
+        err && err.message ? "(" + err.message + ")" : ""
+      );
+      return { __softFail: true, message: String((err && err.message) || "") };
+    }
+    logAppwriteError("appwrite-compat.js/databasesUpdateDocumentOrSoft", err);
+    throw err;
+  }
+}
+
+/** Doğrudan `databases.deleteDocument` — izin / eksik koleksiyon: __softFail */
+export async function databasesDeleteDocumentOrSoft(databaseId, collectionId, documentId) {
+  const cid = String(collectionId || "");
+  try {
+    await databases.deleteDocument(databaseId, cid, documentId);
+  } catch (err) {
+    if (__isWriteMissingCollectionError(err) || __isPermissionLikeError(err)) {
+      console.warn(
+        "[Appwrite] deleteDocument yumuşak iptal:",
+        cid,
+        err && err.message ? "(" + err.message + ")" : ""
+      );
+      return { __softFail: true, message: String((err && err.message) || "") };
+    }
+    logAppwriteError("appwrite-compat.js/databasesDeleteDocumentOrSoft", err);
     throw err;
   }
 }
@@ -293,7 +516,9 @@ export async function getDocs(refOrQuery) {
   } catch (e) {
     if (__is404ishError(e) || __isCollectionMissingError(e)) {
       __blacklistedCollections.add(c.collectionId);
-    } else if (!__isInvalidQueryError(e)) {
+    } else if (__isInvalidQueryError(e) || __isPermissionLikeError(e)) {
+      console.warn("[Appwrite] getDocs yumuşak iptal:", c.collectionId, e && e.message ? "(" + e.message + ")" : "");
+    } else {
       logAppwriteError("appwrite-compat.js/getDocs", e);
     }
     return makeDocsSnapshot([]);
@@ -658,11 +883,15 @@ export async function sendPasswordResetEmail(email) {
 }
 
 /**
- * Firestore uyumluluğu: tek seferlik okuma (sayfa yüklendiğinde). Sürekli polling yok.
- * Güncellemeler için sayfa yenileme veya ayrıca manuel yeniden abonelik gerekir.
+ * Firestore uyumluluğu: ilk okuma + isteğe bağlı aralıklı yeniden okuma (Realtime yok / WS koptu yedek).
+ * @param {{ pollIntervalMs?: number, pollIntervalMsDoc?: number } | undefined} snapshotOpts Tek belge için `pollIntervalMsDoc`, sorgu için `pollIntervalMs`.
  */
-export function onSnapshot(refOrQuery, callback, onError) {
+export function onSnapshot(refOrQuery, callback, onError, snapshotOpts) {
   let active = true;
+  let intervalId = null;
+  const so = snapshotOpts && typeof snapshotOpts === "object" ? snapshotOpts : {};
+  const isDoc = !!(refOrQuery && refOrQuery.__type === "doc");
+  const pollMs = isDoc ? Math.max(0, parseInt(String(so.pollIntervalMsDoc || 0), 10) || 0) : Math.max(0, parseInt(String(so.pollIntervalMs || 0), 10) || 0);
   async function tick() {
     if (!active) return;
     try {
@@ -674,18 +903,40 @@ export function onSnapshot(refOrQuery, callback, onError) {
         callback(snap);
       }
     } catch (e) {
+      console.warn("[Appwrite] onSnapshot:", e && e.message ? e.message : e);
       if (typeof onError === "function") {
         try {
           onError(e);
         } catch (_e2) {}
       } else {
-        logAppwriteError("appwrite-compat.js/onSnapshot", e);
+        try {
+          if (refOrQuery && refOrQuery.__type === "doc") {
+            callback({
+              id: "",
+              exists: function () {
+                return false;
+              },
+              data: function () {
+                return {};
+              },
+            });
+          } else {
+            callback(makeDocsSnapshot([]));
+          }
+        } catch (_e3) {}
       }
     }
   }
   tick();
+  if (pollMs > 0) {
+    intervalId = setInterval(tick, pollMs);
+  }
   return function () {
     active = false;
+    if (intervalId != null) {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
   };
 }
 

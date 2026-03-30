@@ -3,14 +3,17 @@
  * Koleksiyon: APPWRITE_COLLECTION_HATA_BILDIRIMLERI — Appwrite’da şema ile eşleşmeli.
  */
 import { ID } from "./appwrite-browser.js";
+import { storage, APPWRITE_DATABASE_ID, APPWRITE_COLLECTION_HATA_BILDIRIMLERI, APPWRITE_BUCKET_DESTEK } from "./appwrite-config.js";
 import {
-  databases,
-  storage,
-  APPWRITE_DATABASE_ID,
-  APPWRITE_COLLECTION_HATA_BILDIRIMLERI,
-  APPWRITE_BUCKET_DESTEK,
-} from "./appwrite-config.js";
-import { auth, verifyAppwriteAccount, doc, getDoc, db, logAppwriteError } from "./appwrite-compat.js";
+  auth,
+  verifyAppwriteAccount,
+  doc,
+  getDoc,
+  db,
+  logAppwriteError,
+  databasesCreateDocumentOrSoft,
+  isAppwriteWriteSoftFailure,
+} from "./appwrite-compat.js";
 
 var TOAST_MS = 4200;
 
@@ -242,12 +245,18 @@ async function submitForm(modal, form) {
       payload.gonderen_uid = uid;
     }
 
-    await databases.createDocument(
+    var crSb = await databasesCreateDocumentOrSoft(
       APPWRITE_DATABASE_ID,
       APPWRITE_COLLECTION_HATA_BILDIRIMLERI,
       ID.unique(),
       payload
     );
+    if (isAppwriteWriteSoftFailure(crSb)) {
+      formErr(
+        "Kayıt şu an yapılamıyor (izin veya koleksiyon). Daha sonra deneyin veya koçunuzla iletişime geçin."
+      );
+      return;
+    }
 
     showToast(true, "Teşekkürler — talebiniz kaydedildi.");
     form.reset();

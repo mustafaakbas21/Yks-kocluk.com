@@ -1,7 +1,35 @@
 /**
  * DereceBoard V2 — PDF arka plan, kağıt şablonları, şekiller, lazer, otomatik kayıt.
+ *
+ * APPWRITE GEREKSİNİMLERİ (manuel Console veya `node appwrite-setup.js`):
+ *
+ * — Koleksiyon ID: `boards` (APPWRITE_COLLECTION_BOARDS)
+ *   • coach_id     — String, required, max ~128 (koç kullanıcı kimliği)
+ *   • title        — String, optional, max ~512
+ *   • pages_json   — String (TEXT): Fabric.js sayfalarının JSON.stringify çıkarımı
+ *   • thumbnails_json — String (TEXT): PNG data URL dizisinin JSON.stringify çıkarımı
+ *   • updated_at   — DateTime (ISO string)
+ *   İndex (öneri): coach_id ASC — `idx_boards_coach`
+ *
+ * — Koleksiyon ID: `SharedBoards` (APPWRITE_COLLECTION_SHARED_BOARDS)
+ *   • board_id     — String (36), required — boards dokümanının $id
+ *   • coach_id     — String (128), required
+ *   • student_ids  — String[] (eleman max 36), required — öğrenci $id listesi
+ *   • shared_at    — DateTime, required — ISO string (örn. new Date().toISOString())
+ *   Kurulum: ayrıca node appwrite-board-share.js
  */
-import { collection, addDoc, db, doc, getDocs, query, updateDoc, where } from "./appwrite-compat.js";
+import {
+  collection,
+  addDoc,
+  db,
+  doc,
+  getDocs,
+  isAppwriteCollectionMissingError,
+  isAppwriteWriteSoftFailure,
+  query,
+  updateDoc,
+  where,
+} from "./appwrite-compat.js";
 import {
   APPWRITE_COLLECTION_BOARDS,
   APPWRITE_COLLECTION_SHARED_BOARDS,
@@ -91,6 +119,22 @@ function toast(msg) {
   alert(msg);
 }
 
+function toastBoardWriteError(err, fallbackMsg) {
+  if (isAppwriteCollectionMissingError(err)) {
+    toast(
+      (err && typeof err.message === "string" && err.message.trim()) ||
+        "Hata: Appwrite panelinde «boards» (ve paylaşım için «SharedBoards») koleksiyonu eksik. Bu dosyanın en üstündeki APPWRITE GEREKSİNİMLERİ listesine göre attribute’ları ekleyin; kurulum için repo kökünde node appwrite-setup.js ve node appwrite-board-share.js kullanılabilir."
+    );
+    return;
+  }
+  toast(
+    (fallbackMsg && String(fallbackMsg).trim()) ||
+      (err && typeof err.message === "string" && err.message.trim()) ||
+      "Kayıt başarısız."
+  );
+  if (err) console.warn("[DereceBoard]", err);
+}
+
 function escHtml(s) {
   return String(s || "")
     .replace(/&/g, "&amp;")
@@ -124,10 +168,18 @@ async function persistBoardDocument() {
     updated_at: new Date().toISOString(),
   };
   if (currentBoardDocId) {
-    await updateDoc(doc(db, APPWRITE_COLLECTION_BOARDS, currentBoardDocId), payload);
+    var upBoard = await updateDoc(doc(db, APPWRITE_COLLECTION_BOARDS, currentBoardDocId), payload);
+    if (isAppwriteWriteSoftFailure(upBoard)) {
+      toast("Tahta güncellenemedi (Appwrite izin veya şema).");
+      throw new Error("soft_write");
+    }
     return currentBoardDocId;
   }
   var res = await addDoc(collection(db, APPWRITE_COLLECTION_BOARDS), payload);
+  if (isAppwriteWriteSoftFailure(res) || !res.id) {
+    toast("Tahta oluşturulamadı (boards koleksiyonu / izin).");
+    throw new Error("soft_write");
+  }
   currentBoardDocId = res.id;
   return currentBoardDocId;
 }
@@ -142,6 +194,7 @@ function scheduleAutoSave() {
       try {
         await persistBoardDocument();
       } catch (e) {
+        if (isAppwriteCollectionMissingError(e)) return;
         console.warn("[DereceBoard] otomatik kayıt", e);
       }
     })();
@@ -213,17 +266,23 @@ async function confirmShareStudents() {
   }
   try {
     var boardId = await persistBoardDocument();
-    await addDoc(collection(db, APPWRITE_COLLECTION_SHARED_BOARDS), {
+    var sh = await addDoc(collection(db, APPWRITE_COLLECTION_SHARED_BOARDS), {
       board_id: boardId,
       coach_id: getCoachId(),
       student_ids: ids,
       shared_at: new Date().toISOString(),
     });
+    if (isAppwriteWriteSoftFailure(sh)) {
+      toast("Paylaşım kaydedilemedi (SharedBoards izin/şema).");
+      return;
+    }
     closeShareModal();
     toast("Seçilen öğrencilere gönderildi (SharedBoards).");
   } catch (err) {
-    console.error("[DereceBoard] paylaşım", err);
-    toast("Gönderilemedi. SharedBoards koleksiyonu ve şema tanımlı mı kontrol edin.");
+    toastBoardWriteError(
+      err,
+      "Gönderilemedi. «SharedBoards» koleksiyonu ve şema tanımlı mı kontrol edin."
+    );
   }
 }
 
@@ -1453,8 +1512,8 @@ async function saveToLibrary() {
     await saveBoardDocument();
     toast("Kütüphaneye kaydedildi (Appwrite boards).");
   } catch (err) {
-    console.error("[DereceBoard]", err);
-    toast(
+    toastBoardWriteError(
+      err,
       "Kayıt başarısız. Appwrite’da «boards» koleksiyonu ve alanlar tanımlı mı kontrol edin."
     );
   }

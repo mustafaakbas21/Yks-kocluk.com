@@ -17,7 +17,11 @@ import {
   verifyAppwriteAccount,
   getAppSettings,
   logAppwriteError,
+  databasesCreateDocumentOrSoft,
+  isAppwriteWriteSoftFailure,
 } from "./appwrite-compat.js";
+import { ID } from "./appwrite-browser.js";
+import { APPWRITE_DATABASE_ID, APPWRITE_COLLECTION_MESSAGES } from "./appwrite-config.js";
 
 let planUnsub = null;
 var ospAuthResolved = false;
@@ -43,6 +47,34 @@ async function fetchOspStudentExams(studentDocId) {
 
 window.OspPortal = window.OspPortal || {};
 window.OspPortal.studentDocId = null;
+
+/** Gelen Sorular — koç paneli ile aynı Appwrite `messages` koleksiyonu */
+window.OspPortal.sendMessageToCoach = async function (text) {
+  var body = String(text || "").trim();
+  if (!body) return { ok: false, message: "Mesaj boş." };
+  var sid = window.OspPortal.studentDocId;
+  var coachId = "";
+  try {
+    coachId = String(localStorage.getItem("yksCoachId") || "").trim();
+  } catch (_e) {}
+  if (!sid) return { ok: false, message: "Öğrenci kaydı bulunamadı. Yeniden giriş yapın." };
+  if (!coachId) return { ok: false, message: "Koç atamanız yok." };
+  try {
+    var crMsg = await databasesCreateDocumentOrSoft(APPWRITE_DATABASE_ID, APPWRITE_COLLECTION_MESSAGES, ID.unique(), {
+      sender_id: String(sid),
+      receiver_id: coachId,
+      text: body.slice(0, 8000),
+      timestamp: new Date().toISOString(),
+    });
+    if (isAppwriteWriteSoftFailure(crMsg)) {
+      return { ok: false, message: "Mesaj gönderilemedi. Koleksiyon veya izinleri kontrol edin." };
+    }
+    return { ok: true };
+  } catch (err) {
+    logAppwriteError("ogrenci-panel-app.js/sendMessageToCoach", err);
+    return { ok: false, message: "Mesaj gönderilemedi. Bağlantı veya izinleri kontrol edin." };
+  }
+};
 
 window.OspPortal.updateTaskDone = async function (taskId, done) {
   var sid = window.OspPortal.studentDocId;

@@ -79,6 +79,13 @@ export const APPWRITE_COLLECTION_MEETING_LOGS = "meeting_logs";
 export const APPWRITE_COLLECTION_BOARDS = "boards";
 /** Koç → öğrenci tahta paylaşımı (board_id + çoklu student_ids) */
 export const APPWRITE_COLLECTION_SHARED_BOARDS = "SharedBoards";
+/**
+ * Koç ↔ öğrenci metin mesajları (Gelen Sorular / canlı sohbet).
+ * Şema: sender_id (string), receiver_id (string), text (Text — uzun mesaj), timestamp (datetime),
+ * read_at (datetime, opsiyonel — koç okundu işareti / okunmamış rozet).
+ * Kurulum: `node setup-appwrite.js` veya `node appwrite-setup.js` — veya setup-appwrite.js dosya başındaki Console adımları.
+ */
+export const APPWRITE_COLLECTION_MESSAGES = "messages";
 
 const client = new Client()
   .setEndpoint(APPWRITE_ENDPOINT)

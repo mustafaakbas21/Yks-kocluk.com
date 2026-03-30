@@ -41,6 +41,144 @@ function isScrapedShape(raw) {
   return false;
 }
 
+/** @type {Record<string, true>} */
+var TS_PRIVATE_UNI_KEYS = (function () {
+  var names = [
+    "KOÇ",
+    "İSTANBUL MEDİPOL",
+    "MEDİPOL",
+    "İHSAN DOĞRAMACI BİLKENT",
+    "BİLKENT",
+    "BAHÇEŞEHİR",
+    "ÖZYEĞİN",
+    "SABANCI",
+    "YEDİTEPE",
+    "ÜSKÜDAR",
+    "BEYKENT",
+    "KADİR HAS",
+    "İSTİNYE",
+    "ACIBADEM",
+    "LOKMAN HEKİM",
+    "NİŞANTAŞI",
+    "ALTINBAŞ",
+    "ATLAS",
+    "BEYKOZ",
+    "İSTANBUL AREL",
+    "İSTANBUL GELİŞİM",
+    "KENT",
+    "KTO KARATAY",
+    "PİRİ REİS",
+    "TOBB ETÜ",
+    "UFUK",
+    "YENİ YÜZYIL",
+    "İSTANBUL ESENYURT",
+    "İSTANBUL MEDENİYET",
+    "İSTANBUL RUMELİ",
+    "İSTANBUL SAĞLIK",
+    "İSTANBUL TOPKAPI",
+    "MALTEPE",
+    "OKAN",
+    "ÖZEL ONBEŞ KASIM",
+    "SANKO",
+    "TED",
+    "TİCARET",
+    "TORKU",
+    "TÖMER",
+    "TÜRKİSTAN",
+    "ULUSLARARASI FİNAL",
+    "UNİVERSİTE OF ADANA",
+    "YAŞAR",
+    "HALİÇ",
+    "KEMERBURGAZ",
+    "İSTANBUL AYDIN",
+    "İSTANBUL BİLGİ",
+    "İSTANBUL KENT",
+    "İSTANBUL ŞİŞLİ",
+    "İSTANBUL TİCARET",
+  ];
+  var o = Object.create(null);
+  for (var i = 0; i < names.length; i++) {
+    o[names[i].toLocaleUpperCase("tr-TR")] = true;
+  }
+  return o;
+})();
+
+/**
+ * JSON'da UniversiteTuru yoksa kaba tahmin (filtre + rozet; resmi değildir).
+ * @param {Record<string, unknown>} r
+ */
+function inferUniversiteTuruHeuristic(r) {
+  var blob = [r.Universite, r.Fakulte_YO, r.Sehir]
+    .map(function (x) {
+      return trLower(String(x || ""));
+    })
+    .join(" ");
+  if (
+    /kıbrıs|kibris|kktc|lefkoşa|lefkosa|gazimağusa|gazimagusa|girne|yakın doğu|yakin dogu|near east|uluslararası\s+final|final\s+üniversitesi|final\s+universitesi/.test(
+      blob
+    )
+  ) {
+    return "Kıbrıs Üniversitesi";
+  }
+  var uni = String(r.Universite || "").trim();
+  if (!uni) return "";
+  var uniUp = uni.toLocaleUpperCase("tr-TR");
+  if (TS_PRIVATE_UNI_KEYS[uniUp]) return "Vakıf Üniversitesi";
+  if (/\bVAK(I|İ)F\b/i.test(uni)) return "Vakıf Üniversitesi";
+  if (
+    uni.length <= 28 &&
+    !/\b(üniversitesi|universitesi|üniv\.|üniversite)\b/i.test(uni) &&
+    !/\b(teknik|fen[- ]?edebiyat|eğitim bilimleri)\b/i.test(trLower(uni))
+  ) {
+    if (
+      /^(KOÇ|MEDİPOL|BAHÇEŞEHİR|ÖZYEĞİN|BİLKENT|SABANCI|YEDİTEPE|ACIBADEM|ÜSKÜDAR|BEYKENT|KADİR HAS|İSTİNYE|LOKMAN HEKİM)$/i.test(
+        uni
+      )
+    ) {
+      return "Vakıf Üniversitesi";
+    }
+  }
+  if (/\b(üniversitesi|universitesi)\b/i.test(uni)) return "Devlet Üniversitesi";
+  return "";
+}
+
+function resolveUniversiteTuruForRow(r) {
+  var order = ["UniversiteTuru", "Universite_Turu", "UniversiteTipi", "Devlet_Vakif", "Kurum_Turu"];
+  for (var i = 0; i < order.length; i++) {
+    var v = r[order[i]];
+    if (v != null && String(v).trim() !== "") return String(v).trim();
+  }
+  return inferUniversiteTuruHeuristic(r);
+}
+
+function getSourceRow(row) {
+  return row && row._source && typeof row._source === "object" ? row._source : row;
+}
+
+/** YÖK atlas satırından burs/ücret metni (Ek_Bilgi_1 çoğunlukla dil; burs genelde Ek_Bilgi_2 veya Burs alanında) */
+function pickScrapedBursDurumu(r) {
+  if (!r || typeof r !== "object") return "";
+  var order = [
+    "Burs",
+    "Burs / Ücret Durumu",
+    "Burs_Ucret_Durumu",
+    "Ek_Bilgi_2",
+    "Ek_Bilgi_1",
+    "BursDurumu",
+  ];
+  for (var i = 0; i < order.length; i++) {
+    var v = r[order[i]];
+    if (v != null && String(v).trim() !== "") return String(v).trim();
+  }
+  return "";
+}
+
+function looksLikeBursOrUcretLabel(s) {
+  var low = trLower(String(s || ""));
+  if (!low) return false;
+  return /burs|ücret|ucret|indirim|ücretsiz|ucretsiz|katkı|katki|harç|harc|tam\s*burs|yarı|yari|%\s*\d/.test(low);
+}
+
 /** Satırı şemaya göre normalize et (eski düz tablo) */
 function normalizeFlatRow(raw, index) {
   var r = raw && typeof raw === "object" ? raw : {};
@@ -58,6 +196,7 @@ function normalizeFlatRow(raw, index) {
     Sure_Yil: isFinite(sy) ? sy : "",
     _programTuru: inferProgramTuru({ Sure_Yil: r.Sure_Yil }, "legacy"),
     _ix: index,
+    _source: null,
   };
 }
 
@@ -69,16 +208,13 @@ function normalizeScrapedRow(raw, index, sourceTag) {
   else if (sourceTag === "onlisans") pt = "onlisans";
   else pt = inferProgramTuru({ Sure_Yil: r.Sure_Yil }, "legacy");
 
+  var uniTuru = resolveUniversiteTuruForRow(r);
+
   return {
     Universite: r.Universite != null ? String(r.Universite).trim() : "",
     Bolum: r.Bolum != null ? String(r.Bolum).trim() : "",
-    UniversiteTuru: r.UniversiteTuru != null ? String(r.UniversiteTuru).trim() : "",
-    BursDurumu:
-      r.Ek_Bilgi_1 != null
-        ? String(r.Ek_Bilgi_1).trim()
-        : r.BursDurumu != null
-          ? String(r.BursDurumu).trim()
-          : "",
+    UniversiteTuru: uniTuru,
+    BursDurumu: pickScrapedBursDurumu(r),
     PuanTuru:
       r.Puan_Tipi != null
         ? String(r.Puan_Tipi).trim()
@@ -92,6 +228,7 @@ function normalizeScrapedRow(raw, index, sourceTag) {
     Sure_Yil: isFinite(sy) ? sy : "",
     _programTuru: pt,
     _ix: index,
+    _source: r,
   };
 }
 
@@ -277,10 +414,290 @@ function getBasariSirasiNum(row) {
   return parseSiralamaInt(row.BasariSirasi);
 }
 
+function getTabanPuanNum(row) {
+  if (!row) return NaN;
+  var v = row.TabanPuan;
+  if (v == null || v === "") return NaN;
+  if (typeof v === "number") return isFinite(v) ? v : NaN;
+  var s = String(v).trim().replace(/\s/g, "");
+  if (s === "" || s === "-") return NaN;
+  var dotCount = (s.match(/\./g) || []).length;
+  if (s.indexOf(",") >= 0) {
+    s = s.replace(/\./g, "").replace(",", ".");
+  } else if (dotCount === 1) {
+    return parseFloat(s);
+  } else if (dotCount > 1) {
+    s = s.replace(/\./g, "");
+  }
+  var n = parseFloat(s);
+  return isFinite(n) ? n : NaN;
+}
+
+function topRowsByTabanDesc(rows, limit) {
+  var lim = limit != null ? Math.max(1, Math.min(200, Number(limit))) : 50;
+  var copy = rows.slice();
+  copy.sort(function (a, b) {
+    var ta = getTabanPuanNum(a);
+    var tb = getTabanPuanNum(b);
+    var fa = isFinite(ta);
+    var fb = isFinite(tb);
+    if (!fa && !fb) return 0;
+    if (!fa) return 1;
+    if (!fb) return -1;
+    return tb - ta;
+  });
+  return copy.slice(0, lim);
+}
+
 function formatIntTr(n) {
   var x = Number(n);
   if (!isFinite(x)) return "-";
   return String(Math.round(x)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+/** Taban / başarı hücresi: anlamsız sıfır veya «kontenjan dolmadı» metinleri */
+function isKontenjanDolmamisDeger(v) {
+  if (v == null || v === "") return true;
+  if (typeof v === "number" && v === 0) return true;
+  var s = String(v).trim();
+  if (s === "") return true;
+  var low = trLower(s);
+  if (low === "0" || low === "null" || low === "undefined") return true;
+  if (/^0+[.,]?0*$/.test(s.replace(/\s/g, ""))) return true;
+  if (low.indexOf("kontenjan") !== -1 && (low.indexOf("dolmam") !== -1 || low.indexOf("dolmad") !== -1)) return true;
+  return false;
+}
+
+function isTabanPuanDolmamis(row) {
+  if (!row) return true;
+  if (isKontenjanDolmamisDeger(row.TabanPuan)) return true;
+  var n = getTabanPuanNum(row);
+  return isFinite(n) && n === 0;
+}
+
+function isBasariSirasiDolmamis(row) {
+  if (!row) return true;
+  if (isKontenjanDolmamisDeger(row.BasariSirasi)) return true;
+  var n = getBasariSirasiNum(row);
+  return isFinite(n) && n === 0;
+}
+
+var TS_KONTENJAN_SPAN =
+  '<span class="text-gray-500 italic text-sm ts-kontenjan-dolmadi">Kontenjan Dolmadı</span>';
+
+function formatTabanCellHtml(row) {
+  if (isTabanPuanDolmamis(row)) return TS_KONTENJAN_SPAN;
+  var inner = formatTabanCell(row);
+  if (inner === "-" || inner === "0") return TS_KONTENJAN_SPAN;
+  return escapeHtml(inner);
+}
+
+function formatBasariCellHtml(row) {
+  if (isBasariSirasiDolmamis(row)) return TS_KONTENJAN_SPAN;
+  var inner = formatBasariCell(row);
+  if (inner === "-" || inner === "0") return TS_KONTENJAN_SPAN;
+  return escapeHtml(inner);
+}
+
+var TS_CELL_NA = '<span class="ts-cell-na">—</span>';
+var TS_CELL_DATA_MISSING =
+  '<span class="ts-cell-na" title="Bu alan YÖK Atlas çıktısında yok">Veri yok</span>';
+
+function isDashOrEmptyRaw(v) {
+  if (v == null) return true;
+  var s = String(v).trim();
+  return s === "" || s === "-" || s === "—";
+}
+
+/** @param {Record<string, unknown>} src */
+function parseTabanFromRawField(v) {
+  if (isDashOrEmptyRaw(v)) return NaN;
+  var t = { TabanPuan: v };
+  return getTabanPuanNum(t);
+}
+
+/** @param {Record<string, unknown>} src */
+function collectTabanNumsFromSource(src) {
+  var keys = ["Taban_2023", "Taban_2024", "Taban_2025", "Taban_Puani_Guncel"];
+  var out = [];
+  for (var i = 0; i < keys.length; i++) {
+    var n = parseTabanFromRawField(src[keys[i]]);
+    if (isFinite(n)) out.push(n);
+  }
+  return out;
+}
+
+/** @param {Record<string, unknown>} src */
+function collectBasariNumsFromSource(src) {
+  var keys = ["Basari_2023", "Basari_2024", "Basari_2025", "Basari_Sirasi_Guncel"];
+  var out = [];
+  for (var i = 0; i < keys.length; i++) {
+    var n = parseSiralamaInt(src[keys[i]]);
+    if (isFinite(n)) out.push(n);
+  }
+  return out;
+}
+
+function minMax(nums) {
+  if (!nums || !nums.length) return { min: NaN, max: NaN };
+  var mn = nums[0];
+  var mx = nums[0];
+  for (var i = 1; i < nums.length; i++) {
+    if (nums[i] < mn) mn = nums[i];
+    if (nums[i] > mx) mx = nums[i];
+  }
+  return { min: mn, max: mx };
+}
+
+function formatTabanNumHtml(n) {
+  if (!isFinite(n)) return TS_CELL_NA;
+  var fake = { TabanPuan: n };
+  return formatTabanCellHtml(fake);
+}
+
+function formatBasariNumHtml(n) {
+  if (!isFinite(n)) return TS_CELL_NA;
+  var fake = { BasariSirasi: n };
+  return formatBasariCellHtml(fake);
+}
+
+/** @param {Record<string, unknown>} src @param {string} key */
+function formatYearlyTabanHtml(src, key) {
+  if (isDashOrEmptyRaw(src[key])) return TS_CELL_NA;
+  var fake = { TabanPuan: src[key] };
+  return formatTabanCellHtml(fake);
+}
+
+/** @param {Record<string, unknown>} src @param {string} key */
+function formatYearlyBasariHtml(src, key) {
+  if (isDashOrEmptyRaw(src[key])) return TS_CELL_NA;
+  var fake = { BasariSirasi: src[key] };
+  return formatBasariCellHtml(fake);
+}
+
+/** Dil rozeti: Ek_Bilgi_1 çoğunlukla öğretim dili */
+function dilBadgeFromSource(src) {
+  var e1 = src.Ek_Bilgi_1 != null ? String(src.Ek_Bilgi_1).trim() : "";
+  if (!e1 || looksLikeBursOrUcretLabel(e1)) return "";
+  return (
+    '<span class="ts-badge ts-badge--lang" title="Öğretim dili / program notu">' +
+    escapeHtml(e1) +
+    "</span>"
+  );
+}
+
+/** Üniversite hücresi: tür + dil rozeti (burs ayrı sütunda) */
+function uniCellBadgesWithLang(row) {
+  var src = getSourceRow(row);
+  var parts = [uniTypeBadgeHtmlFromRow(row)];
+  var lang = dilBadgeFromSource(src);
+  if (lang) parts.push(lang);
+  return '<div class="ts-uni-badges">' + parts.join("") + "</div>";
+}
+
+/** @param {Record<string, unknown>} src */
+function formatYerlesmeCellHtml(src) {
+  var keys = [
+    "Yerlesme_Sayisi",
+    "Yerleşme_Sayısı",
+    "Yerlesen_Sayisi",
+    "Yerleşen_Sayısı",
+    "Yerlesen",
+    "Yerleşen",
+  ];
+  for (var i = 0; i < keys.length; i++) {
+    var v = src[keys[i]];
+    if (!isDashOrEmptyRaw(v)) {
+      var n = Number(String(v).replace(/\./g, "").replace(/\s/g, ""));
+      if (isFinite(n)) return escapeHtml(formatIntTr(n));
+    }
+  }
+  return TS_CELL_DATA_MISSING;
+}
+
+/** @param {Record<string, unknown>} src */
+function formatKontenjanGenelDigerHtml(src) {
+  var g = src.Kontenjan_2025_Genel != null ? src.Kontenjan_2025_Genel : "";
+  var d = src.Kontenjan_Diger != null ? src.Kontenjan_Diger : "";
+  return {
+    genel: isDashOrEmptyRaw(g) ? TS_CELL_NA : escapeHtml(String(g).trim()),
+    diger: isDashOrEmptyRaw(d) ? TS_CELL_NA : escapeHtml(String(d).trim()),
+  };
+}
+
+function readStudentComparisonCtx(form) {
+  if (!form) return { sira: NaN, puan: NaN };
+  try {
+    var fd = new FormData(form);
+    var sr = String(fd.get("studentSira") || "")
+      .replace(/\./g, "")
+      .trim();
+    var pr = String(fd.get("studentPuan") || "").trim();
+    var sira = sr ? parseInt(sr, 10) : NaN;
+    var puan = NaN;
+    if (pr) {
+      if (pr.indexOf(",") >= 0) {
+        puan = parseFloat(pr.replace(/\./g, "").replace(",", "."));
+      } else {
+        puan = parseFloat(pr);
+      }
+    }
+    return { sira: sira, puan: puan };
+  } catch (e) {
+    return { sira: NaN, puan: NaN };
+  }
+}
+
+function formatKriterCellHtml(row, ctx) {
+  var hasS = isFinite(ctx.sira);
+  var hasP = isFinite(ctx.puan);
+  if (!hasS && !hasP) {
+    return (
+      '<span class="ts-cell-muted" title="İsteğe bağlı: yerleşme sırası veya puan girin">—</span>'
+    );
+  }
+  var msgs = [];
+  var progSira = getBasariSirasiNum(row);
+  var progPuan = getTabanPuanNum(row);
+  if (hasS && isFinite(progSira) && !isBasariSirasiDolmamis(row)) {
+    if (ctx.sira > progSira) {
+      msgs.push('<span class="ts-kriter ts-kriter--bad">Sıra yetmiyor</span>');
+    }
+  }
+  if (hasP && isFinite(progPuan) && !isTabanPuanDolmamis(row)) {
+    if (ctx.puan + 1e-6 < progPuan) {
+      msgs.push('<span class="ts-kriter ts-kriter--bad">Puan yetmiyor</span>');
+    }
+  }
+  if (!msgs.length) {
+    return '<span class="ts-kriter ts-kriter--ok">Uygun görünüyor</span>';
+  }
+  return msgs.join(" ");
+}
+
+function programCellHtml(row) {
+  var src = getSourceRow(row);
+  var bolum = row.Bolum || "—";
+  var fak = src.Fakulte_YO != null ? String(src.Fakulte_YO).trim() : "";
+  var ek = src.Ek_Isaret != null ? String(src.Ek_Isaret).trim() : "";
+  var lines =
+    '<span class="ts-prog-name ts-prog-name--primary">' + escapeHtml(bolum) + "</span>";
+  if (fak) {
+    lines +=
+      '<span class="ts-fakulte-line">' +
+      escapeHtml(fak) +
+      (ek ? " <span class=\"ts-ek-isaret\" title=\"Ek işaret\">" + escapeHtml(ek) + "</span>" : "") +
+      "</span>";
+  }
+  return lines;
+}
+
+function escapeAttr(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function formatKontenjanCell(row) {
@@ -292,16 +709,7 @@ function formatKontenjanCell(row) {
 }
 
 function formatTabanCell(row) {
-  var v = row.TabanPuan;
-  if (v == null || v === "") return "-";
-  var n;
-  if (typeof v === "number") {
-    n = v;
-  } else {
-    var s = String(v).trim().replace(/\s/g, "");
-    s = s.replace(/\./g, "").replace(",", ".");
-    n = parseFloat(s);
-  }
+  var n = getTabanPuanNum(row);
   if (!isFinite(n)) return "-";
   if (Math.abs(n - Math.round(n)) < 1e-9) return formatIntTr(Math.round(n));
   try {
@@ -409,15 +817,11 @@ function bursBadgeHtmlFromRow(row) {
   if (k === "tam_burslu") return '<span class="ts-badge ts-badge--burs-tam">Tam Burslu</span>';
   if (k === "yari_indirim") return '<span class="ts-badge ts-badge--burs-yari">%50 İndirimli</span>';
   if (k === "ucretli") return '<span class="ts-badge ts-badge--burs-ucret">Ücretli</span>';
-  if (row.BursDurumu) return '<span class="ts-badge ts-badge--muted">' + escapeHtml(row.BursDurumu) + "</span>";
+  var raw = String(row.BursDurumu || "").trim();
+  if (raw && looksLikeBursOrUcretLabel(raw)) {
+    return '<span class="ts-badge ts-badge--muted">' + escapeHtml(raw) + "</span>";
+  }
   return "";
-}
-
-function uniCellBadgesFlat(row) {
-  var parts = [uniTypeBadgeHtmlFromRow(row)];
-  var bb = bursBadgeHtmlFromRow(row);
-  if (bb) parts.push(bb);
-  return '<div class="ts-uni-badges">' + parts.join("") + "</div>";
 }
 
 function paintTablePage(tableScroll, pagerEl) {
@@ -449,36 +853,159 @@ function paintTablePage(tableScroll, pagerEl) {
   var anim = tableScroll._tsAnimateNext;
   tableScroll._tsAnimateNext = false;
   var rootCls = "ts-table-root" + (anim ? " ts-table-root--enter" : "");
+  var studentCtx = readStudentComparisonCtx(tableScroll._tsFormEl || null);
+
+  var thead =
+    "<thead><tr>" +
+    '<th class="ts-th-add" scope="col"><span class="ts-th-sr">İşlem</span></th>' +
+    '<th class="ts-th-code" scope="col" title="Program kodu">Prg. kodu</th>' +
+    '<th scope="col" title="Puan türü">Puan türü</th>' +
+    '<th class="ts-th-burs" scope="col">Burs / ücret</th>' +
+    '<th scope="col" title="Öğrenim süresi (yıl)">Süre</th>' +
+    '<th scope="col" title="Devlet / vakıf / Kıbrıs (tahmin dahil)">Tür</th>' +
+    '<th scope="col">Şehir</th>' +
+    '<th class="ts-th-uni" scope="col">Üniversite</th>' +
+    '<th class="ts-th-prog" scope="col">Program</th>' +
+    '<th scope="col" title="Yerleşen sayısı (kaynakta varsa)">Yerleşme</th>' +
+    '<th class="ts-num-cell" scope="col" title="Kontenjan genel (2025)">Kn. genel</th>' +
+    '<th class="ts-num-cell" scope="col" title="Kontenjan diğer">Kn. diğer</th>' +
+    '<th class="ts-num-cell" scope="col" title="Yıllar arası en düşük taban">Tbn. min</th>' +
+    '<th class="ts-num-cell" scope="col" title="Yıllar arası en yüksek taban">Tbn. max</th>' +
+    '<th class="ts-num-cell ts-th-year" scope="col">T \'23</th>' +
+    '<th class="ts-num-cell ts-th-year" scope="col">T \'24</th>' +
+    '<th class="ts-num-cell ts-th-year" scope="col">T \'25</th>' +
+    '<th class="ts-num-cell" scope="col" title="En iyi (en küçük) başarı sırası">Sıra min</th>' +
+    '<th class="ts-num-cell" scope="col" title="En kötü (en büyük) başarı sırası">Sıra max</th>' +
+    '<th class="ts-num-cell ts-th-year" scope="col">S \'23</th>' +
+    '<th class="ts-num-cell ts-th-year" scope="col">S \'24</th>' +
+    '<th class="ts-num-cell ts-th-year" scope="col">S \'25</th>' +
+    '<th scope="col">Akreditasyon</th>' +
+    '<th class="ts-th-kosul" scope="col">Özel koşul</th>' +
+    '<th class="ts-th-kriter" scope="col" title="Öğrenci sıra/puanına göre">Durum</th>' +
+    "</tr></thead>";
 
   var tableHtml =
     '<div class="' +
     rootCls +
-    '"><table class="ts-table ts-table--premium ts-table--yks" role="grid"><thead><tr>' +
-    "<th>Üniversite</th><th>Bölüm</th><th>Puan Türü</th><th>Kontenjan</th><th>Taban Puan</th><th>Başarı Sırası</th>" +
-    "</tr></thead><tbody>";
+    '"><table class="ts-table ts-table--premium ts-table--yks ts-table--elite" role="grid">' +
+    thead +
+    "<tbody>";
+
   for (var i = 0; i < list.length; i++) {
     var row = list[i];
+    var src = getSourceRow(row);
     var uniName = row.Universite || "—";
-    var bolumHtml = '<span class="ts-prog-name">' + escapeHtml(row.Bolum || "—") + "</span>";
-    var stDisp = row.PuanTuru ? String(row.PuanTuru).trim() : "-";
+    var pk =
+      src.Program_Kodu != null && String(src.Program_Kodu).trim() !== ""
+        ? String(src.Program_Kodu).trim()
+        : "—";
+    var stDisp = row.PuanTuru ? String(row.PuanTuru).trim() : "—";
+    var sure =
+      src.Sure_Yil != null && String(src.Sure_Yil).trim() !== ""
+        ? escapeHtml(String(src.Sure_Yil).trim())
+        : TS_CELL_NA;
+    var sehir = row.Sehir ? escapeHtml(row.Sehir) : TS_CELL_NA;
+    var bursCol = bursBadgeHtmlFromRow(row);
+    if (!bursCol) bursCol = '<span class="ts-cell-muted">—</span>';
+    var uniTypeOnly = uniTypeBadgeHtmlFromRow(row);
+    var tnums = collectTabanNumsFromSource(src);
+    var tmm = minMax(tnums);
+    var snums = collectBasariNumsFromSource(src);
+    var smm = minMax(snums);
+    var kd = formatKontenjanGenelDigerHtml(src);
+    var ozel = src.Ozel_Kosul_Kodlari != null ? String(src.Ozel_Kosul_Kodlari).trim() : "";
+    var ozelHtml = ozel
+      ? '<span class="ts-ozel-kosul" title="Özel koşul kodları">' + escapeHtml(ozel) + "</span>"
+      : TS_CELL_NA;
+
     tableHtml +=
-      '<tr><td class="ts-cell-uni">' +
+      "<tr>" +
+      '<td class="ts-cell-add">' +
+      '<button type="button" class="ts-row-add-btn" data-ts-add="1" data-program-kodu="' +
+      escapeAttr(pk) +
+      '" title="Listeye ekle (yakında)">' +
+      '<span class="ts-row-add-btn__icon" aria-hidden="true">+</span>' +
+      '<span class="ts-th-sr">Ekle</span>' +
+      "</button></td>" +
+      '<td class="ts-num-cell ts-cell-mono">' +
+      escapeHtml(pk) +
+      "</td>" +
+      "<td>" +
+      escapeHtml(stDisp) +
+      "</td>" +
+      '<td class="ts-cell-burs">' +
+      bursCol +
+      "</td>" +
+      '<td class="ts-num-cell">' +
+      sure +
+      "</td>" +
+      "<td>" +
+      uniTypeOnly +
+      "</td>" +
+      "<td>" +
+      sehir +
+      "</td>" +
+      '<td class="ts-cell-uni">' +
       '<div class="ts-uni-stack">' +
       '<strong class="ts-uni-name">' +
       escapeHtml(uniName) +
       "</strong>" +
-      uniCellBadgesFlat(row) +
-      '</div></td><td class="ts-cell-bolum">' +
-      bolumHtml +
-      "</td><td>" +
-      escapeHtml(stDisp) +
-      '</td><td class="ts-num-cell">' +
-      escapeHtml(formatKontenjanCell(row)) +
-      '</td><td class="ts-num-cell">' +
-      escapeHtml(formatTabanCell(row)) +
-      '</td><td class="ts-num-cell">' +
-      escapeHtml(formatBasariCell(row)) +
-      "</td></tr>";
+      uniCellBadgesWithLang(row) +
+      "</div></td>" +
+      '<td class="ts-cell-bolum">' +
+      programCellHtml(row) +
+      "</td>" +
+      "<td>" +
+      formatYerlesmeCellHtml(src) +
+      "</td>" +
+      '<td class="ts-num-cell">' +
+      kd.genel +
+      "</td>" +
+      '<td class="ts-num-cell">' +
+      kd.diger +
+      "</td>" +
+      '<td class="ts-num-cell">' +
+      formatTabanNumHtml(tmm.min) +
+      "</td>" +
+      '<td class="ts-num-cell">' +
+      formatTabanNumHtml(tmm.max) +
+      "</td>" +
+      '<td class="ts-num-cell">' +
+      formatYearlyTabanHtml(src, "Taban_2023") +
+      "</td>" +
+      '<td class="ts-num-cell">' +
+      formatYearlyTabanHtml(src, "Taban_2024") +
+      "</td>" +
+      '<td class="ts-num-cell">' +
+      formatYearlyTabanHtml(src, "Taban_2025") +
+      "</td>" +
+      '<td class="ts-num-cell">' +
+      formatBasariNumHtml(smm.min) +
+      "</td>" +
+      '<td class="ts-num-cell">' +
+      formatBasariNumHtml(smm.max) +
+      "</td>" +
+      '<td class="ts-num-cell">' +
+      formatYearlyBasariHtml(src, "Basari_2023") +
+      "</td>" +
+      '<td class="ts-num-cell">' +
+      formatYearlyBasariHtml(src, "Basari_2024") +
+      "</td>" +
+      '<td class="ts-num-cell">' +
+      formatYearlyBasariHtml(src, "Basari_2025") +
+      "</td>" +
+      "<td>" +
+      (src.Akreditasyon != null && String(src.Akreditasyon).trim() !== ""
+        ? escapeHtml(String(src.Akreditasyon).trim())
+        : TS_CELL_NA) +
+      "</td>" +
+      "<td>" +
+      ozelHtml +
+      "</td>" +
+      "<td>" +
+      formatKriterCellHtml(row, studentCtx) +
+      "</td>" +
+      "</tr>";
   }
   tableHtml += "</tbody></table></div>";
 
@@ -518,14 +1045,6 @@ function renderTableWithPagination(tableScroll, pagerEl, rows, pageSize) {
   tableScroll._tsPageSize = pageSize;
   tableScroll._tsPage = 1;
   paintTablePage(tableScroll, pagerEl);
-}
-
-function paintInitialPlaceholder(tableScroll, pagerEl) {
-  if (!tableScroll) return;
-  tableScroll._tsRows = null;
-  tableScroll.innerHTML =
-    '<div class="ts-empty-state" role="status"><p class="ts-empty-state__text">Şehir, puan türü, program türü, başarı sırası aralığı ve isteğe bağlı üniversite/bölüm seçerek «Filtrele»ye basın. Veriler birleşik JSON kaynaklarından okunur.</p></div>';
-  if (pagerEl && pagerEl !== tableScroll) pagerEl.innerHTML = "";
 }
 
 function tsDestroySelect2(el) {
@@ -580,6 +1099,28 @@ export function initTercihSihirbazi(options) {
       : null;
   if (!form || !tableScroll) return;
 
+  tableScroll._tsFormEl = form;
+
+  if (!tableScroll.dataset.tsAddDelegation) {
+    tableScroll.dataset.tsAddDelegation = "1";
+    tableScroll.addEventListener("click", function (ev) {
+      var btn = ev.target && ev.target.closest ? ev.target.closest("[data-ts-add]") : null;
+      if (!btn || !tableScroll.contains(btn)) return;
+      ev.preventDefault();
+      var kod = btn.getAttribute("data-program-kodu") || "";
+      try {
+        document.dispatchEvent(
+          new CustomEvent("tercih-sihirbazi:add", {
+            detail: { programKodu: kod, button: btn },
+            bubbles: true,
+          })
+        );
+      } catch (e) {
+        /* IE yok */
+      }
+    });
+  }
+
   var combinedPager = !pagerEl;
   if (combinedPager) pagerEl = tableScroll;
 
@@ -595,9 +1136,25 @@ export function initTercihSihirbazi(options) {
     return v === "onlisans" ? "onlisans" : "lisans";
   }
 
-  function resetFilterDropdownCaches() {
-    if (citySel) delete citySel.dataset.tsFilled;
-    if (uniSel) delete uniSel.dataset.tsUniFilled;
+  function resetAuxiliaryFilters() {
+    if (!form) return;
+    if (citySel) citySel.value = "";
+    if (uniSel) uniSel.value = "";
+    if (deptSel) deptSel.value = "";
+    var minI = form.querySelector('[name="minSira"]');
+    var maxI = form.querySelector('[name="maxSira"]');
+    if (minI) minI.value = "";
+    if (maxI) maxI.value = "";
+    var puanEl0 = form.querySelector('[name="puanTuru"]');
+    var utEl0 = form.querySelector('[name="uniType"]');
+    var bursEl0 = form.querySelector('[name="bursDurumu"]');
+    var stS = form.querySelector('[name="studentSira"]');
+    var stP = form.querySelector('[name="studentPuan"]');
+    if (puanEl0) puanEl0.value = "";
+    if (utEl0) utEl0.value = "";
+    if (bursEl0) bursEl0.value = "";
+    if (stS) stS.value = "";
+    if (stP) stP.value = "";
   }
 
   function runFilter() {
@@ -626,17 +1183,17 @@ export function initTercihSihirbazi(options) {
       programTuru: programTuru,
     });
     setMeta(
-      "Toplam " + formatIntTr(filtered.length) + " satır — düz veri şeması. Sıralama: Başarı sırası (küçükten büyüğe)."
+      "Toplam " +
+        formatIntTr(filtered.length) +
+        " satır — YÖK Atlas geniş şema (prg. kodu, yıllık taban/sıra, kontenjan). Sıralama: güncel başarı sırası (küçükten büyüğe)."
     );
     tableScroll._tsAnimateNext = true;
     renderTableWithPagination(tableScroll, combinedPager ? tableScroll : pagerEl, filtered, pageSize);
   }
 
-  function fillCitiesOnce() {
-    if (!citySel || citySel.dataset.tsFilled) return;
-    citySel.dataset.tsFilled = "1";
+  function rebuildCityOptions() {
+    if (!citySel) return;
     var cities = uniqueSehirler(allRows);
-    var prev = citySel.value;
     citySel.innerHTML = '<option value="">Tüm şehirler</option>';
     for (var i = 0; i < cities.length; i++) {
       var o = document.createElement("option");
@@ -644,19 +1201,32 @@ export function initTercihSihirbazi(options) {
       o.textContent = cities[i];
       citySel.appendChild(o);
     }
-    if (prev) citySel.value = prev;
   }
 
-  function fillUniversityOnce() {
-    if (!uniSel || uniSel.dataset.tsUniFilled) return;
-    uniSel.dataset.tsUniFilled = "1";
-    var unis = uniqueUniversiteler(allRows);
+  function rebuildUniversityOptions(cityFilter) {
+    if (!uniSel) return;
+    var c = String(cityFilter || "").trim();
+    var rows = allRows;
+    if (c) {
+      rows = allRows.filter(function (r) {
+        return String(r.Sehir || "").trim() === c;
+      });
+    }
+    var unis = uniqueUniversiteler(rows);
     uniSel.innerHTML = '<option value="">— Tüm üniversiteler —</option>';
-    unis.forEach(function (name) {
-      var o = document.createElement("option");
-      o.value = name;
-      o.textContent = name;
-      uniSel.appendChild(o);
+    for (var j = 0; j < unis.length; j++) {
+      var o2 = document.createElement("option");
+      o2.value = unis[j];
+      o2.textContent = unis[j];
+      uniSel.appendChild(o2);
+    }
+  }
+
+  function rowsForDeptCascade() {
+    var cityF = citySel ? String(citySel.value || "").trim() : "";
+    if (!cityF) return allRows;
+    return allRows.filter(function (r) {
+      return String(r.Sehir || "").trim() === cityF;
     });
   }
 
@@ -672,7 +1242,7 @@ export function initTercihSihirbazi(options) {
     }
     deptSel.disabled = false;
     deptSel.removeAttribute("disabled");
-    var bolumler = bolumlerForUniversite(allRows, u);
+    var bolumler = bolumlerForUniversite(rowsForDeptCascade(), u);
     deptSel.innerHTML = '<option value="">— Tüm bölümler (daraltmak için seçin) —</option>';
     for (var i = 0; i < bolumler.length; i++) {
       var o = document.createElement("option");
@@ -714,6 +1284,30 @@ export function initTercihSihirbazi(options) {
     });
   }
 
+  function showDefaultPreview() {
+    if (!tableScroll) return;
+    var key = currentProgramKey();
+    var selRows = [];
+    for (var i = 0; i < allRows.length; i++) {
+      if (rowMatchesProgramTuru(allRows[i], key)) selRows.push(allRows[i]);
+    }
+    var top = topRowsByTabanDesc(selRows, 50);
+    if (!top.length && selRows.length) top = selRows.slice(0, 50);
+    var srcLabel =
+      key === "onlisans" ? "yok-atlas-onlisans.json" : "yok-atlas-lisans.json";
+    setMeta(
+      "Önizleme: Taban puanı en yüksek " +
+        formatIntTr(top.length) +
+        " program (" +
+        srcLabel +
+        "). Katalog " +
+        formatIntTr(selRows.length) +
+        " satır — «Filtrele» ile daraltın; sıralama taban puana göre (yüksekten düşüğe)."
+    );
+    tableScroll._tsAnimateNext = false;
+    renderTableWithPagination(tableScroll, combinedPager ? tableScroll : pagerEl, top, pageSize);
+  }
+
   if (!form.dataset.tsBound) {
     form.dataset.tsBound = "1";
     form.addEventListener("submit", function (e) {
@@ -724,9 +1318,15 @@ export function initTercihSihirbazi(options) {
 
   function hydrateAfterLoad() {
     allRows = getAllFlatRows();
-    resetFilterDropdownCaches();
-    fillCitiesOnce();
-    fillUniversityOnce();
+    resetAuxiliaryFilters();
+
+    if (citySel) tsDestroySelect2(citySel);
+    if (uniSel) tsDestroySelect2(uniSel);
+    if (deptSel) tsDestroySelect2(deptSel);
+
+    rebuildCityOptions();
+    rebuildUniversityOptions("");
+
     if (form && programTurEl) form.dataset.tsSuppressProgramReload = "1";
     bindAllSelect2();
     requestAnimationFrame(function () {
@@ -734,6 +1334,34 @@ export function initTercihSihirbazi(options) {
         if (form) delete form.dataset.tsSuppressProgramReload;
       });
     });
+
+    if (citySel && !citySel.dataset.tsCityCascadeBound) {
+      citySel.dataset.tsCityCascadeBound = "1";
+      function onCityChanged() {
+        var c = String(citySel.value || "").trim();
+        if (uniSel) {
+          tsDestroySelect2(uniSel);
+          rebuildUniversityOptions(c);
+          tsBindSelect2On(uniSel, "Üniversite seçin");
+        }
+        try {
+          if (uniSel && typeof jQuery !== "undefined" && jQuery.fn.select2) {
+            jQuery(uniSel).val(null).trigger("change");
+          } else if (uniSel) {
+            uniSel.value = "";
+            fillDepartmentForUni("");
+          }
+        } catch (_ce) {}
+      }
+      if (typeof jQuery !== "undefined" && jQuery.fn.select2) {
+        jQuery(citySel)
+          .off(".tsCityCascade")
+          .on("change.tsCityCascade select2:clear.tsCityCascade", onCityChanged);
+      } else {
+        citySel.addEventListener("change", onCityChanged);
+      }
+    }
+
     if (uniSel && !uniSel.dataset.tsUniDeptSyncBound) {
       uniSel.dataset.tsUniDeptSyncBound = "1";
       function onUniChanged() {
@@ -760,15 +1388,8 @@ export function initTercihSihirbazi(options) {
         jQuery(deptSel).trigger("change");
       }
     } catch (_e2) {}
-    paintInitialPlaceholder(tableScroll, combinedPager ? null : pagerEl);
-    var label = currentProgramKey() === "onlisans" ? "Önlisans (yok-atlas-onlisans.json)" : "Lisans (yok-atlas-lisans.json)";
-    setMeta(
-      "Veri hazır (" +
-        formatIntTr(allRows.length) +
-        " satır). «Filtrele» ile listeleyin — kaynak: " +
-        label +
-        "."
-    );
+
+    showDefaultPreview();
   }
 
   function reloadProgramData() {
@@ -805,10 +1426,56 @@ export function initTercihSihirbazi(options) {
       if (pagerEl && pagerEl !== tableScroll) pagerEl.innerHTML = "";
     });
 
+  var clearBtn = document.getElementById("dpTsClearBtn");
+  if (clearBtn && !clearBtn.dataset.tsClearBound) {
+    clearBtn.dataset.tsClearBound = "1";
+    clearBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      var puanElC = form.querySelector('[name="puanTuru"]');
+      var utElC = form.querySelector('[name="uniType"]');
+      var bursElC = form.querySelector('[name="bursDurumu"]');
+      var progElC = form.querySelector('select[name="programTuru"]');
+      if (citySel) tsDestroySelect2(citySel);
+      if (uniSel) tsDestroySelect2(uniSel);
+      if (deptSel) tsDestroySelect2(deptSel);
+      if (puanElC) tsDestroySelect2(puanElC);
+      if (utElC) tsDestroySelect2(utElC);
+      if (bursElC) tsDestroySelect2(bursElC);
+      if (progElC) tsDestroySelect2(progElC);
+      form.reset();
+      if (programTurEl) programTurEl.value = "lisans";
+      showTableLoading(tableScroll, pagerEl, combinedPager);
+      setMeta("Sıfırlanıyor…");
+      loadTercihDataForProgram("lisans")
+        .then(function () {
+          hydrateAfterLoad();
+        })
+        .catch(function (err) {
+          console.error("[Tercih Sihirbazı]", err);
+          setMeta("Veri dosyası yüklenemedi (src/data/ altını kontrol edin).");
+          tableScroll.innerHTML =
+            '<div class="ts-empty-state ts-empty-state--error" role="alert"><p class="ts-empty-state__text">Veri yüklenemedi.</p></div>';
+          if (pagerEl && pagerEl !== tableScroll) pagerEl.innerHTML = "";
+        });
+    });
+  }
+
+  var tsProgReloadTimer = null;
   if (programTurEl && !form.dataset.tsProgramReloadBound) {
     form.dataset.tsProgramReloadBound = "1";
-    programTurEl.addEventListener("change", function () {
-      reloadProgramData();
-    });
+    function onProgramTurChanged() {
+      if (tsProgReloadTimer) clearTimeout(tsProgReloadTimer);
+      tsProgReloadTimer = setTimeout(function () {
+        tsProgReloadTimer = null;
+        reloadProgramData();
+      }, 60);
+    }
+    if (typeof jQuery !== "undefined" && jQuery.fn.select2) {
+      jQuery(programTurEl)
+        .off(".tsTsProg")
+        .on("change.tsTsProg select2:select.tsTsProg", onProgramTurChanged);
+    } else {
+      programTurEl.addEventListener("change", onProgramTurChanged);
+    }
   }
 }

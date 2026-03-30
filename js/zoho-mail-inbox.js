@@ -539,3 +539,61 @@ export function wireZohoInbox() {
 
 /** Geriye uyumluluk */
 export var fetchZohoEmails = loadEmails;
+
+var __zohoConfigProbeDone = false;
+
+/**
+ * `/api/get-zoho-emails` yanıtı `ok: false` ise menüde kurulum bekliyor durumu (Zoho env eksik).
+ * Yerelde API yoksa sessiz — yanlış uyarı verilmez.
+ */
+export function probeZohoMailConfigurationOnce() {
+  if (__zohoConfigProbeDone) return;
+  __zohoConfigProbeDone = true;
+  fetch("/api/get-zoho-emails?limit=1", {
+    method: "GET",
+    credentials: "same-origin",
+    headers: { Accept: "application/json" },
+  })
+    .then(function (res) {
+      return res.json().catch(function () {
+        return {};
+      });
+    })
+    .then(function (data) {
+      if (data && data.ok === true) return;
+      var errStr = String((data && data.error) || "");
+      if (
+        data &&
+        data.ok === false &&
+        (/ZOHO|zoho|refresh_token|client_secret|client_id|oauth|not configured|configure/i.test(errStr) ||
+          errStr.length > 0)
+      ) {
+        applyZohoPendingChrome(errStr);
+      }
+    })
+    .catch(function () {});
+}
+
+function applyZohoPendingChrome(detail) {
+  try {
+    document.body.setAttribute("data-zoho-mail-status", "pending");
+    var nav = document.querySelector('[data-nav="gelen-kutusu"]');
+    if (nav) {
+      var li = nav.closest("li");
+      if (li) li.classList.add("sidebar__sublink--zoho-pending");
+      nav.setAttribute(
+        "title",
+        detail ? String(detail).slice(0, 220) : "Zoho Mail API kurulumu bekleniyor."
+      );
+    }
+    var view = document.getElementById("view-gelen-kutusu");
+    if (view) {
+      var banner = view.querySelector(".page-desc");
+      if (banner && !banner.dataset.zohoHinted) {
+        banner.dataset.zohoHinted = "1";
+        banner.innerHTML =
+          '<span class="tw-inline-flex tw-items-center tw-gap-2 tw-rounded-lg tw-bg-amber-50 tw-border tw-border-amber-200 tw-px-3 tw-py-2 tw-text-sm tw-text-amber-900"><i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i> <strong>Zoho Mail — kurulum bekliyor.</strong> Ortam değişkenleri tanımlı değilse gelen kutusu boş kalır.</span>';
+      }
+    }
+  } catch (_e) {}
+}

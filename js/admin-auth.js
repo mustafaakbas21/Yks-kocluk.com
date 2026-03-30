@@ -13,9 +13,11 @@ import {
   getAppSettings,
   serverTimestamp,
   logAppwriteError,
+  databasesListDocumentsOrSoft,
+  isAppwriteWriteSoftFailure,
 } from "./appwrite-compat.js";
 import "./appwrite-config.js";
-import { databases, APPWRITE_DATABASE_ID } from "./appwrite-config.js";
+import { APPWRITE_DATABASE_ID } from "./appwrite-config.js";
 import { Query as AQuery } from "./appwrite-browser.js";
 
 const RATE_LIMIT_TR_MESSAGE =
@@ -43,23 +45,37 @@ async function findProfileFromDatabase(authUser, fallbackUsername) {
   var uname = sanitizeUsernameForDb(fallbackUsername || inferUsernameFromEmail(email));
 
   try {
-    var usersById = await databases.listDocuments(APPWRITE_DATABASE_ID, "users", [
+    var usersById = await databasesListDocumentsOrSoft(APPWRITE_DATABASE_ID, "users", [
       AQuery.equal("$id", uid),
       AQuery.limit(1),
     ]);
-    if (usersById && usersById.documents && usersById.documents.length) return usersById.documents[0];
+    if (!isAppwriteWriteSoftFailure(usersById) && usersById.documents && usersById.documents.length) {
+      return usersById.documents[0];
+    }
+    if (isAppwriteWriteSoftFailure(usersById)) {
+      logAppwriteError("admin-auth.js/findProfileFromDatabase/usersById", { message: usersById.message || "soft" });
+    }
   } catch (e) {
     logAppwriteError("admin-auth.js/findProfileFromDatabase/usersById", e);
   }
 
   if (uname) {
     try {
-      var usersByUsername = await databases.listDocuments(APPWRITE_DATABASE_ID, "users", [
+      var usersByUsername = await databasesListDocumentsOrSoft(APPWRITE_DATABASE_ID, "users", [
         AQuery.equal("username", uname),
         AQuery.limit(1),
       ]);
-      if (usersByUsername && usersByUsername.documents && usersByUsername.documents.length) {
+      if (
+        !isAppwriteWriteSoftFailure(usersByUsername) &&
+        usersByUsername.documents &&
+        usersByUsername.documents.length
+      ) {
         return usersByUsername.documents[0];
+      }
+      if (isAppwriteWriteSoftFailure(usersByUsername)) {
+        logAppwriteError("admin-auth.js/findProfileFromDatabase/usersByUsername", {
+          message: usersByUsername.message || "soft",
+        });
       }
     } catch (e2) {
       logAppwriteError("admin-auth.js/findProfileFromDatabase/usersByUsername", e2);

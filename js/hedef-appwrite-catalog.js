@@ -95,21 +95,27 @@ export async function ensureHedefSimulatorAppwriteData() {
   if (_ready) return;
   try {
     var data = null;
-    var lastErr = null;
     for (var u = 0; u < YKS_DATA_JSON_URLS.length; u++) {
       try {
         var res = await fetch(YKS_DATA_JSON_URLS[u], { cache: "no-store" });
-        if (!res.ok) throw new Error("HTTP " + res.status);
+        if (!res.ok) continue;
         var dataTry = await res.json();
         var ulistCheck = Array.isArray(dataTry.universities) ? dataTry.universities : [];
         if (ulistCheck.length === 0 && u < YKS_DATA_JSON_URLS.length - 1) continue;
         data = dataTry;
         break;
-      } catch (e) {
-        lastErr = e;
+      } catch (_e) {
+        /* 404 / ağ: sessizce bir sonraki URL veya boş katalog */
       }
     }
-    if (!data) throw lastErr || new Error("Atlas JSON yüklenemedi");
+    if (!data) {
+      data = { universities: [], programs: [] };
+      if (typeof console !== "undefined" && typeof console.info === "function") {
+        console.info(
+          "[Uni/Program kataloğu] src/data/yok-atlas.json veya yks-data.json yüklenemedi; boş katalog (universities: [], programs: []) kullanılıyor."
+        );
+      }
+    }
     var ulist = Array.isArray(data.universities) ? data.universities : [];
     _universities = ulist.map(normalizeUni).filter(function (u) {
       return u.$id;
@@ -133,8 +139,7 @@ export async function ensureHedefSimulatorAppwriteData() {
         return hedefProgramDisplayName(a).localeCompare(hedefProgramDisplayName(b), "tr");
       });
     }
-  } catch (e) {
-    console.warn("[Uni/Program kataloğu] yok-atlas.json / yks-data.json yüklenemedi:", e && e.message ? e.message : e);
+  } catch (_e) {
     _universities = [];
     _allPrograms = [];
     _programsByUni = Object.create(null);
