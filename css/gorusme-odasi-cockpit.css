@@ -137,8 +137,8 @@
   height: 96px;
   border-radius: 18px;
   object-fit: cover;
-  border: 3px solid rgba(108, 92, 231, 0.25);
-  box-shadow: 0 6px 18px rgba(108, 92, 231, 0.12);
+  border: 3px solid rgba(var(--accent-rgb), 0.25);
+  box-shadow: 0 6px 18px rgba(var(--accent-rgb), 0.12);
   background: #fff;
 }
 
@@ -162,8 +162,8 @@
   gap: 0.15rem;
   padding: 0.5rem 0.75rem;
   border-radius: 10px;
-  background: rgba(108, 92, 231, 0.08);
-  border: 1px solid rgba(108, 92, 231, 0.25);
+  background: rgba(var(--accent-rgb), 0.08);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
 }
 
 .go-countdown__lbl {

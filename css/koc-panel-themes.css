@@ -1,0 +1,90 @@
+/**
+ * DerecePanel — 4 tema (data-theme): ocean | dark | emerald | sunset
+ * koc-panel.css tokenları (--purple-*, --accent-rgb, --app-bg, …) üzerinden çalışır.
+ * Bu dosya koc-panel-premium-light.css’ten SONRA yüklenir (--dp-* köprüsü).
+ */
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --app-bg: #1e1e2d;
+  --border-subtle: #2d2d42;
+  --white: #252536;
+  --gray-100: #2a2a3e;
+  --gray-200: #36364e;
+  --gray-500: #94a3b8;
+  --gray-600: #cbd5e1;
+  --gray-700: #e2e8f0;
+  --gray-900: #f1f5f9;
+  --purple-950: #ecfeff;
+  --purple-900: #cffafe;
+  --purple-800: #a5f3fc;
+  --purple-700: #67e8f9;
+  --purple-600: #22d3ee;
+  --purple-500: #38bdf8;
+  --purple-400: #7dd3fc;
+  --purple-300: #bae6fd;
+  --purple-200: #334155;
+  --purple-100: #243047;
+  --purple-50: #1a2332;
+  --accent-rgb: 34, 211, 238;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="emerald"] {
+  color-scheme: light;
+  --purple-950: #022c22;
+  --purple-900: #064e3b;
+  --purple-800: #065f46;
+  --purple-700: #047857;
+  --purple-600: #059669;
+  --purple-500: #10b981;
+  --purple-400: #34d399;
+  --purple-300: #6ee7b7;
+  --purple-200: #a7f3d0;
+  --purple-100: #d1fae5;
+  --purple-50: #ecfdf5;
+  --accent-rgb: 5, 150, 105;
+  --shadow-sm: 0 2px 8px rgba(var(--accent-rgb), 0.07);
+  --shadow-md: 0 8px 24px rgba(var(--accent-rgb), 0.1);
+}
+
+[data-theme="sunset"] {
+  color-scheme: light;
+  --purple-950: #431407;
+  --purple-900: #7c2d12;
+  --purple-800: #9a3412;
+  --purple-700: #c2410c;
+  --purple-600: #ea580c;
+  --purple-500: #f97316;
+  --purple-400: #fb923c;
+  --purple-300: #fdba74;
+  --purple-200: #fed7aa;
+  --purple-100: #ffedd5;
+  --purple-50: #fff7ed;
+  --accent-rgb: 234, 88, 12;
+  --shadow-sm: 0 2px 8px rgba(var(--accent-rgb), 0.08);
+  --shadow-md: 0 8px 24px rgba(var(--accent-rgb), 0.12);
+}
+
+/* Premium Light ile uyum: --dp-* her zaman kabuk tokenlarına bağlı */
+:root {
+  --dp-bg: var(--app-bg);
+  --dp-surface: var(--white);
+  --dp-border: var(--border-subtle);
+  --dp-text: var(--gray-900);
+  --dp-muted: var(--gray-500);
+  --dp-accent: var(--purple-600);
+  --dp-accent-dark: var(--purple-700);
+}
+
+[data-theme="dark"] .sidebar {
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .sidebar__close:hover {
+  background: var(--gray-200);
+  color: var(--gray-900);
+}

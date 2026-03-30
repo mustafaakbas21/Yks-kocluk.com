@@ -3,3 +3,4 @@ python-multipart
 PyMuPDF
 Pillow
 pytesseract
+aiohttp

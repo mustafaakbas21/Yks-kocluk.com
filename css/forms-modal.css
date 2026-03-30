@@ -256,7 +256,7 @@
 }
 
 .btn-modal-primary:hover {
-  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.35);
+  box-shadow: 0 4px 16px rgba(var(--accent-rgb), 0.35);
 }
 
 .btn-modal-secondary {
@@ -547,7 +547,7 @@
 .tm-layout-card:has(input:checked) {
   border-color: var(--purple-500);
   background: linear-gradient(180deg, #f5f3ff 0%, #fff 100%);
-  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.12);
+  box-shadow: 0 4px 20px rgba(var(--accent-rgb), 0.12);
 }
 
 .tm-layout-card input {

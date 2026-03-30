@@ -30,6 +30,22 @@
  * String attribute boyutları: Appwrite planında attribute sayısı / toplam boyut sınırına takılmamak için
  * gereksiz yüksek size kullanılmaz (ör. 65k). Kısa ID/isim: 255, kısa metin: ~1000, JSON: 3000–5000,
  * uzun URL: ~2048. Gerekirse Console’da tek tek artırılabilir.
+ *
+ * ——— messages (Gelen Sorular / koç–öğrenci sohbet) ———
+ * Koleksiyon ID: messages (veya .env: APPWRITE_COLLECTION_MESSAGES)
+ *
+ * Appwrite Console’da elle açacaksanız (Databases → derece_panel → Create collection):
+ *   1) Collection ID: messages, Document security: kapalı, izinler: oturumlu kullanıcı okuma/yazma
+ *   2) Attributes:
+ *        sender_id   → String, size 512, required (koç kimliği veya students belge $id)
+ *        receiver_id → String, size 512, required
+ *        text        → Text, required (uzun mesajlar; String yerine Text kullanın)
+ *        timestamp   → DateTime, required
+ *        read_at     → DateTime, optional (koç okudu; okunmamış rozet — panel kodu kullanır)
+ *   3) Indexes (önerilen): sender_id+receiver_id (Key); receiver_id (Key) — sorgu performansı için
+ *   4) Project → Realtime: veritabanı/koleksiyon için canlı güncellemeleri açın
+ *
+ * Otomatik kurulum: bu dosyayı API anahtarıyla çalıştırdığınızda aşağıdaki ensureCollection bloğu aynı şemayı oluşturur.
  */
 
 const fs = require("fs");
@@ -118,6 +134,7 @@ const COLLECTION_GLOBAL_DENEMELER_ID = process.env.APPWRITE_COLLECTION_GLOBAL_DE
 const COLLECTION_YKS_NET_TARGETS_ID = process.env.APPWRITE_COLLECTION_YKS_NET_TARGETS || "yks_net_sihirbazi_targets";
 const COLLECTION_STUDENT_PORTAL_PLANS_ID = "studentPortalPlans";
 const COLLECTION_SETTINGS_ID = "settings";
+const COLLECTION_MESSAGES_ID = process.env.APPWRITE_COLLECTION_MESSAGES || "messages";
 
 const COLLECTION_LESSONS_NAME = "Dersler";
 const COLLECTION_TOPICS_NAME = "Konular";
@@ -639,6 +656,19 @@ async function ensureExtendedPlatformSchema(databases) {
   await createTextAttr(databases, COLLECTION_MEETING_LOGS_ID, "body_html", false);
   await createDatetimeAttr(databases, COLLECTION_MEETING_LOGS_ID, "saved_at", true);
   await ensureKeyIndex(databases, COLLECTION_MEETING_LOGS_ID, "idx_meeting_student", ["student_id"], ["ASC"]);
+
+  /** Koç paneli — öğrenci ile iki yönlü sohbet (Gelen Sorular); Console şeması üstteki yorumla aynı */
+  await ensureCollection(databases, COLLECTION_MESSAGES_ID, "Mesajlar (koç–öğrenci)");
+  await createStringAttr(databases, COLLECTION_MESSAGES_ID, "sender_id", 512, true);
+  await createStringAttr(databases, COLLECTION_MESSAGES_ID, "receiver_id", 512, true);
+  await createTextAttr(databases, COLLECTION_MESSAGES_ID, "text", true);
+  await createDatetimeAttr(databases, COLLECTION_MESSAGES_ID, "timestamp", true);
+  await createDatetimeAttr(databases, COLLECTION_MESSAGES_ID, "read_at", false);
+  await ensureKeyIndex(databases, COLLECTION_MESSAGES_ID, "idx_msg_sender_recv", ["sender_id", "receiver_id"], [
+    "ASC",
+    "ASC",
+  ]);
+  await ensureKeyIndex(databases, COLLECTION_MESSAGES_ID, "idx_messages_receiver", ["receiver_id"], ["ASC"]);
 
   await ensureCollection(databases, COLLECTION_KAYNAKLAR_ID, "Kütüphane kaynakları");
   await createStringAttr(databases, COLLECTION_KAYNAKLAR_ID, "coach_id", 128, false);

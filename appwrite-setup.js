@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Sessiz ve kusursuz modül şeması — MR, Görüşme Odası, Haftalık Program, ExamResults tamamlayıcı sütunlar.
+ * Sessiz ve kusursuz modül şeması — MR, Görüşme Odası, Haftalık Program, ExamResults, messages (sohbet) tamamlayıcı sütunlar.
  * Mevcut koleksiyon/attribute varsa atlanır; yoksa oluşturulur (.env → APPWRITE_*).
  *
  * Çalıştırma: node appwrite-setup.js
@@ -54,6 +54,7 @@ const COLLECTION_SUBJECT_PROGRESS = "subject_progress";
 const COLLECTION_EXAM_RESULTS = trimEnv("APPWRITE_COLLECTION_EXAM_RESULTS") || "ExamResults";
 const COLLECTION_MR_PROFILES = trimEnv("APPWRITE_COLLECTION_MR_PROFILES") || "mr_student_profiles";
 const COLLECTION_BOARDS = "boards";
+const COLLECTION_MESSAGES = trimEnv("APPWRITE_COLLECTION_MESSAGES") || "messages";
 
 const ATTR_POLL_MS = Math.max(500, parseInt(process.env.APPWRITE_ATTR_POLL_MS || "2000", 10) || 2000);
 const ATTR_MAX_ATTEMPTS = Math.max(30, parseInt(process.env.APPWRITE_ATTR_MAX_ATTEMPTS || "120", 10) || 120);
@@ -430,6 +431,28 @@ async function setupBoards(databases) {
   }
 }
 
+async function setupMessages(databases) {
+  log("messages (Gelen Sorular — koç–öğrenci sohbet) …");
+  await ensureCollection(databases, COLLECTION_MESSAGES, "Mesajlar (koç–öğrenci)");
+  let keys = await listAttributeKeySet(databases, COLLECTION_MESSAGES);
+  await ensureStringAttr(databases, COLLECTION_MESSAGES, "sender_id", 512, true, keys);
+  await ensureStringAttr(databases, COLLECTION_MESSAGES, "receiver_id", 512, true, keys);
+  await ensureTextAttr(databases, COLLECTION_MESSAGES, "text", true, keys);
+  await ensureDatetimeAttr(databases, COLLECTION_MESSAGES, "timestamp", true, keys);
+  await ensureDatetimeAttr(databases, COLLECTION_MESSAGES, "read_at", false, keys);
+  keys = await listAttributeKeySet(databases, COLLECTION_MESSAGES);
+  if (keys.has("sender_id") && keys.has("receiver_id")) {
+    await ensureKeyIndex(databases, COLLECTION_MESSAGES, "idx_msg_sender_recv", ["sender_id", "receiver_id"], [
+      "ASC",
+      "ASC",
+    ]);
+  }
+  keys = await listAttributeKeySet(databases, COLLECTION_MESSAGES);
+  if (keys.has("receiver_id")) {
+    await ensureKeyIndex(databases, COLLECTION_MESSAGES, "idx_messages_receiver", ["receiver_id"], ["ASC"]);
+  }
+}
+
 async function main() {
   if (!APPWRITE_PROJECT_ID || !APPWRITE_API_KEY) {
     console.error("[appwrite-setup] Hata: .env içinde APPWRITE_PROJECT_ID ve APPWRITE_API_KEY gerekli.");
@@ -451,6 +474,7 @@ async function main() {
   await setupMrProfiles(databases);
   await setupExamResults(databases);
   await setupBoards(databases);
+  await setupMessages(databases);
 
   log("✅ Tamam.");
 }

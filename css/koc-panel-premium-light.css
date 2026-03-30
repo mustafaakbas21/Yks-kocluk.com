@@ -1,7 +1,7 @@
 /**
  * DerecePanel — Premium Light overrides
  * koc-panel.html içindeki <style> bloğundan SONRA yüklenir; koyu inline stilleri açık temaya çevirir.
- * Ana tokenlar: --dp-bg, --dp-surface, --dp-border, --dp-text, --dp-muted, --dp-accent (#6c5ce7)
+ * --dp-* köprüsü css/koc-panel-themes.css içinde var(--app-bg) vb. ile güncellenir.
  */
 :root {
   --dp-bg: #f4f7f6;
@@ -9,8 +9,8 @@
   --dp-border: #eef0f2;
   --dp-text: #1f2937;
   --dp-muted: #64748b;
-  --dp-accent: #6c5ce7;
-  --dp-accent-dark: #5b4fcf;
+  --dp-accent: var(--purple-600, #0284c7);
+  --dp-accent-dark: var(--purple-700, #0369a1);
   --dp-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   --dp-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.06);
 }
@@ -42,8 +42,8 @@ body {
 }
 .yks-countdown-widget__badge {
   color: var(--dp-accent-dark) !important;
-  background: rgba(108, 92, 231, 0.12) !important;
-  border-color: rgba(108, 92, 231, 0.25) !important;
+  background: rgba(var(--accent-rgb), 0.12) !important;
+  border-color: rgba(var(--accent-rgb), 0.25) !important;
 }
 .yks-countdown-widget__title {
   color: var(--dp-text) !important;
@@ -69,7 +69,7 @@ body {
   --yks-pro-bg: linear-gradient(180deg, #fafbfc 0%, var(--dp-bg) 100%) !important;
   --yks-pro-card: #ffffff !important;
   --yks-pro-border: #eef0f2 !important;
-  --yks-pro-accent: #6c5ce7 !important;
+  --yks-pro-accent: var(--purple-600) !important;
   --yks-pro-text: #1f2937 !important;
   --yks-pro-muted: #64748b !important;
 }
@@ -103,8 +103,8 @@ body {
 }
 
 .yks-sortable-item {
-  background: rgba(108, 92, 231, 0.08) !important;
-  border-color: rgba(108, 92, 231, 0.2) !important;
+  background: rgba(var(--accent-rgb), 0.08) !important;
+  border-color: rgba(var(--accent-rgb), 0.2) !important;
   color: var(--dp-text) !important;
 }
 
@@ -138,17 +138,17 @@ body {
 }
 .kk-student-bar__select {
   background: #ffffff !important;
-  border-color: rgba(108, 92, 231, 0.25) !important;
+  border-color: rgba(var(--accent-rgb), 0.25) !important;
   color: var(--dp-text) !important;
 }
 .kk-student-chip {
-  background: rgba(108, 92, 231, 0.08) !important;
-  border-color: rgba(108, 92, 231, 0.2) !important;
+  background: rgba(var(--accent-rgb), 0.08) !important;
+  border-color: rgba(var(--accent-rgb), 0.2) !important;
   color: var(--dp-text) !important;
 }
 .kk-student-chip.is-active {
   color: #ffffff !important;
-  background: linear-gradient(135deg, #6c5ce7, #5b4fcf) !important;
+  background: linear-gradient(135deg, var(--purple-600), var(--purple-700)) !important;
   border-color: transparent !important;
 }
 .kk-empty {
@@ -168,11 +168,11 @@ body {
   border-top-color: var(--dp-border) !important;
 }
 .kk-acc__head:hover {
-  background: rgba(108, 92, 231, 0.06) !important;
+  background: rgba(var(--accent-rgb), 0.06) !important;
 }
 .kk-perf {
-  background: rgba(108, 92, 231, 0.06) !important;
-  border-color: rgba(108, 92, 231, 0.15) !important;
+  background: rgba(var(--accent-rgb), 0.06) !important;
+  border-color: rgba(var(--accent-rgb), 0.15) !important;
 }
 .kk-perf__lbl {
   color: var(--dp-accent-dark) !important;
@@ -304,12 +304,12 @@ body {
 }
 .sd-erp-tab:hover {
   color: var(--dp-accent-dark) !important;
-  background: rgba(108, 92, 231, 0.08) !important;
+  background: rgba(var(--accent-rgb), 0.08) !important;
 }
 .sd-erp-tab.is-active {
   color: #ffffff !important;
-  background: linear-gradient(135deg, #6c5ce7, #5b4fcf) !important;
-  border-color: rgba(108, 92, 231, 0.35) !important;
+  background: linear-gradient(135deg, var(--purple-600), var(--purple-700)) !important;
+  border-color: rgba(var(--accent-rgb), 0.35) !important;
 }
 .sd-fin-alert {
   background: #fef2f2 !important;
@@ -339,15 +339,15 @@ body {
 }
 .hp-student-bar__select {
   background: #ffffff !important;
-  border-color: rgba(108, 92, 231, 0.25) !important;
+  border-color: rgba(var(--accent-rgb), 0.25) !important;
   color: var(--dp-text) !important;
 }
 .hp-student-chip {
-  background: rgba(108, 92, 231, 0.08) !important;
-  border-color: rgba(108, 92, 231, 0.2) !important;
+  background: rgba(var(--accent-rgb), 0.08) !important;
+  border-color: rgba(var(--accent-rgb), 0.2) !important;
   color: var(--dp-text) !important;
 }
 .hp-student-chip.is-active {
   color: #ffffff !important;
-  background: linear-gradient(135deg, #6c5ce7, #5b4fcf) !important;
+  background: linear-gradient(135deg, var(--purple-600), var(--purple-700)) !important;
 }

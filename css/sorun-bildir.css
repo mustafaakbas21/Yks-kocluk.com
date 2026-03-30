@@ -5,7 +5,7 @@
   --dp-sb-accent: #6c5ce7;
   --dp-sb-accent2: #34f5c5;
   --dp-sb-surface: rgba(12, 12, 18, 0.97);
-  --dp-sb-border: rgba(108, 92, 231, 0.28);
+  --dp-sb-border: rgba(var(--accent-rgb), 0.28);
   --dp-sb-text: #e8edf5;
   --dp-sb-muted: #94a3b8;
 }
@@ -170,7 +170,7 @@
   width: 100%;
   padding: 0.65rem 0.85rem;
   border-radius: 12px;
-  border: 1px solid rgba(108, 92, 231, 0.22);
+  border: 1px solid rgba(var(--accent-rgb), 0.22);
   background: rgba(6, 6, 12, 0.95);
   color: var(--dp-sb-text);
   font-family: inherit;

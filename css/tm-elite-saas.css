@@ -37,7 +37,7 @@
   font-weight: 800;
   letter-spacing: 0.14em;
   color: #c4b5fd;
-  background: rgba(124, 58, 237, 0.2);
+  background: rgba(var(--accent-rgb), 0.2);
   border: 1px solid rgba(167, 139, 250, 0.35);
   padding: 0.25rem 0.65rem;
   border-radius: 999px;
@@ -230,9 +230,9 @@
 
 .tm-word-ribbon__tab.is-active {
   color: #fafafa;
-  background: rgba(124, 58, 237, 0.22);
+  background: rgba(var(--accent-rgb), 0.22);
   border-color: rgba(167, 139, 250, 0.35);
-  border-bottom: 1px solid rgba(124, 58, 237, 0.35);
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.35);
 }
 
 .tm-word-ribbon__tab i {
@@ -298,7 +298,7 @@
 }
 
 .sidebar__sublink.is-active {
-  background: rgba(124, 58, 237, 0.18);
+  background: rgba(var(--accent-rgb), 0.18);
   color: var(--purple-700);
 }
 
@@ -330,13 +330,13 @@
   border-radius: 16px !important;
   overflow: hidden;
   box-shadow: 0 12px 32px rgba(30, 27, 75, 0.12) !important;
-  border: 1px solid rgba(124, 58, 237, 0.15) !important;
+  border: 1px solid rgba(var(--accent-rgb), 0.15) !important;
   background: linear-gradient(180deg, #fff 0%, #faf5ff 100%) !important;
   transition: transform 0.2s, box-shadow 0.2s;
 }
 .tm-test-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 18px 40px rgba(124, 58, 237, 0.18) !important;
+  box-shadow: 0 18px 40px rgba(var(--accent-rgb), 0.18) !important;
 }
 .tm-test-card__thumb {
   aspect-ratio: 3 / 4 !important;
@@ -939,13 +939,13 @@ body.tm-annotate-open {
 
 .app--testmaker-workspace .tm-word-ribbon__tab:hover {
   color: #0f172a !important;
-  background: rgba(124, 58, 237, 0.1) !important;
+  background: rgba(var(--accent-rgb), 0.1) !important;
 }
 
 .app--testmaker-workspace .tm-word-ribbon__tab.is-active {
   color: #5b21b6 !important;
-  background: rgba(124, 58, 237, 0.14) !important;
-  border-color: rgba(124, 58, 237, 0.35) !important;
+  background: rgba(var(--accent-rgb), 0.14) !important;
+  border-color: rgba(var(--accent-rgb), 0.35) !important;
 }
 
 .app--testmaker-workspace .tm-view-library {
@@ -967,7 +967,7 @@ body.tm-annotate-open {
 }
 
 .app--testmaker-workspace .tm-library-hero__tag {
-  background: rgba(124, 58, 237, 0.12) !important;
+  background: rgba(var(--accent-rgb), 0.12) !important;
   color: #5b21b6 !important;
 }
 
@@ -997,8 +997,8 @@ body.tm-annotate-open {
 
 .app--testmaker-workspace .tm-test-card__btn--edit {
   color: #5b21b6 !important;
-  border-color: rgba(124, 58, 237, 0.45) !important;
-  background: rgba(124, 58, 237, 0.08) !important;
+  border-color: rgba(var(--accent-rgb), 0.45) !important;
+  background: rgba(var(--accent-rgb), 0.08) !important;
 }
 
 .app--testmaker-workspace .tm-test-card__btn--del {
@@ -1036,7 +1036,7 @@ body.tm-annotate-open {
 
 .app--testmaker-workspace .tm-saved-pdf-item__actions .is-edit {
   color: #5b21b6 !important;
-  border-color: rgba(124, 58, 237, 0.45) !important;
+  border-color: rgba(var(--accent-rgb), 0.45) !important;
 }
 
 .app--testmaker-workspace .tm-saved-pdf-item__actions .is-del {
@@ -1096,13 +1096,13 @@ body.tm-annotate-open {
 
 .app--testmaker-workspace .tm-ribbon-tile:hover {
   background: #f8fafc !important;
-  border-color: rgba(124, 58, 237, 0.45) !important;
+  border-color: rgba(var(--accent-rgb), 0.45) !important;
   color: #0f172a !important;
 }
 
 .app--testmaker-workspace .tm-ribbon-tile.is-active {
-  border-color: rgba(124, 58, 237, 0.65) !important;
-  background: rgba(124, 58, 237, 0.12) !important;
+  border-color: rgba(var(--accent-rgb), 0.65) !important;
+  background: rgba(var(--accent-rgb), 0.12) !important;
   color: #5b21b6 !important;
 }
 
@@ -1151,8 +1151,8 @@ body.tm-annotate-open {
 }
 
 .app--testmaker-workspace .tm-dropzone {
-  border-color: rgba(124, 58, 237, 0.35) !important;
-  background: rgba(124, 58, 237, 0.06) !important;
+  border-color: rgba(var(--accent-rgb), 0.35) !important;
+  background: rgba(var(--accent-rgb), 0.06) !important;
 }
 
 .app--testmaker-workspace .tm-dropzone p {
@@ -1166,12 +1166,12 @@ body.tm-annotate-open {
 }
 
 .app--testmaker-workspace .tm-pdf-nav__arrow {
-  background: rgba(124, 58, 237, 0.12) !important;
+  background: rgba(var(--accent-rgb), 0.12) !important;
   color: #5b21b6 !important;
 }
 
 .app--testmaker-workspace .tm-pdf-nav__arrow:hover:not(:disabled) {
-  background: rgba(124, 58, 237, 0.22) !important;
+  background: rgba(var(--accent-rgb), 0.22) !important;
   color: #4c1d95 !important;
 }
 
@@ -1180,7 +1180,7 @@ body.tm-annotate-open {
 }
 
 .app--testmaker-workspace .tm-pdf-nav__input:focus {
-  background: rgba(124, 58, 237, 0.06) !important;
+  background: rgba(var(--accent-rgb), 0.06) !important;
 }
 
 .app--testmaker-workspace .tm-pdf-nav__total {
@@ -1268,7 +1268,7 @@ body.tm-annotate-open {
   background: linear-gradient(180deg, #faf5ff, #ede9fe) !important;
   border: 1px solid #7c3aed !important;
   color: #5b21b6 !important;
-  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.12) !important;
+  box-shadow: 0 2px 8px rgba(var(--accent-rgb), 0.12) !important;
 }
 .app--testmaker-workspace .tm-btn-save-draft:hover,
 .app--testmaker-workspace .tm-btn-export-draft:hover {
@@ -1286,7 +1286,7 @@ body.tm-annotate-open {
   background: linear-gradient(180deg, #f5f3ff, #ede9fe) !important;
   border: 1px solid #7c3aed !important;
   color: #5b21b6 !important;
-  box-shadow: 0 2px 10px rgba(124, 58, 237, 0.2) !important;
+  box-shadow: 0 2px 10px rgba(var(--accent-rgb), 0.2) !important;
   padding: 0.52rem 0.95rem !important;
   border-radius: 12px !important;
   font-size: 0.84rem !important;

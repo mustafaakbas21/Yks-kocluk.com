@@ -1,6 +1,6 @@
 /**
  * DerecePanel — Pomodoro, Hedef Simülatörü, Koça Sor / Gelen Sorular
- * Light mode + mor #6c5ce7
+ * Aksan renkleri tema değişkenleriyle (--purple-*, --accent-rgb)
  */
 
 /* ----- Öğrenci — Pomodoro ----- */
@@ -33,7 +33,7 @@
 }
 
 .osp-pomodoro-card__title i {
-  color: var(--osp-accent, #6c5ce7);
+  color: var(--osp-accent, var(--purple-600));
 }
 
 .osp-pomodoro-presets {
@@ -44,9 +44,9 @@
 .osp-pomodoro-presets button {
   padding: 0.35rem 0.75rem;
   border-radius: 10px;
-  border: 1px solid rgba(108, 92, 231, 0.25);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
   background: #f5f3ff;
-  color: var(--osp-accent-dark, #5b4fcf);
+  color: var(--osp-accent-dark, var(--purple-700));
   font: inherit;
   font-size: 0.78rem;
   font-weight: 700;
@@ -55,7 +55,7 @@
 }
 
 .osp-pomodoro-presets button.is-active {
-  background: linear-gradient(135deg, #6c5ce7, #5b4fcf);
+  background: linear-gradient(135deg, var(--purple-600), var(--purple-700));
   color: #fff;
   border-color: transparent;
 }
@@ -99,14 +99,14 @@
 
 .osp-btn-pomo--primary {
   color: #fff;
-  background: linear-gradient(135deg, #6c5ce7, #5b4fcf);
-  box-shadow: 0 4px 14px rgba(108, 92, 231, 0.3);
+  background: linear-gradient(135deg, var(--purple-600), var(--purple-700));
+  box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.3);
 }
 
 .osp-btn-pomo--ghost {
   background: #fff;
-  color: var(--osp-accent-dark, #5b4fcf);
-  border: 1px solid rgba(108, 92, 231, 0.35);
+  color: var(--osp-accent-dark, var(--purple-700));
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
 }
 
 .osp-btn-pomo--mola {
@@ -190,7 +190,7 @@
   margin: 0;
   font-size: 0.95rem;
   font-weight: 600;
-  color: var(--osp-accent-dark, #5b4fcf);
+  color: var(--osp-accent-dark, var(--purple-700));
 }
 
 .osp-hedef-bars {
@@ -228,7 +228,7 @@
 .osp-hedef-bar-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #6c5ce7, #a78bfa);
+  background: linear-gradient(90deg, var(--purple-600), var(--purple-400));
   transition: width 0.5s ease;
 }
 
@@ -254,7 +254,7 @@
 }
 
 .osp-koca-dropzone {
-  border: 2px dashed rgba(108, 92, 231, 0.35);
+  border: 2px dashed rgba(var(--accent-rgb), 0.35);
   border-radius: 16px;
   padding: 2rem 1.5rem;
   text-align: center;
@@ -264,13 +264,13 @@
 }
 
 .osp-koca-dropzone.osp-koca-dropzone--drag {
-  border-color: #6c5ce7;
+  border-color: var(--purple-600);
   background: #f5f3ff;
 }
 
 .osp-koca-dropzone i {
   font-size: 2rem;
-  color: #6c5ce7;
+  color: var(--purple-600);
   margin-bottom: 0.5rem;
 }
 
@@ -311,8 +311,8 @@
 
 .osp-koca-field textarea:focus {
   outline: none;
-  border-color: rgba(108, 92, 231, 0.45);
-  box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15);
+  border-color: rgba(var(--accent-rgb), 0.45);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.15);
 }
 
 .osp-koca-submit {
@@ -325,9 +325,9 @@
   font-size: 0.95rem;
   font-weight: 800;
   color: #fff;
-  background: linear-gradient(135deg, #6c5ce7, #5b4fcf);
+  background: linear-gradient(135deg, var(--purple-600), var(--purple-700));
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(108, 92, 231, 0.3);
+  box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.3);
 }
 
 .osp-koca-submit:hover {
@@ -364,7 +364,7 @@
 
 .dp-hedef-hero p {
   margin: 0;
-  color: #6c5ce7;
+  color: var(--purple-600);
   font-weight: 600;
 }
 
@@ -407,7 +407,7 @@
 .dp-hedef-bar-row .dp-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #6c5ce7, #a78bfa);
+  background: linear-gradient(90deg, var(--purple-600), var(--purple-400));
 }
 
 .dp-hedef-gap {
@@ -420,7 +420,304 @@
   text-align: center;
 }
 
-/* ----- Koç — Gelen sorular ----- */
+/* ----- Koç — Gelen sorular (canlı sohbet) ----- */
+.coach-chat-page {
+  margin: 0 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 120px);
+  max-width: 1400px;
+}
+.coach-chat-page__head {
+  margin-bottom: 0.75rem;
+}
+.coach-chat-err {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.coach-chat-split {
+  display: flex;
+  flex: 1;
+  min-height: 520px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+}
+.coach-chat-sidebar {
+  width: 30%;
+  min-width: 240px;
+  max-width: 360px;
+  background: #fff;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+}
+.coach-chat-sidebar__title {
+  padding: 0.85rem 1rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.coach-chat-student-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.35rem 0;
+}
+.coach-chat-sidebar__hint {
+  margin: 1rem;
+  font-size: 0.84rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+.coach-chat-student {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.65rem 1rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  transition: background 0.15s ease;
+  border-bottom: 1px solid #f8fafc;
+}
+.coach-chat-student:hover {
+  background: linear-gradient(90deg, rgba(109, 40, 217, 0.06), transparent);
+}
+.coach-chat-student.is-active {
+  background: linear-gradient(90deg, rgba(109, 40, 217, 0.12), transparent);
+  box-shadow: inset 3px 0 0 var(--purple-600);
+}
+.coach-chat-student__avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.coach-chat-student__avatar-wrap img {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #f1f5f9;
+}
+.coach-chat-student__badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 0 0 2px #fff;
+}
+.coach-chat-student__name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.coach-chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #eef2f6;
+  min-width: 0;
+}
+.coach-chat-main__empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem 1.5rem;
+  color: #64748b;
+}
+.coach-chat-main__empty-icon {
+  font-size: 3rem;
+  color: #c4b5fd;
+  margin-bottom: 0.75rem;
+}
+.coach-chat-main__empty-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #475569;
+  max-width: 360px;
+}
+.coach-chat-main__empty-sub {
+  margin: 0;
+  font-size: 0.84rem;
+  max-width: 400px;
+  line-height: 1.55;
+}
+.coach-chat-thread {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.coach-chat-thread__header {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.75rem 1rem;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+.coach-chat-thread__avatar {
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #ede9fe;
+}
+.coach-chat-thread__peer {
+  font-weight: 800;
+  color: #334155;
+  font-size: 0.95rem;
+}
+.coach-chat-thread__messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.coach-chat-thread__placeholder,
+.coach-chat-loading {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.86rem;
+  margin: 1rem 0;
+}
+.coach-chat-msg {
+  display: flex;
+  flex-direction: column;
+  max-width: 78%;
+}
+.coach-chat-msg--in {
+  align-self: flex-start;
+}
+.coach-chat-msg--out {
+  align-self: flex-end;
+}
+.coach-chat-msg__bubble {
+  padding: 0.55rem 0.85rem;
+  border-radius: 14px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  word-break: break-word;
+}
+.coach-chat-msg--in .coach-chat-msg__bubble {
+  background: #fff;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+}
+.coach-chat-msg--out .coach-chat-msg__bubble {
+  background: linear-gradient(145deg, var(--purple-600) 0%, var(--purple-500) 100%);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.25);
+}
+.coach-chat-msg__time {
+  font-size: 0.65rem;
+  color: #94a3b8;
+  margin-top: 0.2rem;
+  padding: 0 0.2rem;
+}
+.coach-chat-msg--out .coach-chat-msg__time {
+  text-align: right;
+  color: #a5b4fc;
+}
+.coach-chat-composer {
+  padding: 0.75rem 1rem 1rem;
+  background: #fff;
+  border-top: 1px solid #e2e8f0;
+}
+.coach-chat-composer__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.coach-chat-composer__row {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-end;
+}
+.coach-chat-composer__input {
+  flex: 1;
+  min-height: 44px;
+  max-height: 140px;
+  resize: vertical;
+  padding: 0.65rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  font: inherit;
+  font-size: 0.9rem;
+  background: #f8fafc;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.coach-chat-composer__input:focus {
+  outline: none;
+  border-color: var(--purple-400);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.15);
+  background: #fff;
+}
+.coach-chat-composer__send {
+  flex-shrink: 0;
+  white-space: nowrap;
+  border-radius: 12px;
+}
+@media (max-width: 800px) {
+  .coach-chat-split {
+    flex-direction: column;
+    min-height: auto;
+  }
+  .coach-chat-sidebar {
+    width: 100%;
+    max-width: none;
+    border-right: none;
+    border-bottom: 1px solid #e2e8f0;
+    max-height: 240px;
+  }
+  .coach-chat-main {
+    min-height: 420px;
+  }
+}
+
+/* Eski kart tabanlı gelen sorular (legacy demo) — artık kullanılmıyor; sınıflar başka yerde import yok */
 .dp-inbox-page {
   padding: 0 0 2rem;
 }
@@ -448,12 +745,12 @@
 }
 
 .dp-inbox-card:hover {
-  border-color: rgba(108, 92, 231, 0.25);
+  border-color: rgba(var(--accent-rgb), 0.25);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
 .dp-inbox-card--unread {
-  border-color: rgba(108, 92, 231, 0.35);
+  border-color: rgba(var(--accent-rgb), 0.35);
 }
 
 .dp-inbox-card__badge {
@@ -576,7 +873,7 @@
 
 .hedef-atlas-net__sec {
   background: linear-gradient(90deg, #ede9fe, #f5f3ff) !important;
-  color: #5b21b6 !important;
+  color: var(--purple-800) !important;
   font-size: 0.78rem !important;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -688,7 +985,7 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #5b21b6;
+  color: var(--purple-800);
 }
 
 .dp-hedef-subgap__list {
@@ -947,7 +1244,7 @@
   margin: 0 0 0.75rem;
   font-size: 0.95rem;
   font-weight: 800;
-  color: #5b21b6;
+  color: var(--purple-800);
   display: flex;
   align-items: center;
   gap: 0.45rem;
@@ -1044,7 +1341,7 @@
 
 .yks-inp-dyb:focus {
   outline: none;
-  border-color: #a78bfa;
+  border-color: var(--purple-400);
   box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.25);
 }
 
@@ -1065,7 +1362,7 @@
   font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.05em;
-  color: #7c3aed;
+  color: var(--purple-600);
   text-transform: uppercase;
 }
 
@@ -1088,7 +1385,7 @@
 .yks-puan-actions .btn--outline {
   border: 1px solid #c4b5fd;
   background: #fff;
-  color: #5b21b6;
+  color: var(--purple-800);
   cursor: pointer;
   font-family: inherit;
 }
@@ -1116,7 +1413,7 @@
   display: block;
   font-size: 0.82rem;
   font-weight: 700;
-  color: #5b21b6;
+  color: var(--purple-800);
   margin-bottom: 0.35rem;
 }
 
@@ -1150,7 +1447,7 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #7c3aed;
+  color: var(--purple-600);
 }
 
 .yks-puan-result__val {
@@ -1234,7 +1531,7 @@
   margin-top: 0.65rem;
   font-size: 0.82rem;
   font-weight: 600;
-  color: #7c3aed;
+  color: var(--purple-600);
   cursor: pointer;
 }
 
@@ -1261,7 +1558,7 @@
   margin: 0 0 0.65rem;
   font-size: 0.88rem;
   font-weight: 800;
-  color: #5b21b6;
+  color: var(--purple-800);
   letter-spacing: 0.02em;
 }
 
@@ -1395,7 +1692,7 @@
   margin: 0;
   font-size: 1.05rem;
   font-weight: 800;
-  color: #5b21b6;
+  color: var(--purple-800);
   display: flex;
   align-items: center;
   gap: 0.45rem;
@@ -1451,7 +1748,7 @@
 }
 
 .yks-live-card--total {
-  border-color: #a78bfa;
+  border-color: var(--purple-400);
   background: linear-gradient(165deg, #ede9fe 0%, #fff 100%);
   grid-column: 1 / -1;
 }
@@ -1631,7 +1928,7 @@
 
 .yks-puan-saved-mini-badge--alan {
   background: #f5f3ff;
-  color: #5b21b6;
+  color: var(--purple-800);
   border: 1px solid #c4b5fd;
   font-weight: 700;
 }
@@ -1706,7 +2003,7 @@ body.yks-puan-modal-open {
   margin: 0 0 0.35rem;
   font-size: 1.15rem;
   font-weight: 800;
-  color: #5b21b6;
+  color: var(--purple-800);
 }
 
 .yks-puan-modal__lead {
@@ -1791,7 +2088,7 @@ body.yks-puan-modal-open {
 
 .yks-puan-modal__rozet--yer {
   background: #ede9fe;
-  color: #5b21b6;
+  color: var(--purple-800);
   border: 1px solid #c4b5fd;
 }
 
@@ -1815,7 +2112,7 @@ body.yks-puan-modal-open {
   padding: 1rem 1.25rem;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(124, 58, 237, 0.12);
+  border: 1px solid rgba(var(--accent-rgb), 0.12);
   box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
 }
 
@@ -1848,12 +2145,28 @@ body.yks-puan-modal-open {
   font-weight: 800;
   border: none;
   cursor: pointer;
-  background: linear-gradient(135deg, #7c3aed, #5b21b6);
+  background: linear-gradient(135deg, var(--purple-600), var(--purple-800));
   color: #fff;
 }
 
 .ts-wizard-form .btn--filter:hover {
   filter: brightness(1.05);
+}
+
+.ts-wizard-form .btn--ts-clear {
+  padding: 0.55rem 1.15rem;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  background: transparent;
+  color: #64748b;
+  border: 2px solid #cbd5e1;
+}
+
+.ts-wizard-form .btn--ts-clear:hover {
+  color: #b91c1c;
+  border-color: #fca5a5;
+  background: #fff1f2;
 }
 
 .ts-wizard-form.ts-wizard-form--grid {
@@ -1879,6 +2192,8 @@ body.yks-puan-modal-open {
   display: flex;
   justify-content: flex-end;
   align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 0.65rem;
 }
 
 .ts-wizard-form input[type="search"] {
@@ -1920,14 +2235,14 @@ body.yks-puan-modal-open {
 
 .ts-filter-surface .form-group input:hover,
 .ts-filter-surface .form-group select:hover {
-  border-color: rgba(124, 58, 237, 0.45);
+  border-color: rgba(var(--accent-rgb), 0.45);
 }
 
 .ts-filter-surface .form-group input:focus,
 .ts-filter-surface .form-group select:focus {
   outline: none;
-  border-color: rgba(124, 58, 237, 0.75);
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.22);
+  border-color: rgba(var(--accent-rgb), 0.75);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.22);
 }
 
 .ts-sihirbaz-stack {
@@ -1943,7 +2258,7 @@ body.yks-puan-modal-open {
   max-height: min(62vh, 520px);
   margin: 0 !important;
   border-radius: 14px 14px 0 0;
-  border: 1px solid rgba(124, 58, 237, 0.12);
+  border: 1px solid rgba(var(--accent-rgb), 0.12);
   border-bottom: none;
   background: #fff;
 }
@@ -1962,8 +2277,8 @@ body.yks-puan-modal-open {
 .ts-pager-host .ts-pager {
   margin: 0 !important;
   border-radius: 0 0 14px 14px;
-  border: 1px solid rgba(124, 58, 237, 0.12);
-  border-top: 1px solid rgba(124, 58, 237, 0.08);
+  border: 1px solid rgba(var(--accent-rgb), 0.12);
+  border-top: 1px solid rgba(var(--accent-rgb), 0.08);
   width: 100%;
   max-width: 48rem;
 }
@@ -1974,7 +2289,7 @@ body.yks-puan-modal-open {
   max-height: min(70vh, 560px);
   margin: 0 1.5rem 2rem;
   border-radius: 14px;
-  border: 1px solid rgba(124, 58, 237, 0.1);
+  border: 1px solid rgba(var(--accent-rgb), 0.1);
   background: #fff;
 }
 
@@ -1993,7 +2308,7 @@ body.yks-puan-modal-open {
 }
 
 .ts-table thead th {
-  background: rgba(124, 58, 237, 0.07);
+  background: rgba(var(--accent-rgb), 0.07);
   font-weight: 800;
   color: #334155;
   white-space: nowrap;
@@ -2019,8 +2334,8 @@ body.yks-puan-modal-open {
 }
 
 .ts-table--premium tbody tr:hover {
-  background: rgba(124, 58, 237, 0.09) !important;
-  box-shadow: inset 3px 0 0 rgba(124, 58, 237, 0.45);
+  background: rgba(var(--accent-rgb), 0.09) !important;
+  box-shadow: inset 3px 0 0 rgba(var(--accent-rgb), 0.45);
 }
 
 .ts-table--premium thead th {
@@ -2093,6 +2408,13 @@ body.yks-puan-modal-open {
   color: #a16207;
 }
 
+/* Tercih Sihirbazı: taban / başarı — kontenjan dolmamış (Tailwind yoksa yedek) */
+.ts-kontenjan-dolmadi {
+  font-size: 0.875rem;
+  font-style: italic;
+  color: #6b7280;
+}
+
 .ts-badge--burs-ucret {
   background: rgba(148, 163, 184, 0.28);
   color: #475569;
@@ -2154,7 +2476,7 @@ body.yks-puan-modal-open {
   margin: 0.75rem;
   padding: 2rem 1.25rem;
   border-radius: 12px;
-  border: 1px dashed rgba(124, 58, 237, 0.22);
+  border: 1px dashed rgba(var(--accent-rgb), 0.22);
   background: linear-gradient(180deg, rgba(248, 250, 252, 0.95), #fff);
 }
 
@@ -2188,8 +2510,8 @@ body.yks-puan-modal-open {
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 50%;
-  border: 3px solid rgba(124, 58, 237, 0.2);
-  border-top-color: #7c3aed;
+  border: 3px solid rgba(var(--accent-rgb), 0.2);
+  border-top-color: var(--purple-600);
   animation: ts-spin 0.75s linear infinite;
 }
 
@@ -2209,7 +2531,7 @@ body.yks-puan-modal-open {
 .ts-table-scroll:not(.ts-table-scroll--inner) .ts-table-root .ts-pager {
   margin: 0;
   border-radius: 0 0 12px 12px;
-  border-top: 1px solid rgba(124, 58, 237, 0.1);
+  border-top: 1px solid rgba(var(--accent-rgb), 0.1);
 }
 
 .ts-pager {
@@ -2221,8 +2543,8 @@ body.yks-puan-modal-open {
   margin: 0 1.5rem 2rem;
   padding: 0.75rem 1rem;
   border-radius: 12px;
-  background: rgba(124, 58, 237, 0.06);
-  border: 1px solid rgba(124, 58, 237, 0.12);
+  background: rgba(var(--accent-rgb), 0.06);
+  border: 1px solid rgba(var(--accent-rgb), 0.12);
 }
 
 .ts-pager__info {
@@ -2244,11 +2566,191 @@ body.yks-puan-modal-open {
 }
 
 .ts-pager__btn:hover:not(:disabled) {
-  border-color: #7c3aed;
-  color: #5b21b6;
+  border-color: var(--purple-600);
+  color: var(--purple-800);
 }
 
 .ts-pager__btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* —— Tercih Sihirbazı: geniş analitik tablo (elite) —— */
+.ts-table-scroll--inner {
+  max-height: min(72vh, 640px);
+}
+
+.ts-table--elite {
+  min-width: 118rem;
+  font-size: 0.8rem;
+}
+
+.ts-table--elite th,
+.ts-table--elite td {
+  padding: 0.45rem 0.5rem;
+  vertical-align: middle;
+}
+
+.ts-table--elite thead th {
+  font-size: 0.72rem;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+}
+
+.ts-th-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ts-th-add,
+.ts-cell-add {
+  width: 2.75rem;
+  text-align: center;
+  position: sticky;
+  left: 0;
+  z-index: 11;
+  background: inherit;
+  box-shadow: 1px 0 0 rgba(148, 163, 184, 0.35);
+}
+
+.ts-table--elite thead .ts-th-add {
+  z-index: 12;
+  background: linear-gradient(to bottom, #f8f9fa 70%, #f1f5f9);
+}
+
+.ts-row-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #64748b;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.ts-row-add-btn:hover {
+  border-color: var(--purple-400);
+  color: var(--purple-700);
+  background: rgba(var(--accent-rgb), 0.08);
+  box-shadow: 0 1px 4px rgba(var(--accent-rgb), 0.2);
+}
+
+.ts-row-add-btn__icon {
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ts-th-code,
+.ts-cell-mono {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+  font-size: 0.78rem;
+}
+
+.ts-th-uni,
+.ts-cell-uni {
+  min-width: 11rem;
+  max-width: 14rem;
+}
+
+.ts-th-prog,
+.ts-cell-bolum {
+  min-width: 12rem;
+  max-width: 17rem;
+}
+
+.ts-th-burs,
+.ts-cell-burs {
+  min-width: 6.5rem;
+  max-width: 9rem;
+}
+
+.ts-th-kosul {
+  min-width: 7rem;
+  max-width: 10rem;
+}
+
+.ts-th-kriter {
+  min-width: 7.5rem;
+  max-width: 9rem;
+}
+
+.ts-prog-name--primary {
+  font-weight: 700;
+  color: #334155;
+}
+
+.ts-badge--lang {
+  background: rgba(148, 163, 184, 0.22);
+  color: #475569;
+}
+
+.ts-cell-na,
+.ts-cell-muted {
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-style: italic;
+}
+
+.ts-ozel-kosul {
+  display: block;
+  max-width: 10rem;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: #475569;
+  word-break: break-word;
+}
+
+.ts-ek-isaret {
+  font-weight: 800;
+  color: var(--purple-600);
+}
+
+.ts-kriter {
+  display: inline-block;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 0.2rem 0.45rem;
+  border-radius: 8px;
+  line-height: 1.2;
+}
+
+.ts-kriter--ok {
+  background: rgba(34, 197, 94, 0.15);
+  color: #166534;
+}
+
+.ts-kriter--bad {
+  background: rgba(251, 146, 60, 0.2);
+  color: #9a3412;
+}
+
+.ts-table--elite.ts-table--premium tbody tr:nth-child(odd) .ts-cell-add {
+  background: #fff;
+}
+
+.ts-table--elite.ts-table--premium tbody tr:nth-child(even) .ts-cell-add {
+  background: #f8fafc;
+}
+
+.ts-table--elite.ts-table--premium tbody tr:hover .ts-cell-add {
+  background: rgba(var(--accent-rgb), 0.09) !important;
 }

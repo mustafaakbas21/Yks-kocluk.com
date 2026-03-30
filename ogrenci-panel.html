@@ -481,6 +481,14 @@
               <label for="ospTsMaxSira">Başarı sırası (max)</label>
               <input type="number" id="ospTsMaxSira" name="maxSira" min="1" max="99999999" placeholder="örn. 500000" />
             </div>
+            <div class="form-group">
+              <label for="ospTsStudentSira">Yerleşme sıranız (isteğe bağlı)</label>
+              <input type="number" id="ospTsStudentSira" name="studentSira" min="1" max="99999999" placeholder="Durum sütunu" />
+            </div>
+            <div class="form-group">
+              <label for="ospTsStudentPuan">Yerleşme puanınız (isteğe bağlı)</label>
+              <input type="text" inputmode="decimal" id="ospTsStudentPuan" name="studentPuan" placeholder="örn. 450,5" />
+            </div>
             <div class="form-group form-group--actions">
               <button type="submit" class="btn btn--filter">Filtrele</button>
             </div>
@@ -2022,37 +2030,36 @@
       picked = f || null;
       if (fn) fn.textContent = picked ? picked.name : "";
     });
-    btn.addEventListener("click", function () {
-      var list = [];
-      try {
-        var raw = localStorage.getItem("derece_koca_sor_inbox");
-        list = raw ? JSON.parse(raw) : [];
-        if (!Array.isArray(list)) list = [];
-      } catch (e) {
-        list = [];
-      }
+    btn.addEventListener("click", async function () {
       var text = msg ? String(msg.value || "").trim() : "";
       if (!text && !picked) {
         ospToast("Kısa bir mesaj veya dosya ekleyin.");
         return;
       }
-      list.unshift({
-        id: "msg-" + Date.now(),
-        student: "Öğrenci (demo)",
-        message: text || "(Dosya ekli)",
-        fileName: picked ? picked.name : "",
-        at: Date.now(),
-        read: false
-      });
+      var combined = text;
+      if (picked) {
+        combined = (combined ? combined + "\n\n" : "") + "📎 Ek: " + picked.name + " (şimdilik yalnızca dosya adı iletilir.)";
+      }
+      if (!window.OspPortal || typeof window.OspPortal.sendMessageToCoach !== "function") {
+        ospToast("Oturum hazır değil. Sayfayı yenileyin.");
+        return;
+      }
+      btn.disabled = true;
       try {
-        localStorage.setItem("derece_koca_sor_inbox", JSON.stringify(list));
-        ospToast("Gönderildi. Koç paneli → Gelen Sorular (aynı tarayıcı, demo).");
-        if (msg) msg.value = "";
-        picked = null;
-        fi.value = "";
-        if (fn) fn.textContent = "";
-      } catch (e) {
-        ospToast("Kayıt başarısız.");
+        var r = await window.OspPortal.sendMessageToCoach(combined);
+        if (r && r.ok) {
+          ospToast("Koçunuza iletildi. Gelen Sorular’dan yanıtlayabilir.");
+          if (msg) msg.value = "";
+          picked = null;
+          fi.value = "";
+          if (fn) fn.textContent = "";
+        } else {
+          ospToast((r && r.message) || "Gönderilemedi.");
+        }
+      } catch (_e) {
+        ospToast("Gönderilemedi.");
+      } finally {
+        btn.disabled = false;
       }
     });
   }
