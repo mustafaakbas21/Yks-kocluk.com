@@ -31,8 +31,8 @@ QNUM_RE = re.compile(r"^\s*(?:(\d{1,3})\s*[\.\):\-]\s+|Soru\s*(\d{1,3})\s*[\.\):
 OPTION_LINE_RE = re.compile(r"^\s*([A-E])\)\s", re.I)
 # Tek satırda birden fazla şık (örn. A) ... B) ... E))
 OPTION_INLINE_RE = re.compile(r"\b([A-E])\)\s")
-# Kırpma sonrası homojen beyaz boşluk (PDF point ≈ 15px ekran görünümü)
-FINAL_PAD_PT = 15.0
+# Kırpma sonrası ek pay (PDF point; ~10px/kenar hissi — şıklar/çizim taşmasın)
+FINAL_PAD_PT = 25.0
 GUTTER_PAD_PT = 2.5
 # Dar boşlukları soru arası saymak için satır birleştirme toleransı (düşük = daha çok satır)
 BASE_LINE_Y_TOL = 2.35
@@ -119,7 +119,7 @@ def _refine_bbox_ink(page: fitz.Page, inner: fitz.Rect, sensitivity: float) -> O
     rx1 = search.x0 + x1p / z
     ry1 = search.y0 + y1p / z
     ink_rect = fitz.Rect(rx0, ry0, rx1, ry1)
-    pad = 4.5 + 5.0 * max(0, sensitivity - 0.65)
+    pad = 10.5 + 5.0 * max(0, sensitivity - 0.65)
     merged = _union_rect(inner, ink_rect)
     out = fitz.Rect(
         max(page_rect.x0, merged.x0 - pad),
@@ -333,8 +333,8 @@ def _segment_page_questions(
 
     images = _extract_images_on_page(page)
     segments: List[CropSegment] = []
-    pad_x = 10 + int(16 * (sensitivity - 1.0))
-    pad_y = 8 + int(14 * (sensitivity - 1.0))
+    pad_x = 18 + int(16 * (sensitivity - 1.0))
+    pad_y = 16 + int(14 * (sensitivity - 1.0))
 
     cols_to_scan = (0, 1) if two_col else (0,)
 

@@ -4387,8 +4387,9 @@
                 </button>
                 <label class="derece-board__topbar-page-size">
                   <span class="derece-board__topbar-page-size-label">Sayfa boyutu</span>
-                  <select id="dereceBoardPageSize" class="derece-board__page-size-select" data-db-page-size title="Yeni sayfalar için kağıt boyutu" aria-label="Sayfa boyutu">
-                    <option value="A4" selected>A4 (210×297 mm)</option>
+                  <select id="dereceBoardPageSize" class="derece-board__page-size-select" data-db-page-size title="Yeni sayfalar için tuval boyutu" aria-label="Sayfa boyutu">
+                    <option value="free" selected>Serbest Board (Sonsuz his)</option>
+                    <option value="A4">A4 (210×297 mm)</option>
                     <option value="A3">A3 (297×420 mm)</option>
                     <option value="A5">A5 (148×210 mm)</option>
                   </select>
@@ -5632,7 +5633,7 @@
                     <div class="tm-auto-cropper-toolbar mt-4" role="group" aria-label="Ders ve konu seçimi">
                       <label><span>Sınav</span><select id="tmAutoCropExam"><option value="TYT">TYT</option><option value="AYT">AYT</option><option value="YDT">YDT</option></select></label>
                       <label><span>Ders seçiniz</span><select id="tmAutoCropDersSelect"><option value="">— Ders seçiniz —</option></select></label>
-                      <label for="selectSoruKonu"><span>Konu seçiniz</span><select id="selectSoruKonu"><option value="">— Önce ders —</option></select></label>
+                      <label for="tmAutoCropKonuSelect"><span>Konu seçiniz</span><select id="tmAutoCropKonuSelect"><option value="">— Önce ders —</option></select></label>
                       <label><span>Zorluk</span><select id="tmAutoCropZorluk"><option value="Kolay">Kolay</option><option value="Orta" selected>Orta</option><option value="Zor">Zor</option></select></label>
                     </div>
                   </section>
