@@ -76,6 +76,14 @@
               600: "var(--purple-600)",
               700: "var(--purple-700)",
             },
+            brand: {
+              50: "#f5f3ff",
+              100: "#ede9fe",
+              500: "#8b5cf6",
+              600: "#7c3aed",
+              700: "#6d28d9",
+              900: "#4c1d95",
+            },
           },
         },
       },
@@ -86,6 +94,24 @@
   <link rel="stylesheet" href="css/site-credit.css" />
   <!-- PDF.js: body sonunda yüklü (3.11.x); kırpma + PDF düzenleyici ortak worker -->
   <style>
+    /* Fasikül üretici (gömülü, .tw-important-root) */
+    .tw-important-root .fu-tab-btn[aria-selected="true"] {
+      background: linear-gradient(135deg, #7c3aed, #6d28d9);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
+    }
+    .tw-important-root .fu-tab-panel[hidden] {
+      display: none !important;
+    }
+    .tw-important-root .fu-seg input:checked + span {
+      background: linear-gradient(135deg, #ede9fe, #f5f3ff);
+      color: #4c1d95;
+      font-weight: 700;
+      box-shadow: inset 0 0 0 1px #c4b5fd;
+    }
+    .tw-important-root .fu-cover-card:has(input:checked) {
+      box-shadow: 0 0 0 3px #7c3aed, 0 10px 40px -10px rgba(124, 58, 237, 0.35);
+    }
     /* Öğrenci ERP modal — sekme + grid (yalnızca bu sayfa) */
     .student-erp-tabs { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 2px solid var(--purple-200); padding: 0 1rem; background: linear-gradient(180deg, var(--purple-50) 0%, var(--purple-100) 100%); flex-shrink: 0; border-radius: 0; }
     .student-erp-tab { flex: 1; min-width: 120px; max-width: 200px; padding: 0.85rem 0.65rem; border: none; background: transparent; font-family: inherit; font-size: 0.8rem; font-weight: 700; color: #64748b; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; transition: color 0.2s, border-color 0.2s, background 0.2s; border-radius: 12px 12px 0 0; }
@@ -587,6 +613,15 @@
       font-weight: 700;
       font-size: 0.78rem !important;
     }
+    .app--sidebar-readable .sidebar--elite .sidebar__item--taramalar .sidebar__sublink {
+      flex-direction: row !important;
+      justify-content: flex-start !important;
+      align-items: center !important;
+    }
+    .app--sidebar-readable .sidebar--elite .sidebar__item--taramalar .sidebar__sublink span {
+      font-weight: 700;
+      font-size: 0.78rem !important;
+    }
     .app--sidebar-readable .sidebar--elite .sidebar__item--mr .sidebar__sublink,
     .app--sidebar-readable .sidebar--elite .sidebar__item--ders-anlatim .sidebar__sublink {
       flex-direction: row !important;
@@ -610,18 +645,21 @@
       width: 1.35rem;
       min-width: 1.35rem;
     }
-    .app--sidebar-readable button.sidebar__sublink > i:first-of-type {
+    .app--sidebar-readable button.sidebar__sublink > i:first-of-type,
+    .app--sidebar-readable a.sidebar__sublink > i:first-of-type {
       flex: 0 0 1.35rem;
       width: 1.35rem;
       min-width: 1.35rem;
     }
-    button.sidebar__sublink.is-active {
+    button.sidebar__sublink.is-active,
+    a.sidebar__sublink.is-active {
       background: rgba(var(--accent-rgb), 0.1) !important;
       color: var(--purple-800) !important;
       font-weight: 700 !important;
       box-shadow: inset 3px 0 0 0 var(--purple-600) !important;
     }
     .app--sidebar-readable .sidebar--elite button.sidebar__sublink.is-active span,
+    .app--sidebar-readable .sidebar--elite a.sidebar__sublink.is-active span,
     .app--sidebar-readable .sidebar--elite .sidebar__link--active span {
       color: var(--purple-800) !important;
     }
@@ -664,7 +702,8 @@
     .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--gelen-open > .sidebar__submenu,
     .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--dana-open > .sidebar__submenu,
     .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--mr-open > .sidebar__submenu,
-    .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--ders-anlatim-open > .sidebar__submenu {
+    .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--ders-anlatim-open > .sidebar__submenu,
+    .sidebar--elite .sidebar__menu > li.has-submenu.sidebar__item--taramalar-open > .sidebar__submenu {
       max-height: min(1200px, 90vh);
       opacity: 1;
       pointer-events: auto;
@@ -698,6 +737,36 @@
       color: inherit;
     }
     .sidebar--elite .sidebar__item--testmaker .sidebar__sublink i {
+      font-size: 0.88rem !important;
+    }
+    .sidebar--elite .sidebar__item--taramalar.sidebar__item--taramalar-open .sidebar__submenu {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.35rem;
+      margin: 0.3rem 0 0;
+      padding: 0;
+      width: 100%;
+      display: flex !important;
+    }
+    .sidebar--elite .sidebar__item--taramalar .sidebar__sublink {
+      flex-direction: row !important;
+      justify-content: flex-start !important;
+      align-items: center !important;
+      gap: 0.5rem !important;
+      padding: 0.5rem 0.55rem !important;
+      min-height: 2.5rem !important;
+      font-size: inherit !important;
+    }
+    .sidebar--elite .sidebar__item--taramalar .sidebar__sublink span {
+      display: inline !important;
+      font-size: inherit !important;
+      line-height: 1.25;
+      font-weight: 600;
+      text-align: left;
+      max-width: none;
+      color: inherit;
+    }
+    .sidebar--elite .sidebar__item--taramalar .sidebar__sublink i {
       font-size: 0.88rem !important;
     }
     /* MR + Ders Anlatımı: TestMaker ile aynı alt menü satırı (ikon + metin, girinti) */
@@ -735,7 +804,8 @@
     .sidebar--elite .sidebar__item--ders-anlatim .sidebar__sublink i {
       font-size: 0.88rem !important;
     }
-    .sidebar__item--testmaker.sidebar__item--tm-open .sidebar__submenu {
+    .sidebar__item--testmaker.sidebar__item--tm-open .sidebar__submenu,
+    .sidebar__item--taramalar.sidebar__item--taramalar-open .sidebar__submenu {
       display: flex;
       flex-direction: column;
     }
@@ -761,6 +831,7 @@
       opacity: 0.8;
     }
     .sidebar__item--testmaker.sidebar__item--tm-open .sidebar__tm-chevron,
+    .sidebar__item--taramalar.sidebar__item--taramalar-open .sidebar__tm-chevron,
     .sidebar__item--ogrenci.sidebar__item--ogr-open .sidebar__tm-chevron,
     .sidebar__item--randevu.sidebar__item--rv-open .sidebar__tm-chevron,
     .sidebar__item--simulasyon.sidebar__item--sim-open .sidebar__tm-chevron,
@@ -777,7 +848,8 @@
     .sidebar__item--gelen.sidebar__item--gelen-open .sidebar__submenu--gelen-nested,
     .sidebar__item--deneme-analizi.sidebar__item--dana-open .sidebar__submenu--dana-nested,
     .sidebar__item--mr.sidebar__item--mr-open .sidebar__submenu--mr-nested,
-    .sidebar__item--ders-anlatim.sidebar__item--ders-anlatim-open .sidebar__submenu--ders-nested {
+    .sidebar__item--ders-anlatim.sidebar__item--ders-anlatim-open .sidebar__submenu--ders-nested,
+    .sidebar__item--taramalar.sidebar__item--taramalar-open .sidebar__submenu--taramalar-nested {
       display: flex !important;
       flex-direction: column;
     }
@@ -787,7 +859,8 @@
     .sidebar__submenu--gelen-nested,
     .sidebar__submenu--dana-nested,
     .sidebar__submenu--mr-nested,
-    .sidebar__submenu--ders-nested {
+    .sidebar__submenu--ders-nested,
+    .sidebar__submenu--taramalar-nested {
       padding-left: 1.35rem !important;
       margin-left: 0.35rem;
       border-left: 2px solid rgba(var(--accent-rgb), 0.22);
@@ -798,7 +871,8 @@
     .app--sidebar-readable .sidebar--elite .sidebar__item--gelen .sidebar__sublink span,
     .app--sidebar-readable .sidebar--elite .sidebar__item--deneme-analizi .sidebar__sublink span,
     .app--sidebar-readable .sidebar--elite .sidebar__item--mr .sidebar__sublink span,
-    .app--sidebar-readable .sidebar--elite .sidebar__item--ders-anlatim .sidebar__sublink span {
+    .app--sidebar-readable .sidebar--elite .sidebar__item--ders-anlatim .sidebar__sublink span,
+    .app--sidebar-readable .sidebar--elite .sidebar__item--taramalar .sidebar__sublink span {
       font-weight: 700;
       font-size: 0.74rem !important;
     }
@@ -3804,6 +3878,31 @@
               </button>
             </div>
           </li>
+          <li class="sidebar__item--taramalar has-submenu">
+            <button
+              type="button"
+              class="sidebar__link sidebar__link--tm-accordion"
+              id="sidebarTaramalarToggle"
+              aria-expanded="false"
+              aria-controls="sidebarTaramalarSubmenu"
+              title="Taramalar ve Fasiküller menüsünü aç/kapat"
+            >
+              <i class="fa-solid fa-folder-open"></i><span>Taramalar ve Fasiküller</span>
+              <span class="sidebar__tm-chevron" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
+            </button>
+            <div class="sidebar__submenu sidebar__submenu--taramalar-nested" id="sidebarTaramalarSubmenu" role="group" aria-label="Taramalar ve Fasiküller alt menü">
+              <button
+                type="button"
+                id="sidebarLinkFasikulUretici"
+                class="sidebar__sublink"
+                data-tm-nav-action="fasikul-uretici"
+                data-testmaker-view="fasikul-uretici-view"
+                title="Matbaa v3 — Fasikül / kitapçık (panel içi)"
+              >
+                <i class="fa-solid fa-book-open"></i><span>Fasikül / Kitap Üretici</span>
+              </button>
+            </div>
+          </li>
           <li class="sidebar__item--testmaker has-submenu">
             <button type="button" class="sidebar__link sidebar__link--tm-accordion" id="sidebarTmToggle" aria-expanded="false" aria-controls="sidebarTmSubmenu" title="TestMaker menüsünü aç/kapat">
               <i class="fa-solid fa-file-circle-check"></i><span>TestMaker</span>
@@ -6551,6 +6650,200 @@
           </div>
         </div>
 
+        <div class="main-view tm-workspace-view" data-view="fasikul-uretici" id="fasikul-uretici-view" hidden>
+          <div class="tm-workspace tm-workspace--ai-wizard" style="min-height: 0; flex: 1; display: flex; flex-direction: column">
+            <header class="tm-workspace__header tm-workspace__header--ribbon">
+              <div class="tm-workspace__header-row">
+                <button type="button" class="tm-back-dashboard" data-nav="dashboard" title="Ana panele dön">
+                  <i class="fa-solid fa-arrow-left"></i> Panele dön
+                </button>
+                <span class="tm-workspace__brand"><i class="fa-solid fa-file-pdf"></i> Fasikül / Kitap Üretici</span>
+              </div>
+              <nav class="tm-word-ribbon" aria-label="TestMaker alt menü">
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-cropper"><i class="fa-solid fa-scissors"></i> Otomatik Kırpıcı</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
+                <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="fasikul-uretici"><i class="fa-solid fa-file-pdf"></i> Fasikül Üretici</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fas fa-cut"></i> Soru Kırpma</button>
+                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="soru-arsivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
+              </nav>
+            </header>
+            <div class="tw-important-root" style="flex: 1; overflow: auto; padding: 0.75rem 1rem 1.5rem">
+              <div class="mx-auto max-w-7xl px-2 py-4 sm:px-4 lg:px-6">
+                <div class="grid gap-8 lg:grid-cols-2 lg:items-start lg:gap-10">
+                  <section class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xl shadow-slate-200/50 sm:p-8">
+                    <h2 class="text-lg font-bold text-slate-900">Kitapçık ayarları</h2>
+                    <p class="mt-1 text-sm text-slate-500">
+                      İçerik <strong class="text-slate-700">Google Gemini 1.5 Flash</strong> ile üretilir; PDF <strong class="text-slate-700">pdfmake</strong> ile dizilir. Tek tıkla indir.
+                    </p>
+                    <form id="fuForm" class="mt-6 space-y-5">
+                      <div class="rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50/90 to-white p-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p class="text-sm font-bold text-slate-900">Akıllı üretim (öğrenciye özel)</p>
+                            <p class="text-xs text-slate-500">Açıkken seçilen öğrenci adı prompta eklenir (örnek liste).</p>
+                          </div>
+                          <label class="relative inline-flex cursor-pointer items-center">
+                            <input type="checkbox" id="fuSmartMode" name="smartMode" value="on" class="peer sr-only" />
+                            <span class="h-7 w-12 rounded-full bg-slate-200 transition peer-checked:bg-brand-600 peer-focus:ring-2 peer-focus:ring-brand-400"></span>
+                            <span class="absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow transition peer-checked:translate-x-5"></span>
+                          </label>
+                        </div>
+                        <div id="fuStudentWrap" class="mt-3 hidden">
+                          <label for="fuStudentId" class="text-sm font-semibold text-slate-700">Öğrenci</label>
+                          <select id="fuStudentId" name="studentId" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20">
+                            <option value="">— Seçin —</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div class="rounded-2xl border border-slate-200 bg-slate-50/50 p-1">
+                        <div class="flex gap-1 rounded-xl bg-slate-100/80 p-1" role="tablist">
+                          <button type="button" role="tab" id="fuTabBasic" data-fu-tab="basic" aria-selected="true" class="fu-tab-btn flex-1 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-600 transition">Temel ayarlar</button>
+                          <button type="button" role="tab" id="fuTabAdv" data-fu-tab="advanced" aria-selected="false" class="fu-tab-btn flex-1 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-600 transition">Gelişmiş ayarlar</button>
+                        </div>
+                        <div id="fuPanelBasic" data-fu-panel="basic" class="fu-tab-panel mt-4 space-y-5 px-1 pb-1 pt-2">
+                          <div class="grid gap-2">
+                            <label for="fuExamType" class="text-sm font-semibold text-slate-700">Sınav tipi</label>
+                            <select id="fuExamType" name="examType" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20">
+                              <option value="TYT">TYT</option>
+                              <option value="AYT">AYT</option>
+                              <option value="YDT">YDT (İngilizce)</option>
+                              <option value="TYT_AYT">TYT + AYT (birlikte)</option>
+                            </select>
+                            <p class="text-xs text-slate-500">Müfredat: <code class="rounded bg-slate-100 px-1">yks-mufredat.js</code></p>
+                          </div>
+                          <div class="grid gap-2">
+                            <label for="fuSubject" class="text-sm font-semibold text-slate-700">Ders</label>
+                            <select id="fuSubject" name="subject" required class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20">
+                              <option value="" disabled selected>Önce sınav tipini seçin</option>
+                            </select>
+                          </div>
+                          <div class="grid gap-2">
+                            <label for="fuTopic" class="text-sm font-semibold text-slate-700">Konu</label>
+                            <select id="fuTopic" name="topic" required class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20">
+                              <option value="" disabled selected>Önce ders seçin</option>
+                            </select>
+                          </div>
+                          <div class="grid gap-4 sm:grid-cols-2">
+                            <div class="grid gap-2">
+                              <label for="fuQuestionCount" class="text-sm font-semibold text-slate-700">Soru adedi</label>
+                              <input id="fuQuestionCount" name="questionCount" type="number" min="1" max="40" step="1" value="10" inputmode="numeric" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 tabular-nums outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20" />
+                              <p class="text-xs text-slate-500">1–40 arası</p>
+                            </div>
+                            <div class="grid gap-2">
+                              <label for="fuDifficulty" class="text-sm font-semibold text-slate-700">Zorluk</label>
+                              <select id="fuDifficulty" name="difficulty" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20">
+                                <option value="Kolay">Kolay</option>
+                                <option value="Orta">Orta</option>
+                                <option value="Zor">Zor</option>
+                                <option value="Karma">Karma</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div class="rounded-xl border border-slate-200 bg-white p-4">
+                            <p class="text-sm font-bold text-slate-900">Konu anlatım yoğunluğu</p>
+                            <p class="mt-0.5 text-xs text-slate-500">Konu özeti uzunluğu ve detayı.</p>
+                            <div class="fu-seg mt-3 flex flex-col gap-1 rounded-xl border border-slate-200 p-1 sm:flex-row sm:gap-0">
+                              <label class="flex flex-1 cursor-pointer">
+                                <input type="radio" name="topicNarration" value="low" class="peer sr-only" />
+                                <span class="block w-full rounded-lg py-2.5 text-center text-sm text-slate-600 transition">Özet geç (Az)</span>
+                              </label>
+                              <label class="flex flex-1 cursor-pointer">
+                                <input type="radio" name="topicNarration" value="medium" class="peer sr-only" checked />
+                                <span class="block w-full rounded-lg py-2.5 text-center text-sm text-slate-600 transition">Standart (Orta)</span>
+                              </label>
+                              <label class="flex flex-1 cursor-pointer">
+                                <input type="radio" name="topicNarration" value="high" class="peer sr-only" />
+                                <span class="block w-full rounded-lg py-2.5 text-center text-sm text-slate-600 transition">Detaylı (Çok)</span>
+                              </label>
+                            </div>
+                          </div>
+                          <div class="rounded-xl border border-slate-200 bg-white p-4">
+                            <p class="text-sm font-bold text-slate-900">Soru tarzı</p>
+                            <p class="mt-0.5 text-xs text-slate-500">Yeni nesil: uzun metin, ÖSYM tipi.</p>
+                            <div class="fu-seg mt-3 flex rounded-xl border border-slate-200 p-1">
+                              <label class="flex flex-1 cursor-pointer">
+                                <input type="radio" name="questionStyle" value="classic" class="peer sr-only" checked />
+                                <span class="block w-full rounded-lg py-2.5 text-center text-sm text-slate-600 transition">Klasik</span>
+                              </label>
+                              <label class="flex flex-1 cursor-pointer">
+                                <input type="radio" name="questionStyle" value="newgen" class="peer sr-only" />
+                                <span class="block w-full rounded-lg py-2.5 text-center text-sm text-slate-600 transition">Yeni nesil (ÖSYM)</span>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                        <div id="fuPanelAdvanced" data-fu-panel="advanced" class="fu-tab-panel mt-4 hidden space-y-4 px-1 pb-1 pt-2">
+                          <div class="rounded-xl border border-slate-200 bg-white p-4">
+                            <p class="text-sm font-bold text-slate-900">Kurumsal ayarlar</p>
+                            <p class="mt-1 text-xs text-slate-500">PDF alt bilgisi ve filigran.</p>
+                            <div class="mt-3 grid gap-3">
+                              <div class="grid gap-1.5">
+                                <label for="fuFooterText" class="text-xs font-semibold uppercase tracking-wide text-slate-600">Sayfa alt bilgisi (footer)</label>
+                                <input id="fuFooterText" name="footerText" type="text" placeholder="Örn: Kurum adı veya öğrenci notu" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/20" />
+                              </div>
+                              <div class="grid gap-1.5">
+                                <label for="fuWatermarkText" class="text-xs font-semibold uppercase tracking-wide text-slate-600">Filigran (watermark)</label>
+                                <input id="fuWatermarkText" name="watermarkText" type="text" placeholder="Boş: DerecePanel" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/20" />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="pt-1">
+                        <button type="submit" id="fuSubmitBtn" class="group relative w-full overflow-hidden rounded-2xl bg-gradient-to-r from-brand-600 to-brand-700 px-6 py-4 text-sm font-bold text-white shadow-lg shadow-brand-500/30 transition hover:from-brand-500 hover:to-brand-600 disabled:cursor-not-allowed disabled:opacity-60">
+                          <span class="relative z-10 flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-file-pdf" aria-hidden="true"></i>
+                            Kitapçığı üret
+                          </span>
+                        </button>
+                        <p id="fuStatus" class="mt-3 hidden text-center text-sm font-medium text-brand-700" role="status"></p>
+                      </div>
+                    </form>
+                  </section>
+                  <section class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xl shadow-slate-200/50 sm:p-8">
+                    <h2 class="text-lg font-bold text-slate-900">Kapak şablonu</h2>
+                    <p class="mt-1 text-sm text-slate-500">İlk PDF sayfası.</p>
+                    <fieldset class="mt-6">
+                      <legend class="sr-only">Kapak şablonu</legend>
+                      <div id="fuCoverGrid" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 lg:gap-4">
+                        <label class="fu-cover-card group relative cursor-pointer overflow-hidden rounded-xl border-2 border-transparent bg-slate-100 transition hover:border-brand-300">
+                          <input type="radio" name="coverId" value="1" class="peer sr-only" checked />
+                          <span class="block aspect-[3/4] bg-gradient-to-br from-violet-600 to-indigo-800 peer-checked:ring-2 peer-checked:ring-brand-500 peer-checked:ring-offset-2"></span>
+                          <span class="absolute bottom-2 left-2 right-2 rounded-lg bg-black/30 px-2 py-1 text-center text-xs font-bold text-white backdrop-blur-sm">Mor Gece</span>
+                        </label>
+                        <label class="fu-cover-card group relative cursor-pointer overflow-hidden rounded-xl border-2 border-transparent bg-slate-100 transition hover:border-brand-300">
+                          <input type="radio" name="coverId" value="2" class="peer sr-only" />
+                          <span class="block aspect-[3/4] bg-gradient-to-br from-emerald-500 to-teal-800 peer-checked:ring-2 peer-checked:ring-brand-500 peer-checked:ring-offset-2"></span>
+                          <span class="absolute bottom-2 left-2 right-2 rounded-lg bg-black/30 px-2 py-1 text-center text-xs font-bold text-white backdrop-blur-sm">Yeşil Okul</span>
+                        </label>
+                        <label class="fu-cover-card group relative cursor-pointer overflow-hidden rounded-xl border-2 border-transparent bg-slate-100 transition hover:border-brand-300">
+                          <input type="radio" name="coverId" value="3" class="peer sr-only" />
+                          <span class="block aspect-[3/4] bg-gradient-to-br from-amber-500 to-rose-700 peer-checked:ring-2 peer-checked:ring-brand-500 peer-checked:ring-offset-2"></span>
+                          <span class="absolute bottom-2 left-2 right-2 rounded-lg bg-black/30 px-2 py-1 text-center text-xs font-bold text-white backdrop-blur-sm">Gün Batımı</span>
+                        </label>
+                        <label class="fu-cover-card group relative cursor-pointer overflow-hidden rounded-xl border-2 border-transparent bg-slate-100 transition hover:border-brand-300">
+                          <input type="radio" name="coverId" value="4" class="peer sr-only" />
+                          <span class="block aspect-[3/4] bg-gradient-to-br from-slate-700 to-slate-900 peer-checked:ring-2 peer-checked:ring-brand-500 peer-checked:ring-offset-2"></span>
+                          <span class="absolute bottom-2 left-2 right-2 rounded-lg bg-black/30 px-2 py-1 text-center text-xs font-bold text-white backdrop-blur-sm">Minimal</span>
+                        </label>
+                        <label class="fu-cover-card group relative cursor-pointer overflow-hidden rounded-xl border-2 border-transparent bg-slate-100 transition hover:border-brand-300">
+                          <input type="radio" name="coverId" value="5" class="peer sr-only" />
+                          <span class="block aspect-[3/4] bg-gradient-to-br from-sky-500 to-blue-900 peer-checked:ring-2 peer-checked:ring-brand-500 peer-checked:ring-offset-2"></span>
+                          <span class="absolute bottom-2 left-2 right-2 rounded-lg bg-black/30 px-2 py-1 text-center text-xs font-bold text-white backdrop-blur-sm">Gökyüzü</span>
+                        </label>
+                      </div>
+                    </fieldset>
+                  </section>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div id="viewPdfDuzenle" class="tm-annotate-view tm-annotate-view--overlay" hidden>
           <header class="tm-annotate-topbar">
             <span class="tm-annotate-topbar__title"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</span>
@@ -8667,6 +8960,13 @@
           tmAccF.setAttribute("aria-expanded", "false");
           tmAccF.classList.remove("sidebar__link--active");
         }
+        var trLiF = document.querySelector(".sidebar__item--taramalar");
+        var trAccF = document.getElementById("sidebarTaramalarToggle");
+        if (trLiF) trLiF.classList.remove("sidebar__item--taramalar-open");
+        if (trAccF) {
+          trAccF.setAttribute("aria-expanded", "false");
+          trAccF.classList.remove("sidebar__link--active");
+        }
       } catch (e) {}
     })();
   </script>
@@ -8688,6 +8988,8 @@
   <script src="https://code.jquery.com/jquery-3.7.1.min.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" crossorigin="anonymous" />
   <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js" crossorigin="anonymous"></script>
   <script type="module" src="js/koc-panel.js"></script>
   <script type="module" src="js/derece-board.js"></script>
 </body>

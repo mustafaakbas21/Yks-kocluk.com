@@ -3,6 +3,7 @@
   "private": true,
   "description": "YKS koçluk web — Appwrite şema scriptleri için bağımlılıklar",
   "scripts": {
+    "dev:vercel": "vercel dev",
     "setup:appwrite": "node setup-appwrite.js",
     "setup:deneme": "node setup-appwrite.js --only-deneme",
     "setup:exam-results": "node setup-exam-results.js",

@@ -18,7 +18,7 @@
         <i class="fa-solid fa-scissors" aria-hidden="true"></i> Elite Kırpma &amp; Düzenleme Motoru
       </h1>
       <p class="tkc-hero__lead">
-        Test kitapçığı üzerinde yeşil kutuları düzenleyin; OCR metnini doğrulayın. Koordinatlar ve önizlemeler gerçek zamanlı güncellenir.
+        Yeşil kutuyu seçin: köşedeki araç çubuğundan silin veya OCR düzenleyin. Kırpılan JPEG önizlemeleri kutu bırakıldığında güncellenir.
       </p>
     </div>
     <div class="tkc-hero__actions">
@@ -54,6 +54,8 @@
       <div class="tkc-canvas-shell">
         <div class="tkc-canvas-wrap" id="cropCanvasWrap">
           <canvas id="cropCanvas" width="800" height="1100" aria-label="Soru kırpma tuvali"></canvas>
+          <!-- Floating toolbar + OCR: JS inserts .tkc-float-ui here -->
+          <div class="tkc-floating-layer" id="tkcFloatingLayer" aria-hidden="true"></div>
         </div>
         <div class="tkc-canvas-meta">
           <span id="tkcCanvasSizeLabel">Tuval: —</span>
@@ -61,52 +63,16 @@
         </div>
       </div>
 
-      <div class="tkc-delete-bar" id="tkcDeleteBar" hidden>
-        <span class="tkc-delete-bar__id" id="tkcSelectedIdLabel"></span>
-        <button type="button" class="tkc-btn tkc-btn--danger tkc-btn--sm" id="btnDeleteBox" title="Seçili kutuyu sil">
-          <i class="fa-solid fa-trash"></i> Sil
-        </button>
-      </div>
-
       <div class="tkc-list-section">
         <div class="tkc-list-section__head">
-          <h2 class="tkc-list-section__title"><i class="fa-solid fa-list-check"></i> Gerçek Zamanlı Kırpılan Sorular</h2>
-          <p class="tkc-list-section__sub">Kutu taşındığında veya yeniden boyutlandırıldığında önizleme ve metinler güncellenir.</p>
+          <h2 class="tkc-list-section__title"><i class="fa-solid fa-list-check"></i> Kırpılan Sorular</h2>
+          <p class="tkc-list-section__sub">
+            Liste, kutu çizimi / taşıma / yeniden boyutlandırma <strong>bittiğinde</strong> gerçek JPEG kırpmasıyla güncellenir (sürüklerken ağır işlem yok).
+          </p>
         </div>
         <ul class="tkc-cropped-list" id="croppedQuestionsList" aria-live="polite"></ul>
       </div>
     </section>
-
-    <aside class="tkc-side" aria-label="Kutu detayları">
-      <div class="tkc-panel tkc-panel--dim" id="boxDetailsPanel">
-        <div class="tkc-panel__head">
-          <h2 class="tkc-panel__title"><i class="fa-solid fa-sliders"></i> Kutu detayları &amp; OCR</h2>
-          <p class="tkc-panel__sub" id="boxDetailsEmpty">Bir yeşil kutu seçin veya oluşturun.</p>
-        </div>
-        <div class="tkc-panel__body" id="boxDetailsBody" hidden>
-          <div class="tkc-field-grid">
-            <label class="tkc-label" for="boxInputX">X (px)</label>
-            <input class="tkc-input" type="number" id="boxInputX" inputmode="numeric" step="1" />
-            <label class="tkc-label" for="boxInputY">Y (px)</label>
-            <input class="tkc-input" type="number" id="boxInputY" inputmode="numeric" step="1" />
-            <label class="tkc-label" for="boxInputW">Genişlik</label>
-            <input class="tkc-input" type="number" id="boxInputW" inputmode="numeric" step="1" min="4" />
-            <label class="tkc-label" for="boxInputH">Yükseklik</label>
-            <input class="tkc-input" type="number" id="boxInputH" inputmode="numeric" step="1" min="4" />
-          </div>
-          <label class="tkc-label tkc-label--block" for="boxInputOcr">OCR / soru metni</label>
-          <textarea
-            class="tkc-textarea"
-            id="boxInputOcr"
-            rows="5"
-            placeholder="Örn: f(x)=(a-2)x²+(a-3)x+1 ..."
-            spellcheck="true"
-            lang="tr"
-          ></textarea>
-          <p class="tkc-microcopy">Metin otomatik örneklerle doldurulabilir; düzeltmeler kayıtta saklanır.</p>
-        </div>
-      </div>
-    </aside>
   </main>
 
   <div class="tkc-toast-host" id="tkcToastHost" aria-live="polite"></div>
