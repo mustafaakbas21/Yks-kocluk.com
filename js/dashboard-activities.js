@@ -8,6 +8,14 @@ import {
   prepareMeetingChartLoadingState,
   setDashboardMeetingLogsCache,
 } from "./dashboard-charts.js";
+import { renderDashboardInsightTable } from "./dashboard-insights.js";
+
+var _dashboardMeetingLogsSnapshot = [];
+
+/** Insight tablosu — son başarılı görüşme çekiminden anlık liste */
+export function getDashboardMeetingLogsSnapshot() {
+  return _dashboardMeetingLogsSnapshot.slice();
+}
 
 let _actDeps = {
   db: null,
@@ -163,6 +171,7 @@ export async function refreshDashboardMeetingActivity() {
     var rawRows = mSnap.docs.map(function (d) {
       return typeof d.data === "function" ? d.data() : {};
     });
+    _dashboardMeetingLogsSnapshot = rawRows;
     setDashboardMeetingLogsCache(rawRows);
     var meetingForFeed = rawRows
       .map(function (raw) {
@@ -185,12 +194,19 @@ export async function refreshDashboardMeetingActivity() {
     });
     var students = (_actDeps.getStudents && _actDeps.getStudents()) || [];
     renderDashboardActivityFeed(meetingForFeed, examDocs, students);
+    try {
+      renderDashboardInsightTable();
+    } catch (_ins) {}
   } catch (err) {
     console.warn("[dashboard meeting activity]", err);
+    _dashboardMeetingLogsSnapshot = [];
     setDashboardMeetingLogsCache([], {
       emptyMessage: "Görüşme verileri yüklenemedi. Bağlantı veya Appwrite izinlerini kontrol edin.",
     });
     renderDashboardActivityFeed([], [], []);
+    try {
+      renderDashboardInsightTable();
+    } catch (_ins2) {}
   } finally {
     if (ul && /Aktiviteler yükleniyor/i.test(ul.textContent || "")) {
       ul.innerHTML =

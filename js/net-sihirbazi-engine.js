@@ -524,6 +524,283 @@ export function netSihirbaziV2ResultHtml(displayRows, program, uiMeta) {
   return strip + table;
 }
 
+/**
+ * Hedef vs güncel karşılaştırma tablosu (koç paneli Net Sihirbazı).
+ * Fark = Güncel − Hedef: gerideyse (Güncel &lt; Hedef) kırmızı eksi; geçtiyse yeşil artı.
+ * @param {object} [uiMeta]
+ * @param {boolean} [uiMeta.noExamData] — deneme yoksa Güncel sütunu "Veri Yok", Fark "—"
+ */
+export function netSihirbaziComparisonTableHtml(displayRows, program, uiMeta) {
+  program = program || {};
+  uiMeta = uiMeta || {};
+  var noExamData = !!uiMeta.noExamData;
+  var exact = !!(program && program.exactYokAtlasTargets);
+  var uniLine =
+    program.university && program.department
+      ? '<p class="text-sm text-slate-600 mb-3">' +
+        esc(String(program.university)) +
+        " · <span class=\"font-semibold text-slate-800\">" +
+        esc(String(program.department)) +
+        "</span></p>"
+      : "";
+
+  if (!displayRows || !displayRows.length) {
+    return (
+      '<div class="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm p-4">' +
+      uniLine +
+      '<p class="net-sihirbazi-placeholder text-sm">Bu bölüm için YÖK hedef net satırı üretilemedi.</p></div>'
+    );
+  }
+
+  var trs = displayRows
+    .map(function (r) {
+      var t = Number(r.target);
+      if (isNaN(t)) t = 0;
+      var c = Number(r.current);
+      if (isNaN(c)) c = 0;
+      var hedefCell = exact ? esc(formatYokNetDisplay(t)) : esc(t.toFixed(1));
+
+      var guncelCell;
+      var farkTxt;
+      var farkCls;
+      if (noExamData) {
+        guncelCell =
+          '<span class="text-slate-500 italic">Veri Yok</span>';
+        farkTxt = "—";
+        farkCls = "text-slate-400";
+      } else {
+        guncelCell =
+          '<span class="tabular-nums">' + esc(c.toFixed(1)) + "</span>";
+        var fark = c - t;
+        if (Math.abs(fark) < 1e-9) {
+          farkTxt = "0";
+          farkCls = "text-slate-600 font-semibold";
+        } else if (fark < 0) {
+          farkTxt = esc(formatYokNetDisplay(fark));
+          farkCls = "text-rose-600 font-bold tabular-nums";
+        } else {
+          farkTxt = "+" + esc(formatYokNetDisplay(fark));
+          farkCls = "text-emerald-600 font-bold tabular-nums";
+        }
+      }
+
+      return (
+        '<tr class="border-b border-violet-100/70 hover:bg-violet-50/40">' +
+        '<td class="py-2.5 px-3 text-sm font-medium text-slate-800">' +
+        esc(r.label) +
+        '</td><td class="py-2.5 px-2 text-center text-sm tabular-nums text-slate-700">' +
+        hedefCell +
+        '</td><td class="py-2.5 px-2 text-center text-sm text-slate-800">' +
+        guncelCell +
+        '</td><td class="py-2.5 px-3 text-right text-sm ' +
+        farkCls +
+        '">' +
+        farkTxt +
+        (noExamData ? "" : " Net") +
+        "</td></tr>"
+      );
+    })
+    .join("");
+
+  var foot =
+    uiMeta.tableFootnote != null && String(uiMeta.tableFootnote).trim() !== ""
+      ? String(uiMeta.tableFootnote)
+      : "Fark = Güncel net − Hedef net. Gerideyseniz eksi (kırmızı); hedefi geçtiyseniz artı (yeşil). Deneme kaydı yoksa güncel sütununda Veri Yok gösterilir.";
+
+  return (
+    '<div class="overflow-hidden rounded-2xl border border-violet-200/85 bg-white shadow-md shadow-violet-100/40">' +
+    uniLine +
+    '<table class="w-full border-collapse text-left text-sm">' +
+    '<thead><tr class="border-b border-violet-200 bg-gradient-to-r from-violet-100/95 to-fuchsia-50/90">' +
+    '<th class="px-3 py-3 text-xs font-extrabold uppercase tracking-wide text-violet-900">Ders adı</th>' +
+    '<th class="px-2 py-3 text-center text-xs font-extrabold uppercase tracking-wide text-violet-900">Hedef net (YÖK)</th>' +
+    '<th class="px-2 py-3 text-center text-xs font-extrabold uppercase tracking-wide text-violet-900">Güncel net (Öğrenci)</th>' +
+    '<th class="px-3 py-3 text-right text-xs font-extrabold uppercase tracking-wide text-violet-900">Fark (Kalan)</th>' +
+    "</tr></thead><tbody>" +
+    trs +
+    "</tbody></table>" +
+    '<p class="border-t border-violet-100 px-3 py-2.5 text-xs text-slate-500 leading-relaxed">' +
+    esc(foot) +
+    "</p>" +
+    "</div>"
+  );
+}
+
+/**
+ * Net Sihirbazı — yalnızca YÖK Atlas ortalama hedef netleri (öğrenci / deneme yok).
+ */
+export function netSihirbaziTargetOnlyHtml(program) {
+  program = program || {};
+  var rows = program.rows || [];
+  if (!rows.length) {
+    return (
+      '<div class="ns-target-only ns-target-only--empty rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">' +
+      "Bu program için hedef net satırı bulunamadı." +
+      "</div>"
+    );
+  }
+  var uni =
+    program.university && program.department
+      ? '<p class="ns-target-only__head text-sm text-slate-600 mb-3">' +
+        esc(String(program.university)) +
+        " · <span class=\"font-semibold text-slate-800\">" +
+        esc(String(program.department)) +
+        "</span></p>"
+      : "";
+  var trs = rows
+    .map(function (r) {
+      var label = r.label || String(r.section || "") + " " + String(r.name || "");
+      var rawT = r.targetNet;
+      var tn = typeof rawT === "number" ? rawT : parseFloat(String(rawT || "").replace(",", "."));
+      var tStr = formatYokNetDisplay(tn);
+      var cell = tStr === "—" ? "—" : tStr + " Net";
+      return (
+        '<tr class="border-b border-violet-100/80">' +
+        '<td class="py-2.5 px-3 text-sm font-medium text-slate-800">' +
+        esc(label) +
+        '</td><td class="py-2.5 px-3 text-sm text-right tabular-nums text-violet-900 font-semibold">' +
+        esc(cell) +
+        "</td></tr>"
+      );
+    })
+    .join("");
+  return (
+    '<div class="ns-target-only overflow-hidden rounded-2xl border border-violet-200/90 bg-white shadow-sm">' +
+    uni +
+    '<table class="w-full border-collapse text-left text-sm">' +
+    '<thead><tr class="border-b border-violet-200 bg-gradient-to-r from-violet-100/95 to-fuchsia-50/90">' +
+    '<th class="px-3 py-3 text-xs font-extrabold uppercase tracking-wide text-violet-900">Ders</th>' +
+    '<th class="px-3 py-3 text-right text-xs font-extrabold uppercase tracking-wide text-violet-900">Ortalama hedef net (YÖK)</th>' +
+    "</tr></thead><tbody>" +
+    trs +
+    "</tbody></table>" +
+    '<p class="border-t border-violet-100 px-3 py-2 text-xs text-slate-500">Kaynak: YÖK Atlas alanları (katalog JSON).</p>' +
+    "</div>"
+  );
+}
+
+/**
+ * Hedef Simülatörü — karşılaştırma + satır ilerleme çubuğu.
+ * @param {object} [uiMeta]
+ * @param {boolean} [uiMeta.noExamData]
+ */
+export function hedefSimulatorComparisonHtml(displayRows, program, uiMeta) {
+  program = program || {};
+  uiMeta = uiMeta || {};
+  var noExamData = !!uiMeta.noExamData;
+  var exact = !!(program && program.exactYokAtlasTargets);
+  var head =
+    program.university && program.department
+      ? '<p class="text-sm text-slate-600 mb-3">' +
+        esc(String(program.university)) +
+        " · <span class=\"font-semibold text-slate-800\">" +
+        esc(String(program.department)) +
+        "</span></p>"
+      : "";
+
+  if (!displayRows || !displayRows.length) {
+    return (
+      '<div class="hs-sim-empty rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">' +
+      head +
+      "Karşılaştırma satırı yok." +
+      "</div>"
+    );
+  }
+
+  var trs = displayRows
+    .map(function (r) {
+      var t = Number(r.target);
+      if (isNaN(t)) t = 0;
+      var c = Number(r.current);
+      if (isNaN(c)) c = 0;
+      var hedefCell = exact ? esc(formatYokNetDisplay(t)) : esc(t.toFixed(1));
+
+      var guncelCell;
+      var farkTxt;
+      var farkCls;
+      var barPct = 0;
+      var barCls = "hs-sim-fill hs-sim-fill--mid";
+
+      if (noExamData) {
+        guncelCell = '<span class="text-slate-500 italic">Veri Yok</span>';
+        farkTxt = "—";
+        farkCls = "text-slate-400";
+        barCls = "hs-sim-fill hs-sim-fill--empty";
+      } else {
+        guncelCell = '<span class="tabular-nums text-slate-800">' + esc(c.toFixed(1)) + "</span>";
+        var fark = c - t;
+        if (Math.abs(fark) < 1e-9) {
+          farkTxt = "0";
+          farkCls = "text-slate-600 font-semibold";
+        } else if (fark < 0) {
+          farkTxt = esc(formatYokNetDisplay(fark));
+          farkCls = "text-rose-600 font-bold tabular-nums";
+        } else {
+          farkTxt = "+" + esc(formatYokNetDisplay(fark));
+          farkCls = "text-emerald-600 font-bold tabular-nums";
+        }
+        if (t > 0) {
+          barPct = Math.min(100, Math.max(0, (c / t) * 100));
+          if (c >= t - 0.05) barCls = "hs-sim-fill hs-sim-fill--ok";
+          else barCls = "hs-sim-fill hs-sim-fill--mid";
+        }
+      }
+
+      return (
+        '<tr class="border-b border-violet-100/70">' +
+        '<td class="py-2.5 px-3 text-sm font-medium text-slate-800 max-w-[200px]">' +
+        esc(r.label) +
+        '</td><td class="py-2.5 px-2 text-center text-sm tabular-nums text-slate-700">' +
+        hedefCell +
+        '</td><td class="py-2.5 px-2 text-center text-sm">' +
+        guncelCell +
+        '</td><td class="py-2.5 px-2 text-right text-sm ' +
+        farkCls +
+        '">' +
+        farkTxt +
+        (noExamData ? "" : " Net") +
+        '</td><td class="py-2 px-2 w-[140px]">' +
+        '<div class="hs-sim-track" role="presentation">' +
+        '<div class="' +
+        barCls +
+        '" style="width:' +
+        esc(String(barPct.toFixed(1))) +
+        '%"></div></div>' +
+        (!noExamData && t > 0
+          ? '<span class="hs-sim-pct text-[10px] text-slate-500">' +
+            esc(Math.round(barPct)) +
+            "%</span>"
+          : "") +
+        "</td></tr>"
+      );
+    })
+    .join("");
+
+  var foot =
+    uiMeta.tableFootnote != null && String(uiMeta.tableFootnote).trim() !== ""
+      ? String(uiMeta.tableFootnote)
+      : "Fark = Güncel − Hedef. İlerleme = Güncel / Hedef (maks. %100).";
+
+  return (
+    '<div class="hs-sim-wrap overflow-hidden rounded-2xl border border-violet-200/85 bg-white shadow-md shadow-violet-100/40">' +
+    head +
+    '<table class="w-full border-collapse text-left text-sm">' +
+    '<thead><tr class="border-b border-violet-200 bg-gradient-to-r from-violet-100/95 to-fuchsia-50/90">' +
+    '<th class="px-3 py-3 text-xs font-extrabold uppercase text-violet-900">Ders</th>' +
+    '<th class="px-2 py-3 text-center text-xs font-extrabold uppercase text-violet-900">Hedeflenen</th>' +
+    '<th class="px-2 py-3 text-center text-xs font-extrabold uppercase text-violet-900">Güncel</th>' +
+    '<th class="px-2 py-3 text-right text-xs font-extrabold uppercase text-violet-900">Fark</th>' +
+    '<th class="px-2 py-3 text-center text-xs font-extrabold uppercase text-violet-900 w-[140px]">İlerleme</th>' +
+    "</tr></thead><tbody>" +
+    trs +
+    "</tbody></table>" +
+    '<p class="border-t border-violet-100 px-3 py-2 text-xs text-slate-500">' +
+    esc(foot) +
+    "</p>" +
+    "</div>"
+  );
+}
+
 export function computeMotorSuccessPercent(displayRows) {
   var sumT = 0;
   var sumC = 0;

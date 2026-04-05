@@ -17,6 +17,8 @@ export function configureDashboardCharts(deps) {
 
 let randevuChartInstance = null;
 let netBasariChartInstance = null;
+let institutionNetTrendInstance = null;
+let dashboardApptIntensityInstance = null;
 let meetingAnalysisChartInstance = null;
 let dashboardMeetingChartPeriod = "week";
 let dashboardMeetingLogsCache = [];
@@ -64,8 +66,8 @@ export function meetingLogEventDate(raw) {
   );
 }
 
-/** Bugünden başlayan 7 gün — grafik ekseni */
-function buildRollingAppointmentChartAxis() {
+/** Bugünden başlayan 7 gün — randevu yoğunluğu ekseni (dashboard + diğer görünümler) */
+export function buildRollingAppointmentChartAxis() {
   var start = new Date();
   start.setHours(0, 0, 0, 0);
   var startMs = start.getTime();
@@ -314,6 +316,312 @@ export function renderNetBasariChart(getStudents) {
       },
     },
   });
+}
+
+function startOfWeekMonday(d) {
+  var x = new Date(d);
+  var day = (x.getDay() + 6) % 7;
+  x.setDate(x.getDate() - day);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function examRecordTimeForTrend(ex) {
+  return (
+    parseDocDateAny(ex.examDate) ||
+    parseDocDateAny(ex.date) ||
+    parseDocDateAny(ex.$createdAt) ||
+    null
+  );
+}
+
+/**
+ * Kurum geneli TYT / AYT ortalama net — son 9 hafta (Chart.js line)
+ * @param {() => unknown[]} getExams
+ */
+export function renderInstitutionNetTrendChart(getExams) {
+  var canvas = document.getElementById("dashboardNetTrendChart");
+  if (!canvas || typeof Chart === "undefined") return;
+  var exams = typeof getExams === "function" ? getExams() : [];
+  if (institutionNetTrendInstance) {
+    institutionNetTrendInstance.destroy();
+    institutionNetTrendInstance = null;
+  }
+  var emptyEl = document.getElementById("dashboardNetTrendEmpty");
+  var now = new Date();
+  var labels = [];
+  var tytData = [];
+  var aytData = [];
+  var w;
+  for (w = 8; w >= 0; w--) {
+    var anchor = new Date(now);
+    anchor.setDate(anchor.getDate() - w * 7);
+    var ws = startOfWeekMonday(anchor);
+    var we = new Date(ws);
+    we.setDate(we.getDate() + 7);
+    labels.push(ws.toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "2-digit" }));
+    var tytSum = 0;
+    var tytN = 0;
+    var aytSum = 0;
+    var aytN = 0;
+    (exams || []).forEach(function (ex) {
+      var dt = examRecordTimeForTrend(ex);
+      if (!dt || isNaN(dt.getTime())) return;
+      var tms = dt.getTime();
+      if (tms < ws.getTime() || tms >= we.getTime()) return;
+      var typ = String(ex.examType || ex.tur || ex.type || "")
+        .toUpperCase()
+        .trim();
+      var net = parseFloat(String(ex.net != null ? ex.net : "").replace(",", "."), 10);
+      if (isNaN(net)) return;
+      if (typ.indexOf("AYT") === 0 || typ === "AYT") {
+        aytSum += net;
+        aytN++;
+      } else {
+        tytSum += net;
+        tytN++;
+      }
+    });
+    tytData.push(tytN > 0 ? Math.round((tytSum / tytN) * 10) / 10 : null);
+    aytData.push(aytN > 0 ? Math.round((aytSum / aytN) * 10) / 10 : null);
+  }
+  var hasData = tytData.some(function (x) {
+    return x != null;
+  }) ||
+    aytData.some(function (x) {
+      return x != null;
+    });
+  if (!hasData) {
+    if (emptyEl) {
+      emptyEl.hidden = false;
+      emptyEl.textContent =
+        "Henüz tarihli deneme kaydı yok. Net trendi için exams koleksiyonuna deneme ekleyin.";
+    }
+    canvas.hidden = true;
+    return;
+  }
+  canvas.hidden = false;
+  if (emptyEl) emptyEl.hidden = true;
+  var ctx = canvas.getContext("2d");
+  var gradTyt = ctx.createLinearGradient(0, 0, 0, 220);
+  gradTyt.addColorStop(0, "rgba(124, 58, 237, 0.35)");
+  gradTyt.addColorStop(1, "rgba(124, 58, 237, 0.02)");
+  var gradAyt = ctx.createLinearGradient(0, 0, 0, 220);
+  gradAyt.addColorStop(0, "rgba(14, 165, 233, 0.35)");
+  gradAyt.addColorStop(1, "rgba(14, 165, 233, 0.02)");
+  try {
+    institutionNetTrendInstance = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "TYT ort. net",
+            data: tytData,
+            borderColor: "rgb(124, 58, 237)",
+            backgroundColor: gradTyt,
+            tension: 0.35,
+            fill: true,
+            spanGaps: false,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            borderWidth: 2.5,
+          },
+          {
+            label: "AYT ort. net",
+            data: aytData,
+            borderColor: "rgb(14, 165, 233)",
+            backgroundColor: gradAyt,
+            tension: 0.35,
+            fill: true,
+            spanGaps: false,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            borderWidth: 2.5,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: {
+            display: true,
+            position: "top",
+            labels: {
+              usePointStyle: true,
+              padding: 16,
+              font: { weight: "700", size: 11, family: "Inter, system-ui, sans-serif" },
+              color: "#475569",
+            },
+          },
+          tooltip: {
+            backgroundColor: "#fff",
+            titleColor: "#334155",
+            bodyColor: "#475569",
+            borderColor: "#e2e8f0",
+            borderWidth: 1,
+            padding: 12,
+            callbacks: {
+              label: function (ctx2) {
+                var v = ctx2.raw;
+                return ctx2.dataset.label + ": " + (v == null ? "—" : v);
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              maxRotation: 45,
+              font: { size: 9, weight: "600" },
+              color: "#64748b",
+            },
+          },
+          y: {
+            beginAtZero: true,
+            suggestedMax: 100,
+            grid: { color: "rgba(124, 58, 237, 0.06)" },
+            ticks: { color: "#64748b", font: { weight: "600" } },
+          },
+        },
+      },
+    });
+  } catch (e) {
+    console.error("[Chart] Net trend:", e);
+    institutionNetTrendInstance = null;
+  }
+}
+
+function setDashboardApptBarChrome(opts) {
+  var canvas = document.getElementById("dashboardApptIntensityChart");
+  var emptyEl = document.getElementById("dashboardApptIntensityEmpty");
+  if (emptyEl) {
+    emptyEl.hidden = !opts.showEmpty;
+    if (opts.emptyMessage) emptyEl.textContent = opts.emptyMessage;
+  }
+  if (canvas) canvas.hidden = !!opts.showEmpty;
+}
+
+/**
+ * Randevu yoğunluğu (7 gün) — önbellekteki / Appwrite ile senkron randevu listesi
+ * @param {() => unknown[]} getAppointments Düz nesneler (expandAppointmentData)
+ */
+export function renderDashboardAppointmentIntensityBar(getAppointments) {
+  var canvas = document.getElementById("dashboardApptIntensityChart");
+  if (!canvas || typeof Chart === "undefined") return;
+  var sortT = _chartDeps.appointmentSortTime;
+  if (typeof sortT !== "function") {
+    setDashboardApptBarChrome({
+      showEmpty: true,
+      emptyMessage: "Randevu sıralama fonksiyonu tanımlı değil.",
+    });
+    return;
+  }
+  var list = typeof getAppointments === "function" ? getAppointments() : [];
+  var roll = buildRollingAppointmentChartAxis();
+  var labels = roll.labels;
+  var longNames = roll.longNames;
+  var counts = [0, 0, 0, 0, 0, 0, 0];
+  (list || []).forEach(function (ap) {
+    var t = sortT(ap);
+    if (!t) return;
+    var day = new Date(t);
+    if (isNaN(day.getTime())) return;
+    day.setHours(0, 0, 0, 0);
+    var diff = Math.round((day.getTime() - roll.startMs) / 86400000);
+    if (diff >= 0 && diff < 7) counts[diff]++;
+  });
+  var total = counts.reduce(function (a, b) {
+    return a + b;
+  }, 0);
+  if (dashboardApptIntensityInstance) {
+    dashboardApptIntensityInstance.destroy();
+    dashboardApptIntensityInstance = null;
+  }
+  if (total === 0) {
+    setDashboardApptBarChrome({
+      showEmpty: true,
+      emptyMessage:
+        "Bu hafta kayıtlı randevu yok. Appwrite randevuları geldikçe grafik dolacaktır.",
+    });
+    return;
+  }
+  setDashboardApptBarChrome({ showEmpty: false });
+  var ctx = canvas.getContext("2d");
+  var maxCount = counts.reduce(function (a, b) {
+    return Math.max(a, b);
+  }, 0);
+  try {
+    dashboardApptIntensityInstance = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Randevu",
+            data: counts,
+            backgroundColor: "rgba(124, 58, 237, 0.88)",
+            hoverBackgroundColor: "rgba(109, 40, 217, 0.95)",
+            borderRadius: 12,
+            borderSkipped: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            displayColors: false,
+            callbacks: {
+              title: function () {
+                return "";
+              },
+              label: function (item) {
+                var i = item.dataIndex;
+                return (longNames[i] || labels[i]) + ": " + item.raw + " randevu";
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              font: { size: 10, weight: "600", family: "Inter, system-ui, sans-serif" },
+              color: "#64748b",
+              maxRotation: 48,
+              autoSkip: false,
+            },
+          },
+          y: {
+            beginAtZero: true,
+            suggestedMax: Math.max(4, maxCount + 1),
+            ticks: {
+              stepSize: 1,
+              precision: 0,
+              color: "#64748b",
+              callback: function (val) {
+                if (Number.isInteger(val)) return val;
+              },
+            },
+            grid: { color: "rgba(124, 58, 237, 0.06)" },
+          },
+        },
+      },
+    });
+  } catch (chartErr) {
+    console.error("[Chart] Dashboard randevu bar:", chartErr);
+    dashboardApptIntensityInstance = null;
+    setDashboardApptBarChrome({
+      showEmpty: true,
+      emptyMessage: "Grafik oluşturulamadı.",
+    });
+  }
 }
 
 var DASH_WD_TR = ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"];

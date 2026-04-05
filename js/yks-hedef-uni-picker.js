@@ -192,7 +192,7 @@ function resetAddForm() {
 
 function fillEditForm(portalUsername, uniName, depName) {
   return loadData().then(function () {
-    var pu = document.getElementById("editPortalUsername");
+    var pu = document.getElementById("editStudentLoginUsername") || document.getElementById("editPortalUsername");
     if (pu) pu.value = portalUsername || "";
     var hidden = document.getElementById("editTargetUniversity");
     var search = document.getElementById("editTargetUniSearch");

@@ -77,6 +77,181 @@ export function setDashboardKpisLoading(loading) {
   row.setAttribute("aria-busy", loading ? "true" : "false");
 }
 
+const KPI_HIST_KEY = "dp_dashboard_kpi_hist_v1";
+
+function parseExamTimeMs(v) {
+  if (v == null || v === "") return null;
+  if (typeof v === "object" && typeof v.toDate === "function") {
+    var d0 = v.toDate();
+    return d0 && !isNaN(d0.getTime()) ? d0.getTime() : null;
+  }
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v.getTime();
+  if (typeof v === "string") {
+    var d1 = new Date(v);
+    return isNaN(d1.getTime()) ? null : d1.getTime();
+  }
+  return null;
+}
+
+function startOfWeekMondayMs(d) {
+  var x = new Date(d);
+  var day = (x.getDay() + 6) % 7;
+  x.setDate(x.getDate() - day);
+  x.setHours(0, 0, 0, 0);
+  return x.getTime();
+}
+
+function thisCalendarWeekRangeMs() {
+  var start = startOfWeekMondayMs(new Date());
+  return { start: start, end: start + 7 * 86400000 };
+}
+
+function prevCalendarWeekRangeMs() {
+  var tw = thisCalendarWeekRangeMs();
+  return { start: tw.start - 7 * 86400000, end: tw.start };
+}
+
+function appointmentCountBetween(appointments, sortTimeFn, startMs, endMs) {
+  if (typeof sortTimeFn !== "function") return 0;
+  var n = 0;
+  (appointments || []).forEach(function (ap) {
+    var t = sortTimeFn(ap);
+    if (!t || typeof t !== "number") return;
+    if (t >= startMs && t < endMs) n++;
+  });
+  return n;
+}
+
+function examAggBetween(exams, startMs, endMs) {
+      var count = 0;
+      var tytSum = 0;
+      var tytN = 0;
+  (exams || []).forEach(function (ex) {
+        var t =
+          parseExamTimeMs(ex.examDate) ||
+          parseExamTimeMs(ex.date) ||
+          parseExamTimeMs(ex.$createdAt);
+        if (t == null) return;
+        if (t < startMs || t >= endMs) return;
+        count++;
+        var typ = String(ex.examType || ex.tur || ex.type || "")
+          .toUpperCase()
+          .trim();
+        if (typ.indexOf("TYT") !== 0 && typ !== "TYT") return;
+        var net = parseFloat(String(ex.net != null ? ex.net : "").replace(",", "."), 10);
+        if (!isNaN(net)) {
+          tytSum += net;
+          tytN++;
+        }
+      });
+  return { count: count, avgTyt: tytN > 0 ? tytSum / tytN : null };
+}
+
+function recordAndGetKpiHistory(activeStudents) {
+  try {
+    var now = Date.now();
+    var arr = JSON.parse(localStorage.getItem(KPI_HIST_KEY) || "[]");
+    if (!Array.isArray(arr)) arr = [];
+    var dayKey = new Date().toDateString();
+    var last = arr[arr.length - 1];
+    if (!last || last.day !== dayKey || last.active !== activeStudents) {
+      arr.push({ t: now, active: activeStudents, day: dayKey });
+    }
+    arr = arr.filter(function (x) {
+      return x && now - x.t < 45 * 86400000;
+    });
+    localStorage.setItem(KPI_HIST_KEY, JSON.stringify(arr));
+    return arr;
+  } catch (_e) {
+    return [];
+  }
+}
+
+function nearestHistoryActive(history, targetMs, maxDeltaMs) {
+  var best = null;
+  (history || []).forEach(function (x) {
+    if (!x || typeof x.active !== "number") return;
+    var d = Math.abs(x.t - targetMs);
+    if (d <= maxDeltaMs && (!best || d < best.d)) best = { v: x.active, d: d };
+  });
+  return best ? best.v : null;
+}
+
+/**
+ * @returns {{ html: string, className: string }}
+ */
+function formatWeekOverWeekPct(cur, prev, opts) {
+  var inv = !!(opts && opts.invertColors);
+  if (prev == null || isNaN(prev)) {
+    return { html: '<span class="dashboard-kpi-trend__muted">Önceki hafta veri yok</span>', className: "" };
+  }
+  if (prev === 0 && cur === 0) {
+    return { html: '<span class="dashboard-kpi-trend__muted">Değişim yok</span>', className: "" };
+  }
+  if (prev === 0) {
+    return {
+      html:
+        '<i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i> Yeni dönem verisi',
+      className: inv ? "dashboard-kpi-trend dashboard-kpi-trend--down" : "dashboard-kpi-trend dashboard-kpi-trend--up",
+    };
+  }
+  var p = ((cur - prev) / prev) * 100;
+  var up = p >= 0;
+  var good = inv ? !up : up;
+  var icon = up ? "fa-arrow-trend-up" : "fa-arrow-trend-down";
+  var cls = good ? "dashboard-kpi-trend dashboard-kpi-trend--up" : "dashboard-kpi-trend dashboard-kpi-trend--down";
+  return {
+    html:
+      '<i class="fa-solid ' +
+      icon +
+      '" aria-hidden="true"></i> Önceki haftaya göre <strong>' +
+      (up ? "+" : "−") +
+      Math.abs(p).toFixed(1) +
+      "%</strong>",
+    className: cls,
+  };
+}
+
+function formatWeekOverWeekAbs(cur, prev, unit) {
+  if (prev == null || isNaN(prev)) {
+    return { html: '<span class="dashboard-kpi-trend__muted">Önceki hafta veri yok</span>', className: "" };
+  }
+  var diff = cur - prev;
+  if (Math.abs(diff) < (unit === "net" ? 0.05 : 0.5)) {
+    return { html: '<span class="dashboard-kpi-trend__muted">Önceki haftaya göre stabil</span>', className: "" };
+  }
+  var up = diff > 0;
+  var icon = up ? "fa-arrow-trend-up" : "fa-arrow-trend-down";
+  var cls =
+    unit === "net"
+      ? up
+        ? "dashboard-kpi-trend dashboard-kpi-trend--up"
+        : "dashboard-kpi-trend dashboard-kpi-trend--down"
+      : up
+        ? "dashboard-kpi-trend dashboard-kpi-trend--up"
+        : "dashboard-kpi-trend dashboard-kpi-trend--down";
+  var u = unit === "net" ? " net" : "";
+  var magStr = unit === "net" ? Math.abs(diff).toFixed(1) : String(Math.round(Math.abs(diff)));
+  return {
+    html:
+      '<i class="fa-solid ' +
+      icon +
+      '" aria-hidden="true"></i> Önceki haftaya göre <strong>' +
+      (up ? "+" : "−") +
+      magStr +
+      u +
+      "</strong>",
+    className: cls,
+  };
+}
+
+function setKpiTrendElement(idSuffix, formatted) {
+  var el = document.getElementById("kpiTrend" + idSuffix);
+  if (!el) return;
+  el.className = "dashboard-kpi-card__trend " + (formatted.className || "");
+  el.innerHTML = formatted.html;
+}
+
 export function computeAvgNetAchievementPct(students) {
   var pcts = [];
   (students || []).forEach(function (s) {
@@ -93,7 +268,7 @@ export function computeAvgNetAchievementPct(students) {
   );
 }
 
-function renderDashboardInsightText(students, exams, weekApptCount, examCount) {
+function renderDashboardInsightText(students, exams, weekApptCount, examTotalCount, weekExamCount) {
   var insight = document.getElementById("dashboardInsightText");
   if (!insight) return;
   var pct = computeAvgNetAchievementPct(students);
@@ -108,12 +283,16 @@ function renderDashboardInsightText(students, exams, weekApptCount, examCount) {
     parts.push(
       "Net hedef grafiği için öğrencilerde <strong>güncel net</strong> ve <strong>hedef net</strong> alanlarını doldurun."
     );
+  var wEx =
+    weekExamCount != null ? weekExamCount : 0;
   parts.push(
     " Bu hafta <strong>" +
       weekApptCount +
-      "</strong> randevu; panelde <strong>" +
-      examCount +
-      "</strong> deneme kaydı."
+      "</strong> randevu ve <strong>" +
+      wEx +
+      "</strong> yeni deneme; kurumda toplam <strong>" +
+      examTotalCount +
+      "</strong> deneme kaydı var."
   );
   insight.innerHTML = parts.join("");
 }
@@ -171,7 +350,13 @@ function setKpiTextAnimated(el, nextStr, kind) {
 }
 
 /**
- * @param {{ getStudents: () => unknown[], getExams: () => unknown[], countWeekAppointments: () => number }} deps
+ * @param {{
+ *   getStudents: () => unknown[],
+ *   getExams: () => unknown[],
+ *   countWeekAppointments: () => number,
+ *   getAppointments?: () => unknown[],
+ *   appointmentSortTime?: (ap: unknown) => number
+ * }} deps
  * @param {{ animate?: boolean } | undefined} opts
  */
 export function renderDashboardKpis(deps, opts) {
@@ -183,6 +368,10 @@ export function renderDashboardKpis(deps, opts) {
   var animate = !!(opts && opts.animate === true);
   var students = deps.getStudents();
   var exams = deps.getExams();
+  var appointments = deps.getAppointments ? deps.getAppointments() : [];
+  var sortAp = deps.appointmentSortTime;
+  var tw = thisCalendarWeekRangeMs();
+  var pw = prevCalendarWeekRangeMs();
   var active = (students || []).filter(function (s) {
     return (s.status || "Aktif") !== "Pasif";
   }).length;
@@ -195,6 +384,9 @@ export function renderDashboardKpis(deps, opts) {
     elS.setAttribute("data-kpi-last", String(active));
     elA.setAttribute("data-kpi-last", String(deps.countWeekAppointments()));
   }
+  var exThis = examAggBetween(exams, tw.start, tw.end);
+  var exPrev = examAggBetween(exams, pw.start, pw.end);
+
   var tytExams = (exams || []).filter(function (e) {
     var x = String(e.examType || e.type || e.tur || "")
       .toUpperCase()
@@ -221,19 +413,70 @@ export function renderDashboardKpis(deps, opts) {
       }
     });
   }
-  var nextNet = c > 0 ? (sum / c).toFixed(1) : "—";
+  var nextNet;
+  var nextNetNum;
+  if (exThis.avgTyt != null) {
+    nextNetNum = exThis.avgTyt;
+    nextNet = nextNetNum.toFixed(1);
+  } else {
+    nextNet = c > 0 ? (sum / c).toFixed(1) : "—";
+    nextNetNum = c > 0 ? sum / c : null;
+  }
   if (animate) {
     if (nextNet === "—") {
       setKpiTextAnimated(elN, "—", "dash");
     } else {
       setKpiTextAnimated(elN, nextNet, "avg");
     }
-    setKpiTextAnimated(elE, String((exams || []).length), "int");
+    setKpiTextAnimated(elE, String(exThis.count), "int");
   } else {
     elN.textContent = nextNet;
-    elE.textContent = String((exams || []).length);
+    elE.textContent = String(exThis.count);
     elN.setAttribute("data-kpi-last", nextNet);
-    elE.setAttribute("data-kpi-last", String((exams || []).length));
+    elE.setAttribute("data-kpi-last", String(exThis.count));
   }
-  renderDashboardInsightText(students, exams, deps.countWeekAppointments(), (exams || []).length);
+
+  var hist = recordAndGetKpiHistory(active);
+  var prevActive = nearestHistoryActive(hist, Date.now() - 7 * 86400000, 80 * 3600000);
+  var apThis = appointmentCountBetween(appointments, sortAp, tw.start, tw.end);
+  var apPrev = appointmentCountBetween(appointments, sortAp, pw.start, pw.end);
+
+  var curWeekApptCount =
+    typeof deps.countWeekAppointments === "function" ? deps.countWeekAppointments() : apThis;
+
+  var f1 = formatWeekOverWeekPct(active, prevActive, { invertColors: false });
+  setKpiTrendElement("Students", f1);
+
+  var f2 = formatWeekOverWeekPct(apThis, apPrev, { invertColors: false });
+  setKpiTrendElement("Appts", f2);
+
+  if (exThis.avgTyt != null && exPrev.avgTyt != null) {
+    setKpiTrendElement("Net", formatWeekOverWeekAbs(exThis.avgTyt, exPrev.avgTyt, "net"));
+  } else if (exThis.avgTyt != null) {
+    setKpiTrendElement("Net", {
+      html: '<span class="dashboard-kpi-trend__muted">Önceki hafta TYT denemesi yok — kıyas yok</span>',
+      className: "",
+    });
+  } else if (nextNetNum != null) {
+    setKpiTrendElement("Net", {
+      html: '<span class="dashboard-kpi-trend__muted">Bu hafta TYT yok; kurum ortalaması gösteriliyor</span>',
+      className: "",
+    });
+  } else {
+    setKpiTrendElement("Net", {
+      html: '<span class="dashboard-kpi-trend__muted">TYT net verisi girilmedi</span>',
+      className: "",
+    });
+  }
+
+  var f4 = formatWeekOverWeekPct(exThis.count, exPrev.count, { invertColors: false });
+  setKpiTrendElement("Exams", f4);
+
+  renderDashboardInsightText(
+    students,
+    exams,
+    curWeekApptCount,
+    (exams || []).length,
+    exThis.count
+  );
 }

@@ -21,6 +21,7 @@ import {
 import "./appwrite-config.js";
 import { Query as AQuery } from "./appwrite-browser.js";
 import { APPWRITE_DATABASE_ID } from "./appwrite-config.js";
+import { persistDereceAuthIdentity } from "./coach-auth-session.js";
 
 /** Koç, öğrenci ve kurucu girişinde kullanıcı adı bu alan adıyla e-postaya çevrilir (Appwrite createEmailPasswordSession). @koc.com vb. kullanılmaz. */
 const EMAIL_DOMAIN = "@sistem.com";
@@ -262,6 +263,9 @@ async function resolveAndRedirectByProfile(user) {
   try {
     var profile = await ensureProfileSynchronized(user, "coach", "");
     if (!profile || !profile.role) return;
+    persistDereceAuthIdentity({ $id: user.uid, email: user.email || "" }, profile, {
+      minimal: isKurucuRole(profile.role),
+    });
     if (profile.role === "student") {
       window.location.replace("/ogrenci-panel");
       return;
@@ -429,11 +433,11 @@ loginFormEl.addEventListener("submit", async function (e) {
       return;
     }
     var displayUsername = profile.username || rawUser.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
-    localStorage.setItem("currentUser", displayUsername);
+    persistDereceAuthIdentity({ $id: u.uid, email: u.email || "" }, profile, {
+      minimal: isKurucuRole(profile.role),
+    });
     try {
-      localStorage.setItem("yksRole", profile.role || "");
-      localStorage.setItem("yksStudentName", profile.fullName || profile.displayName || "");
-      localStorage.setItem("yksCoachId", profile.coach_id || profile.coachId || "");
+      localStorage.setItem("currentUser", displayUsername);
     } catch (e) {}
     if (profile.role === "student") {
       try {

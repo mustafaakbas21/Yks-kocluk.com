@@ -1,4 +1,4 @@
-import { ID, Query as AQuery, Account } from "./appwrite-browser.js";
+import { ID, Query as AQuery, Account, Permission, Role } from "./appwrite-browser.js";
 import {
   client,
   databases,
@@ -25,6 +25,92 @@ export function logAppwriteError(where, error) {
 
 const db = { kind: "appwrite-db" };
 const account = new Account(client);
+
+/**
+ * Koç izolasyonu: `coach_id` alanı + belge ACL (oturum Appwrite `$id`).
+ * Not: `coach_id` veri alanında genelde koç kullanıcı adı; ACL `Role.user(session.$id)` ile eşleşir.
+ */
+const COACH_SCOPED_COLLECTION_IDS = new Set(["students", "exams", "appointments"]);
+
+var __dataCoachId = "";
+var __aclUserId = "";
+var __skipDocumentAcl = false;
+/** @type {((studentDocId: string) => boolean) | null} */
+var __examStudentGuard = null;
+
+/**
+ * Koç paneli oturumu: sorgu filtresi + yeni belge izinleri.
+ * @param {{ coachIdForQueries?: string, appwriteUserId?: string, skipDocumentAcl?: boolean }} opts
+ */
+export function setCoachDataIsolation(opts) {
+  opts = opts || {};
+  __dataCoachId = String(opts.coachIdForQueries || "").trim();
+  __aclUserId = String(opts.appwriteUserId || "").trim();
+  __skipDocumentAcl = !!opts.skipDocumentAcl;
+}
+
+export function clearCoachDataIsolation() {
+  __dataCoachId = "";
+  __aclUserId = "";
+  __skipDocumentAcl = false;
+  __examStudentGuard = null;
+}
+
+/**
+ * `exams` oluşturmadan önce studentId doğrulaması (koçun öğrenci listesi).
+ * @param {(studentDocId: string) => boolean | null} fn
+ */
+export function setExamStudentGuard(fn) {
+  __examStudentGuard = typeof fn === "function" ? fn : null;
+}
+
+function isCoachScopedCollection(collectionId) {
+  return COACH_SCOPED_COLLECTION_IDS.has(String(collectionId || ""));
+}
+
+function constraintsIncludeCoachIdEqual(constraints) {
+  return (constraints || []).some(function (c) {
+    return c && c.__type === "where" && c.field === "coach_id" && c.op === "==";
+  });
+}
+
+function queriesArrayMentionsCoachId(queries) {
+  return (queries || []).some(function (q) {
+    var s = typeof q === "string" ? q : String(q && q.toString ? q.toString() : q || "");
+    return /coach_id/i.test(s);
+  });
+}
+
+function buildScopedDocumentPermissions() {
+  if (__skipDocumentAcl || !__aclUserId) return undefined;
+  if (!Permission || !Role || typeof Permission.read !== "function" || typeof Role.user !== "function") {
+    return undefined;
+  }
+  try {
+    var uid = __aclUserId;
+    return [Permission.read(Role.user(uid)), Permission.write(Role.user(uid))];
+  } catch (_e) {
+    return undefined;
+  }
+}
+
+function mergeCoachIdIntoPayload(collectionId, payload) {
+  if (!isCoachScopedCollection(collectionId) || !__dataCoachId) return;
+  if (payload.coach_id != null && String(payload.coach_id).trim() !== "") return;
+  if (payload.coachId != null && String(payload.coachId).trim() !== "") return;
+  payload.coach_id = __dataCoachId;
+}
+
+function validateExamPayloadBeforeNormalize(raw) {
+  var sid = raw.studentId != null ? raw.studentId : raw.student_id;
+  sid = sid != null ? String(sid).trim() : "";
+  if (!sid) {
+    throw new Error("Deneme kaydı için geçerli öğrenci (studentId) zorunludur.");
+  }
+  if (__examStudentGuard && !__examStudentGuard(sid)) {
+    throw new Error("Deneme yalnızca paneldeki kendi öğrencilerinize atanabilir (studentId doğrulanamadı).");
+  }
+}
 
 /** Oturum yenileme aralığı (çok sık account.get isteğini keser) */
 const AUTH_REFRESH_INTERVAL_MS = 120000;
@@ -241,9 +327,24 @@ function compileConstraints(constraints) {
 
 export async function addDoc(collectionRef, data) {
   const c = parseCollectionRef(collectionRef.pathSegments);
-  const payload = normalizeValue(data || {});
+  const raw = data || {};
+  if (c.collectionId === "exams") {
+    if (__dataCoachId && !__examStudentGuard) {
+      throw new Error("Öğrenci listesi henüz doğrulanmadı. Birkaç saniye bekleyip tekrar deneyin.");
+    }
+    validateExamPayloadBeforeNormalize(raw);
+  }
+  const payload = normalizeValue(raw);
+  mergeCoachIdIntoPayload(c.collectionId, payload);
+  const perms = isCoachScopedCollection(c.collectionId) ? buildScopedDocumentPermissions() : undefined;
   try {
-    const res = await databases.createDocument(APPWRITE_DATABASE_ID, c.collectionId, ID.unique(), payload);
+    const res = await databases.createDocument(
+      APPWRITE_DATABASE_ID,
+      c.collectionId,
+      ID.unique(),
+      payload,
+      perms
+    );
     return { id: res.$id };
   } catch (err) {
     if (__isWriteMissingCollectionError(err)) {
@@ -270,7 +371,16 @@ export async function addDoc(collectionRef, data) {
 
 export async function setDoc(docRef, data) {
   const d = parseDocRef(docRef.pathSegments);
-  const payload = normalizeValue(data || {});
+  const raw = data || {};
+  if (d.collectionId === "exams" && (raw.studentId != null || raw.student_id != null)) {
+    if (__dataCoachId && !__examStudentGuard) {
+      throw new Error("Öğrenci listesi henüz doğrulanmadı. Birkaç saniye bekleyip tekrar deneyin.");
+    }
+    validateExamPayloadBeforeNormalize(raw);
+  }
+  const payload = normalizeValue(raw);
+  mergeCoachIdIntoPayload(d.collectionId, payload);
+  const docPerms = isCoachScopedCollection(d.collectionId) ? buildScopedDocumentPermissions() : undefined;
   function softReturn(err) {
     if (__isWriteMissingCollectionError(err) || __isPermissionLikeError(err)) {
       __blacklistedCollections.add(d.collectionId);
@@ -289,7 +399,7 @@ export async function setDoc(docRef, data) {
     const sr = softReturn(_e);
     if (sr) return sr;
     try {
-      await databases.createDocument(APPWRITE_DATABASE_ID, d.collectionId, d.docId, payload);
+      await databases.createDocument(APPWRITE_DATABASE_ID, d.collectionId, d.docId, payload, docPerms);
     } catch (err) {
       const sr2 = softReturn(err);
       if (sr2) return sr2;
@@ -369,7 +479,23 @@ export async function databasesListDocumentsOrSoft(arg1, arg2, arg3) {
   }
 
   try {
-    return useObject ? await databases.listDocuments(arg1) : await databases.listDocuments(databaseId, collectionId, arg3 || []);
+    if (useObject) {
+      const qIn = Array.isArray(arg1.queries) ? arg1.queries.slice() : [];
+      var qObj = qIn;
+      if (__dataCoachId && isCoachScopedCollection(collectionId) && !queriesArrayMentionsCoachId(qObj)) {
+        qObj = [AQuery.equal("coach_id", __dataCoachId)].concat(qObj);
+      }
+      return await databases.listDocuments(
+        Object.assign({}, arg1, {
+          queries: qObj,
+        })
+      );
+    }
+    var qList = Array.isArray(arg3) ? arg3.slice() : [];
+    if (__dataCoachId && isCoachScopedCollection(collectionId) && !queriesArrayMentionsCoachId(qList)) {
+      qList = [AQuery.equal("coach_id", __dataCoachId)].concat(qList);
+    }
+    return await databases.listDocuments(databaseId, collectionId, qList);
   } catch (err) {
     if (__is404ishError(err) || __isCollectionMissingError(err)) {
       __blacklistedCollections.add(collectionId);
@@ -390,11 +516,27 @@ export async function databasesListDocumentsOrSoft(arg1, arg2, arg3) {
 }
 
 /** Doğrudan `databases.createDocument` — izin / eksik koleksiyon: __softFail */
-export async function databasesCreateDocumentOrSoft(databaseId, collectionId, documentId, data) {
+export async function databasesCreateDocumentOrSoft(databaseId, collectionId, documentId, data, permissionsOverride) {
   const cid = String(collectionId || "");
-  const payload = normalizeValue(data || {});
+  const raw = data || {};
+  if (cid === "exams") {
+    if (__dataCoachId && !__examStudentGuard) {
+      return { __softFail: true, message: "Öğrenci listesi henüz doğrulanmadı." };
+    }
+    try {
+      validateExamPayloadBeforeNormalize(raw);
+    } catch (ve) {
+      return { __softFail: true, message: String((ve && ve.message) || ve) };
+    }
+  }
+  const payload = normalizeValue(raw);
+  mergeCoachIdIntoPayload(cid, payload);
+  var perms = permissionsOverride;
+  if (perms === undefined && isCoachScopedCollection(cid)) {
+    perms = buildScopedDocumentPermissions();
+  }
   try {
-    return await databases.createDocument(databaseId, cid, documentId, payload);
+    return await databases.createDocument(databaseId, cid, documentId, payload, perms);
   } catch (err) {
     if (__isWriteMissingCollectionError(err) || __isPermissionLikeError(err)) {
       __blacklistedCollections.add(cid);
@@ -509,6 +651,9 @@ export async function getDocs(refOrQuery) {
     return makeDocsSnapshot([]);
   }
   const queries = compileConstraints(constraints);
+  if (__dataCoachId && isCoachScopedCollection(c.collectionId) && !constraintsIncludeCoachIdEqual(constraints)) {
+    queries.unshift(AQuery.equal("coach_id", __dataCoachId));
+  }
   queries.push(AQuery.limit(500));
   try {
     const res = await databases.listDocuments(APPWRITE_DATABASE_ID, c.collectionId, queries);
@@ -583,7 +728,7 @@ const authState = {
  * Appwrite oturumu gerçekten bitmiş mi (401 / unauthorized)?
  * Geçici ağ veya 5xx hatalarında false döner — oturum düşürülmez.
  */
-function __isAppwriteSessionInvalidError(e) {
+export function isAppwriteSessionInvalidError(e) {
   if (!e) return false;
   var code = e.code;
   var type = String(e.type || "").toLowerCase();
@@ -605,7 +750,7 @@ async function refreshCurrentUser() {
     const u = await account.get();
     authState.currentUser = makeAuthUser(u);
   } catch (e) {
-    if (__isAppwriteSessionInvalidError(e)) {
+    if (isAppwriteSessionInvalidError(e)) {
       authState.currentUser = null;
     } else if (authState.currentUser) {
       console.warn(

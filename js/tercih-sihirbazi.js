@@ -294,34 +294,81 @@ function uniqueSorted(values) {
   });
 }
 
-function uniqueUniversiteler(rows) {
-  return uniqueSorted(
-    rows.map(function (r) {
-      return r.Universite;
-    })
-  );
+/**
+ * Çapraz filtre: her eksen için diğer iki seçime göre benzersiz seçenekler (tek geçişte 3× tarama).
+ * @param {object[]} rows
+ * @param {{ city?: string, universite?: string, bolum?: string }} sel
+ */
+function buildCrossOptionSets(rows, sel) {
+  var c0 = String((sel && sel.city) || "").trim();
+  var u0 = String((sel && sel.universite) || "").trim();
+  var b0 = String((sel && sel.bolum) || "").trim();
+  var cityS = new Set();
+  var uniS = new Set();
+  var bolS = new Set();
+  var i;
+  var r;
+  var sc;
+  var u;
+  var b;
+  for (i = 0; i < rows.length; i++) {
+    r = rows[i];
+    sc = String(r.Sehir || "").trim();
+    u = r.Universite || "";
+    b = r.Bolum || "";
+    if (u0 && u !== u0) continue;
+    if (b0 && b !== b0) continue;
+    if (sc) cityS.add(sc);
+  }
+  for (i = 0; i < rows.length; i++) {
+    r = rows[i];
+    sc = String(r.Sehir || "").trim();
+    u = r.Universite || "";
+    b = r.Bolum || "";
+    if (c0 && sc !== c0) continue;
+    if (b0 && b !== b0) continue;
+    if (u) uniS.add(u);
+  }
+  for (i = 0; i < rows.length; i++) {
+    r = rows[i];
+    sc = String(r.Sehir || "").trim();
+    u = r.Universite || "";
+    b = r.Bolum || "";
+    if (c0 && sc !== c0) continue;
+    if (u0 && u !== u0) continue;
+    if (b) bolS.add(b);
+  }
+  return {
+    cities: uniqueSorted(Array.from(cityS)),
+    unis: uniqueSorted(Array.from(uniS)),
+    bolums: uniqueSorted(Array.from(bolS)),
+  };
 }
 
-function uniqueSehirler(rows) {
-  return uniqueSorted(
-    rows.map(function (r) {
-      return r.Sehir;
-    })
-  );
-}
-
-function bolumlerForUniversite(rows, uniName) {
-  var u = String(uniName || "").trim();
-  if (!u) return [];
-  var list = rows
-    .filter(function (r) {
-      return r.Universite === u;
-    })
-    .map(function (r) {
-      return r.Bolum;
-    })
-    .filter(Boolean);
-  return uniqueSorted(list);
+/**
+ * Geçersiz kısımları temizle (ör. şehir değişince bölüm artık yoksa).
+ * @param {object[]} rows
+ * @param {{ city: string, universite: string, bolum: string }} sel
+ */
+function pruneGeoSelectionsAgainstRows(rows, sel) {
+  var k;
+  for (k = 0; k < 8; k++) {
+    var o = buildCrossOptionSets(rows, sel);
+    var bad = false;
+    if (sel.city && o.cities.indexOf(sel.city) === -1) {
+      sel.city = "";
+      bad = true;
+    }
+    if (sel.universite && o.unis.indexOf(sel.universite) === -1) {
+      sel.universite = "";
+      bad = true;
+    }
+    if (sel.bolum && o.bolums.indexOf(sel.bolum) === -1) {
+      sel.bolum = "";
+      bad = true;
+    }
+    if (!bad) break;
+  }
 }
 
 function canonPuanTuru(raw) {
@@ -1191,71 +1238,112 @@ export function initTercihSihirbazi(options) {
     renderTableWithPagination(tableScroll, combinedPager ? tableScroll : pagerEl, filtered, pageSize);
   }
 
-  function rebuildCityOptions() {
-    if (!citySel) return;
-    var cities = uniqueSehirler(allRows);
-    citySel.innerHTML = '<option value="">Tüm şehirler</option>';
-    for (var i = 0; i < cities.length; i++) {
-      var o = document.createElement("option");
-      o.value = cities[i];
-      o.textContent = cities[i];
-      citySel.appendChild(o);
+  var _tsGeoSyncing = false;
+
+  function readGeoSelections() {
+    return {
+      city: citySel ? String(citySel.value || "").trim() : "",
+      universite: uniSel ? String(uniSel.value || "").trim() : "",
+      bolum: deptSel ? String(deptSel.value || "").trim() : "",
+    };
+  }
+
+  function applyGeoSelectionsToDom(sel) {
+    if (citySel) citySel.value = sel.city || "";
+    if (uniSel) uniSel.value = sel.universite || "";
+    if (deptSel) deptSel.value = sel.bolum || "";
+  }
+
+  function populateGeoNative(opts) {
+    if (citySel) {
+      citySel.innerHTML = '<option value="">Tüm şehirler</option>';
+      for (var ci = 0; ci < opts.cities.length; ci++) {
+        var oc = document.createElement("option");
+        oc.value = opts.cities[ci];
+        oc.textContent = opts.cities[ci];
+        citySel.appendChild(oc);
+      }
+    }
+    if (uniSel) {
+      uniSel.innerHTML = '<option value="">— Tüm üniversiteler —</option>';
+      for (var uj = 0; uj < opts.unis.length; uj++) {
+        var ou = document.createElement("option");
+        ou.value = opts.unis[uj];
+        ou.textContent = opts.unis[uj];
+        uniSel.appendChild(ou);
+      }
+    }
+    if (deptSel) {
+      deptSel.removeAttribute("disabled");
+      deptSel.innerHTML = '<option value="">Bölüm Ara/Seçin</option>';
+      for (var bi = 0; bi < opts.bolums.length; bi++) {
+        var ob = document.createElement("option");
+        ob.value = opts.bolums[bi];
+        ob.textContent = opts.bolums[bi];
+        deptSel.appendChild(ob);
+      }
     }
   }
 
-  function rebuildUniversityOptions(cityFilter) {
-    if (!uniSel) return;
-    var c = String(cityFilter || "").trim();
-    var rows = allRows;
-    if (c) {
-      rows = allRows.filter(function (r) {
-        return String(r.Sehir || "").trim() === c;
-      });
-    }
-    var unis = uniqueUniversiteler(rows);
-    uniSel.innerHTML = '<option value="">— Tüm üniversiteler —</option>';
-    for (var j = 0; j < unis.length; j++) {
-      var o2 = document.createElement("option");
-      o2.value = unis[j];
-      o2.textContent = unis[j];
-      uniSel.appendChild(o2);
-    }
-  }
-
-  function rowsForDeptCascade() {
-    var cityF = citySel ? String(citySel.value || "").trim() : "";
-    if (!cityF) return allRows;
-    return allRows.filter(function (r) {
-      return String(r.Sehir || "").trim() === cityF;
-    });
-  }
-
-  function fillDepartmentForUni(uniName) {
-    if (!deptSel) return;
+  function rebindGeoSelect2() {
+    tsDestroySelect2(citySel);
+    tsDestroySelect2(uniSel);
     tsDestroySelect2(deptSel);
-    var u = String(uniName || "").trim();
-    if (!u) {
-      deptSel.innerHTML = '<option value="">— Önce üniversite seçin —</option>';
-      deptSel.disabled = true;
-      tsBindSelect2On(deptSel, "Önce üniversite seçin");
-      return;
+    if (citySel) tsBindSelect2On(citySel, "Şehir");
+    if (uniSel) tsBindSelect2On(uniSel, "Üniversite seçin");
+    if (deptSel) tsBindSelect2On(deptSel, "Bölüm Ara/Seçin");
+  }
+
+  function syncGeoCrossFilter() {
+    if (_tsGeoSyncing) return;
+    _tsGeoSyncing = true;
+    try {
+      var sel = readGeoSelections();
+      pruneGeoSelectionsAgainstRows(allRows, sel);
+      var opts = buildCrossOptionSets(allRows, sel);
+      tsDestroySelect2(citySel);
+      tsDestroySelect2(uniSel);
+      tsDestroySelect2(deptSel);
+      populateGeoNative(opts);
+      applyGeoSelectionsToDom(sel);
+      rebindGeoSelect2();
+    } finally {
+      _tsGeoSyncing = false;
     }
-    deptSel.disabled = false;
-    deptSel.removeAttribute("disabled");
-    var bolumler = bolumlerForUniversite(rowsForDeptCascade(), u);
-    deptSel.innerHTML = '<option value="">— Tüm bölümler (daraltmak için seçin) —</option>';
-    for (var i = 0; i < bolumler.length; i++) {
-      var o = document.createElement("option");
-      o.value = bolumler[i];
-      o.textContent = bolumler[i];
-      deptSel.appendChild(o);
+  }
+
+  function fullGeoRepopulateFromDataset() {
+    var empty = { city: "", universite: "", bolum: "" };
+    var opts = buildCrossOptionSets(allRows, empty);
+    tsDestroySelect2(citySel);
+    tsDestroySelect2(uniSel);
+    tsDestroySelect2(deptSel);
+    populateGeoNative(opts);
+    applyGeoSelectionsToDom(empty);
+  }
+
+  function bindGeoCrossFilterListenersOnce() {
+    if (!form || form.dataset.tsGeoCrossBound) return;
+    form.dataset.tsGeoCrossBound = "1";
+    function onGeoAny() {
+      if (_tsGeoSyncing) return;
+      syncGeoCrossFilter();
     }
-    tsBindSelect2On(deptSel, "Bölüm seçin");
+    var geoEv = "change.tsGeoCross select2:select.tsGeoCross select2:clear.tsGeoCross";
+    if (typeof jQuery !== "undefined" && jQuery.fn.select2) {
+      if (citySel) jQuery(citySel).off(".tsGeoCross").on(geoEv, onGeoAny);
+      if (uniSel) jQuery(uniSel).off(".tsGeoCross").on(geoEv, onGeoAny);
+      if (deptSel) jQuery(deptSel).off(".tsGeoCross").on(geoEv, onGeoAny);
+    } else {
+      if (citySel) citySel.addEventListener("change", onGeoAny);
+      if (uniSel) uniSel.addEventListener("change", onGeoAny);
+      if (deptSel) deptSel.addEventListener("change", onGeoAny);
+    }
   }
 
   function bindAllSelect2() {
     if (uniSel) tsBindSelect2On(uniSel, "Üniversite seçin");
-    if (deptSel) tsBindSelect2On(deptSel, "Önce üniversite seçin");
+    if (deptSel) tsBindSelect2On(deptSel, "Bölüm Ara/Seçin");
     if (citySel) tsBindSelect2On(citySel, "Şehir");
     var puanEl = form.querySelector('[name="puanTuru"]');
     var utEl = form.querySelector('[name="uniType"]');
@@ -1320,12 +1408,8 @@ export function initTercihSihirbazi(options) {
     allRows = getAllFlatRows();
     resetAuxiliaryFilters();
 
-    if (citySel) tsDestroySelect2(citySel);
-    if (uniSel) tsDestroySelect2(uniSel);
-    if (deptSel) tsDestroySelect2(deptSel);
-
-    rebuildCityOptions();
-    rebuildUniversityOptions("");
+    fullGeoRepopulateFromDataset();
+    bindGeoCrossFilterListenersOnce();
 
     if (form && programTurEl) form.dataset.tsSuppressProgramReload = "1";
     bindAllSelect2();
@@ -1334,60 +1418,6 @@ export function initTercihSihirbazi(options) {
         if (form) delete form.dataset.tsSuppressProgramReload;
       });
     });
-
-    if (citySel && !citySel.dataset.tsCityCascadeBound) {
-      citySel.dataset.tsCityCascadeBound = "1";
-      function onCityChanged() {
-        var c = String(citySel.value || "").trim();
-        if (uniSel) {
-          tsDestroySelect2(uniSel);
-          rebuildUniversityOptions(c);
-          tsBindSelect2On(uniSel, "Üniversite seçin");
-        }
-        try {
-          if (uniSel && typeof jQuery !== "undefined" && jQuery.fn.select2) {
-            jQuery(uniSel).val(null).trigger("change");
-          } else if (uniSel) {
-            uniSel.value = "";
-            fillDepartmentForUni("");
-          }
-        } catch (_ce) {}
-      }
-      if (typeof jQuery !== "undefined" && jQuery.fn.select2) {
-        jQuery(citySel)
-          .off(".tsCityCascade")
-          .on("change.tsCityCascade select2:clear.tsCityCascade", onCityChanged);
-      } else {
-        citySel.addEventListener("change", onCityChanged);
-      }
-    }
-
-    if (uniSel && !uniSel.dataset.tsUniDeptSyncBound) {
-      uniSel.dataset.tsUniDeptSyncBound = "1";
-      function onUniChanged() {
-        var name = String(uniSel.value || "").trim();
-        fillDepartmentForUni(name);
-        try {
-          if (deptSel && typeof jQuery !== "undefined" && jQuery.fn.select2) {
-            jQuery(deptSel).val(null).trigger("change");
-          }
-        } catch (_e) {}
-      }
-      if (typeof jQuery !== "undefined" && jQuery.fn.select2) {
-        jQuery(uniSel)
-          .off(".tsWizard")
-          .on("change.tsWizard select2:select.tsWizard select2:clear.tsWizard", onUniChanged);
-      } else {
-        uniSel.addEventListener("change", onUniChanged);
-      }
-    }
-    var uidAfter = uniSel ? String(uniSel.value || "").trim() : "";
-    fillDepartmentForUni(uidAfter);
-    try {
-      if (deptSel && typeof jQuery !== "undefined" && jQuery.fn.select2) {
-        jQuery(deptSel).trigger("change");
-      }
-    } catch (_e2) {}
 
     showDefaultPreview();
   }

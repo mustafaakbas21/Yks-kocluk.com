@@ -10,3 +10,6 @@ export const Storage = sdk.Storage;
 export const Account = sdk.Account;
 export const ID = sdk.ID;
 export const Query = sdk.Query;
+/** Belge düzeyi izinler — `databases.createDocument(..., permissions)` (SDK ≥ 13) */
+export const Permission = sdk.Permission || null;
+export const Role = sdk.Role || null;

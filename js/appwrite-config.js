@@ -86,6 +86,9 @@ export const APPWRITE_COLLECTION_SHARED_BOARDS = "SharedBoards";
  * Kurulum: `node setup-appwrite.js` veya `node appwrite-setup.js` — veya setup-appwrite.js dosya başındaki Console adımları.
  */
 export const APPWRITE_COLLECTION_MESSAGES = "messages";
+/** Oturum profili — `login.js` / koç kapısı ile uyumlu (Appwrite Console ID’leri) */
+export const APPWRITE_COLLECTION_USERS = "users";
+export const APPWRITE_COLLECTION_COACHES = "coaches";
 
 const client = new Client()
   .setEndpoint(APPWRITE_ENDPOINT)
@@ -95,6 +98,74 @@ const databases = new Databases(client);
 const storage = new Storage(client);
 
 export { client, databases, storage };
+
+/**
+ * Appwrite Realtime — tüm veritabanı belgeleri (`*.create` / `*.update` / `*.delete`).
+ * @see https://appwrite.io/docs/apis/realtime
+ */
+export const APPWRITE_REALTIME_DB_DOCUMENTS_CHANNEL =
+  "databases." + APPWRITE_DATABASE_ID + ".collections.*.documents";
+
+/**
+ * @param {(response: { events?: string[], payload?: object }) => void} handler
+ * @param {string[] | undefined} fallbackCollectionIds — wildcard desteklenmezse koleksiyon başına abonelik
+ * @returns {() => void}
+ */
+export function subscribeAppwriteDatabaseDocuments(handler, fallbackCollectionIds) {
+  /** @type {(() => void)[]} */
+  const unsubs = [];
+
+  /**
+   * @returns {"sync"|"async"|false}
+   */
+  function attachChannel(channel) {
+    try {
+      if (typeof client.subscribe !== "function") {
+        console.warn("[Appwrite Realtime] client.subscribe yok; CDN SDK sürümünü kontrol edin.");
+        return false;
+      }
+      /** @type {unknown} */
+      let ret;
+      try {
+        ret = client.subscribe(channel, handler);
+      } catch (_e0) {
+        ret = client.subscribe([channel], handler);
+      }
+      if (ret != null && typeof ret.then === "function") {
+        ret
+          .then(function (u) {
+            if (typeof u === "function") unsubs.push(u);
+          })
+          .catch(function () {});
+        return "async";
+      }
+      if (typeof ret === "function") {
+        unsubs.push(ret);
+        return "sync";
+      }
+    } catch (e) {
+      console.warn("[Appwrite Realtime] Kanal açılamadı:", channel, e && e.message ? e.message : e);
+    }
+    return false;
+  }
+
+  var wild = attachChannel(APPWRITE_REALTIME_DB_DOCUMENTS_CHANNEL);
+  if (wild !== "sync" && wild !== "async" && Array.isArray(fallbackCollectionIds) && fallbackCollectionIds.length) {
+    fallbackCollectionIds.forEach(function (cid) {
+      var ch = "databases." + APPWRITE_DATABASE_ID + ".collections." + String(cid) + ".documents";
+      attachChannel(ch);
+    });
+  }
+
+  return function unsubscribeAppwriteDatabaseDocuments() {
+    unsubs.forEach(function (fn) {
+      try {
+        fn();
+      } catch (_e) {}
+    });
+    unsubs.length = 0;
+  };
+}
 
 export function pingAppwriteBackend() {
   return client.ping();

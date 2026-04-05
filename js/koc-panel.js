@@ -18,16 +18,26 @@ import { initOptikAdvancedBindings } from "./optik-advanced-module.js";
 import { findAtlasProgramById } from "./yok-atlas-data.js";
 import {
   ensureHedefSimulatorAppwriteData,
+  getAllHedefPrograms,
   getHedefAppwriteUniversities,
   getDedupedProgramsForUniversity,
   hedefUniDisplayName,
   hedefProgramDisplayName,
 } from "./hedef-appwrite-catalog.js";
 import {
-  buildSimulatorRows,
-  netTemplateTableHtml,
+  buildUniBolumCrossOptionSets,
+  fetchYokAtlasLisansFlatRows,
+  findBestCatalogProgramForFlatSelection,
+  pruneUniBolumSelections,
+} from "./net-sihirbazi-atlas-flat.js";
+import {
+  buildMotorDisplayRows,
+  buildProgramFromAppwriteV2,
+  hedefSimulatorComparisonHtml,
+} from "./net-sihirbazi-engine.js";
+import { createCurrentNetForRowResolver } from "./net-sihirbazi-branch-nets.js";
+import {
   sumGap,
-  parseStudentNetVal as parseStudentNetValAtlas,
   normalizeStudentYksAlanKey,
   studentAytTableSectionTitle,
   filterSimulatorRowsForStudentAlan,
@@ -65,6 +75,9 @@ import {
   verifyAppwriteAccount,
   getAppSettings,
   isAppwriteWriteSoftFailure,
+  setCoachDataIsolation,
+  setExamStudentGuard,
+  clearCoachDataIsolation,
 } from "./appwrite-compat.js";
 import {
   saveSoruHavuzuEntry,
@@ -102,15 +115,21 @@ import {
   initDashboardYksCountdownWidget,
   renderDashboardKpis,
   setDashboardKpisLoading,
-} from "./dashboard-stats.js";
-import {
   configureDashboardCharts,
   fetchAndRenderAppointmentChart,
   renderAppointmentsChart,
   renderNetBasariChart,
   initDashboardMeetingActivityToggles,
-} from "./dashboard-charts.js";
-import { configureDashboardActivities, refreshDashboardMeetingActivity } from "./dashboard-activities.js";
+  renderInstitutionNetTrendChart,
+  renderDashboardAppointmentIntensityBar,
+  configureDashboardInsights,
+  renderDashboardInsightTable,
+} from "./dashboard.js";
+import {
+  configureDashboardActivities,
+  refreshDashboardMeetingActivity,
+  getDashboardMeetingLogsSnapshot,
+} from "./dashboard-activities.js";
 import { initGorusmeOdasiCockpit } from "./gorusme-odasi-cockpit.js";
 import { initMrCockpit, refreshMrIfActive } from "./mr-cockpit.js";
 import { initCoachInboxChatView, destroyCoachInboxChatView } from "./coach-inbox-chat.js";
@@ -121,6 +140,22 @@ import {
   YKS_AVATAR_ALL_40_URLS,
   getDicebearFallbackForFileId,
 } from "./yks-avatar-pack.js";
+import { getCoachPanelGate, getLastCoachGateResult, DP_LOGIN_PATH } from "./coach-auth-session.js";
+import { fetchAppwriteUserProfile } from "./derece-profile-resolve.js";
+import {
+  showToast,
+  showToastPersistent,
+  hidePanelToast,
+  dpToastApiSuccess,
+  dpToastApiError,
+  dpFormatApiError,
+  dpClearFieldErrors,
+  dpSetFieldError,
+  dpFocusField,
+  dpParseDecimalField,
+} from "./dp-ui-feedback.js";
+
+await getCoachPanelGate();
 
 /** Aktif görünüme göre deneme/optik net kuralı (ÖSYM / Y3). */
 function coachNetFromBranchDy(d, y) {
@@ -271,13 +306,16 @@ function showImpersonateBanner(coachUsername) {
 }
 
 /**
- * Appwrite şemasında `coach_id` indeksi/alanı yoksa sorgu 400 verir.
- * Tüm koleksiyonlar için düz liste; koç izolasyonu `filterSnapshotDocsByCoach` ile istemcide.
+ * `students` / `exams` / `appointments`: sunucu tarafı `coach_id` filtresi (veri sızıntısı önleme).
+ * Diğer koleksiyonlar: `filterSnapshotDocsByCoach` ile istemci süzgeci.
  */
 function coachQuery(collectionName) {
   var cid = getCoachIdResolved();
   if (!cid) return null;
   var name = String(collectionName || "");
+  if (name === "students" || name === "exams" || name === "appointments") {
+    return query(collection(db, name), where("coach_id", "==", cid));
+  }
   return query(collection(db, name));
 }
 
@@ -3424,6 +3462,124 @@ function firestoreDocExists(snap) {
 }
 
 var dpHedefRadarChart = null;
+/** @type {object[]|null} */
+var dpHsFlatRows = null;
+var dpHsSyncing = false;
+
+function dpHsDestroySelect2(el) {
+  if (!el || typeof jQuery === "undefined" || !jQuery.fn.select2) return;
+  var $e = jQuery(el);
+  if ($e.length && $e.hasClass("select2-hidden-accessible")) $e.select2("destroy");
+}
+
+function dpHsRebindSelect2(uSel, dSel) {
+  dpHsDestroySelect2(uSel);
+  dpHsDestroySelect2(dSel);
+  if (typeof jQuery === "undefined" || !jQuery.fn.select2) return;
+  var lang = {
+    noResults: function () {
+      return "Sonuç yok";
+    },
+    searching: function () {
+      return "Aranıyor…";
+    },
+  };
+  jQuery(uSel).select2({
+    width: "100%",
+    placeholder: "Üniversite ara / seçin",
+    allowClear: true,
+    language: lang,
+  });
+  jQuery(dSel).select2({
+    width: "100%",
+    placeholder: "Bölüm ara / seçin",
+    allowClear: true,
+    language: lang,
+  });
+}
+
+function dpHsSyncCrossFilter(uSel, dSel) {
+  if (!dpHsFlatRows || !uSel || !dSel) return;
+  dpHsSyncing = true;
+  try {
+    var sel = {
+      universite: String(uSel.value || "").trim(),
+      bolum: String(dSel.value || "").trim(),
+    };
+    pruneUniBolumSelections(dpHsFlatRows, sel);
+    var opts = buildUniBolumCrossOptionSets(dpHsFlatRows, sel);
+    dpHsDestroySelect2(uSel);
+    dpHsDestroySelect2(dSel);
+    uSel.innerHTML = '<option value="">— Üniversite seçin —</option>';
+    opts.unis.forEach(function (u) {
+      var o = document.createElement("option");
+      o.value = u;
+      o.textContent = u;
+      uSel.appendChild(o);
+    });
+    dSel.innerHTML = '<option value="">Bölüm ara / seçin</option>';
+    opts.bolums.forEach(function (b) {
+      var o2 = document.createElement("option");
+      o2.value = b;
+      o2.textContent = b;
+      dSel.appendChild(o2);
+    });
+    uSel.value = sel.universite || "";
+    dSel.value = sel.bolum || "";
+    dpHsRebindSelect2(uSel, dSel);
+  } finally {
+    dpHsSyncing = false;
+  }
+}
+
+function dpHsWireAtlasSelectsOnce() {
+  var uSel = document.getElementById("dpHsUniSelect");
+  var dSel = document.getElementById("dpHsDeptSelect");
+  if (!uSel || !dSel || !dpHsFlatRows || uSel.dataset.dpHsWired) return;
+  uSel.dataset.dpHsWired = "1";
+  function schedule() {
+    requestAnimationFrame(function () {
+      if (dpHsSyncing) return;
+      dpHsSyncCrossFilter(uSel, dSel);
+      renderDpHedefSimulatorChartsOnly();
+    });
+  }
+  var empty = { universite: "", bolum: "" };
+  var opts = buildUniBolumCrossOptionSets(dpHsFlatRows, empty);
+  uSel.innerHTML = '<option value="">— Üniversite seçin —</option>';
+  opts.unis.forEach(function (u) {
+    var ou = document.createElement("option");
+    ou.value = u;
+    ou.textContent = u;
+    uSel.appendChild(ou);
+  });
+  dSel.innerHTML = '<option value="">Bölüm ara / seçin</option>';
+  opts.bolums.forEach(function (b) {
+    var ob = document.createElement("option");
+    ob.value = b;
+    ob.textContent = b;
+    dSel.appendChild(ob);
+  });
+  dSel.disabled = false;
+  dpHsRebindSelect2(uSel, dSel);
+  if (typeof jQuery !== "undefined" && jQuery.fn.select2) {
+    jQuery(uSel).on("change.dpHs select2:select.dpHs select2:clear.dpHs", schedule);
+    jQuery(dSel).on("change.dpHs select2:select.dpHs select2:clear.dpHs", schedule);
+  } else {
+    uSel.addEventListener("change", schedule);
+    dSel.addEventListener("change", schedule);
+  }
+}
+
+function dpHsAlanKeyForResolver(pdoc, prog) {
+  var pg = prog && prog.puanGroup;
+  if (pg === "ea") return "esit_agirlik";
+  if (pg === "sozel") return "sozel";
+  if (pg === "dil") return "dil";
+  if (pg === "tyt_only") return "sayisal";
+  if (pg === "sayisal") return "sayisal";
+  return String(pdoc && pdoc.alanKey != null ? pdoc.alanKey : "sayisal");
+}
 
 function dpHedefNormKey(s) {
   return String(s || "")
@@ -3471,6 +3627,7 @@ function dpHedefClearSimulatorVisuals() {
   var tableWrap = document.getElementById("dpHedefNetTableWrap");
   var probBlock = document.getElementById("dpHedefProbBlock");
   var subGaps = document.getElementById("dpHedefPerSubjectGaps");
+  var examWarn = document.getElementById("dpHedefExamWarn");
   if (dpHedefRadarChart) {
     try {
       dpHedefRadarChart.destroy();
@@ -3482,6 +3639,10 @@ function dpHedefClearSimulatorVisuals() {
   if (tableWrap) tableWrap.innerHTML = "";
   if (probBlock) probBlock.hidden = true;
   if (subGaps) subGaps.innerHTML = "";
+  if (examWarn) {
+    examWarn.hidden = true;
+    examWarn.innerHTML = "";
+  }
 }
 
 function renderDpHedefSimulatorChartsOnly() {
@@ -3495,221 +3656,268 @@ function renderDpHedefSimulatorChartsOnly() {
   var contentEl = document.getElementById("dpHedefSimulatorContent");
   var uniEl = document.getElementById("dpHedefUniTitle");
   var bolEl = document.getElementById("dpHedefBolumSub");
+  var examWarn = document.getElementById("dpHedefExamWarn");
+  var uSel = document.getElementById("dpHsUniSelect");
+  var dSel = document.getElementById("dpHsDeptSelect");
+
+  var uniName = uSel ? String(uSel.value || "").trim() : "";
+  var bolName = dSel ? String(dSel.value || "").trim() : "";
+
+  if (emptyEl) emptyEl.hidden = true;
+  if (contentEl) contentEl.hidden = false;
+
+  if (!uniName || !bolName) {
+    dpHedefClearSimulatorVisuals();
+    if (uniEl) uniEl.textContent = "Hedef program seçin";
+    if (bolEl) bolEl.textContent = "Üstteki üniversite ve bölümü seçin; ardından öğrenci seçerek karşılaştırın.";
+    if (examWarn) {
+      examWarn.hidden = true;
+      examWarn.innerHTML = "";
+    }
+    return;
+  }
+
+  var universities = getHedefAppwriteUniversities();
+  var programs = getAllHedefPrograms();
+  var match = findBestCatalogProgramForFlatSelection(uniName, bolName, universities, programs);
+  if (!match) {
+    dpHedefClearSimulatorVisuals();
+    if (uniEl) uniEl.textContent = uniName;
+    if (bolEl) bolEl.textContent = bolName;
+    if (tableWrap) {
+      tableWrap.innerHTML =
+        '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">yks-data.json içinde bu üniversite/bölüm için eşleşen program bulunamadı.</p>';
+    }
+    if (examWarn) {
+      examWarn.hidden = true;
+      examWarn.innerHTML = "";
+    }
+    return;
+  }
+
+  var prog = buildProgramFromAppwriteV2(match.uniDoc, match.programDoc, { exactYokAtlasTargets: true });
+  if (!prog || !prog.rows || !prog.rows.length) {
+    dpHedefClearSimulatorVisuals();
+    if (uniEl) uniEl.textContent = hedefUniDisplayName(match.uniDoc) || uniName;
+    if (bolEl) bolEl.textContent = hedefProgramDisplayName(match.programDoc) || bolName;
+    if (tableWrap) {
+      tableWrap.innerHTML =
+        '<p class="net-sihirbazi-placeholder net-sihirbazi-placeholder--warn">Bu program için YÖK hedef net alanları katalogda yok.</p>';
+    }
+    if (examWarn) {
+      examWarn.hidden = true;
+      examWarn.innerHTML = "";
+    }
+    return;
+  }
+
+  if (uniEl) uniEl.textContent = prog.university || hedefUniDisplayName(match.uniDoc) || uniName;
+  if (bolEl) bolEl.textContent = prog.department || hedefProgramDisplayName(match.programDoc) || bolName;
 
   var stSel = document.getElementById("studentSelect");
   var sid = stSel && stSel.value ? String(stSel.value) : "";
   var student = sid ? cachedStudents.find(function (x) { return x.id === sid; }) : null;
 
-  if (!sid || !student) {
-    dpHedefClearSimulatorVisuals();
-    if (uniEl) uniEl.textContent = "Öğrenci seçin";
-    if (bolEl) bolEl.textContent = "Soldan bir öğrenci seçerek hedef simülasyonunu görün.";
-    if (emptyEl) emptyEl.hidden = true;
-    if (contentEl) contentEl.hidden = true;
-    return;
-  }
+  var examPromise = sid
+    ? sdFetchStudentExamAnalyticsDocs(sid, getCoachId())
+    : Promise.resolve([]);
 
-  var tu = String(student.targetUniversity || "").trim();
-  var td = String(student.targetDepartment || "").trim();
+  examPromise
+    .then(function (exams) {
+      exams = Array.isArray(exams) ? exams : [];
+      var noExamData = !sid || exams.length === 0;
+      if (examWarn) {
+        if (sid && exams.length === 0) {
+          examWarn.hidden = false;
+          examWarn.innerHTML =
+            '<div class="rounded-xl border border-amber-200/90 bg-amber-50 px-4 py-3 text-sm text-amber-950">' +
+            "<strong>Karşılaştırma için deneme ekleyin.</strong> Seçili öğrencinin Appwrite <code class=\"text-xs\">exams</code> kayıtlarında YKS branş detayı (yksBranchDetail) yok veya hiç deneme yok." +
+            "</div>";
+        } else {
+          examWarn.hidden = true;
+          examWarn.innerHTML = "";
+        }
+      }
 
-  if (!tu || !td) {
-    dpHedefClearSimulatorVisuals();
-    if (uniEl) uniEl.textContent = "Hedef bekleniyor";
-    if (bolEl) bolEl.textContent = "";
-    if (emptyEl) emptyEl.hidden = false;
-    if (contentEl) contentEl.hidden = true;
-    return;
-  }
+      var alanKey = student ? normalizeStudentYksAlanKey(student) : "sayisal";
+      var alanKeyStr = dpHsAlanKeyForResolver(match.programDoc, prog);
+      var resolver = createCurrentNetForRowResolver(exams, alanKeyStr);
+      var display = buildMotorDisplayRows(prog, {
+        currentNetForRow: resolver,
+        exactYokAtlasTargets: true,
+      });
+      var forFilter = display.map(function (d) {
+        return {
+          label: d.label,
+          current: d.current,
+          target: d.target,
+          section: d.section,
+        };
+      });
+      var filtered = filterSimulatorRowsForStudentAlan(forFilter, alanKey);
+      var keep = Object.create(null);
+      filtered.forEach(function (x) {
+        keep[x.label] = true;
+      });
+      var displayFiltered = display.filter(function (d) {
+        return keep[d.label];
+      });
 
-  if (emptyEl) emptyEl.hidden = true;
-  if (contentEl) contentEl.hidden = false;
+      if (tableWrap) {
+        tableWrap.innerHTML = hedefSimulatorComparisonHtml(displayFiltered, prog, {
+          noExamData: noExamData,
+          tableFootnote:
+            "Fark = Güncel − Hedef. İlerleme çubuğu: güncel / hedef oranı (maks. %100). Öğrenci veya deneme yoksa güncel «Veri Yok».",
+        });
+      }
 
-  if (uniEl) uniEl.textContent = tu;
+      if (barsEl) barsEl.innerHTML = "";
 
-  var atlasProgram = dpHedefResolveExactAtlasFromStudent(student);
-  var studentLike = {
-    currentTytNet: student.currentTytNet,
-    targetTytNet: student.targetTytNet,
-  };
+      var chartRows = displayFiltered.map(function (d) {
+        return { label: d.label, current: d.current, target: d.target, section: d.section };
+      });
+      var totalGap = sumGap(chartRows);
+      if (gapEl) {
+        gapEl.textContent =
+          "Branş toplamı kalan (hedef − güncel, pozitifler): " + totalGap.toFixed(1) + " net.";
+      }
 
-  if (atlasProgram && bolEl) {
-    var srcNote =
-      atlasProgram.dataSource === "yok-atlas"
-        ? "YÖK Atlas — profil metniyle tam eşleşen program"
-        : "Katalog — profil metniyle tam eşleşen program";
-    bolEl.textContent = td + " — " + srcNote;
-  } else if (bolEl) {
-    bolEl.textContent =
-      td +
-      " — YÖK Atlas kataloğunda bu üniversite ve bölüm adıyla tam eşleşen satır bulunamadı; tablolar öğrenci netlerine göre örneklenir.";
-  }
+      var probBlock = document.getElementById("dpHedefProbBlock");
+      var probPct = document.getElementById("dpHedefProbPct");
+      var probFill = document.getElementById("dpHedefProbFill");
+      if (probBlock && probPct && probFill) {
+        if (chartRows.length) {
+          probBlock.hidden = false;
+          var pctP = computeHedefWinProbabilityPercent(chartRows, prog.baseScore2025);
+          probPct.textContent = "%" + pctP;
+          probFill.style.width = pctP + "%";
+          probFill.className = "dp-hedef-prob__fill " + hedefProbabilityBarClass(pctP);
+        } else {
+          probBlock.hidden = true;
+        }
+      }
 
-  var alanKey = normalizeStudentYksAlanKey(student);
-  var rows = buildSimulatorRows(atlasProgram, studentLike);
-  rows = filterSimulatorRowsForStudentAlan(rows, alanKey);
-  var labels = rows.map(function (r) {
-    return r.label;
-  });
-  var current = rows.map(function (r) {
-    return r.current;
-  });
-  var target = rows.map(function (r) {
-    return r.target;
-  });
-  var totalGap = sumGap(rows);
+      var subGaps = document.getElementById("dpHedefPerSubjectGaps");
+      if (subGaps) {
+        var need = chartRows
+          .filter(function (r) {
+            return r.target - r.current > 0.05;
+          })
+          .sort(function (a, b) {
+            return b.target - b.current - (a.target - a.current);
+          })
+          .slice(0, 12)
+          .map(function (r) {
+            var g = r.target - r.current;
+            return (
+              "<li><strong>" +
+              escapeHtml(r.label) +
+              "</strong> için yaklaşık <strong>" +
+              g.toFixed(1) +
+              "</strong> net daha gerekli.</li>"
+            );
+          })
+          .join("");
+        subGaps.innerHTML = need
+          ? '<p class="dp-hedef-subgap__title">Öncelikli açıklar</p><ul class="dp-hedef-subgap__list">' +
+            need +
+            "</ul>"
+          : '<p class="dp-hedef-subgap__muted">Tüm branşlarda hedefe yakınsınız veya veri eksik.</p>';
+      }
 
-  if (barsEl) {
-    barsEl.innerHTML = rows
-      .map(function (r) {
-        var denom = r.target > 0 ? r.target : 1;
-        var pct = Math.min(100, (r.current / denom) * 100);
-        var gap = Math.max(0, r.target - r.current);
-        var gapTxt = gap > 0 ? "−" + gap.toFixed(1) + " net" : "Hedefe ulaşıldı";
-        return (
-          '<div class="dp-hedef-bar-row"><span>' +
-          escapeHtml(r.label) +
-          '</span><div class="dp-track"><div class="dp-fill" style="width:' +
-          pct.toFixed(1) +
-          '%"></div></div><span>' +
-          r.current.toFixed(1) +
-          " / " +
-          r.target.toFixed(1) +
-          " · " +
-          escapeHtml(gapTxt) +
-          "</span></div>"
-        );
-      })
-      .join("");
-  }
-  if (gapEl) {
-    gapEl.textContent =
-      "Kalan net farkı (branş toplamı): " +
-      totalGap.toFixed(1) +
-      (atlasProgram
-        ? " — Hedef sütunu YÖK Atlas satırlarıyla aynı (tam eşleşme); güncel net TYT oranından ölçeklenir."
-        : parseStudentNetValAtlas(studentLike && studentLike.currentTytNet) != null
-          ? " — Tam Atlas eşleşmesi yok; TYT net alanından ölçeklendirilmiş örnek hedefler."
-          : " — Tam Atlas eşleşmesi yok; öğrenci netleri girilince güncellenir.");
-  }
-  if (tableWrap) {
-    tableWrap.innerHTML = netTemplateTableHtml(rows, { aytSectionTitle: studentAytTableSectionTitle(alanKey) });
-  }
+      var labels = chartRows.map(function (r) {
+        return r.label;
+      });
+      var current = chartRows.map(function (r) {
+        return r.current;
+      });
+      var target = chartRows.map(function (r) {
+        return r.target;
+      });
 
-  var probBlock = document.getElementById("dpHedefProbBlock");
-  var probPct = document.getElementById("dpHedefProbPct");
-  var probFill = document.getElementById("dpHedefProbFill");
-  var subGaps = document.getElementById("dpHedefPerSubjectGaps");
-  if (probBlock && probPct && probFill) {
-    if (atlasProgram && rows.length) {
-      probBlock.hidden = false;
-      var pctP = computeHedefWinProbabilityPercent(rows, atlasProgram.baseScore2025);
-      probPct.textContent = "%" + pctP;
-      probFill.style.width = pctP + "%";
-      probFill.className = "dp-hedef-prob__fill " + hedefProbabilityBarClass(pctP);
-    } else {
-      probBlock.hidden = true;
-    }
-  }
-  if (subGaps) {
-    var need = rows
-      .filter(function (r) {
-        return r.target - r.current > 0.05;
-      })
-      .sort(function (a, b) {
-        return b.target - b.current - (a.target - a.current);
-      })
-      .slice(0, 12)
-      .map(function (r) {
-        var g = r.target - r.current;
-        return (
-          "<li><strong>" +
-          escapeHtml(r.label) +
-          "</strong> dersinden yaklaşık <strong>" +
-          g.toFixed(1) +
-          "</strong> net daha yapmalısın.</li>"
-        );
-      })
-      .join("");
-    if (atlasProgram) {
-      subGaps.innerHTML = need
-        ? '<p class="dp-hedef-subgap__title">Net hedefi farkı</p><ul class="dp-hedef-subgap__list">' +
-          need +
-          '</ul><p class="dp-hedef-subgap__note">Hedef netler, profildeki hedefle YÖK Atlas’ta tam eşleşen program satırlarından gelir.</p>'
-        : '<p class="dp-hedef-subgap__muted">Bu programda tüm satırlarda hedefe ulaşılmış veya üzeri görünüyor.</p>';
-    } else {
-      subGaps.innerHTML = need
-        ? '<p class="dp-hedef-subgap__title">Net hedefi farkı (örnek hedefler)</p><ul class="dp-hedef-subgap__list">' +
-          need +
-          '</ul><p class="dp-hedef-subgap__note">YÖK Atlas’ta tam eşleşme yok; hedef netler öğrenci netlerine göre ölçeklenir. Profildeki üniversite ve bölüm adını katalogla birebir eşleştirin.</p>'
-        : '<p class="dp-hedef-subgap__muted">Atlas’ta tam eşleşen program bulunamadı veya henüz yeterli net yok; profildeki üniversite ve bölüm adını katalogla birebir eşleştirin.</p>';
-    }
-  }
-
-  var ctx = canvas.getContext("2d");
-  if (dpHedefRadarChart) {
-    dpHedefRadarChart.destroy();
-    dpHedefRadarChart = null;
-  }
-  dpHedefRadarChart = new Chart(ctx, {
-    type: "radar",
-    data: {
-      labels: labels,
-      datasets: [
-        {
-          label: "Güncel net",
-          data: current,
-          borderColor: "#6c5ce7",
-          backgroundColor: "rgba(108, 92, 231, 0.22)",
-          pointBackgroundColor: "#6c5ce7",
+      var ctx = canvas.getContext("2d");
+      if (dpHedefRadarChart) {
+        try {
+          dpHedefRadarChart.destroy();
+        } catch (_e) {}
+        dpHedefRadarChart = null;
+      }
+      if (!labels.length) {
+        return;
+      }
+      dpHedefRadarChart = new Chart(ctx, {
+        type: "radar",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "Güncel net",
+              data: current,
+              borderColor: "#6c5ce7",
+              backgroundColor: "rgba(108, 92, 231, 0.22)",
+              pointBackgroundColor: "#6c5ce7",
+            },
+            {
+              label: "Hedef net (YÖK)",
+              data: target,
+              borderColor: "#10b981",
+              backgroundColor: "rgba(16, 185, 129, 0.18)",
+              pointBackgroundColor: "#059669",
+            },
+          ],
         },
-        {
-          label: atlasProgram ? "Hedef net (YÖK Atlas)" : "Hedef net (örnek)",
-          data: target,
-          borderColor: "#10b981",
-          backgroundColor: "rgba(16, 185, 129, 0.18)",
-          pointBackgroundColor: "#059669",
+        options: {
+          scales: {
+            r: {
+              min: 0,
+              suggestedMax: 45,
+            },
+          },
+          plugins: {
+            legend: { position: "bottom" },
+          },
         },
-      ],
-    },
-    options: {
-      scales: {
-        r: {
-          min: 0,
-          suggestedMax: 45,
-        },
-      },
-      plugins: {
-        legend: { position: "bottom" },
-      },
-    },
-  });
+      });
+    })
+    .catch(function (err) {
+      console.error("[Hedef Simülatörü]", err);
+    });
 }
 
 function renderDpHedefSimulator() {
   var canvas = document.getElementById("dpHedefRadarCanvas");
   if (!canvas || typeof Chart === "undefined") return;
 
-  ensureHedefSimulatorAppwriteData().then(function () {
-    var sel = document.getElementById("studentSelect");
-    if (sel) {
-      var keep = sel.value;
-      sel.innerHTML = '<option value="">— Öğrenci seçin —</option>';
-      cachedStudents.forEach(function (s) {
-        var o = document.createElement("option");
-        o.value = s.id;
-        o.textContent = s.name || s.studentName || "Öğrenci";
-        sel.appendChild(o);
-      });
-      if (keep && cachedStudents.some(function (x) { return x.id === keep; })) sel.value = keep;
-      if (!sel.dataset.dpHedefStudentBound) {
-        sel.dataset.dpHedefStudentBound = "1";
-        sel.addEventListener("change", function () {
-          renderDpHedefSimulatorChartsOnly();
+  ensureHedefSimulatorAppwriteData()
+    .then(function () {
+      return fetchYokAtlasLisansFlatRows();
+    })
+    .then(function (rows) {
+      dpHsFlatRows = rows || [];
+      var sel = document.getElementById("studentSelect");
+      if (sel) {
+        var keep = sel.value;
+        sel.innerHTML = '<option value="">— Öğrenci seçin —</option>';
+        cachedStudents.forEach(function (s) {
+          var o = document.createElement("option");
+          o.value = s.id;
+          o.textContent = s.name || s.studentName || "Öğrenci";
+          sel.appendChild(o);
         });
+        if (keep && cachedStudents.some(function (x) { return x.id === keep; })) sel.value = keep;
+        if (!sel.dataset.dpHedefStudentBound) {
+          sel.dataset.dpHedefStudentBound = "1";
+          sel.addEventListener("change", function () {
+            renderDpHedefSimulatorChartsOnly();
+          });
+        }
       }
-    }
-    renderDpHedefSimulatorChartsOnly();
-  });
+      dpHsWireAtlasSelectsOnce();
+      renderDpHedefSimulatorChartsOnly();
+    })
+    .catch(function (e) {
+      console.error("[Hedef Simülatörü] yükleme:", e);
+    });
 }
 
 function initDpHedefSimulator() {
@@ -3855,6 +4063,24 @@ function examMatchesFilters(row) {
   return true;
 }
 
+/** Denemeler tam sayfa görünümü — `examsPageFilter` + arama */
+function examMatchesPageViewFilters(row) {
+  const tur = (row.examType || row.type || row.tur || "TYT").toUpperCase();
+  if (examsPageFilter === "TYT" && tur !== "TYT") return false;
+  if (examsPageFilter === "AYT" && tur !== "AYT") return false;
+  const q = searchQuery.trim().toLowerCase();
+  if (q) {
+    const blob =
+      (row.studentName || row.ogrenciAdi || row.name || "") +
+      " " +
+      tur +
+      " " +
+      (row.status || row.durum || "");
+    if (blob.toLowerCase().indexOf(q) === -1) return false;
+  }
+  return true;
+}
+
 function examRowHtml(row, colspan) {
   const ogrenci = row.studentName || row.ogrenciAdi || row.name || "—";
   const tur = (row.examType || row.type || row.tur || "TYT").toUpperCase();
@@ -3868,6 +4094,7 @@ function examRowHtml(row, colspan) {
     ? '<span class="status-ok"><i class="fa-solid fa-circle-check"></i> ' + escapeHtml(durum) + "</span>"
     : escapeHtml(durum);
   const eid = escapeHtml(row.id);
+  const tsSort = examDateSort(row);
   const actions =
     '<span class="crud-cell">' +
     '<button type="button" class="btn-crud btn-crud--edit" data-edit-exam="' +
@@ -3879,6 +4106,8 @@ function examRowHtml(row, colspan) {
   return (
     "<tr data-exam-id=\"" +
     eid +
+    "\" data-exam-ts=\"" +
+    String(tsSort) +
     "\"><td><strong>" +
     escapeHtml(ogrenci) +
     "</strong></td><td><span class=\"" +
@@ -4095,6 +4324,40 @@ function renderStudentDetailMuhasebeTab(studentId) {
   }
 }
 
+function buildStudentCardArticleHtml(s) {
+  var name = s.name || s.studentName || "Öğrenci";
+  var track = s.examGroup || s.track || s.paket || "TYT + AYT";
+  var sid = escapeHtml(s.id);
+  var rawAv = s.avatarUrl;
+  var src =
+    rawAv && /^https?:\/\//i.test(String(rawAv).trim())
+      ? String(rawAv).trim()
+      : buildStudentAvatarUrl(name, s.gender);
+  return (
+    '<article class="student-card" data-student-id="' +
+    sid +
+    '">' +
+    '<img src="' +
+    escapeHtml(src) +
+    '" alt="" width="80" height="80" loading="lazy" />' +
+    "<h3>" +
+    escapeHtml(name) +
+    "</h3>" +
+    "<p>" +
+    escapeHtml(track) +
+    '</p><div class="student-card__crud">' +
+    '<button type="button" class="btn-crud btn-crud--detail" data-student-detail="' +
+    sid +
+    '"><i class="fa-solid fa-id-card"></i> Detay</button>' +
+    '<button type="button" class="btn-crud btn-crud--edit" data-edit-student="' +
+    sid +
+    '"><i class="fa-solid fa-pen"></i> Düzenle</button>' +
+    '<button type="button" class="btn-crud btn-crud--del" data-del-student="' +
+    sid +
+    '"><i class="fa-solid fa-trash"></i> Sil</button></div></article>'
+  );
+}
+
 function renderStudentsPage() {
   var root = document.getElementById("studentsCardsRoot");
   if (!root) return;
@@ -4103,41 +4366,7 @@ function renderStudentsPage() {
       '<p class="table-empty" style="grid-column:1/-1;margin:0">Henüz öğrenci yok. <strong>Yeni Öğrenci</strong> ile ekleyin.</p>';
     return;
   }
-  root.innerHTML = cachedStudents
-    .map(function (s) {
-      var name = s.name || s.studentName || "Öğrenci";
-      var track = s.examGroup || s.track || s.paket || "TYT + AYT";
-      var sid = escapeHtml(s.id);
-      var rawAv = s.avatarUrl;
-      var src =
-        rawAv && /^https?:\/\//i.test(String(rawAv).trim())
-          ? String(rawAv).trim()
-          : buildStudentAvatarUrl(name, s.gender);
-      return (
-        '<article class="student-card" data-student-id="' +
-        sid +
-        '">' +
-        '<img src="' +
-        escapeHtml(src) +
-        '" alt="" width="80" height="80" loading="lazy" />' +
-        "<h3>" +
-        escapeHtml(name) +
-        "</h3>" +
-        "<p>" +
-        escapeHtml(track) +
-        '</p><div class="student-card__crud">' +
-        '<button type="button" class="btn-crud btn-crud--detail" data-student-detail="' +
-        sid +
-        '"><i class="fa-solid fa-id-card"></i> Detay</button>' +
-        '<button type="button" class="btn-crud btn-crud--edit" data-edit-student="' +
-        sid +
-        '"><i class="fa-solid fa-pen"></i> Düzenle</button>' +
-        '<button type="button" class="btn-crud btn-crud--del" data-del-student="' +
-        sid +
-        '"><i class="fa-solid fa-trash"></i> Sil</button></div></article>'
-      );
-    })
-    .join("");
+  root.innerHTML = cachedStudents.map(buildStudentCardArticleHtml).join("");
 }
 
 function renderMuhasebeStudentLedger() {
@@ -4406,16 +4635,21 @@ async function loadStudentPortalCredentialsForDetail(st) {
 async function studentDetailUpdatePortalPassword() {
   var sid = currentStudentDetailId;
   var st = sid ? cachedStudents.find(function (x) { return x.id === sid; }) : null;
-  if (!st || !st.studentAuthUid || !st.portalUsername) {
-    showToast("Portal hesabı yok veya eksik.");
+  if (!st) {
+    showToast("Öğrenci bulunamadı.");
     return;
   }
   var p1 = document.getElementById("sdPortalNewPass");
   var p2 = document.getElementById("sdPortalNewPass2");
   var a = p1 ? String(p1.value || "") : "";
   var b = p2 ? String(p2.value || "") : "";
-  if (a.length < 8) {
-    showToast("Yeni şifre en az 8 karakter olmalıdır.");
+  var u = sanitizeStudentPortalUsername(st.portalUsername || "");
+  if (!u) {
+    showToast("Önce öğrenci düzenlemeden portal kullanıcı adı tanımlayın.");
+    return;
+  }
+  if (a.length < 6) {
+    showToast("Yeni şifre en az 6 karakter olmalıdır.");
     return;
   }
   if (a !== b) {
@@ -4425,17 +4659,82 @@ async function studentDetailUpdatePortalPassword() {
   var btn = document.getElementById("btnStudentDetailChangePass");
   if (btn) btn.disabled = true;
   try {
-    var uref = doc(db, "users", st.studentAuthUid);
-    var us = await getDoc(uref);
-    var oldPass =
-      firestoreDocExists(us) && us.data().plainPassword ? String(us.data().plainPassword) : "";
-    if (!oldPass) {
-      showToast(
-        "Kayıtlı mevcut şifre bulunamadı. Öğrenci düzenlemeden portal şifresi atanmış olmalı veya şifre sıfırlama kullanın."
-      );
+    var uid = st.studentAuthUid ? String(st.studentAuthUid).trim() : "";
+    var usSnap = uid ? await getDoc(doc(db, "users", uid)) : null;
+    var hasPlain =
+      usSnap && firestoreDocExists(usSnap) && usSnap.data() && usSnap.data().plainPassword
+        ? String(usSnap.data().plainPassword)
+        : "";
+
+    /** Yeni Auth hesabı — öğrencide UID yok */
+    if (!uid) {
+      var email = u + STUDENT_EMAIL_DOMAIN;
+      var cred = await createEmailPasswordUserNoSession(email, a);
+      var _wrU = await setDoc(doc(db, "users", cred.user.uid), {
+        username: u,
+        role: "student",
+        coach_id: getCoachId(),
+        fullName: st.name || null,
+        frozen: false,
+        plainPassword: a,
+        createdAt: serverTimestamp(),
+        lastPasswordChangeAt: serverTimestamp(),
+      });
+      if (notifyIfWriteSoftFail(_wrU)) return;
+      var _wrSt = await updateDoc(doc(db, "students", st.id), { studentAuthUid: cred.user.uid });
+      if (notifyIfWriteSoftFail(_wrSt)) return;
+      var ix = cachedStudents.findIndex(function (x) {
+        return x.id === st.id;
+      });
+      if (ix >= 0) cachedStudents[ix].studentAuthUid = cred.user.uid;
+      try {
+        await signOut(studentCreatorAuth);
+      } catch (so0) {}
+      if (p1) p1.value = "";
+      if (p2) p2.value = "";
+      showToast("Öğrenci için giriş bilgileri başarıyla oluşturuldu ve tanımlandı.");
+      await loadStudentPortalCredentialsForDetail(ix >= 0 ? cachedStudents[ix] : st);
       return;
     }
-    var email = sdGetStudentPortalEmail(st.portalUsername);
+
+    var uref = doc(db, "users", uid);
+    var unameFromUserDoc =
+      usSnap && firestoreDocExists(usSnap) && usSnap.data().username ? String(usSnap.data().username).trim() : "";
+
+    /** plainPassword yok — otomatik tamamla */
+    if (!hasPlain) {
+      var emailTry = sdGetStudentPortalEmail(u || unameFromUserDoc);
+      try {
+        await signInWithEmailAndPassword(studentCreatorAuth, emailTry, a);
+        await updateDoc(uref, {
+          plainPassword: a,
+          username: u || unameFromUserDoc,
+          lastPasswordChangeAt: serverTimestamp(),
+        });
+        try {
+          await signOut(studentCreatorAuth);
+        } catch (so1) {}
+      } catch (e) {
+        console.warn("[portal] Detay şifre tamamlama (oturum yok):", e);
+        try {
+          await signOut(studentCreatorAuth);
+        } catch (so1b) {}
+        await updateDoc(uref, {
+          plainPassword: a,
+          username: u || unameFromUserDoc,
+          lastPasswordChangeAt: serverTimestamp(),
+        });
+      }
+      if (p1) p1.value = "";
+      if (p2) p2.value = "";
+      showToast("Öğrenci için giriş bilgileri başarıyla oluşturuldu ve tanımlandı.");
+      await loadStudentPortalCredentialsForDetail(st);
+      return;
+    }
+
+    /** Normal güncelleme */
+    var oldPass = hasPlain;
+    var email = sdGetStudentPortalEmail(u);
     await signInWithEmailAndPassword(studentCreatorAuth, email, oldPass);
     await updatePassword(a, oldPass);
     await updateDoc(uref, {
@@ -4447,12 +4746,12 @@ async function studentDetailUpdatePortalPassword() {
     } catch (so) {}
     if (p1) p1.value = "";
     if (p2) p2.value = "";
-    showToast("Öğrenci şifresi güncellendi.");
+    showToast("Giriş bilgileri başarıyla güncellendi.");
     await loadStudentPortalCredentialsForDetail(st);
   } catch (err) {
     console.error(err);
     var msg = err && err.message ? String(err.message) : "Hata";
-    if (err && err.code === "auth/wrong-password") msg = "Kayıtlı şifre uyuşmuyor. Öğrenci şifresini sıfırlanıp tekrar deneyin.";
+    if (err && err.code === "auth/wrong-password") msg = "Kayıtlı şifre uyuşmuyor.";
     if (err && err.code === "auth/weak-password") msg = "Şifre çok zayıf.";
     showToast("Şifre güncellenemedi: " + msg);
     try {
@@ -4466,8 +4765,8 @@ async function studentDetailUpdatePortalPassword() {
 async function studentDetailUpdatePortalUsername() {
   var sid = currentStudentDetailId;
   var st = sid ? cachedStudents.find(function (x) { return x.id === sid; }) : null;
-  if (!st || !st.studentAuthUid || !st.portalUsername) {
-    showToast("Portal hesabı yok veya eksik.");
+  if (!st || !st.portalUsername) {
+    showToast("Portal kullanıcı adı yok. Önce öğrenci düzenlemeden tanımlayın.");
     return;
   }
   var inp = document.getElementById("sdPortalNewUsername");
@@ -4477,37 +4776,76 @@ async function studentDetailUpdatePortalUsername() {
     showToast("Yeni kullanıcı adı yalnızca a-z, 0-9 ve _ içerebilir.");
     return;
   }
-  if (newU === String(st.portalUsername).trim()) {
+  var oldUSan = sanitizeStudentPortalUsername(st.portalUsername || "");
+  if (newU === oldUSan) {
     showToast("Bu kullanıcı adı zaten atanmış.");
     return;
   }
   if (!confirm("Giriş adresi «" + newU + "@sistem.com» olacak. Öğrenci eski adla giriş yapamaz. Devam?")) return;
   var btn = document.getElementById("btnStudentDetailChangePortalUser");
   if (btn) btn.disabled = true;
+  var pBoot = document.getElementById("sdPortalNewPass");
+  var bootstrapPw = pBoot ? String(pBoot.value || "").trim() : "";
   try {
-    var uref = doc(db, "users", st.studentAuthUid);
-    var us = await getDoc(uref);
-    var oldPass =
-      firestoreDocExists(us) && us.data().plainPassword ? String(us.data().plainPassword) : "";
-    if (!oldPass) {
-      showToast("Kayıtlı şifre yok; kullanıcı adı değiştirilemez.");
+    var uid = st.studentAuthUid ? String(st.studentAuthUid).trim() : "";
+    if (!uid) {
+      showToast("Önce portal şifresi ile hesap oluşturun (Şifre değiştir bölümü).");
       return;
     }
-    var oldEmail = sdGetStudentPortalEmail(st.portalUsername);
+    var uref = doc(db, "users", uid);
+    var us = await getDoc(uref);
+    var oldPass =
+      firestoreDocExists(us) && us.data() && us.data().plainPassword ? String(us.data().plainPassword) : "";
+    var oldEmail = sdGetStudentPortalEmail(oldUSan);
     var newEmail = sdGetStudentPortalEmail(newU);
+
+    /** Kayıtlı şifre yok: şifre alanından tamamlama şifresi kullan */
+    if (!oldPass) {
+      if (bootstrapPw.length < 6) {
+        showToast(
+          "Kayıtlı şifre olmadığı için önce «Yeni şifre» alanına en az 6 karakterlik şifre yazın; ardından kullanıcı adını değiştirin."
+        );
+        return;
+      }
+      try {
+        await signInWithEmailAndPassword(studentCreatorAuth, oldEmail, bootstrapPw);
+        await updateEmail(newEmail, bootstrapPw);
+        await updateDoc(uref, { username: newU });
+        await updateDoc(doc(db, "students", st.id), { portalUsername: newU });
+        try {
+          await signOut(studentCreatorAuth);
+        } catch (so) {}
+      } catch (e) {
+        console.warn("[portal] Kullanıcı adı tamamlama (oturum yok):", e);
+        try {
+          await signOut(studentCreatorAuth);
+        } catch (sob) {}
+        await updateDoc(uref, { username: newU });
+        await updateDoc(doc(db, "students", st.id), { portalUsername: newU });
+      }
+      var ix0 = cachedStudents.findIndex(function (x) {
+        return x.id === st.id;
+      });
+      if (ix0 >= 0) cachedStudents[ix0].portalUsername = newU;
+      if (inp) inp.value = "";
+      showToast("Öğrenci için giriş bilgileri başarıyla oluşturuldu ve tanımlandı.");
+      await loadStudentPortalCredentialsForDetail(ix0 >= 0 ? cachedStudents[ix0] : st);
+      return;
+    }
+
     await signInWithEmailAndPassword(studentCreatorAuth, oldEmail, oldPass);
     await updateEmail(newEmail, oldPass);
     await updateDoc(uref, { username: newU });
     await updateDoc(doc(db, "students", st.id), { portalUsername: newU });
     try {
       await signOut(studentCreatorAuth);
-    } catch (so) {}
+    } catch (so2) {}
     var ix = cachedStudents.findIndex(function (x) {
       return x.id === st.id;
     });
     if (ix >= 0) cachedStudents[ix].portalUsername = newU;
     if (inp) inp.value = "";
-    showToast("Kullanıcı adı güncellendi. Giriş: «" + newU + "».");
+    showToast("Giriş bilgileri başarıyla güncellendi.");
     await loadStudentPortalCredentialsForDetail(ix >= 0 ? cachedStudents[ix] : st);
   } catch (err) {
     console.error(err);
@@ -4517,7 +4855,7 @@ async function studentDetailUpdatePortalUsername() {
     showToast("Kullanıcı adı güncellenemedi: " + msg);
     try {
       await signOut(studentCreatorAuth);
-    } catch (so2) {}
+    } catch (so3) {}
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -7027,13 +7365,24 @@ async function refreshDashboardAnalytics(opts) {
         getExams: function () {
           return cachedExams;
         },
+        getAppointments: function () {
+          return cachedAppointments;
+        },
+        appointmentSortTime: appointmentSortTime,
         countWeekAppointments: countAppointmentsThisWeek,
       },
       { animate: animateKpi }
     );
+    renderInstitutionNetTrendChart(function () {
+      return cachedExams;
+    });
+    renderDashboardAppointmentIntensityBar(function () {
+      return cachedAppointments;
+    });
     renderNetBasariChart(function () {
       return cachedStudents;
     });
+    renderDashboardInsightTable();
     await refreshDashboardMeetingActivity();
   } catch (err) {
     console.warn("[dashboard analytics]", err);
@@ -7214,6 +7563,8 @@ async function fillProfileSettingsForm() {
 }
 
 async function submitProfileSettings() {
+  var modal = document.getElementById("profileSettingsModal");
+  if (modal) dpClearFieldErrors(modal);
   setProfileSettingsMsg("", false);
   var nEl = document.getElementById("profileDisplayName");
   var eEl = document.getElementById("profileEmail");
@@ -7227,58 +7578,73 @@ async function submitProfileSettings() {
   var nw2 = np2 ? String(np2.value || "") : "";
 
   if (!name) {
-    setProfileSettingsMsg("Ad soyad boş olamaz.", true);
+    setProfileSettingsTab(0);
+    dpSetFieldError("profileDisplayName", "Ad soyad boş olamaz.");
+    dpFocusField("profileDisplayName");
     return;
   }
   var emailCh = email && email !== String(profileSettingsInitial.email || "").toLowerCase().trim();
+  if (emailCh && eEl && !eEl.disabled) {
+    var emOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (!emOk) {
+      setProfileSettingsTab(0);
+      dpSetFieldError("profileEmail", "Geçerli bir e-posta adresi girin.");
+      dpFocusField("profileEmail");
+      return;
+    }
+  }
   var passCh = nw.length > 0 || nw2.length > 0;
   if ((emailCh || passCh) && cur.length < 1) {
-    setProfileSettingsMsg("E-posta veya şifre değişikliği için mevcut şifrenizi girin.", true);
+    setProfileSettingsTab(1);
+    dpSetFieldError("profileCurrentPassword", "E-posta veya şifre değişikliği için mevcut şifrenizi girin.");
+    dpFocusField("profileCurrentPassword");
     return;
   }
   if (passCh) {
     if (nw.length < 8) {
-      setProfileSettingsMsg("Yeni şifre en az 8 karakter olmalıdır.", true);
+      setProfileSettingsTab(1);
+      dpSetFieldError("profileNewPassword", "Yeni şifre en az 8 karakter olmalıdır.");
+      dpFocusField("profileNewPassword");
       return;
     }
     if (nw !== nw2) {
-      setProfileSettingsMsg("Yeni şifreler eşleşmiyor.", true);
+      setProfileSettingsTab(1);
+      dpSetFieldError("profileNewPassword2", "Yeni şifreler eşleşmiyor.");
+      dpFocusField("profileNewPassword2");
       return;
     }
   }
 
   var btn = document.getElementById("btnProfileSettingsSave");
-  if (btn) btn.disabled = true;
-  try {
-    if (name !== profileSettingsInitial.name) {
-      await updateAccountName(name);
-      try {
-        if (auth.currentUser && auth.currentUser.uid) {
-          await updateDoc(doc(db, "users", auth.currentUser.uid), { fullName: name, name: name });
-        }
-      } catch (eU) {}
+  await runWithSubmitButtonBusy(btn, async function () {
+    try {
+      if (name !== profileSettingsInitial.name) {
+        await updateAccountName(name);
+        try {
+          if (auth.currentUser && auth.currentUser.uid) {
+            await updateDoc(doc(db, "users", auth.currentUser.uid), { fullName: name, name: name });
+          }
+        } catch (eU) {}
+      }
+      if (emailCh && eEl && !eEl.disabled) {
+        await updateEmail(email, cur);
+      }
+      if (passCh) {
+        await updatePassword(nw, cur);
+      }
+      profileSettingsInitial.name = name;
+      profileSettingsInitial.email = email;
+      if (curPw) curPw.value = "";
+      if (np) np.value = "";
+      if (np2) np2.value = "";
+      updateCoachProfile();
+      dpToastApiSuccess();
+      closeModal("profileSettingsModal");
+    } catch (err) {
+      console.error(err);
+      dpToastApiError(dpFormatApiError(err));
     }
-    if (emailCh) {
-      await updateEmail(email, cur);
-    }
-    if (passCh) {
-      await updatePassword(nw, cur);
-    }
-    profileSettingsInitial.name = name;
-    profileSettingsInitial.email = email;
-    if (curPw) curPw.value = "";
-    if (np) np.value = "";
-    if (np2) np2.value = "";
-    updateCoachProfile();
-    showToast("Profil güncellendi.");
-    closeModal("profileSettingsModal");
-  } catch (err) {
-    console.error(err);
-    var msg = err && err.message ? String(err.message) : "Güncelleme başarısız.";
-    setProfileSettingsMsg(msg, true);
-  } finally {
-    if (btn) btn.disabled = false;
-  }
+  });
 }
 
 function openProfileSettingsModal() {
@@ -7486,6 +7852,13 @@ function onStudentsSnap(snap) {
   try {
     refreshMrIfActive();
   } catch (_e) {}
+  try {
+    setExamStudentGuard(function (sid) {
+      return (cachedStudents || []).some(function (x) {
+        return String(x.id) === String(sid);
+      });
+    });
+  } catch (_g) {}
 }
 
 function onPaymentsSnap(snap) {
@@ -9772,6 +10145,9 @@ function editStudent(studentId) {
   ev("editFieldType", s.fieldType != null && s.fieldType !== "" ? s.fieldType : s.yksAlan);
   ev("editCurrentTytNet", s.currentTytNet);
   ev("editTargetTytNet", s.targetTytNet);
+  ev("editStudentLoginUsername", s.portalUsername);
+  var elPw = document.getElementById("editStudentLoginPassword");
+  if (elPw) elPw.value = "";
   if (window.YksHedefUniPicker) {
     window.YksHedefUniPicker.init().then(function () {
       window.YksHedefUniPicker.fillEditForm(s.portalUsername, s.targetUniversity, s.targetDepartment);
@@ -9812,11 +10188,37 @@ function editStudent(studentId) {
   openModal("studentModal");
   if (addPane) addPane.hidden = true;
   if (editPane) editPane.hidden = false;
+  updateStudentEditSubmitButtonMode(s);
+}
+
+/** Öğrenci düzenle modalında: tam portal yoksa «Giriş Bilgisi Oluştur», aksi halde «Güncelle». */
+function updateStudentEditSubmitButtonMode(s) {
+  var btn = document.getElementById("btnStudentEditSubmit");
+  if (!btn || !s) return;
+  function setCreate(on) {
+    if (on) {
+      btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Giriş Bilgisi Oluştur';
+    } else {
+      btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Güncelle';
+    }
+  }
+  var u0 = sanitizeStudentPortalUsername(s.portalUsername || "");
+  var needsCreate = !s.studentAuthUid || !u0;
+  setCreate(needsCreate);
+  if (s.studentAuthUid) {
+    void getDoc(doc(db, "users", s.studentAuthUid))
+      .then(function (snap) {
+        var hasPlain = firestoreDocExists(snap) && snap.data() && snap.data().plainPassword;
+        if (!hasPlain) setCreate(true);
+      })
+      .catch(function () {});
+  }
 }
 
 async function submitStudentAddForm(e) {
   e.preventDefault();
   var form = e.target;
+  dpClearFieldErrors(form);
   var fd = new FormData(form);
   var data = {};
   fd.forEach(function (val, key) {
@@ -9827,18 +10229,44 @@ async function submitStudentAddForm(e) {
   data.gender = genEl ? genEl.value : "Erkek";
   var first = (data.firstName || "").trim();
   var last = (data.lastName || "").trim();
-  if (!first || !last) {
-    showToast("Ad ve soyad zorunludur.");
+  if (!first) {
+    setStudentErpTab(0);
+    dpSetFieldError("st_firstName", "Ad zorunludur.");
+    dpFocusField("st_firstName");
+    return;
+  }
+  if (!last) {
+    setStudentErpTab(0);
+    dpSetFieldError("st_lastName", "Soyad zorunludur.");
+    dpFocusField("st_lastName");
     return;
   }
   data.name = (first + " " + last).trim();
   if (!data.parentPhone) {
-    showToast("Veli telefonu zorunludur.");
+    setStudentErpTab(2);
+    dpSetFieldError("st_parentPhone", "Veli telefonu zorunludur.");
+    dpFocusField("st_parentPhone");
     return;
   }
   data.phone = data.parentPhone;
   if (data.tcKimlikNo && String(data.tcKimlikNo).replace(/\D/g, "").length !== 11) {
-    showToast("TCKN 11 hane olmalıdır (veya boş bırakın).");
+    setStudentErpTab(0);
+    dpSetFieldError("st_tcKimlikNo", "TCKN 11 hane olmalıdır (veya boş bırakın).");
+    dpFocusField("st_tcKimlikNo");
+    return;
+  }
+  var curNetChk = dpParseDecimalField(data.currentTytNet, { required: false, min: 0, max: 999 });
+  if (!curNetChk.ok) {
+    setStudentErpTab(1);
+    dpSetFieldError("st_currentTytNet", curNetChk.message || "Geçersiz net.");
+    dpFocusField("st_currentTytNet");
+    return;
+  }
+  var tgtNetChk = dpParseDecimalField(data.targetTytNet, { required: false, min: 0, max: 999 });
+  if (!tgtNetChk.ok) {
+    setStudentErpTab(1);
+    dpSetFieldError("st_targetTytNet", tgtNetChk.message || "Geçersiz net.");
+    dpFocusField("st_targetTytNet");
     return;
   }
   if (data.agreedTotalFee !== undefined && data.agreedTotalFee !== "") {
@@ -9866,15 +10294,21 @@ async function submitStudentAddForm(e) {
   if (wantAuth) {
     var u = sanitizeStudentPortalUsername(portalRaw);
     if (!u) {
-      showToast("Portal kullanıcı adı yalnızca a-z, 0-9 ve _ içerebilir (giriş için gerekli).");
+      setStudentErpTab(1);
+      dpSetFieldError("st_portalUsername", "Portal kullanıcı adı yalnızca a-z, 0-9 ve _ içerebilir.");
+      dpFocusField("st_portalUsername");
       return;
     }
     if (pass.length < 8) {
-      showToast("Giriş şifresi en az 8 karakter olmalıdır.");
+      setStudentErpTab(1);
+      dpSetFieldError("st_studentPassword", "Giriş şifresi en az 8 karakter olmalıdır.");
+      dpFocusField("st_studentPassword");
       return;
     }
     if (pass !== pass2) {
-      showToast("Şifreler eşleşmiyor.");
+      setStudentErpTab(1);
+      dpSetFieldError("st_studentPasswordConfirm", "Şifreler eşleşmiyor.");
+      dpFocusField("st_studentPasswordConfirm");
       return;
     }
     data.portalUsername = u;
@@ -9882,57 +10316,65 @@ async function submitStudentAddForm(e) {
     delete data.portalUsername;
   }
 
-  try {
-    data.createdAt = serverTimestamp();
-    data.coach_id = getCoachId();
+  var btn = document.getElementById("btnStudentSubmit");
+  await runWithSubmitButtonBusy(btn, async function () {
+    try {
+      data.createdAt = serverTimestamp();
+      data.coach_id = getCoachId();
 
-    var authProvisioned = false;
-    if (wantAuth) {
-      var email = data.portalUsername + STUDENT_EMAIL_DOMAIN;
-      try {
-        var cred = await createEmailPasswordUserNoSession(email, pass);
-        var _wrSetStudentUser = await setDoc(doc(db, "users", cred.user.uid), {
-          username: data.portalUsername,
-          role: "student",
-          coach_id: getCoachId(),
-          fullName: data.name || null,
-          frozen: false,
-          plainPassword: pass,
-          createdAt: serverTimestamp(),
-          lastPasswordChangeAt: serverTimestamp(),
-        });
-        if (notifyIfWriteSoftFail(_wrSetStudentUser)) return;
-        data.studentAuthUid = cred.user.uid;
-        authProvisioned = true;
-      } catch (authErr) {
-        console.warn("[student] Portal hesabı oluşturulamadı; yalnızca öğrenci belgesi kaydedilecek:", authErr);
-        data.portalAuthPending = true;
+      var authProvisioned = false;
+      if (wantAuth) {
+        var email = data.portalUsername + STUDENT_EMAIL_DOMAIN;
+        try {
+          var cred = await createEmailPasswordUserNoSession(email, pass);
+          var _wrSetStudentUser = await setDoc(doc(db, "users", cred.user.uid), {
+            username: data.portalUsername,
+            role: "student",
+            coach_id: getCoachId(),
+            fullName: data.name || null,
+            frozen: false,
+            plainPassword: pass,
+            createdAt: serverTimestamp(),
+            lastPasswordChangeAt: serverTimestamp(),
+          });
+          if (notifyIfWriteSoftFail(_wrSetStudentUser)) return;
+          data.studentAuthUid = cred.user.uid;
+          authProvisioned = true;
+        } catch (authErr) {
+          console.warn("[student] Portal hesabı oluşturulamadı; yalnızca öğrenci belgesi kaydedilecek:", authErr);
+          data.portalAuthPending = true;
+        }
       }
-    }
 
-    var _wrAddStudent = await addDoc(collection(db, "students"), data);
-    if (notifyIfWriteSoftFail(_wrAddStudent)) return;
-    showToast(
-      authProvisioned
-        ? "Öğrenci başarıyla eklendi! Giriş kullanıcı adı: «" + data.portalUsername + "»"
-        : wantAuth
-          ? "Öğrenci başarıyla eklendi! Portal hesabı şu an oluşturulamadı; kayıt veritabanına işlendi."
-          : "Öğrenci başarıyla eklendi!",
-      { variant: "success" }
-    );
-    form.reset();
-    if (passEl) passEl.value = "";
-    if (pass2El) pass2El.value = "";
-    if (window.YksHedefUniPicker) window.YksHedefUniPicker.resetAddForm();
-    setStudentErpTab(0);
-    closeAllModals();
-  } catch (err) {
-    console.error(err);
-    var msg = err.message || String(err);
-    if (err.code === "auth/email-already-in-use" || /already exists|409|duplicate|user_already/i.test(msg))
-      msg = "Bu kullanıcı adı zaten kayıtlı.";
-    showToast("Kayıt hatası: " + msg, { variant: "danger" });
-  }
+      var _wrAddStudent = await addDoc(collection(db, "students"), data);
+      if (notifyIfWriteSoftFail(_wrAddStudent)) return;
+      if (_wrAddStudent && _wrAddStudent.id) {
+        var sNew = Object.assign({}, data, { id: _wrAddStudent.id });
+        if (cachedStudents.every(function (x) {
+          return x.id !== sNew.id;
+        })) {
+          cachedStudents.unshift(sNew);
+        }
+        renderStudentsList(studentsAsSnapDocs(cachedStudents), _wrAddStudent.id);
+        panelUpsertStudentCardInDom(sNew);
+        fillStudentSelects();
+        refreshPanelAfterRealtimeMutation();
+      }
+      dpToastApiSuccess();
+      form.reset();
+      if (passEl) passEl.value = "";
+      if (pass2El) pass2El.value = "";
+      if (window.YksHedefUniPicker) window.YksHedefUniPicker.resetAddForm();
+      setStudentErpTab(0);
+      closeAllModals();
+    } catch (err) {
+      console.error(err);
+      var msg = dpFormatApiError(err);
+      if (err.code === "auth/email-already-in-use" || /already exists|409|duplicate|user_already/i.test(msg))
+        msg = "Bu kullanıcı adı zaten kayıtlı.";
+      dpToastApiError(msg);
+    }
+  });
 }
 
 /** Toplu Excel — portal şifresi yoksa manuel formdaki varsayılan ile uyumlu */
@@ -10411,26 +10853,247 @@ function initBulkStudentExcelImport() {
   }
 }
 
+/**
+ * Öğrenci düzenleme formunda portal kullanıcı adı / şifre ile Appwrite + users belgesini senkronize eder.
+ * plainPassword yoksa hata vermez; hesap/şifre upsert (oluştur veya tamamla) uygular.
+ * @returns {Promise<{ ok: boolean, portalAuthChanged?: boolean, portalInitMode?: boolean }>}
+ */
+async function syncStudentEditPortalCredentials(oldSt, data, gv) {
+  var rawUser = gv("editStudentLoginUsername");
+  var newPass = gv("editStudentLoginPassword");
+  var u = sanitizeStudentPortalUsername(rawUser);
+  var rawTrim = String(rawUser || "").trim();
+  var oldSan = sanitizeStudentPortalUsername(oldSt && oldSt.portalUsername ? oldSt.portalUsername : "") || "";
+
+  if (rawTrim && !u) {
+    dpSetFieldError("editStudentLoginUsername", "Portal kullanıcı adı yalnızca a-z, 0-9 ve _ içerebilir.");
+    dpFocusField("editStudentLoginUsername");
+    return { ok: false };
+  }
+  if (newPass.length > 0 && newPass.length < 6) {
+    dpSetFieldError("editStudentLoginPassword", "Şifre en az 6 karakter olmalıdır.");
+    dpFocusField("editStudentLoginPassword");
+    return { ok: false };
+  }
+  if (newPass.length > 0 && !u) {
+    dpSetFieldError("editStudentLoginPassword", "Şifre atamak için geçerli bir kullanıcı adı girin.");
+    dpFocusField("editStudentLoginUsername");
+    return { ok: false };
+  }
+
+  var uid = oldSt && oldSt.studentAuthUid ? String(oldSt.studentAuthUid).trim() : "";
+  if (uid && !u) {
+    dpSetFieldError("editStudentLoginUsername", "Bağlı portal hesabı varken kullanıcı adı boş bırakılamaz.");
+    dpFocusField("editStudentLoginUsername");
+    return { ok: false };
+  }
+
+  data.portalUsername = u || null;
+
+  var userChanged = (u || "") !== (oldSan || "");
+  var passChanged = newPass.length > 0;
+
+  var usSnap = uid ? await getDoc(doc(db, "users", uid)) : null;
+  var hasPlain =
+    usSnap && firestoreDocExists(usSnap) && usSnap.data() && usSnap.data().plainPassword
+      ? String(usSnap.data().plainPassword)
+      : "";
+  var hasPlainBool = !!hasPlain;
+  var unameFromUserDoc =
+    usSnap && firestoreDocExists(usSnap) && usSnap.data().username ? String(usSnap.data().username).trim() : "";
+
+  if (!userChanged && !passChanged) {
+    return { ok: true, portalAuthChanged: false };
+  }
+
+  var needsInit = !uid || !hasPlainBool;
+  if (needsInit && (userChanged || passChanged) && (!u || !newPass)) {
+    dpSetFieldError(
+      "editStudentLoginPassword",
+      "Giriş bilgisini ilk kez oluştururken hem kullanıcı adı hem şifre girin (en az 6 karakter)."
+    );
+    dpFocusField("editStudentLoginUsername");
+    return { ok: false };
+  }
+
+  /** --- Yeni hesap: öğrencide studentAuthUid yok --- */
+  if (!uid && u && newPass) {
+    try {
+      var email = u + STUDENT_EMAIL_DOMAIN;
+      var cred = await createEmailPasswordUserNoSession(email, newPass);
+      var _wrSet = await setDoc(doc(db, "users", cred.user.uid), {
+        username: u,
+        role: "student",
+        coach_id: getCoachId(),
+        fullName: data.name || null,
+        frozen: false,
+        plainPassword: newPass,
+        createdAt: serverTimestamp(),
+        lastPasswordChangeAt: serverTimestamp(),
+      });
+      if (notifyIfWriteSoftFail(_wrSet)) return { ok: false };
+      data.studentAuthUid = cred.user.uid;
+      try {
+        await signOut(studentCreatorAuth);
+      } catch (_so) {}
+      return { ok: true, portalAuthChanged: true, portalInitMode: true };
+    } catch (e) {
+      console.error(e);
+      var msg = dpFormatApiError(e);
+      if (
+        (e && e.code === "auth/email-already-in-use") ||
+        /already exists|409|duplicate|user_already/i.test(msg)
+      )
+        msg = "Bu kullanıcı adı zaten kayıtlı.";
+      dpToastApiError(msg);
+      return { ok: false };
+    }
+  }
+
+  if (!uid) {
+    return { ok: true, portalAuthChanged: userChanged };
+  }
+
+  /** --- Auth UID var, Firestore’da plainPassword yok: otomatik tamamla (initialize) --- */
+  if (!hasPlainBool && (passChanged || userChanged)) {
+    var urefRepair = doc(db, "users", uid);
+    var emailTry = sdGetStudentPortalEmail(oldSan || u || unameFromUserDoc);
+    try {
+      await signInWithEmailAndPassword(studentCreatorAuth, emailTry, newPass);
+      if (userChanged && u && sanitizeStudentPortalUsername(oldSan || "") !== u) {
+        await updateEmail(sdGetStudentPortalEmail(u), newPass);
+      }
+      var patchInit = {
+        plainPassword: newPass,
+        username: u || unameFromUserDoc || oldSan,
+        lastPasswordChangeAt: serverTimestamp(),
+      };
+      var _wrInit = await updateDoc(urefRepair, patchInit);
+      if (notifyIfWriteSoftFail(_wrInit)) {
+        try {
+          await signOut(studentCreatorAuth);
+        } catch (_s) {}
+        return { ok: false };
+      }
+      try {
+        await signOut(studentCreatorAuth);
+      } catch (_so2) {}
+      return { ok: true, portalAuthChanged: true, portalInitMode: true };
+    } catch (initErr) {
+      console.warn("[portal] Oturum açılamadı, Firestore ile tamamlanıyor:", initErr);
+      try {
+        await signOut(studentCreatorAuth);
+      } catch (_s3) {}
+      var softPatch = {
+        plainPassword: newPass,
+        username: u || unameFromUserDoc || oldSan,
+        lastPasswordChangeAt: serverTimestamp(),
+      };
+      var _wrSoft = await updateDoc(urefRepair, softPatch);
+      if (notifyIfWriteSoftFail(_wrSoft)) return { ok: false };
+      return { ok: true, portalAuthChanged: true, portalInitMode: true };
+    }
+  }
+
+  /** --- Normal güncelleme: hem Auth hem plainPassword mevcut --- */
+  var uref = doc(db, "users", uid);
+  var us = await getDoc(uref);
+  var oldPass =
+    firestoreDocExists(us) && us.data() && us.data().plainPassword ? String(us.data().plainPassword) : "";
+
+  if (!oldPass && newPass && u) {
+    var _wrFallback = await updateDoc(uref, {
+      plainPassword: newPass,
+      username: u,
+      lastPasswordChangeAt: serverTimestamp(),
+    });
+    if (notifyIfWriteSoftFail(_wrFallback)) return { ok: false };
+    return { ok: true, portalAuthChanged: true, portalInitMode: true };
+  }
+  if (!oldPass) {
+    dpToastApiError("Şifre güncellenemedi; kullanıcı adı ve yeni şifre girin.");
+    return { ok: false };
+  }
+
+  var loginSan = oldSan || unameFromUserDoc || u;
+  if (!loginSan) {
+    dpToastApiError("Portal kullanıcı adı eşleşmiyor.");
+    return { ok: false };
+  }
+
+  var emailLogin = sdGetStudentPortalEmail(loginSan);
+  try {
+    await signInWithEmailAndPassword(studentCreatorAuth, emailLogin, oldPass);
+    var curPw2 = oldPass;
+    if (passChanged) {
+      await updatePassword(newPass, oldPass);
+      curPw2 = newPass;
+    }
+    if (userChanged && u) {
+      await updateEmail(sdGetStudentPortalEmail(u), curPw2);
+    }
+    var uPatch = {};
+    if (userChanged && u) uPatch.username = u;
+    if (passChanged) {
+      uPatch.plainPassword = newPass;
+      uPatch.lastPasswordChangeAt = serverTimestamp();
+    }
+    if (Object.keys(uPatch).length) {
+      var _wrU = await updateDoc(uref, uPatch);
+      if (notifyIfWriteSoftFail(_wrU)) {
+        try {
+          await signOut(studentCreatorAuth);
+        } catch (_so) {}
+        return { ok: false };
+      }
+    }
+    try {
+      await signOut(studentCreatorAuth);
+    } catch (so) {}
+    return { ok: true, portalAuthChanged: true, portalInitMode: false };
+  } catch (err) {
+    console.error(err);
+    try {
+      await signOut(studentCreatorAuth);
+    } catch (so2) {}
+    var msg = err && err.message ? String(err.message) : "Hata";
+    if (err && err.code === "auth/wrong-password") msg = "Kayıtlı şifre uyuşmuyor.";
+    if (err && err.code === "auth/weak-password") msg = "Şifre çok zayıf.";
+    if (err && err.code === "auth/email-already-in-use") msg = "Bu kullanıcı adı zaten alınmış.";
+    dpToastApiError(msg);
+    return { ok: false };
+  }
+}
+
 async function submitStudentEditForm(e) {
   e.preventDefault();
+  var form = e.target;
+  dpClearFieldErrors(form);
   var editId = (document.getElementById("editStudentDocId") || {}).value;
   editId = editId ? String(editId).trim() : "";
   if (!editId) {
-    showToast("Geçersiz kayıt.");
+    dpToastApiError("Geçersiz kayıt.");
     return;
   }
   var first = (document.getElementById("editStudentName") || {}).value;
   first = first ? String(first).trim() : "";
   var last = (document.getElementById("editStudentSurname") || {}).value;
   last = last ? String(last).trim() : "";
-  if (!first || !last) {
-    showToast("Ad ve soyad zorunludur.");
+  if (!first) {
+    dpSetFieldError("editStudentName", "Ad zorunludur.");
+    dpFocusField("editStudentName");
+    return;
+  }
+  if (!last) {
+    dpSetFieldError("editStudentSurname", "Soyad zorunludur.");
+    dpFocusField("editStudentSurname");
     return;
   }
   var parentPhone = (document.getElementById("editParentPhone") || {}).value;
   parentPhone = parentPhone ? String(parentPhone).trim() : "";
   if (!parentPhone) {
-    showToast("Veli telefonu zorunludur.");
+    dpSetFieldError("editParentPhone", "Veli telefonu zorunludur.");
+    dpFocusField("editParentPhone");
     return;
   }
   var genEl = document.querySelector('input[name="edit_gender"]:checked');
@@ -10441,7 +11104,22 @@ async function submitStudentEditForm(e) {
   }
   var tckn = gv("editTcKimlikNo");
   if (tckn && String(tckn).replace(/\D/g, "").length !== 11) {
-    showToast("TCKN 11 hane olmalıdır (veya boş bırakın).");
+    dpSetFieldError("editTcKimlikNo", "TCKN 11 hane olmalıdır (veya boş bırakın).");
+    dpFocusField("editTcKimlikNo");
+    return;
+  }
+  var curNetEl = gv("editCurrentTytNet");
+  var curNetChk = dpParseDecimalField(curNetEl, { required: false, min: 0, max: 999 });
+  if (!curNetChk.ok) {
+    dpSetFieldError("editCurrentTytNet", curNetChk.message || "Geçersiz net.");
+    dpFocusField("editCurrentTytNet");
+    return;
+  }
+  var tgtNetEl = gv("editTargetTytNet");
+  var tgtNetChk = dpParseDecimalField(tgtNetEl, { required: false, min: 0, max: 999 });
+  if (!tgtNetChk.ok) {
+    dpSetFieldError("editTargetTytNet", tgtNetChk.message || "Geçersiz net.");
+    dpFocusField("editTargetTytNet");
     return;
   }
   var data = {
@@ -10456,15 +11134,14 @@ async function submitStudentEditForm(e) {
     classGrade: gv("editClassGrade") || null,
     examGroup: gv("editExamGroup") || null,
     fieldType: gv("editFieldType") || null,
-    currentTytNet: gv("editCurrentTytNet") || null,
-    targetTytNet: gv("editTargetTytNet") || null,
+    currentTytNet: curNetEl || null,
+    targetTytNet: tgtNetEl || null,
     parentFullName: gv("editParentFullName") || null,
     parentRelation: gv("editParentRelation") || null,
     emergencyContactName: gv("editEmergencyContactName") || null,
     registrationDate: gv("editRegistrationDate") || null,
     agreedTotalFee: gv("editAgreedTotalFee"),
     installmentCount: gv("editInstallmentCount"),
-    portalUsername: gv("editPortalUsername") || null,
     targetUniversity: gv("editTargetUniversity") || null,
     targetDepartment: gv("editTargetDepartment") || null,
   };
@@ -10482,18 +11159,46 @@ async function submitStudentEditForm(e) {
       ? studentEditAvatarState.customDataUrl
       : getAvatarByGender(data.gender || gender);
   data.updatedAt = serverTimestamp();
-  try {
-    var _wrUpStudent = await updateDoc(doc(db, "students", editId), data);
-    if (notifyIfWriteSoftFail(_wrUpStudent)) return;
-    showToast("Öğrenci başarıyla güncellendi.");
-    document.getElementById("formStudentEdit").reset();
-    document.getElementById("editStudentDocId").value = "";
-    resetStudentModalPanes();
-    closeAllModals();
-  } catch (err) {
-    console.error(err);
-    showToast("Kayıt hatası: " + (err.message || err), { variant: "danger" });
-  }
+  var btn = document.getElementById("btnStudentEditSubmit");
+  var oldStForPortal =
+    cachedStudents.find(function (x) {
+      return x.id === editId;
+    }) || {};
+  await runWithSubmitButtonBusy(btn, async function () {
+    try {
+      var sync = await syncStudentEditPortalCredentials(oldStForPortal, data, gv);
+      if (!sync || !sync.ok) return;
+      var _wrUpStudent = await updateDoc(doc(db, "students", editId), data);
+      if (notifyIfWriteSoftFail(_wrUpStudent)) return;
+      var ixEd = cachedStudents.findIndex(function (x) {
+        return x.id === editId;
+      });
+      var mergedSt = Object.assign({}, ixEd >= 0 ? cachedStudents[ixEd] : {}, data, { id: editId });
+      if (ixEd >= 0) Object.assign(cachedStudents[ixEd], mergedSt);
+      else cachedStudents.push(mergedSt);
+      panelUpsertStudentCardInDom(ixEd >= 0 ? cachedStudents[ixEd] : mergedSt);
+      renderStudentsList(studentsAsSnapDocs(cachedStudents));
+      fillStudentSelects();
+      refreshPanelAfterRealtimeMutation();
+      if (currentStudentDetailId === editId) refreshStudentDetailIfOpen();
+      if (sync.portalInitMode) {
+        dpToastApiSuccess("Öğrenci için giriş bilgileri başarıyla oluşturuldu ve tanımlandı.");
+      } else if (sync.portalAuthChanged) {
+        dpToastApiSuccess("Giriş bilgileri başarıyla güncellendi.");
+      } else {
+        dpToastApiSuccess();
+      }
+      document.getElementById("formStudentEdit").reset();
+      document.getElementById("editStudentDocId").value = "";
+      var elPwClear = document.getElementById("editStudentLoginPassword");
+      if (elPwClear) elPwClear.value = "";
+      resetStudentModalPanes();
+      closeAllModals();
+    } catch (err) {
+      console.error(err);
+      dpToastApiError(dpFormatApiError(err));
+    }
+  });
 }
 
 function resetAppointmentModalUi() {
@@ -10552,23 +11257,42 @@ function openAppointmentModalEdit(docId) {
 
 async function submitAppointmentForm(e) {
   e.preventDefault();
-  var fd = new FormData(e.target);
+  var form = e.target;
+  dpClearFieldErrors(form);
+  var fd = new FormData(form);
   var editAppt = ((document.getElementById("appointmentEditDocId") || {}).value || "").trim();
   var sid = fd.get("studentId");
   var st = cachedStudents.find(function (x) {
     return x.id === sid;
   });
-  if (!st) {
-    showToast("Öğrenci seçin.");
+  if (!st || !sid) {
+    dpSetFieldError("ap_student", "Öğrenci seçin.");
+    dpFocusField("ap_student");
     return;
   }
-  var d = fd.get("appointmentDate");
-  var t = fd.get("appointmentTime");
+  var d = (fd.get("appointmentDate") && String(fd.get("appointmentDate")).trim()) || "";
+  var tm = (fd.get("appointmentTime") && String(fd.get("appointmentTime")).trim()) || "";
+  if (!d) {
+    dpSetFieldError("ap_date", "Tarih seçin.");
+    dpFocusField("ap_date");
+    return;
+  }
+  if (!tm) {
+    dpSetFieldError("ap_time", "Saat seçin.");
+    dpFocusField("ap_time");
+    return;
+  }
+  var sched = new Date(d + "T" + tm);
+  if (isNaN(sched.getTime())) {
+    dpSetFieldError("ap_time", "Geçerli bir tarih ve saat girin.");
+    dpFocusField("ap_time");
+    return;
+  }
   var details = {
     studentId: sid,
     studentName: st.name || st.studentName || "",
     date: d,
-    time: t,
+    time: tm,
     durationMin: parseInt(fd.get("durationMin"), 10) || 45,
     meetingType: fd.get("meetingType") || "",
     topic: fd.get("topic") || "",
@@ -10582,34 +11306,37 @@ async function submitAppointmentForm(e) {
   }
   var detailsJson = JSON.stringify(details);
   if (detailsJson.length > 3000) {
-    showToast("Randevu detayı çok uzun (en fazla 3000 karakter). Notları kısaltın.");
+    dpSetFieldError("ap_notes", "Randevu detayı çok uzun (en fazla 3000 karakter). Notları kısaltın.");
+    dpFocusField("ap_notes");
     return;
   }
   var payload = {
-    scheduledAt: Timestamp.fromDate(new Date(d + "T" + t)),
+    scheduledAt: Timestamp.fromDate(sched),
     details_json: detailsJson,
     coach_id: getCoachId(),
   };
-  try {
-    if (editAppt) {
-      var _wrApU = await updateDoc(doc(db, "appointments", editAppt), payload);
-      if (notifyIfWriteSoftFail(_wrApU)) return;
-      showToast("Randevu güncellendi.", { variant: "success" });
-    } else {
-      var _wrApA = await addDoc(collection(db, "appointments"), payload);
-      if (notifyIfWriteSoftFail(_wrApA)) return;
-      showToast("Randevu kaydedildi.", { variant: "success" });
+  var btn = document.getElementById("btnApptSubmit");
+  await runWithSubmitButtonBusy(btn, async function () {
+    try {
+      if (editAppt) {
+        var _wrApU = await updateDoc(doc(db, "appointments", editAppt), payload);
+        if (notifyIfWriteSoftFail(_wrApU)) return;
+      } else {
+        var _wrApA = await addDoc(collection(db, "appointments"), payload);
+        if (notifyIfWriteSoftFail(_wrApA)) return;
+      }
+      dpToastApiSuccess();
+      void fetchAndRenderAppointmentChart();
+      form.reset();
+      var h = document.getElementById("appointmentEditDocId");
+      if (h) h.value = "";
+      resetAppointmentModalUi();
+      closeAllModals();
+    } catch (err) {
+      console.error(err);
+      dpToastApiError(dpFormatApiError(err));
     }
-    void fetchAndRenderAppointmentChart();
-    e.target.reset();
-    var h = document.getElementById("appointmentEditDocId");
-    if (h) h.value = "";
-    resetAppointmentModalUi();
-    closeAllModals();
-  } catch (err) {
-    console.error(err);
-    showToast(err.message || String(err), { variant: "danger" });
-  }
+  });
 }
 
 function getTestMakerPayload() {
@@ -10714,34 +11441,36 @@ async function onPdfTaslakClick() {
   var payload = getTestMakerPayload();
   var editTestId = ((document.getElementById("testEditDocId") || {}).value || "").trim();
   console.log("[TestMaker] PDF taslağı seçimleri:", JSON.stringify(payload, null, 2));
-  try {
-    if (editTestId) {
-      var _wrTmU = await updateDoc(doc(db, "tests", editTestId), {
-        ...payload,
-        module: "TestMakerPro",
-        pdfDraft: true,
-        updatedAt: serverTimestamp(),
-      });
-      if (notifyIfWriteSoftFail(_wrTmU)) return;
-      showToast("Test güncellendi.", { variant: "success" });
-    } else {
-      var _wrTmA = await addDoc(collection(db, "tests"), {
-        ...payload,
-        module: "TestMakerPro",
-        pdfDraft: true,
-        status: "Taslak",
-        createdAt: serverTimestamp(),
-        coach_id: getCoachId(),
-      });
-      if (notifyIfWriteSoftFail(_wrTmA)) return;
-      showToast("Test taslağı kaydedildi — PDF için veriler konsolda.", { variant: "success" });
+  var btn = document.getElementById("btnPdfTaslak");
+  await runWithSubmitButtonBusy(btn, async function () {
+    try {
+      if (editTestId) {
+        var _wrTmU = await updateDoc(doc(db, "tests", editTestId), {
+          ...payload,
+          module: "TestMakerPro",
+          pdfDraft: true,
+          updatedAt: serverTimestamp(),
+        });
+        if (notifyIfWriteSoftFail(_wrTmU)) return;
+      } else {
+        var _wrTmA = await addDoc(collection(db, "tests"), {
+          ...payload,
+          module: "TestMakerPro",
+          pdfDraft: true,
+          status: "Taslak",
+          createdAt: serverTimestamp(),
+          coach_id: getCoachId(),
+        });
+        if (notifyIfWriteSoftFail(_wrTmA)) return;
+      }
+      dpToastApiSuccess();
+      resetTestMakerModal();
+      closeAllModals();
+    } catch (err) {
+      console.error(err);
+      dpToastApiError(dpFormatApiError(err));
     }
-    resetTestMakerModal();
-    closeAllModals();
-  } catch (err) {
-    console.error(err);
-    showToast("Kayıt hatası: " + (err.message || err));
-  }
+  });
 }
 
 function resetPaymentModalUi() {
@@ -10790,47 +11519,59 @@ function openPaymentModalEdit(docId) {
 
 async function submitPaymentForm(e) {
   e.preventDefault();
-  var fd = new FormData(e.target);
+  var form = e.target;
+  dpClearFieldErrors(form);
+  var fd = new FormData(form);
   var editPay = ((document.getElementById("paymentEditDocId") || {}).value || "").trim();
   var sid = fd.get("studentId");
   var st = cachedStudents.find(function (x) {
     return x.id === sid;
   });
-  if (!st) {
-    showToast("Öğrenci seçin.");
+  if (!st || !sid) {
+    dpSetFieldError("pay_student", "Öğrenci seçin.");
+    dpFocusField("pay_student");
+    return;
+  }
+  var amountRaw = fd.get("amount");
+  var amt = dpParseDecimalField(amountRaw, { required: true, min: 0.01, max: 9999999 });
+  if (!amt.ok) {
+    dpSetFieldError("pay_amount", amt.message || "Geçerli bir tutar girin.");
+    dpFocusField("pay_amount");
     return;
   }
   var payload = {
     studentId: sid,
     studentName: st.name || st.studentName || "",
-    amount: parseFloat(fd.get("amount")) || 0,
+    amount: parseFloat(String(amountRaw).replace(",", "."), 10),
     paymentDate: fd.get("paymentDate") || new Date().toISOString().slice(0, 10),
     paymentMethod: fd.get("paymentMethod") || "",
     description: fd.get("description") || "",
     invoiceNote: fd.get("invoiceNote") || "",
   };
-  try {
-    if (editPay) {
-      payload.updatedAt = serverTimestamp();
-      var _wrPayU = await updateDoc(doc(db, "payments", editPay), payload);
-      if (notifyIfWriteSoftFail(_wrPayU)) return;
-      showToast("Tahsilat güncellendi.", { variant: "success" });
-    } else {
-      payload.createdAt = serverTimestamp();
-      payload.coach_id = getCoachId();
-      var _wrPayA = await addDoc(collection(db, "payments"), payload);
-      if (notifyIfWriteSoftFail(_wrPayA)) return;
-      showToast("Tahsilat kaydedildi.", { variant: "success" });
+  var btn = document.getElementById("btnPaymentSubmit");
+  await runWithSubmitButtonBusy(btn, async function () {
+    try {
+      if (editPay) {
+        payload.updatedAt = serverTimestamp();
+        var _wrPayU = await updateDoc(doc(db, "payments", editPay), payload);
+        if (notifyIfWriteSoftFail(_wrPayU)) return;
+      } else {
+        payload.createdAt = serverTimestamp();
+        payload.coach_id = getCoachId();
+        var _wrPayA = await addDoc(collection(db, "payments"), payload);
+        if (notifyIfWriteSoftFail(_wrPayA)) return;
+      }
+      dpToastApiSuccess();
+      form.reset();
+      var h = document.getElementById("paymentEditDocId");
+      if (h) h.value = "";
+      resetPaymentModalUi();
+      closeAllModals();
+    } catch (err) {
+      console.error(err);
+      dpToastApiError(dpFormatApiError(err));
     }
-    e.target.reset();
-    var h = document.getElementById("paymentEditDocId");
-    if (h) h.value = "";
-    resetPaymentModalUi();
-    closeAllModals();
-  } catch (err) {
-    console.error(err);
-    showToast(err.message || String(err), { variant: "danger" });
-  }
+  });
 }
 
 function resetExamModalUi() {
@@ -10873,25 +11614,43 @@ function openExamModalEdit(docId) {
 
 async function submitExamForm(e) {
   e.preventDefault();
-  var fd = new FormData(e.target);
+  var form = e.target;
+  dpClearFieldErrors(form);
+  var fd = new FormData(form);
   var editEx = ((document.getElementById("examEditDocId") || {}).value || "").trim();
   var sid = fd.get("studentId");
   var st = cachedStudents.find(function (x) {
     return x.id === sid;
   });
-  if (!st) {
-    showToast("Öğrenci seçin.");
+  if (!st || !sid) {
+    dpSetFieldError("ex_student", "Öğrenci seçin.");
+    dpFocusField("ex_student");
+    return;
+  }
+  var netRaw = fd.get("net");
+  var netChk = dpParseDecimalField(netRaw, { required: true, min: 0, max: 200 });
+  if (!netChk.ok) {
+    dpSetFieldError("ex_net", netChk.message || "Geçerli bir net girin.");
+    dpFocusField("ex_net");
     return;
   }
   var exD = fd.get("examDate");
   var examDateTs = null;
-  if (exD) examDateTs = Timestamp.fromDate(new Date(exD));
+  if (exD) {
+    var d0 = new Date(exD);
+    if (isNaN(d0.getTime())) {
+      dpSetFieldError("ex_date", "Geçerli bir deneme tarihi seçin.");
+      dpFocusField("ex_date");
+      return;
+    }
+    examDateTs = Timestamp.fromDate(d0);
+  }
   var payload = {
     studentId: sid,
     studentName: st.name || st.studentName || "",
     examType: fd.get("examType"),
     tur: fd.get("examType"),
-    net: fd.get("net"),
+    net: netChk.value,
     examDate: examDateTs,
     date: exD || "",
     examName: fd.get("examName") || "",
@@ -10899,28 +11658,60 @@ async function submitExamForm(e) {
     status: fd.get("status") || "Kayıt girildi",
     coachExamNote: fd.get("coachExamNote") || "",
   };
-  try {
-    if (editEx) {
-      payload.updatedAt = serverTimestamp();
-      var _wrExU = await updateDoc(doc(db, "exams", editEx), payload);
-      if (notifyIfWriteSoftFail(_wrExU)) return;
-      showToast("Deneme kaydı güncellendi.", { variant: "success" });
-    } else {
-      payload.createdAt = serverTimestamp();
-      payload.coach_id = getCoachId();
-      var _wrExA = await addDoc(collection(db, "exams"), payload);
-      if (notifyIfWriteSoftFail(_wrExA)) return;
-      showToast("Deneme kaydı eklendi.", { variant: "success" });
+  var btn = document.getElementById("btnExamSubmit");
+  await runWithSubmitButtonBusy(btn, async function () {
+    try {
+      if (editEx) {
+        payload.updatedAt = serverTimestamp();
+        var _wrExU = await updateDoc(doc(db, "exams", editEx), payload);
+        if (notifyIfWriteSoftFail(_wrExU)) return;
+        var ixEu = cachedExams.findIndex(function (x) {
+          return x.id === editEx;
+        });
+        var mergedEx = Object.assign({}, ixEu >= 0 ? cachedExams[ixEu] : {}, payload, { id: editEx });
+        if (ixEu >= 0) Object.assign(cachedExams[ixEu], mergedEx);
+        else cachedExams.push(mergedEx);
+        panelReplaceExamRowsInDom(ixEu >= 0 ? cachedExams[ixEu] : mergedEx);
+        refreshPanelAfterRealtimeMutation();
+        refreshStudentDetailIfOpen();
+        if (currentView === "karne") renderKarneReport();
+        dispatchGoCockpitRefresh();
+        try {
+          refreshMrIfActive();
+        } catch (_eu) {}
+      } else {
+        payload.createdAt = serverTimestamp();
+        payload.coach_id = getCoachId();
+        var _wrExA = await addDoc(collection(db, "exams"), payload);
+        if (notifyIfWriteSoftFail(_wrExA)) return;
+        if (_wrExA && _wrExA.id) {
+          var optEx = Object.assign({}, payload, { id: _wrExA.id });
+          if (cachedExams.every(function (x) {
+            return x.id !== optEx.id;
+          })) {
+            cachedExams.push(optEx);
+          }
+          panelInsertExamRowDomIncremental(optEx);
+          refreshPanelAfterRealtimeMutation();
+          refreshStudentDetailIfOpen();
+          if (currentView === "karne") renderKarneReport();
+          dispatchGoCockpitRefresh();
+          try {
+            refreshMrIfActive();
+          } catch (_ox) {}
+        }
+      }
+      dpToastApiSuccess();
+      form.reset();
+      var h = document.getElementById("examEditDocId");
+      if (h) h.value = "";
+      resetExamModalUi();
+      closeAllModals();
+    } catch (err) {
+      console.error(err);
+      dpToastApiError(dpFormatApiError(err));
     }
-    e.target.reset();
-    var h = document.getElementById("examEditDocId");
-    if (h) h.value = "";
-    resetExamModalUi();
-    closeAllModals();
-  } catch (err) {
-    console.error(err);
-    showToast(err.message || String(err), { variant: "danger" });
-  }
+  });
 }
 
 function initModals() {
@@ -10993,6 +11784,97 @@ function panelRealtimeDocId(payload) {
 
 function panelMergePlainFromPayload(payload) {
   return Object.assign({}, payload);
+}
+
+function panelUpsertStudentCardInDom(s) {
+  var root = document.getElementById("studentsCardsRoot");
+  if (!root || !s || !s.id) return;
+  var html = buildStudentCardArticleHtml(s);
+  var wrap = document.createElement("div");
+  wrap.innerHTML = html.trim();
+  var art = wrap.firstElementChild;
+  if (!art) return;
+  var empty = root.querySelector(".table-empty");
+  if (empty) root.innerHTML = "";
+  art.classList.add("yks-row-enter");
+  var old = root.querySelector('[data-student-id="' + escapeHtml(String(s.id)) + '"]');
+  if (old) old.replaceWith(art);
+  else root.appendChild(art);
+  setTimeout(function () {
+    art.classList.remove("yks-row-enter");
+  }, 620);
+}
+
+function trimExamTbodyToMaxRows(tbody, maxRows) {
+  if (!tbody || maxRows <= 0) return;
+  var n;
+  do {
+    n = tbody.querySelectorAll("tr[data-exam-id]").length;
+    if (n <= maxRows) break;
+    var last = tbody.querySelector("tr[data-exam-id]:last-of-type");
+    if (last) last.remove();
+    else break;
+  } while (n > maxRows);
+}
+
+/**
+ * Tek deneme satırını sıralı ekler / günceller (dashboard en fazla maxRows).
+ */
+function insertExamRowIntoTbody(tbody, row, maxRows) {
+  if (!tbody || !row || !row.id) return;
+  var eidEsc = escapeHtml(String(row.id));
+  var existing = tbody.querySelector('tr[data-exam-id="' + eidEsc + '"]');
+  if (existing) {
+    panelReplaceExamRowsInDom(row);
+    trimExamTbodyToMaxRows(tbody, maxRows);
+    return;
+  }
+  var tpl = document.createElement("tbody");
+  tpl.innerHTML = examRowHtml(row, 6).trim();
+  var fresh = tpl.firstElementChild;
+  if (!fresh) return;
+  var ts = examDateSort(row);
+  var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr[data-exam-id]"));
+  var insertBeforeRef = null;
+  for (var i = 0; i < rows.length; i++) {
+    var rts = parseInt(rows[i].getAttribute("data-exam-ts") || "0", 10) || 0;
+    if (rts < ts) {
+      insertBeforeRef = rows[i];
+      break;
+    }
+  }
+  var emptyCell = tbody.querySelector("td.table-empty");
+  if (emptyCell && emptyCell.parentElement) {
+    emptyCell.parentElement.remove();
+  }
+  fresh.classList.add("yks-row-enter");
+  if (insertBeforeRef) tbody.insertBefore(fresh, insertBeforeRef);
+  else tbody.appendChild(fresh);
+  setTimeout(function () {
+    fresh.classList.remove("yks-row-enter");
+  }, 620);
+  trimExamTbodyToMaxRows(tbody, maxRows);
+}
+
+/** Realtime / optimistic: tam sayfa innerHTML yerine satır ekle-güncelle */
+function panelInsertExamRowDomIncremental(row) {
+  var dash = document.getElementById("denemeTableBody");
+  if (dash && examMatchesFilters(row)) {
+    var plain = cachedExams.slice().sort(function (a, b) {
+      return examDateSort(b) - examDateSort(a);
+    });
+    var filtered = plain.filter(examMatchesFilters);
+    var ix = filtered.findIndex(function (x) {
+      return x.id === row.id;
+    });
+    if (ix >= 0 && ix < 15) {
+      insertExamRowIntoTbody(dash, row, 15);
+    }
+  }
+  var full = document.getElementById("examsPageBody");
+  if (full && examMatchesPageViewFilters(row)) {
+    insertExamRowIntoTbody(full, row, 0);
+  }
 }
 
 function panelReplaceExamRowsInDom(row) {
@@ -11138,6 +12020,17 @@ function applyPanelRealtimeDocEvent(detail) {
       return;
     }
     if (mergedE) {
+      if (op === "create") {
+        panelInsertExamRowDomIncremental(mergedE);
+        refreshPanelAfterRealtimeMutation();
+        refreshStudentDetailIfOpen();
+        if (currentView === "karne") renderKarneReport();
+        dispatchGoCockpitRefresh();
+        try {
+          refreshMrIfActive();
+        } catch (_e3) {}
+        return;
+      }
       renderDashboardExams(id);
       renderExamsFullPage();
       refreshPanelAfterRealtimeMutation();
@@ -11146,7 +12039,7 @@ function applyPanelRealtimeDocEvent(detail) {
       dispatchGoCockpitRefresh();
       try {
         refreshMrIfActive();
-      } catch (_e3) {}
+      } catch (_e4) {}
     }
     return;
   }
@@ -11203,7 +12096,7 @@ function applyPanelRealtimeDocEvent(detail) {
     if (ixS >= 0) Object.assign(cachedStudents[ixS], srow);
     else cachedStudents.push(srow);
     renderStudentsList(studentsAsSnapDocs(cachedStudents), op === "create" ? id : undefined);
-    renderStudentsPage();
+    panelUpsertStudentCardInDom(srow);
     fillStudentSelects();
     refreshPanelAfterRealtimeMutation();
     refreshStudentDetailIfOpen();
@@ -11460,54 +12353,12 @@ function subscribeFirestore() {
   );
 }
 
-function showToast(msg, opts) {
-  const t = document.getElementById("panelToast");
-  if (!t) {
-    alert(msg);
-    return;
-  }
-  t.textContent = msg;
-  t.classList.remove("toast--success", "toast--danger");
-  if (opts && opts.variant === "success") t.classList.add("toast--success");
-  else if (opts && opts.variant === "danger") t.classList.add("toast--danger");
-  t.hidden = false;
-  t.classList.add("toast--show");
-  clearTimeout(showToast._tm);
-  showToast._tm = setTimeout(function () {
-    t.classList.remove("toast--show", "toast--success", "toast--danger");
-    t.hidden = true;
-  }, 2800);
-}
-
-/** PDF / uzun işlemler: otomatik kapanmayan toast (bitince hidePanelToast) */
-function showToastPersistent(msg) {
-  var t = document.getElementById("panelToast");
-  if (!t) {
-    alert(msg);
-    return;
-  }
-  clearTimeout(showToast._tm);
-  t.textContent = msg;
-  t.hidden = false;
-  t.classList.add("toast--show");
-}
-
-function hidePanelToast() {
-  var t = document.getElementById("panelToast");
-  clearTimeout(showToast._tm);
-  if (t) {
-    t.classList.remove("toast--show", "toast--success", "toast--danger");
-    t.hidden = true;
-  }
-}
-
 /** Appwrite `addDoc` / `updateDoc` / `setDoc` / `deleteDoc` yumuşak iptal (izin veya şema) */
 function notifyIfWriteSoftFail(result, customMsg) {
   if (!isAppwriteWriteSoftFailure(result)) return false;
-  showToast(
+  dpToastApiError(
     customMsg ||
-      "İşlem tamamlanamadı. Koleksiyon, indeks veya Appwrite izinlerini kontrol edin.",
-    { variant: "danger" }
+      "İşlem tamamlanamadı. Koleksiyon, indeks veya Appwrite izinlerini kontrol edin."
   );
   return true;
 }
@@ -19300,9 +20151,16 @@ function initAllButtons() {
     document.getElementById("btnLogout").addEventListener("click", function (e) {
       e.preventDefault();
       if (!confirm("Çıkış yapılsın mı?")) return;
-      localStorage.removeItem("currentUser");
+      try {
+        localStorage.removeItem("currentUser");
+        localStorage.removeItem("dp_appwrite_user_id");
+        localStorage.removeItem("yksRole");
+        localStorage.removeItem("yksStudentName");
+        localStorage.removeItem("yksCoachId");
+        delete window.DerecePanelAuth;
+      } catch (_ls) {}
       signOut(auth).finally(function () {
-        window.location.replace("/login");
+        window.location.replace(DP_LOGIN_PATH);
       });
     });
 
@@ -19477,6 +20335,23 @@ function bootstrapKocPanelAfterAuth() {
     normalizeAppointmentDoc: normalizeAppointmentDoc,
     appointmentSortTime: appointmentSortTime,
   });
+  configureDashboardInsights({
+    getStudents: function () {
+      return cachedStudents;
+    },
+    getExams: function () {
+      return cachedExams;
+    },
+    getAppointments: function () {
+      return cachedAppointments;
+    },
+    getMeetingLogs: getDashboardMeetingLogsSnapshot,
+    appointmentSortTime: appointmentSortTime,
+    openStudentDetail: function (id) {
+      openStudentDetail(id);
+    },
+    escapeHtml: escapeHtml,
+  });
   configureDashboardActivities({
     db: db,
     getCoachId: getCoachIdResolved,
@@ -19535,71 +20410,114 @@ var kocAuthResolved = false;
 var KOC_AUTH_NULL_REDIRECT_MS = 4500;
 var kocAuthNullRedirectTimer = null;
 
-function loadKocPanelForUser(user) {
-  if (!user || !user.uid) return;
-  getDoc(doc(db, "users", user.uid))
-    .then(async function (snap) {
-      var profile = snap.data();
-      if (!profile || !profile.role) {
-        return signOut(auth).then(function () {
-          window.location.replace("/login");
-        });
-      }
-      if (profile.role === "admin") {
-        var viewAs = "";
-        try {
-          viewAs = (sessionStorage.getItem("superAdminViewAsCoach") || "").trim();
-        } catch (e) {}
-        if (viewAs) {
-          showImpersonateBanner(viewAs);
-          bootstrapKocPanelAfterAuth();
-          return;
-        }
-        var analyticsTool = getInitialKocViewFromUrl();
-        if (
-          analyticsTool === "net-sihirbazi" ||
-          analyticsTool === "yks-puan" ||
-          analyticsTool === "tercih-sihirbazi"
-        ) {
-          bootstrapKocPanelAfterAuth();
-          return;
-        }
-        window.location.replace("/super-admin");
-        return;
-      }
-      if (profile.role !== "coach") {
-        return signOut(auth).then(function () {
-          window.location.replace("/login");
-        });
-      }
-      var appSettings = await getAppSettings();
-      var maint = !!appSettings.maintenance;
+function finalizeKocPanelAdmission(profile, user) {
+  var imp = false;
+  try {
+    imp = !!(sessionStorage.getItem("superAdminViewAsCoach") || "").trim();
+  } catch (_im) {}
+  try {
+    setCoachDataIsolation({
+      coachIdForQueries: getCoachIdResolved(),
+      appwriteUserId: user && user.uid ? String(user.uid) : "",
+      skipDocumentAcl: imp,
+    });
+    setExamStudentGuard(function () {
+      return false;
+    });
+  } catch (_iso) {}
+  if (!profile || !profile.role) {
+    return signOut(auth).then(function () {
+      window.location.replace(DP_LOGIN_PATH);
+    });
+  }
+  if (profile.role === "student") {
+    window.location.replace("/ogrenci-panel");
+    return;
+  }
+  if (profile.role === "admin") {
+    var viewAs = "";
+    try {
+      viewAs = (sessionStorage.getItem("superAdminViewAsCoach") || "").trim();
+    } catch (e) {}
+    if (viewAs) {
+      showImpersonateBanner(viewAs);
+      bootstrapKocPanelAfterAuth();
+      return;
+    }
+    var analyticsTool = getInitialKocViewFromUrl();
+    if (
+      analyticsTool === "net-sihirbazi" ||
+      analyticsTool === "yks-puan" ||
+      analyticsTool === "tercih-sihirbazi"
+    ) {
+      bootstrapKocPanelAfterAuth();
+      return;
+    }
+    window.location.replace("/super-admin");
+    return;
+  }
+  if (profile.role !== "coach") {
+    return signOut(auth).then(function () {
+      window.location.replace(DP_LOGIN_PATH);
+    });
+  }
+  return getAppSettings()
+    .then(function (appSettings) {
+      var maint = !!(appSettings && appSettings.maintenance);
       var impersonate = false;
       try {
         impersonate = !!(sessionStorage.getItem("superAdminViewAsCoach") || "").trim();
       } catch (e) {}
       if (maint && !impersonate) {
-        await signOut(auth);
-        try {
-          localStorage.setItem("loginFlashError", "Bakımdayız. Şu an yalnızca kurucu girişi açıktır.");
-        } catch (e) {}
-        window.location.replace("/login");
-        return;
+        return signOut(auth).then(function () {
+          try {
+            localStorage.setItem("loginFlashError", "Bakımdayız. Şu an yalnızca kurucu girişi açıktır.");
+          } catch (e) {}
+          window.location.replace(DP_LOGIN_PATH);
+        });
       }
       var uname = profile.username;
       if (!uname && user.email) uname = user.email.split("@")[0];
-      localStorage.setItem("currentUser", (uname || "").trim());
+      try {
+        localStorage.setItem("currentUser", (uname || "").trim());
+      } catch (e) {}
       bootstrapKocPanelAfterAuth();
     })
-    .catch(function () {
+    .catch(function (err) {
+      console.warn("[koc-panel] finalizeKocPanelAdmission getAppSettings", err);
+      var uname = profile.username;
+      if (!uname && user.email) uname = user.email.split("@")[0];
+      try {
+        localStorage.setItem("currentUser", (uname || "").trim());
+      } catch (e2) {}
+      bootstrapKocPanelAfterAuth();
+    });
+}
+
+function loadKocPanelForUser(user) {
+  if (!user || !user.uid) return;
+  var gated = getLastCoachGateResult();
+  if (gated && gated.compatUser && gated.compatUser.uid === user.uid && gated.profile) {
+    finalizeKocPanelAdmission(gated.profile, user);
+    return;
+  }
+  fetchAppwriteUserProfile({ uid: user.uid, email: user.email || "" }, "")
+    .then(function (profile) {
+      finalizeKocPanelAdmission(profile, user);
+    })
+    .catch(function (err) {
+      console.error("[koc-panel] fetchAppwriteUserProfile", err);
       signOut(auth).finally(function () {
-        window.location.replace("/login");
+        window.location.replace(DP_LOGIN_PATH);
       });
     });
 }
 
 onAuthStateChanged(auth, function (user) {
   if (!user) {
+    try {
+      clearCoachDataIsolation();
+    } catch (_c) {}
     if (kocAuthNullRedirectTimer) {
       clearTimeout(kocAuthNullRedirectTimer);
       kocAuthNullRedirectTimer = null;
@@ -19610,7 +20528,7 @@ onAuthStateChanged(auth, function (user) {
         try {
           if (auth && auth.currentUser) return;
         } catch (_e) {}
-        window.location.replace("/login");
+        window.location.replace(DP_LOGIN_PATH);
       }, KOC_AUTH_NULL_REDIRECT_MS);
     }
     return;
@@ -19647,7 +20565,7 @@ setTimeout(function () {
         );
         return;
       }
-      window.location.replace("/login");
+      window.location.replace(DP_LOGIN_PATH);
     })
     .catch(function (err) {
       console.error("[koc-panel] verifyAppwriteAccount (yedek oturum)", err);
@@ -19660,6 +20578,6 @@ setTimeout(function () {
         if (typeof showToast === "function") showToast("Bir sorun oluştu.");
         else alert("Bir sorun oluştu.");
       } catch (e2) {}
-      if (!kocAuthResolved) window.location.replace("/login");
+      if (!kocAuthResolved) window.location.replace(DP_LOGIN_PATH);
     });
 }, 1800);
