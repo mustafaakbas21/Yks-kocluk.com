@@ -37,6 +37,7 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="css/koc-panel.css" />
+  <link rel="stylesheet" href="css/dp-ui-feedback.css" />
   <link rel="stylesheet" href="css/derece-interactive-modules.css" />
   <link rel="stylesheet" href="css/forms-modal.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" crossorigin="anonymous" />
@@ -104,6 +105,23 @@
     .student-erp-gender { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; padding: 0.5rem 0; }
     .student-erp-gender label { display: inline-flex; align-items: center; gap: 0.45rem; cursor: pointer; font-weight: 600; color: #334155; margin: 0; }
     .student-erp-gender input { width: auto; accent-color: var(--purple-600); }
+    .student-erp-login-card {
+      grid-column: 1 / -1;
+      border: 1px solid var(--purple-200);
+      border-radius: 14px;
+      padding: 1rem 1.1rem;
+      background: linear-gradient(135deg, #faf5ff 0%, #fff 55%, #f8fafc 100%);
+      box-shadow: 0 1px 3px rgba(76, 29, 149, 0.07);
+      margin: 0.35rem 0 0.65rem;
+    }
+    .student-erp-login-card__hint {
+      font-size: 0.76rem;
+      color: #64748b;
+      margin: 0 0 0.85rem;
+      line-height: 1.45;
+    }
+    .student-erp-login-card .form-group { margin-bottom: 0.75rem; }
+    .student-erp-login-card .form-group:last-child { margin-bottom: 0; }
     /* Koç profil ayarları (sekmeli modal) */
     #profileSettingsModal .student-erp-tabs { border-radius: 12px 12px 0 0; }
     #profileSettingsModal .student-erp-panels { max-height: min(58vh, 540px); border-radius: 0 0 12px 12px; }
@@ -162,6 +180,33 @@
     .dashboard-kpi-card__icon { width: 2.5rem; height: 2.5rem; border-radius: 12px; background: linear-gradient(135deg, var(--purple-600), var(--purple-900)); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; margin-bottom: 0.25rem; }
     .dashboard-kpi-card__val { font-size: 1.65rem; font-weight: 800; color: #4c1d95; letter-spacing: -0.03em; line-height: 1.15; }
     .dashboard-kpi-card__lbl { font-size: 0.78rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
+    .dashboard-kpi-card__trend { font-size: 0.78rem; font-weight: 700; margin-top: 0.2rem; line-height: 1.35; min-height: 1.2em; display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+    .dashboard-kpi-card__trend strong { font-weight: 800; }
+    .dashboard-kpi-trend--up { color: #059669; }
+    .dashboard-kpi-trend--down { color: #dc2626; }
+    .dashboard-kpi-trend__muted { color: #94a3b8; font-weight: 600; font-size: 0.76rem; }
+    .dashboard-kpi-trend--skeleton { color: transparent !important; user-select: none; }
+    .dashboard-elite-charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin: 0 1.5rem 1.5rem; max-width: calc(100% - 3rem); align-items: stretch; }
+    @media (max-width: 900px) { .dashboard-elite-charts-row { grid-template-columns: 1fr; } }
+    .dashboard-analytics-card--elite-chart .dashboard-elite-chart__sub { margin: -0.5rem 0 1rem; font-size: 0.8rem; color: #64748b; font-weight: 600; line-height: 1.45; }
+    .dashboard-elite-chart-wrap { position: relative; min-height: 280px; height: 300px; width: 100%; }
+    .dashboard-elite-chart-wrap canvas { max-height: 300px !important; }
+    .dashboard-insight-section { margin: 0 1.5rem 2rem; max-width: calc(100% - 3rem); }
+    .dashboard-insight-section .section__head { margin-bottom: 1rem; }
+    .dashboard-insight-section .section__meta { margin: 0.25rem 0 0; font-size: 0.85rem; color: #64748b; font-weight: 600; }
+    .dashboard-insight-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; align-items: start; }
+    @media (max-width: 960px) { .dashboard-insight-grid { grid-template-columns: 1fr; } }
+    .dashboard-insight-card { background: linear-gradient(180deg, #fff 0%, var(--purple-50) 100%); border-radius: var(--radius-lg, 20px); padding: 1.25rem 1.35rem; border: 1px solid var(--purple-100); box-shadow: 0 6px 28px rgba(var(--accent-rgb), 0.1); }
+    .dashboard-insight-card__title { font-size: 0.95rem; font-weight: 800; color: #4c1d95; margin: 0 0 0.35rem; display: flex; align-items: center; gap: 0.5rem; }
+    .dashboard-insight-card__sub { font-size: 0.8rem; color: #64748b; margin: 0 0 1rem; line-height: 1.5; }
+    .dashboard-insight-empty { margin: 0; padding: 1rem; text-align: center; font-size: 0.88rem; color: #64748b; font-weight: 600; background: #f8fafc; border-radius: 12px; border: 1px dashed #e2e8f0; }
+    .dashboard-insight-table-wrap { border-radius: 12px; overflow: auto; max-height: 320px; border: 1px solid #e2e8f0; }
+    .dashboard-insight-table { margin: 0; font-size: 0.84rem; }
+    .dashboard-insight-table th { position: sticky; top: 0; background: #f1f5f9; z-index: 1; }
+    .dashboard-insight-badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 8px; font-weight: 800; font-size: 0.78rem; }
+    .dashboard-insight-badge--risk { background: #fee2e2; color: #991b1b; }
+    .dashboard-insight-btn { border: none; cursor: pointer; font-family: inherit; font-size: 0.78rem; font-weight: 700; padding: 0.35rem 0.65rem; border-radius: 10px; background: linear-gradient(135deg, var(--purple-600), var(--purple-800)); color: #fff; display: inline-flex; align-items: center; gap: 0.35rem; }
+    .dashboard-insight-btn:hover { filter: brightness(1.05); }
     .dashboard-analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin: 0 1.5rem 1.5rem; max-width: calc(100% - 3rem); align-items: start; }
     @media (max-width: 900px) { .dashboard-analytics-grid { grid-template-columns: 1fr; } }
     .dashboard-analytics-card { background: #fff; border-radius: var(--radius-lg, 20px); padding: 1.25rem 1.5rem; border: 1px solid var(--gray-200, #e8e8ed); box-shadow: var(--shadow-sm, 0 2px 8px rgba(109,40,217,0.08)); }
@@ -176,7 +221,8 @@
     .dash-meeting-chart-wrap canvas { max-height: 280px; }
     .dashboard-empty-hint { margin: 0; padding: 1.5rem 1rem; text-align: center; font-size: 0.88rem; color: #64748b; font-weight: 600; }
     .dashboard-empty-hint--error { color: #b91c1c; font-weight: 600; }
-    .dashboard-kpi-row--loading .dashboard-kpi-card__val {
+    .dashboard-kpi-row--loading .dashboard-kpi-card__val,
+    .dashboard-kpi-row--loading .dashboard-kpi-card__trend {
       min-height: 1.35em;
       border-radius: 10px;
       color: transparent !important;
@@ -3501,7 +3547,6 @@
       opacity: 0.65;
     }
   </style>
-  <script type="module" src="js/koc-auth-guard.js"></script>
   <div class="app app--elite-layout app--sidebar-readable">
     <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
 
@@ -3864,21 +3909,44 @@
               <div class="dashboard-kpi-card__icon"><i class="fa-solid fa-user-graduate"></i></div>
               <span class="dashboard-kpi-card__lbl">Toplam aktif öğrenci</span>
               <span class="dashboard-kpi-card__val" id="kpiActiveStudents">—</span>
+              <span class="dashboard-kpi-card__trend" id="kpiTrendStudents" aria-live="polite"></span>
             </div>
             <div class="dashboard-kpi-card">
               <div class="dashboard-kpi-card__icon"><i class="fa-solid fa-calendar-week"></i></div>
               <span class="dashboard-kpi-card__lbl">Bu haftaki randevular</span>
               <span class="dashboard-kpi-card__val" id="kpiWeekAppointments">—</span>
+              <span class="dashboard-kpi-card__trend" id="kpiTrendAppts" aria-live="polite"></span>
             </div>
             <div class="dashboard-kpi-card">
               <div class="dashboard-kpi-card__icon"><i class="fa-solid fa-chart-simple"></i></div>
-              <span class="dashboard-kpi-card__lbl">Ortalama TYT neti</span>
+              <span class="dashboard-kpi-card__lbl">Ortalama TYT net (önce bu hafta)</span>
               <span class="dashboard-kpi-card__val" id="kpiAvgTytNet">—</span>
+              <span class="dashboard-kpi-card__trend" id="kpiTrendNet" aria-live="polite"></span>
             </div>
             <div class="dashboard-kpi-card">
               <div class="dashboard-kpi-card__icon"><i class="fa-solid fa-file-circle-check"></i></div>
-              <span class="dashboard-kpi-card__lbl">Çözülen deneme sayısı</span>
+              <span class="dashboard-kpi-card__lbl">Bu haftaki denemeler</span>
               <span class="dashboard-kpi-card__val" id="kpiExamCount">—</span>
+              <span class="dashboard-kpi-card__trend" id="kpiTrendExams" aria-live="polite"></span>
+            </div>
+          </div>
+
+          <div class="dashboard-elite-charts-row" aria-label="Kurumsal analiz grafikleri">
+            <div class="dashboard-analytics-card dashboard-analytics-card--elite-chart">
+              <h3 class="dashboard-analytics-card__title"><i class="fa-solid fa-chart-line"></i> Kurum geneli TYT / AYT net trendi</h3>
+              <p class="dashboard-elite-chart__sub">Appwrite <strong>exams</strong> verisinden — son 9 haftanın haftalık ortalama netleri (çizgi: eksik hafta boş).</p>
+              <div class="dashboard-elite-chart-wrap">
+                <canvas id="dashboardNetTrendChart" aria-label="TYT ve AYT net trendi"></canvas>
+                <p id="dashboardNetTrendEmpty" class="dashboard-empty-hint" hidden></p>
+              </div>
+            </div>
+            <div class="dashboard-analytics-card dashboard-analytics-card--elite-chart">
+              <h3 class="dashboard-analytics-card__title"><i class="fa-solid fa-chart-column"></i> Randevu yoğunluğu</h3>
+              <p class="dashboard-elite-chart__sub">Panele senkron <strong>appointments</strong> listesi — bugünden itibaren 7 gün.</p>
+              <div class="dashboard-elite-chart-wrap">
+                <canvas id="dashboardApptIntensityChart" aria-label="Haftalık randevu adetleri"></canvas>
+                <p id="dashboardApptIntensityEmpty" class="dashboard-empty-hint" hidden></p>
+              </div>
             </div>
           </div>
 
@@ -3920,6 +3988,14 @@
               <p class="dashboard-insight" id="dashboardInsightText">Veriler yükleniyor…</p>
             </div>
           </div>
+
+          <section class="dashboard-insight-section" aria-label="Insight motoru — risk tabloları">
+            <div class="section__head">
+              <h2 class="section__title"><i class="fa-solid fa-wand-magic-sparkles"></i> Insight motoru</h2>
+              <p class="section__meta">Düşüş ve temas riski — tek tıkla öğrenci detayına gidin.</p>
+            </div>
+            <div id="dashboardInsightPanels"></div>
+          </section>
 
           <section class="section">
             <div class="section__head">
@@ -6524,19 +6600,30 @@
           <div class="page-head" style="margin: 0 1.5rem 1rem">
             <h1 class="page-head__title">Hedef Simülatörü</h1>
             <p class="page-desc">
-              Görünüm seçtiğiniz öğrencinin <strong>profilde kayıtlı hedef üniversite ve bölümüne</strong> kilitlenir. Netler, YÖK Atlas (<code class="text-xs">yok-atlas.json</code>) ile <strong>tam ad eşleşmesi</strong> bulunursa o programa göre hesaplanır.
+              <strong>1)</strong> Üniversite ve bölümü YÖK listesinden seçin (çapraz filtre). <strong>2)</strong> Öğrenciyi seçin. <strong>3)</strong> Deneme netleriyle hedefi karşılaştırın; veri <code class="text-xs">exams</code> koleksiyonundan okunur.
             </p>
           </div>
+          <div class="dp-hedef-atlas-pick net-sihirbazi-select-row dp-hedef-atlas-bar--two-col" style="margin: 0 1.5rem 1rem">
+            <div class="net-sihirbazi-select">
+              <label for="dpHsUniSelect">Üniversite (hedef program)</label>
+              <select id="dpHsUniSelect" aria-label="Hedef üniversite"></select>
+            </div>
+            <div class="net-sihirbazi-select">
+              <label for="dpHsDeptSelect">Bölüm</label>
+              <select id="dpHsDeptSelect" aria-label="Hedef bölüm"></select>
+            </div>
+          </div>
           <div class="dp-hedef-student-bar">
-            <label for="studentSelect">Öğrenci seç</label>
+            <label for="studentSelect">Öğrenci seç (güncel netler)</label>
             <select id="studentSelect" aria-label="Hedef simülatörü için öğrenci">
               <option value="">— Öğrenci seçin —</option>
             </select>
           </div>
+          <div id="dpHedefExamWarn" class="dp-hedef-exam-warn" style="margin: 0 1.5rem 1rem" hidden role="status" aria-live="polite"></div>
           <div class="dp-hedef-page" style="margin: 0 1.5rem">
             <div class="dp-hedef-hero" id="dpHedefHeroBlock">
-              <h1 id="dpHedefUniTitle">Öğrenci seçin</h1>
-              <p id="dpHedefBolumSub">Öğrenci profilindeki hedef üniversite ve bölüm burada gösterilir.</p>
+              <h1 id="dpHedefUniTitle">Üniversite ve bölüm seçin</h1>
+              <p id="dpHedefBolumSub">Önce hedef programı seçin; ardından öğrenci ile karşılaştırın.</p>
             </div>
             <div
               id="dpHedefTargetEmpty"
@@ -6555,7 +6642,7 @@
                 max-width: 40rem;
               "
             >
-              Bu öğrenci için henüz bir hedef belirlenmemiş. Lütfen öğrenci profilinden hedef ekleyin.
+              Profil hedefi bu ekranda kullanılmaz; üstteki üniversite ve bölüm seçimini kullanın.
             </div>
             <div id="dpHedefSimulatorContent">
             <div class="dp-hedef-prob-block" id="dpHedefProbBlock" hidden>
@@ -6564,7 +6651,7 @@
                 <strong class="dp-hedef-prob__pct" id="dpHedefProbPct">—</strong>
               </div>
               <div class="dp-hedef-prob__track" aria-hidden="true"><div class="dp-hedef-prob__fill" id="dpHedefProbFill"></div></div>
-              <p class="dp-hedef-prob__hint">Hedef netler, profildeki hedefle YÖK Atlas’ta tam eşleşen program satırlarından okunur; olasılık gösterimi simülasyondur.</p>
+              <p class="dp-hedef-prob__hint">Üstte seçilen programın YÖK hedef netleri ile güncel branş netlerinize göre simülasyon göstergesidir.</p>
             </div>
             <div id="dpHedefPerSubjectGaps" class="dp-hedef-subgap" aria-live="polite"></div>
             <div class="dp-hedef-chart-wrap">
@@ -6581,12 +6668,12 @@
           <div class="page-head" style="margin: 0 1.5rem 1rem">
             <h1 class="page-head__title">TYT-AYT Net Sihirbazı</h1>
             <p class="page-desc">
-              Veri kaynağı Hedef Simülatörü ile aynı: <code class="text-xs">src/data/yok-atlas.json</code> (öncelik), yedek <code class="text-xs">yks-data.json</code>. YÖK hedef netleri tabloda dosyadaki değerlerle birebir gösterilir. Güncel netler öğrenci detayındaki denemelerin YKS branş detayından okunur.
+              Sadece <strong>YÖK Atlas ortalama hedef netleri</strong> (referans). Liste <code class="text-xs">yok-atlas-lisans.json</code> + katalog <code class="text-xs">yks-data.json</code> eşlemesinden gelir. Öğrenci karşılaştırması için <strong>Hedef Simülatörü</strong> sekmesini kullanın.
             </p>
           </div>
           <div class="net-sihirbazi-page" style="margin: 0 1.5rem 2rem">
             <p class="net-sihirbazi-hint">
-              Üniversite ve bölüm seçin; bölüm listesi seçilen üniversitede aynı isim tek satırda (tekilleştirilmiş) listelenir.
+              Çapraz filtre: önce bölüm veya önce üniversite seçebilirsiniz. Bu sayfa yalnızca hedef netleri listeler (deneme / öğrenci verisi yok).
             </p>
             <div class="dp-hedef-atlas-bar net-sihirbazi-select-row dp-hedef-atlas-bar--two-col" style="margin: 0">
               <div class="net-sihirbazi-select">
@@ -6595,7 +6682,7 @@
               </div>
               <div class="net-sihirbazi-select">
                 <label for="dpNsDeptSelect">Bölüm</label>
-                <select id="dpNsDeptSelect" aria-label="Bölüm seçimi" disabled></select>
+                <select id="dpNsDeptSelect" aria-label="Bölüm seçimi"></select>
               </div>
             </div>
             <div class="dp-hedef-hero net-sihirbazi-hero">
@@ -6630,8 +6717,8 @@
             </div>
             <div class="form-group">
               <label for="dpTsDeptSelect">Bölüm</label>
-              <select id="dpTsDeptSelect" name="bolum" aria-label="Bölüm" disabled>
-                <option value="">— Önce üniversite seçin —</option>
+              <select id="dpTsDeptSelect" name="bolum" aria-label="Bölüm">
+                <option value="">Bölüm Ara/Seçin</option>
               </select>
             </div>
             <div class="form-group">
@@ -7616,11 +7703,41 @@
               <label for="editTargetTytNet">Hedef net</label>
               <input id="editTargetTytNet" inputmode="decimal" placeholder="Örn. 100" />
             </div>
-            <p class="student-erp-section-title">Hedef (YKS)</p>
-            <div class="form-group" style="grid-column: 1 / -1">
-              <label for="editPortalUsername">Portal kullanıcı adı</label>
-              <input id="editPortalUsername" maxlength="120" placeholder="Öğrenci giriş kullanıcı adı" autocomplete="off" />
+            <p class="student-erp-section-title">Giriş bilgileri yönetimi</p>
+            <div class="student-erp-login-card">
+              <p class="student-erp-login-card__hint">
+                Öğrenci paneli girişi (<code>kullaniciadi@sistem.com</code>). Yalnızca <strong>a-z</strong>, <strong>0-9</strong> ve
+                <strong>_</strong> kullanılabilir. Şifreyi değiştirmek istemiyorsanız alanı boş bırakın.
+              </p>
+              <div class="form-group">
+                <label for="editStudentLoginUsername">Kullanıcı adı</label>
+                <input
+                  id="editStudentLoginUsername"
+                  maxlength="120"
+                  placeholder="ör. ayse_yks2026"
+                  autocomplete="username"
+                  spellcheck="false"
+                />
+              </div>
+              <div class="form-group">
+                <label for="editStudentLoginPassword">Yeni şifre belirle</label>
+                <div class="form-pw-wrap">
+                  <input
+                    class="form-pw-wrap__input"
+                    type="password"
+                    id="editStudentLoginPassword"
+                    autocomplete="new-password"
+                    maxlength="256"
+                    placeholder="Boş bırakırsanız şifre değişmez"
+                  />
+                  <button type="button" class="form-pw-toggle" aria-label="Şifreyi göster" aria-pressed="false">
+                    <span class="form-pw-toggle__icon form-pw-toggle__icon--plain" aria-hidden="true"><i class="fa-solid fa-eye"></i></span>
+                    <span class="form-pw-toggle__icon form-pw-toggle__icon--slashed" hidden aria-hidden="true"><i class="fa-solid fa-eye-slash"></i></span>
+                  </button>
+                </div>
+              </div>
             </div>
+            <p class="student-erp-section-title">Hedef (YKS)</p>
             <div class="form-group yks-hedef-uni-wrap" style="grid-column: 1 / -1">
               <label for="editTargetUniSearch">Hedef üniversite</label>
               <input type="search" id="editTargetUniSearch" autocomplete="off" placeholder="Üniversite ara…" />

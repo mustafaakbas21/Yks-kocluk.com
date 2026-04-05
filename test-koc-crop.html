@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DerecePanel — Elite Kırpma &amp; Düzenleme (Test)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="css/koc-panel.css" />
+  <link rel="stylesheet" href="css/test-koc-crop.css" />
+</head>
+<body class="tkc-page">
+  <header class="tkc-hero">
+    <div class="tkc-hero__text">
+      <h1 class="tkc-hero__title">
+        <i class="fa-solid fa-scissors" aria-hidden="true"></i> Elite Kırpma &amp; Düzenleme Motoru
+      </h1>
+      <p class="tkc-hero__lead">
+        Test kitapçığı üzerinde yeşil kutuları düzenleyin; OCR metnini doğrulayın. Koordinatlar ve önizlemeler gerçek zamanlı güncellenir.
+      </p>
+    </div>
+    <div class="tkc-hero__actions">
+      <label class="tkc-file-btn">
+        <input type="file" id="tkcFileInput" accept="image/*" hidden />
+        <span><i class="fa-solid fa-image"></i> Görsel yükle</span>
+      </label>
+      <a href="koc-panel.html" class="tkc-link-back"><i class="fa-solid fa-arrow-left"></i> Panele dön</a>
+    </div>
+  </header>
+
+  <main class="tkc-layout">
+    <section class="tkc-main" aria-label="Kırpma tuvali">
+      <div class="tkc-toolbar" role="toolbar" aria-label="Kırpma araçları">
+        <button type="button" class="tkc-btn tkc-btn--primary" id="btnAutoCrop" title="Sayfada yatay bantlara göre otomatik kutu öner">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> Otomatik Kırp
+        </button>
+        <button type="button" class="tkc-btn tkc-btn--secondary" id="btnManualCrop" title="Tek seferlik sürükleyerek kutu çiz" aria-pressed="false">
+          <i class="fa-solid fa-vector-square"></i> Manuel Kırp
+        </button>
+        <button type="button" class="tkc-btn tkc-btn--accent" id="btnAddGreenBox" title="Sürükleyerek yeni yeşil kutu ekleyin" aria-pressed="false">
+          <i class="fa-solid fa-square-plus"></i> Yeşil Kutu Ekle
+        </button>
+        <button type="button" class="tkc-btn tkc-btn--ghost" id="btnReset" title="Tüm kutuları ve oturumu sıfırla">
+          <i class="fa-solid fa-rotate-left"></i> Sıfırla
+        </button>
+        <button type="button" class="tkc-btn tkc-btn--success" id="btnSave" title="JSON olarak indir">
+          <i class="fa-solid fa-floppy-disk"></i> Kaydet
+        </button>
+        <span class="tkc-toolbar__hint" id="tkcModeHint" aria-live="polite"></span>
+      </div>
+
+      <div class="tkc-canvas-shell">
+        <div class="tkc-canvas-wrap" id="cropCanvasWrap">
+          <canvas id="cropCanvas" width="800" height="1100" aria-label="Soru kırpma tuvali"></canvas>
+        </div>
+        <div class="tkc-canvas-meta">
+          <span id="tkcCanvasSizeLabel">Tuval: —</span>
+          <span id="tkcSelectionLabel" class="tkc-canvas-meta__sel"></span>
+        </div>
+      </div>
+
+      <div class="tkc-delete-bar" id="tkcDeleteBar" hidden>
+        <span class="tkc-delete-bar__id" id="tkcSelectedIdLabel"></span>
+        <button type="button" class="tkc-btn tkc-btn--danger tkc-btn--sm" id="btnDeleteBox" title="Seçili kutuyu sil">
+          <i class="fa-solid fa-trash"></i> Sil
+        </button>
+      </div>
+
+      <div class="tkc-list-section">
+        <div class="tkc-list-section__head">
+          <h2 class="tkc-list-section__title"><i class="fa-solid fa-list-check"></i> Gerçek Zamanlı Kırpılan Sorular</h2>
+          <p class="tkc-list-section__sub">Kutu taşındığında veya yeniden boyutlandırıldığında önizleme ve metinler güncellenir.</p>
+        </div>
+        <ul class="tkc-cropped-list" id="croppedQuestionsList" aria-live="polite"></ul>
+      </div>
+    </section>
+
+    <aside class="tkc-side" aria-label="Kutu detayları">
+      <div class="tkc-panel tkc-panel--dim" id="boxDetailsPanel">
+        <div class="tkc-panel__head">
+          <h2 class="tkc-panel__title"><i class="fa-solid fa-sliders"></i> Kutu detayları &amp; OCR</h2>
+          <p class="tkc-panel__sub" id="boxDetailsEmpty">Bir yeşil kutu seçin veya oluşturun.</p>
+        </div>
+        <div class="tkc-panel__body" id="boxDetailsBody" hidden>
+          <div class="tkc-field-grid">
+            <label class="tkc-label" for="boxInputX">X (px)</label>
+            <input class="tkc-input" type="number" id="boxInputX" inputmode="numeric" step="1" />
+            <label class="tkc-label" for="boxInputY">Y (px)</label>
+            <input class="tkc-input" type="number" id="boxInputY" inputmode="numeric" step="1" />
+            <label class="tkc-label" for="boxInputW">Genişlik</label>
+            <input class="tkc-input" type="number" id="boxInputW" inputmode="numeric" step="1" min="4" />
+            <label class="tkc-label" for="boxInputH">Yükseklik</label>
+            <input class="tkc-input" type="number" id="boxInputH" inputmode="numeric" step="1" min="4" />
+          </div>
+          <label class="tkc-label tkc-label--block" for="boxInputOcr">OCR / soru metni</label>
+          <textarea
+            class="tkc-textarea"
+            id="boxInputOcr"
+            rows="5"
+            placeholder="Örn: f(x)=(a-2)x²+(a-3)x+1 ..."
+            spellcheck="true"
+            lang="tr"
+          ></textarea>
+          <p class="tkc-microcopy">Metin otomatik örneklerle doldurulabilir; düzeltmeler kayıtta saklanır.</p>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <div class="tkc-toast-host" id="tkcToastHost" aria-live="polite"></div>
+
+  <script type="module" src="js/test-koc-crop.js"></script>
+</body>
+</html>

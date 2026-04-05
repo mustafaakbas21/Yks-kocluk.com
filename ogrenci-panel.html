@@ -407,7 +407,7 @@
             </div>
             <div class="net-sihirbazi-select">
               <label for="ospNsDeptSelect">Bölüm</label>
-              <select id="ospNsDeptSelect" aria-label="Bölüm seçimi" disabled></select>
+              <select id="ospNsDeptSelect" aria-label="Bölüm seçimi"></select>
             </div>
           </div>
           <div class="osp-hedef-hero">
@@ -1205,13 +1205,6 @@
             uniTitleId: "ospNsUniTitle",
             deptTitleId: "ospNsDeptSub",
             subtitleId: "ospNsTabanSub",
-            resolveExams: function () {
-              try {
-                return (window.OSP && window.OSP.lastFetchedExams) || [];
-              } catch (e) {
-                return [];
-              }
-            },
           });
         })
         .catch(function (e) {

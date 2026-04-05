@@ -1090,6 +1090,40 @@
   color: #64748b;
 }
 
+/* Hedef Simülatörü — tablo satır ilerleme çubuğu */
+.hs-sim-track {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.hs-sim-fill {
+  height: 100%;
+  min-width: 0;
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
+
+.hs-sim-fill--ok {
+  background: linear-gradient(90deg, #059669, #34d399);
+}
+
+.hs-sim-fill--mid {
+  background: linear-gradient(90deg, #d97706, #fbbf24);
+}
+
+.hs-sim-fill--empty {
+  background: #94a3b8;
+}
+
+.hs-sim-pct {
+  display: block;
+  margin-top: 3px;
+  text-align: center;
+}
+
 .net-sihirbazi-table-host {
   margin-top: 1rem;
 }
