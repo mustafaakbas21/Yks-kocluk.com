@@ -158,7 +158,8 @@ async function loadOspForUser(user) {
           var data = d.data();
           var c = data.coach_id != null ? data.coach_id : data.coachId;
           if (String(c || "").trim() !== coachNeedle) return;
-          if (uname && data.portalUsername && String(data.portalUsername).trim().toLowerCase() === uname) {
+          var pUser = (data.portal_username || data.portalUsername || "").trim().toLowerCase();
+          if (uname && pUser && pUser === uname) {
             match = data;
             studentDocId = d.id;
           }

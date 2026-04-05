@@ -1,13 +1,15 @@
 /**
  * Elite Kırpma & Düzenleme Motoru — test-koc-crop.html
- * Gerçek zamanlı tuval, yeşil kutular, OCR paneli, liste önizlemeleri (rAF + debounce).
+ * Floating toolbar (kutu üstü), gizli canvas JPEG kırpma, liste senkronu (pointer-up / debounce).
  */
 
 const BG_PRIMARY = "assets/test-koc-crop/image_0.png";
 const HANDLE_RADIUS = 7;
 const HANDLE_HIT = 14;
 const MIN_BOX = 16;
-const LIST_DEBOUNCE_MS = 48;
+/** Liste + OCR metin güncellemesi — hafif debounce (kırpma motoru bundan bağımsız) */
+const LIST_DEBOUNCE_MS = 300;
+const JPEG_QUALITY = 0.88;
 
 const OCR_SAMPLES_TR = [
   "f(x)=(a-2)x²+(a-3)x+1 ifadesinde a ∈ ℝ için ...",
@@ -58,7 +60,6 @@ function detectHorizontalBands(ctx, w, h) {
     row[y] = sum / Math.max(n, 1);
   }
   var WHITE = 248;
-  var MIN_GAP = 14;
   var MIN_H = 72;
   var marginX = Math.max(8, Math.floor(w * 0.02));
   var boxes = [];
@@ -102,6 +103,7 @@ function EliteCropEngine() {
   this.canvas = document.getElementById("cropCanvas");
   this.ctx = this.canvas && this.canvas.getContext("2d");
   this.wrap = document.getElementById("cropCanvasWrap");
+  this.floatLayer = document.getElementById("tkcFloatingLayer");
   this.boxes = [];
   this.selectedId = null;
   this.bgImage = null;
@@ -111,7 +113,15 @@ function EliteCropEngine() {
   this.listDirty = true;
   this.rafScheduled = false;
   this._listTimer = null;
+  this._ocrInputTimer = null;
   this._sampleIdx = 0;
+
+  /** Görüntü kırpma — yalnızca pointer-up / finalize’da kullanılır */
+  this._hiddenCropCanvas = document.createElement("canvas");
+  this._floatUi = null;
+  this._floatOcrInput = null;
+  this._floatEditBtn = null;
+  this._ocrPanelOpen = false;
 
   this.drag = null;
   this.rubber = null;
@@ -120,15 +130,250 @@ function EliteCropEngine() {
   this._onPointerDown = this._onPointerDown.bind(this);
   this._onPointerMove = this._onPointerMove.bind(this);
   this._onPointerUp = this._onPointerUp.bind(this);
-  this._onInputPanel = this._onInputPanel.bind(this);
+  this._onWrapScroll = this._onWrapScroll.bind(this);
 }
 
 EliteCropEngine.prototype.init = function () {
   if (!this.canvas || !this.ctx) return;
+  this._buildFloatingUi();
   this._wireUi();
   this._loadBackground(BG_PRIMARY, true);
   window.addEventListener("resize", this._onResize);
+  if (this.wrap) this.wrap.addEventListener("scroll", this._onWrapScroll, { passive: true });
   this.scheduleListSync(true);
+};
+
+EliteCropEngine.prototype._buildFloatingUi = function () {
+  var host = this.floatLayer;
+  if (!host) return;
+  host.innerHTML = "";
+  var root = document.createElement("div");
+  root.className = "tkc-float-ui";
+  root.id = "tkcFloatUi";
+  root.hidden = true;
+  root.setAttribute("role", "toolbar");
+  root.setAttribute("aria-label", "Seçili kutu araçları");
+
+  var bar = document.createElement("div");
+  bar.className = "tkc-float-toolbar";
+
+  var btnDel = document.createElement("button");
+  btnDel.type = "button";
+  btnDel.className = "tkc-float-btn tkc-float-btn--danger";
+  btnDel.title = "Kutuyu sil";
+  btnDel.innerHTML = '<i class="fa-solid fa-trash" aria-hidden="true"></i>';
+  btnDel.setAttribute("aria-label", "Sil");
+
+  var btnEdit = document.createElement("button");
+  btnEdit.type = "button";
+  btnEdit.className = "tkc-float-btn tkc-float-btn--edit";
+  btnEdit.title = "OCR metnini düzenle";
+  btnEdit.innerHTML = '<i class="fa-solid fa-pen" aria-hidden="true"></i>';
+  btnEdit.setAttribute("aria-label", "Düzenle");
+  btnEdit.setAttribute("aria-pressed", "false");
+
+  var ocrWrap = document.createElement("div");
+  ocrWrap.className = "tkc-float-ocr";
+  ocrWrap.id = "tkcFloatOcrWrap";
+  ocrWrap.hidden = true;
+
+  var ocrIn = document.createElement("input");
+  ocrIn.type = "text";
+  ocrIn.className = "tkc-float-ocr-input";
+  ocrIn.id = "tkcFloatOcrInput";
+  ocrIn.placeholder = "OCR / soru metni";
+  ocrIn.setAttribute("autocomplete", "off");
+  ocrIn.setAttribute("spellcheck", "true");
+  ocrIn.setAttribute("lang", "tr");
+
+  ocrWrap.appendChild(ocrIn);
+  bar.appendChild(btnDel);
+  bar.appendChild(btnEdit);
+  root.appendChild(bar);
+  root.appendChild(ocrWrap);
+  host.appendChild(root);
+
+  this._floatUi = root;
+  this._floatOcrInput = ocrIn;
+  this._floatEditBtn = btnEdit;
+
+  var self = this;
+  function stop(e) {
+    e.stopPropagation();
+  }
+  [root, bar, btnDel, btnEdit, ocrWrap, ocrIn].forEach(function (el) {
+    el.addEventListener("pointerdown", stop);
+    el.addEventListener("mousedown", stop);
+  });
+
+  btnDel.addEventListener("click", function (e) {
+    e.stopPropagation();
+    self.deleteSelected();
+  });
+
+  btnEdit.addEventListener("click", function (e) {
+    e.stopPropagation();
+    self._toggleOcrPanel();
+  });
+
+  ocrIn.addEventListener("input", function () {
+    self._onFloatingOcrInput();
+  });
+  ocrIn.addEventListener("keydown", function (ev) {
+    if (ev.key === "Escape") {
+      self._setOcrPanel(false);
+    }
+  });
+};
+
+EliteCropEngine.prototype._toggleOcrPanel = function () {
+  this._setOcrPanel(!this._ocrPanelOpen);
+};
+
+EliteCropEngine.prototype._setOcrPanel = function (open) {
+  this._ocrPanelOpen = !!open;
+  var wrap = document.getElementById("tkcFloatOcrWrap");
+  if (wrap) wrap.hidden = !this._ocrPanelOpen;
+  if (this._floatEditBtn) this._floatEditBtn.setAttribute("aria-pressed", this._ocrPanelOpen ? "true" : "false");
+  if (this._ocrPanelOpen && this._floatOcrInput) {
+    var self = this;
+    requestAnimationFrame(function () {
+      self._floatOcrInput.focus();
+      self._floatOcrInput.select();
+    });
+  }
+  this._positionFloatingUi();
+};
+
+EliteCropEngine.prototype._onFloatingOcrInput = function () {
+  var self = this;
+  if (!this.selectedId || !this._floatOcrInput) return;
+  var b = this.boxes.find(function (x) {
+    return x.id === self.selectedId;
+  });
+  if (!b) return;
+  b.ocrText = this._floatOcrInput.value;
+  b.edited = true;
+  if (this._ocrInputTimer) clearTimeout(this._ocrInputTimer);
+  this._ocrInputTimer = setTimeout(function () {
+    self._ocrInputTimer = null;
+    self.scheduleListSync(true);
+  }, LIST_DEBOUNCE_MS);
+};
+
+EliteCropEngine.prototype._syncFloatingOcrFromBox = function () {
+  var b = this.boxes.find(
+    function (x) {
+      return x.id === this.selectedId;
+    }.bind(this)
+  );
+  if (this._floatOcrInput) {
+    this._floatOcrInput.value = b && b.ocrText != null ? String(b.ocrText) : "";
+  }
+};
+
+EliteCropEngine.prototype._onWrapScroll = function () {
+  this._positionFloatingUi();
+};
+
+/** Kutu sağ üst köşesinin üzerine yerleştir (wrap içi koordinatlar) */
+EliteCropEngine.prototype._positionFloatingUi = function () {
+  if (!this._floatUi || !this.wrap || !this.canvas || !this.selectedId) return;
+  var b = this.boxes.find(
+    function (x) {
+      return x.id === this.selectedId;
+    }.bind(this)
+  );
+  if (!b) return;
+
+  var cvs = this.canvas;
+  var ox = cvs.offsetLeft;
+  var oy = cvs.offsetTop;
+  var scaleX = cvs.clientWidth / Math.max(cvs.width, 1);
+  var scaleY = cvs.clientHeight / Math.max(cvs.height, 1);
+
+  var bx = b.x * scaleX + ox;
+  var by = b.y * scaleY + oy;
+  var bw = b.w * scaleX;
+  var bh = b.h * scaleY;
+
+  this._floatUi.hidden = false;
+  this._floatUi.style.display = "flex";
+
+  var tw = this._floatUi.offsetWidth || 120;
+  var th = this._floatUi.offsetHeight || 40;
+
+  var pad = 6;
+  var left = bx + bw - tw - pad;
+  var top = by - th - pad;
+
+  if (left < ox + pad) left = ox + pad;
+  if (left + tw > ox + cvs.clientWidth - pad) left = ox + cvs.clientWidth - tw - pad;
+  if (top < oy + pad) {
+    top = by + bh + pad;
+  }
+  if (top + th > oy + cvs.clientHeight - pad) {
+    top = oy + cvs.clientHeight - th - pad;
+  }
+
+  this._floatUi.style.left = Math.round(left) + "px";
+  this._floatUi.style.top = Math.round(top) + "px";
+
+  var host = this.floatLayer;
+  if (host) host.setAttribute("aria-hidden", "false");
+};
+
+EliteCropEngine.prototype._hideFloatingUi = function () {
+  if (this._floatUi) {
+    this._floatUi.hidden = true;
+  }
+  this._setOcrPanel(false);
+  var host = this.floatLayer;
+  if (host) host.setAttribute("aria-hidden", "true");
+};
+
+/**
+ * Gizli canvas ile JPEG kırpma (drawImage sx,sy,sw,sh → tam boyut).
+ */
+EliteCropEngine.prototype._computeJpegCrop = function (b) {
+  var cw = this.canvas.width;
+  var ch = this.canvas.height;
+  var sx = clamp(Math.floor(b.x), 0, cw - 1);
+  var sy = clamp(Math.floor(b.y), 0, ch - 1);
+  var sw = clamp(Math.floor(b.w), MIN_BOX, cw - sx);
+  var sh = clamp(Math.floor(b.h), MIN_BOX, ch - sy);
+
+  var src = this.bgImage;
+  if (!src) {
+    src = this.canvas;
+  }
+
+  var c = this._hiddenCropCanvas;
+  c.width = sw;
+  c.height = sh;
+  var ctx = c.getContext("2d");
+  if (!ctx) return "";
+  ctx.fillStyle = "#f1f5f9";
+  ctx.fillRect(0, 0, sw, sh);
+  try {
+    ctx.drawImage(src, sx, sy, sw, sh, 0, 0, sw, sh);
+    return c.toDataURL("image/jpeg", JPEG_QUALITY);
+  } catch (e) {
+    console.warn("[tkc] JPEG kırpma başarısız (CORS / tainted canvas):", e && e.message);
+    return "";
+  }
+};
+
+/** Tek kutu için kırpma + liste güncellemesi tetikleyicisi */
+EliteCropEngine.prototype._finalizeBoxCrop = function (boxId) {
+  var b = this.boxes.find(function (x) {
+    return x.id === boxId;
+  });
+  if (!b) return;
+  var url = this._computeJpegCrop(b);
+  b.cropDataUrl = url || null;
+  b.cropRevision = (b.cropRevision || 0) + 1;
+  this.listDirty = true;
 };
 
 EliteCropEngine.prototype._loadBackground = function (src, isFallback) {
@@ -141,6 +386,7 @@ EliteCropEngine.prototype._loadBackground = function (src, isFallback) {
     self.canvas.height = img.naturalHeight;
     self._updateSizeLabel();
     self.markDirty();
+    self._refreshAllCrops();
     self.scheduleListSync(true);
     if (!isFallback) showToast("Görsel yüklendi.", "ok");
   };
@@ -189,6 +435,15 @@ EliteCropEngine.prototype._drawPlaceholderPattern = function () {
   this.bgImage = null;
   this._updateSizeLabel();
   this.markDirty();
+  this._refreshAllCrops();
+  this.scheduleListSync(true);
+};
+
+EliteCropEngine.prototype._refreshAllCrops = function () {
+  var self = this;
+  this.boxes.forEach(function (b) {
+    self._finalizeBoxCrop(b.id);
+  });
   this.scheduleListSync(true);
 };
 
@@ -240,17 +495,6 @@ EliteCropEngine.prototype._wireUi = function () {
   document.getElementById("btnSave").addEventListener("click", function () {
     self.saveJson();
   });
-  document.getElementById("btnDeleteBox").addEventListener("click", function () {
-    self.deleteSelected();
-  });
-
-  ["boxInputX", "boxInputY", "boxInputW", "boxInputH", "boxInputOcr"].forEach(function (id) {
-    var el = document.getElementById(id);
-    if (el) {
-      el.addEventListener("input", self._onInputPanel);
-      el.addEventListener("change", self._onInputPanel);
-    }
-  });
 
   var fin = document.getElementById("tkcFileInput");
   if (fin) {
@@ -265,6 +509,7 @@ EliteCropEngine.prototype._wireUi = function () {
         self.canvas.height = im.naturalHeight;
         self._updateSizeLabel();
         self.markDirty();
+        self._refreshAllCrops();
         URL.revokeObjectURL(url);
         showToast("Görsel tuvalde.", "ok");
       };
@@ -302,6 +547,7 @@ EliteCropEngine.prototype._scheduleFrame = function () {
   requestAnimationFrame(function () {
     self.rafScheduled = false;
     self._paint();
+    self._positionFloatingUi();
   });
 };
 
@@ -393,8 +639,6 @@ EliteCropEngine.prototype._onPointerDown = function (e) {
   var p = this.clientToCanvas(e.clientX, e.clientY);
   var mx = p.x;
   var my = p.y;
-  var cw = this.canvas.width;
-  var ch = this.canvas.height;
 
   if (this.manualOnce || this.addRepeat) {
     this.rubber = { x0: mx, y0: my, x: mx, y: my, w: 0, h: 0 };
@@ -452,8 +696,7 @@ EliteCropEngine.prototype._onPointerMove = function (e) {
     b.y = clamp(this.drag.orig.y + dy, 0, this.canvas.height - b.h);
     b.edited = true;
     this.markDirty();
-    this.scheduleListSync();
-    this.syncPanelFromBox();
+    this._positionFloatingUi();
     return;
   }
 
@@ -517,16 +760,18 @@ EliteCropEngine.prototype._onPointerMove = function (e) {
     b2.h = nh;
     b2.edited = true;
     this.markDirty();
-    this.scheduleListSync();
-    this.syncPanelFromBox();
+    this._positionFloatingUi();
   }
 };
 
 EliteCropEngine.prototype._onPointerUp = function (e) {
+  var self = this;
+  var cropIds = [];
+
   if (this.drag && this.drag.type === "rubber" && this.rubber) {
     var r = this.rubber;
     if (r.w >= MIN_BOX && r.h >= MIN_BOX) {
-      this._addBox(
+      var newId = this._addBox(
         {
           x: r.x,
           y: r.y,
@@ -536,8 +781,9 @@ EliteCropEngine.prototype._onPointerUp = function (e) {
           isNew: true,
           edited: false,
         },
-        false
+        true
       );
+      if (newId) cropIds.push(newId);
       this._sampleIdx++;
     }
     this.rubber = null;
@@ -547,11 +793,22 @@ EliteCropEngine.prototype._onPointerUp = function (e) {
       this._hint("");
     }
     this._syncWrapClass();
+  } else if (this.drag && (this.drag.type === "move" || this.drag.type === "resize")) {
+    cropIds.push(this.drag.id);
   }
+
   this.drag = null;
   try {
     if (this.canvas && e.pointerId != null) this.canvas.releasePointerCapture(e.pointerId);
   } catch (_err) {}
+
+  cropIds.forEach(function (id) {
+    self._finalizeBoxCrop(id);
+  });
+  if (cropIds.length) {
+    self.scheduleListSync(true);
+  }
+
   this.markDirty();
 };
 
@@ -565,89 +822,46 @@ EliteCropEngine.prototype._addBox = function (partial, silentToast) {
     ocrText: partial.ocrText || "",
     isNew: !!partial.isNew,
     edited: !!partial.edited,
+    cropDataUrl: null,
+    cropRevision: 0,
   };
   this.boxes.push(b);
   this.select(b.id);
   this.markDirty();
-  this.scheduleListSync();
-  this.syncPanelFromBox();
   if (!silentToast) showToast("Kutu eklendi.", "ok");
+  return b.id;
 };
 
 EliteCropEngine.prototype.select = function (id) {
   this.selectedId = id;
-  var bar = document.getElementById("tkcDeleteBar");
-  var lab = document.getElementById("tkcSelectedIdLabel");
-  var selLbl = document.getElementById("tkcSelectionLabel");
-  if (bar) bar.hidden = !id;
-  if (lab) lab.textContent = id ? "Seçili: " + id : "";
-  if (selLbl) selLbl.textContent = id ? "Seçim: " + id : "";
-  var panel = document.getElementById("boxDetailsPanel");
-  var empty = document.getElementById("boxDetailsEmpty");
-  var body = document.getElementById("boxDetailsBody");
-  if (panel) panel.classList.toggle("tkc-panel--dim", !id);
-  if (empty) empty.hidden = !!id;
-  if (body) body.hidden = !id;
-  this.syncPanelFromBox();
+  var lab = document.getElementById("tkcSelectionLabel");
+  if (lab) lab.textContent = id ? "Seçim: " + id : "";
+
+  if (!id) {
+    this._hideFloatingUi();
+  } else {
+    this._syncFloatingOcrFromBox();
+    this._setOcrPanel(false);
+    requestAnimationFrame(function () {
+      this._positionFloatingUi();
+    }.bind(this));
+  }
+
   this.markDirty();
   this._syncWrapClass();
-  this.scheduleListSync();
-};
-
-EliteCropEngine.prototype.syncPanelFromBox = function () {
-  var b = this.boxes.find(function (x) {
-    return x.id === this.selectedId;
-  }, this);
-  function val(id, v) {
-    var el = document.getElementById(id);
-    if (el) el.value = v != null ? String(v) : "";
-  }
-  if (!b) {
-    val("boxInputX", "");
-    val("boxInputY", "");
-    val("boxInputW", "");
-    val("boxInputH", "");
-    val("boxInputOcr", "");
-    return;
-  }
-  val("boxInputX", Math.round(b.x));
-  val("boxInputY", Math.round(b.y));
-  val("boxInputW", Math.round(b.w));
-  val("boxInputH", Math.round(b.h));
-  val("boxInputOcr", b.ocrText || "");
-};
-
-EliteCropEngine.prototype._onInputPanel = function () {
-  var self = window.__tkcEngine;
-  if (!self || !self.selectedId) return;
-  var b = self.boxes.find(function (x) {
-    return x.id === self.selectedId;
-  });
-  if (!b) return;
-  var x = parseFloat(document.getElementById("boxInputX").value);
-  var y = parseFloat(document.getElementById("boxInputY").value);
-  var w = parseFloat(document.getElementById("boxInputW").value);
-  var h = parseFloat(document.getElementById("boxInputH").value);
-  var ocr = document.getElementById("boxInputOcr").value;
-  if (!isNaN(x)) b.x = clamp(x, 0, self.canvas.width - MIN_BOX);
-  if (!isNaN(y)) b.y = clamp(y, 0, self.canvas.height - MIN_BOX);
-  if (!isNaN(w)) b.w = clamp(w, MIN_BOX, self.canvas.width - b.x);
-  if (!isNaN(h)) b.h = clamp(h, MIN_BOX, self.canvas.height - b.y);
-  b.ocrText = ocr;
-  b.edited = true;
-  self.markDirty();
-  self.scheduleListSync();
+  this.scheduleListSync(true);
 };
 
 EliteCropEngine.prototype.deleteSelected = function () {
   if (!this.selectedId) return;
+  var sid = this.selectedId;
   this.boxes = this.boxes.filter(function (x) {
-    return x.id !== this.selectedId;
-  }, this);
+    return x.id !== sid;
+  });
   showToast("Kutu silindi.", "ok");
   this.select(null);
   this.markDirty();
-  this.scheduleListSync();
+  this.scheduleListSync(true);
 };
 
 EliteCropEngine.prototype.runAutoCrop = function () {
@@ -667,8 +881,9 @@ EliteCropEngine.prototype.runAutoCrop = function () {
     return;
   }
   var self = this;
+  var ids = [];
   bands.forEach(function (rect, i) {
-    self._addBox(
+    var id = self._addBox(
       {
         x: rect.x,
         y: rect.y,
@@ -680,6 +895,10 @@ EliteCropEngine.prototype.runAutoCrop = function () {
       },
       true
     );
+    if (id) ids.push(id);
+  });
+  ids.forEach(function (id) {
+    self._finalizeBoxCrop(id);
   });
   showToast(bands.length + " kutu otomatik oluşturuldu.", "ok");
   this.manualOnce = false;
@@ -688,6 +907,7 @@ EliteCropEngine.prototype.runAutoCrop = function () {
   this._setBtnPressed("btnAddGreenBox", false);
   this._hint("");
   this._syncWrapClass();
+  this.scheduleListSync(true);
 };
 
 EliteCropEngine.prototype.resetSession = function () {
@@ -714,7 +934,7 @@ EliteCropEngine.prototype.resetSession = function () {
 
 EliteCropEngine.prototype.saveJson = function () {
   var payload = {
-    version: 1,
+    version: 2,
     canvas: { w: this.canvas.width, h: this.canvas.height },
     image: BG_PRIMARY,
     boxes: this.boxes.map(function (b) {
@@ -725,6 +945,7 @@ EliteCropEngine.prototype.saveJson = function () {
         w: Math.round(b.w),
         h: Math.round(b.h),
         ocrText: b.ocrText || "",
+        cropJpegDataUrl: b.cropDataUrl || null,
       };
     }),
     savedAt: new Date().toISOString(),
@@ -797,7 +1018,7 @@ EliteCropEngine.prototype._renderList = function () {
     }
     var bl = document.createElement("span");
     bl.className = "tkc-badge tkc-badge--live";
-    bl.textContent = "Önizleme";
+    bl.textContent = "JPEG";
     badges.appendChild(bl);
     if (b.edited) {
       var be = document.createElement("span");
@@ -807,11 +1028,18 @@ EliteCropEngine.prototype._renderList = function () {
     }
     thumbWrap.appendChild(badges);
 
-    var img = document.createElement("img");
-    img.className = "tkc-crop-card__thumb";
-    img.alt = "Kırpma önizleme";
-    img.src = self._thumbDataUrl(b);
-    thumbWrap.appendChild(img);
+    if (b.cropDataUrl) {
+      var img = document.createElement("img");
+      img.className = "tkc-crop-card__thumb";
+      img.alt = "Kırpılmış soru";
+      img.src = b.cropDataUrl;
+      thumbWrap.appendChild(img);
+    } else {
+      var pend = document.createElement("div");
+      pend.className = "tkc-crop-card__thumb tkc-crop-card__thumb--pending";
+      pend.textContent = "Önizleme hazırlanıyor…";
+      thumbWrap.appendChild(pend);
+    }
 
     var body = document.createElement("div");
     body.className = "tkc-crop-card__body";
@@ -830,24 +1058,9 @@ EliteCropEngine.prototype._renderList = function () {
   });
 };
 
-EliteCropEngine.prototype._thumbDataUrl = function (b) {
-  var tw = 280;
-  var th = 210;
-  var c = document.createElement("canvas");
-  c.width = tw;
-  c.height = th;
-  var x = c.getContext("2d");
-  x.fillStyle = "#f1f5f9";
-  x.fillRect(0, 0, tw, th);
-  try {
-    var src = this.bgImage || this.canvas;
-    x.drawImage(src, b.x, b.y, b.w, b.h, 0, 0, tw, th);
-  } catch (_e) {}
-  return c.toDataURL("image/png");
-};
-
 EliteCropEngine.prototype._onResize = function () {
   this.markDirty();
+  this._positionFloatingUi();
 };
 
 var engine = new EliteCropEngine();
