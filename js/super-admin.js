@@ -37,7 +37,7 @@ import {
   databasesUpdateDocumentOrSoft,
   databasesDeleteDocumentOrSoft,
   isAppwriteWriteSoftFailure,
-} from "./appwrite-compat.js?v=20260408-sa-compat";
+} from "./appwrite-compat.js?v=20260408-sa-compat-creat";
 import {
   storage,
   APPWRITE_BUCKET_DESTEK,
@@ -3378,7 +3378,6 @@ if (formCreateInstitutionEl) {
     try {
       var instWr = await addDoc(collection(db, APPWRITE_COLLECTION_INSTITUTIONS), {
         name: name,
-        createdAt: serverTimestamp(),
       });
       if (isAppwriteWriteSoftFailure(instWr)) {
         showInstitutionFormMsg(false, (instWr && instWr.message) || "Kurum kaydedilemedi.");

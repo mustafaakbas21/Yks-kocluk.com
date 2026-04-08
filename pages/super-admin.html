@@ -1830,7 +1830,7 @@
       <p style="font-size:0.85rem;color:var(--muted);margin:0 0 1rem;line-height:1.5;max-width:62ch">
         Koç ve öğrenci kayıtları bir <strong>institutionId</strong> ile ilişkilendirilir. Önce kurum oluşturun; ardından koç eklerken listeden seçin.
       </p>
-      <!-- Kurum: Appwrite `institutions` şeması — yalnızca name (+ istemci createdAt). -->
+      <!-- Kurum: Appwrite `institutions` şeması — özel alan: name (oluşturma zamanı: $createdAt). -->
       <form id="formCreateInstitution" method="post" action="#" novalidate class="form-grid" style="margin-bottom:1.5rem;padding-bottom:1.25rem;border-bottom:1px solid rgba(148,163,184,0.2)">
         <div class="form-group form-group--full">
           <h3 class="section-title" style="font-size:1rem;margin:0 0 0.5rem"><i class="fa-solid fa-plus-circle"></i> Kurum oluştur</h3>
@@ -2454,6 +2454,6 @@
 
   <script type="module" src="../js/form-password-toggle.js"></script>
   <script type="module" src="../js/sorun-bildir.js"></script>
-  <script type="module" src="../js/super-admin.js?v=20260408-sa-inst"></script>
+  <script type="module" src="../js/super-admin.js?v=20260408-sa-inst-creat"></script>
 </body>
 </html>

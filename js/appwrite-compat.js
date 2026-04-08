@@ -367,12 +367,11 @@ export async function addDoc(collectionRef, data) {
   }
   const payload = normalizeValue(raw);
   mergeCoachIdIntoPayload(c.collectionId, payload);
-  /** institutions: createDocument yükü yalnızca name + createdAt (şemadaki alanlar). */
+  /** institutions: şemada yalnızca özel attribute `name` — $createdAt Appwrite meta. */
   var docPayloadForCreate = payload;
   if (String(c.collectionId || "") === "institutions") {
     docPayloadForCreate = {};
     if (payload.name !== undefined && payload.name !== null) docPayloadForCreate.name = payload.name;
-    if (payload.createdAt !== undefined && payload.createdAt !== null) docPayloadForCreate.createdAt = payload.createdAt;
   }
   const perms = isCoachScopedCollection(c.collectionId) ? buildScopedDocumentPermissions() : undefined;
   try {
