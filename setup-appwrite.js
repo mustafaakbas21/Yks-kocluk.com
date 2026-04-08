@@ -574,6 +574,8 @@ async function ensureExtendedPlatformSchema(databases) {
   await createStringAttr(databases, COLLECTION_USERS_ID, "coach_id", 128, false);
   await createStringAttr(databases, COLLECTION_USERS_ID, "institutionId", 128, false);
   await createStringAttr(databases, COLLECTION_USERS_ID, "institutionName", 512, false);
+  /** Kurucu paneli koç formu (`super-admin.js`) — şemada yoksa createDocument 400 döner, profil yazılmaz */
+  await createStringAttr(databases, COLLECTION_USERS_ID, "phone", 64, false);
   await createStringAttr(databases, COLLECTION_USERS_ID, "packageType", 64, false);
   await createStringAttr(databases, COLLECTION_USERS_ID, "plainPassword", 512, false);
   await createBooleanAttr(databases, COLLECTION_USERS_ID, "frozen", false);
@@ -581,6 +583,8 @@ async function ensureExtendedPlatformSchema(databases) {
   await createDatetimeAttr(databases, COLLECTION_USERS_ID, "lastLogin", false);
   await createDatetimeAttr(databases, COLLECTION_USERS_ID, "lastPasswordChangeAt", false);
   await ensureKeyIndex(databases, COLLECTION_USERS_ID, "idx_users_username", ["username"], ["ASC"]);
+  /** `role == coach|student|…` listeleri (kurucu paneli) — indeks yoksa listDocuments 400 / boş dönebilir */
+  await ensureKeyIndex(databases, COLLECTION_USERS_ID, "idx_users_role", ["role"], ["ASC"]);
 
   await ensureCollection(databases, COLLECTION_COACHES_ID, "Koçlar (legacy username)");
   await createStringAttr(databases, COLLECTION_COACHES_ID, "username", 128, false);
