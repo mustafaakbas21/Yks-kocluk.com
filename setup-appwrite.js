@@ -117,6 +117,7 @@ const COLLECTION_STUDENTS_ID = process.env.APPWRITE_COLLECTION_STUDENTS || "stud
 /** Koç paneli / login — `js/appwrite-config.js` ve `koc-panel.js` ile aynı ID’ler */
 const COLLECTION_USERS_ID = "users";
 const COLLECTION_COACHES_ID = "coaches";
+const COLLECTION_INSTITUTIONS_ID = process.env.APPWRITE_COLLECTION_INSTITUTIONS || "institutions";
 const COLLECTION_EXAMS_LEGACY_ID = "exams";
 const COLLECTION_APPOINTMENTS_ID = "appointments";
 const COLLECTION_TESTS_ID = "tests";
@@ -561,11 +562,17 @@ async function ensureExtendedPlatformSchema(databases) {
   log("");
   log("——— Genişletilmiş platform koleksiyonları (users, exams, …) ———");
 
+  await ensureCollection(databases, COLLECTION_INSTITUTIONS_ID, "Kurumlar (tenant)");
+  await createStringAttr(databases, COLLECTION_INSTITUTIONS_ID, "name", 512, true);
+  await createStringAttr(databases, COLLECTION_INSTITUTIONS_ID, "logo", 2000, false);
+  await createDatetimeAttr(databases, COLLECTION_INSTITUTIONS_ID, "createdAt", false);
+
   await ensureCollection(databases, COLLECTION_USERS_ID, "Kullanıcılar (profil)");
   await createStringAttr(databases, COLLECTION_USERS_ID, "username", 128, false);
   await createStringAttr(databases, COLLECTION_USERS_ID, "role", 64, false);
   await createStringAttr(databases, COLLECTION_USERS_ID, "fullName", 512, false);
   await createStringAttr(databases, COLLECTION_USERS_ID, "coach_id", 128, false);
+  await createStringAttr(databases, COLLECTION_USERS_ID, "institutionId", 128, false);
   await createStringAttr(databases, COLLECTION_USERS_ID, "institutionName", 512, false);
   await createStringAttr(databases, COLLECTION_USERS_ID, "packageType", 64, false);
   await createStringAttr(databases, COLLECTION_USERS_ID, "plainPassword", 512, false);
@@ -577,6 +584,7 @@ async function ensureExtendedPlatformSchema(databases) {
 
   await ensureCollection(databases, COLLECTION_COACHES_ID, "Koçlar (legacy username)");
   await createStringAttr(databases, COLLECTION_COACHES_ID, "username", 128, false);
+  await createStringAttr(databases, COLLECTION_COACHES_ID, "institutionId", 128, false);
   await createStringAttr(databases, COLLECTION_COACHES_ID, "fullName", 512, false);
   await createStringAttr(databases, COLLECTION_COACHES_ID, "name", 512, false);
 
@@ -592,6 +600,7 @@ async function ensureExtendedPlatformSchema(databases) {
   await createStringAttr(databases, COLLECTION_EXAMS_LEGACY_ID, "status", 128, false);
   await createStringAttr(databases, COLLECTION_EXAMS_LEGACY_ID, "coachExamNote", 4000, false);
   await createStringAttr(databases, COLLECTION_EXAMS_LEGACY_ID, "coach_id", 128, false);
+  await createStringAttr(databases, COLLECTION_EXAMS_LEGACY_ID, "institutionId", 128, false);
   await createStringAttr(databases, COLLECTION_EXAMS_LEGACY_ID, "examDefinitionId", 255, false);
   await createStringAttr(databases, COLLECTION_EXAMS_LEGACY_ID, "scoringRule", 128, false);
   await createStringAttr(databases, COLLECTION_EXAMS_LEGACY_ID, "yksBranchDetail", 5000, false);
@@ -599,12 +608,27 @@ async function ensureExtendedPlatformSchema(databases) {
   await createDatetimeAttr(databases, COLLECTION_EXAMS_LEGACY_ID, "createdAt", false);
   await createDatetimeAttr(databases, COLLECTION_EXAMS_LEGACY_ID, "updatedAt", false);
   await ensureKeyIndex(databases, COLLECTION_EXAMS_LEGACY_ID, "idx_exams_studentId", ["studentId"], ["ASC"]);
+  await ensureKeyIndex(
+    databases,
+    COLLECTION_EXAMS_LEGACY_ID,
+    "idx_exams_coach_institution",
+    ["coach_id", "institutionId"],
+    ["ASC", "ASC"]
+  );
 
   /** Randevular — 3 attribute (plan kotası); studentId details_json içinde */
   await ensureCollection(databases, COLLECTION_APPOINTMENTS_ID, "Randevular");
   await createDatetimeAttr(databases, COLLECTION_APPOINTMENTS_ID, "scheduledAt", false);
   await createStringAttr(databases, COLLECTION_APPOINTMENTS_ID, "details_json", 3000, false);
   await createStringAttr(databases, COLLECTION_APPOINTMENTS_ID, "coach_id", 64, false);
+  await createStringAttr(databases, COLLECTION_APPOINTMENTS_ID, "institutionId", 128, false);
+  await ensureKeyIndex(
+    databases,
+    COLLECTION_APPOINTMENTS_ID,
+    "idx_appointments_coach_institution",
+    ["coach_id", "institutionId"],
+    ["ASC", "ASC"]
+  );
 
   await ensureCollection(databases, COLLECTION_TESTS_ID, "TestMaker taslakları");
   await createStringAttr(databases, COLLECTION_TESTS_ID, "title", 512, false);
@@ -651,11 +675,19 @@ async function ensureExtendedPlatformSchema(databases) {
 
   await ensureCollection(databases, COLLECTION_MEETING_LOGS_ID, "Görüşme notları");
   await createStringAttr(databases, COLLECTION_MEETING_LOGS_ID, "coach_id", 128, true);
+  await createStringAttr(databases, COLLECTION_MEETING_LOGS_ID, "institutionId", 128, false);
   await createStringAttr(databases, COLLECTION_MEETING_LOGS_ID, "student_id", 255, true);
   await createStringAttr(databases, COLLECTION_MEETING_LOGS_ID, "student_name", 512, false);
   await createTextAttr(databases, COLLECTION_MEETING_LOGS_ID, "body_html", false);
   await createDatetimeAttr(databases, COLLECTION_MEETING_LOGS_ID, "saved_at", true);
   await ensureKeyIndex(databases, COLLECTION_MEETING_LOGS_ID, "idx_meeting_student", ["student_id"], ["ASC"]);
+  await ensureKeyIndex(
+    databases,
+    COLLECTION_MEETING_LOGS_ID,
+    "idx_meeting_coach_institution",
+    ["coach_id", "institutionId"],
+    ["ASC", "ASC"]
+  );
 
   /** Koç paneli — öğrenci ile iki yönlü sohbet (Gelen Sorular); Console şeması üstteki yorumla aynı */
   await ensureCollection(databases, COLLECTION_MESSAGES_ID, "Mesajlar (koç–öğrenci)");
@@ -780,6 +812,7 @@ async function ensureStudentsCoachSchema(databases) {
   log("");
   log("——— students attribute'ları ———");
   await createStringAttr(databases, COLLECTION_STUDENTS_ID, "coach_id", 128, false);
+  await createStringAttr(databases, COLLECTION_STUDENTS_ID, "institutionId", 128, false);
   await createStringAttr(databases, COLLECTION_STUDENTS_ID, "firstName", 255, false);
   await createStringAttr(databases, COLLECTION_STUDENTS_ID, "lastName", 255, false);
   await createStringAttr(databases, COLLECTION_STUDENTS_ID, "name", 512, false);
@@ -811,6 +844,13 @@ async function ensureStudentsCoachSchema(databases) {
   await createDatetimeAttr(databases, COLLECTION_STUDENTS_ID, "createdAt", false);
   await createDatetimeAttr(databases, COLLECTION_STUDENTS_ID, "updatedAt", false);
   await ensureKeyIndex(databases, COLLECTION_STUDENTS_ID, "idx_students_coach", ["coach_id"], ["ASC"]);
+  await ensureKeyIndex(
+    databases,
+    COLLECTION_STUDENTS_ID,
+    "idx_students_coach_institution",
+    ["coach_id", "institutionId"],
+    ["ASC", "ASC"]
+  );
 }
 
 /** Lessons / Topics boşsa örnek ders + konu (deneme analizi açılır listeler) */
@@ -848,6 +888,7 @@ async function ensureExamResultsOnlySchema(databases) {
   await createStringAttr(databases, COLLECTION_EXAM_RESULTS_ID, "exam_id", 255, true);
   await createStringAttr(databases, COLLECTION_EXAM_RESULTS_ID, "student_id", 255, true);
   await createStringAttr(databases, COLLECTION_EXAM_RESULTS_ID, "coach_id", 128, false);
+  await createStringAttr(databases, COLLECTION_EXAM_RESULTS_ID, "institutionId", 128, false);
   await createStringAttr(databases, COLLECTION_EXAM_RESULTS_ID, "exam_name", 512, false);
   await createStringAttr(databases, COLLECTION_EXAM_RESULTS_ID, "detail_json", 5000, true);
   await createDatetimeAttr(databases, COLLECTION_EXAM_RESULTS_ID, "saved_at", true);

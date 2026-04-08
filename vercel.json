@@ -1,4 +1,32 @@
 {
   "cleanUrls": true,
-  "trailingSlash": false
+  "trailingSlash": false,
+  "redirects": [
+    { "source": "/login", "destination": "/pages/login.html", "permanent": true },
+    { "source": "/login.html", "destination": "/pages/login.html", "permanent": true },
+    { "source": "/koc-panel", "destination": "/pages/koc-panel.html", "permanent": true },
+    { "source": "/koc-panel.html", "destination": "/pages/koc-panel.html", "permanent": true },
+    { "source": "/ogrenci-panel", "destination": "/pages/ogrenci-panel.html", "permanent": true },
+    { "source": "/ogrenci-panel.html", "destination": "/pages/ogrenci-panel.html", "permanent": true },
+    { "source": "/super-admin", "destination": "/pages/super-admin.html", "permanent": true },
+    { "source": "/super-admin.html", "destination": "/pages/super-admin.html", "permanent": true },
+    { "source": "/panel-admin-auth", "destination": "/pages/panel-admin-auth.html", "permanent": true },
+    { "source": "/panel-admin-auth.html", "destination": "/pages/panel-admin-auth.html", "permanent": true },
+    { "source": "/test-tasarimi", "destination": "/pages/test-tasarimi.html", "permanent": true },
+    { "source": "/test-tasarimi.html", "destination": "/pages/test-tasarimi.html", "permanent": true },
+    { "source": "/soru-ekle", "destination": "/pages/soru-ekle.html", "permanent": true },
+    { "source": "/soru-ekle.html", "destination": "/pages/soru-ekle.html", "permanent": true },
+    { "source": "/soru-pdf-hazirla", "destination": "/pages/soru-pdf-hazirla.html", "permanent": true },
+    { "source": "/soru-pdf-hazirla.html", "destination": "/pages/soru-pdf-hazirla.html", "permanent": true },
+    { "source": "/test-koc-crop", "destination": "/pages/test-koc-crop.html", "permanent": true },
+    { "source": "/test-koc-crop.html", "destination": "/pages/test-koc-crop.html", "permanent": true },
+    { "source": "/yks-puan-hesaplama", "destination": "/pages/yks-puan-hesaplama.html", "permanent": true },
+    { "source": "/yks-puan-hesaplama.html", "destination": "/pages/yks-puan-hesaplama.html", "permanent": true },
+    { "source": "/hedef-simulatoru", "destination": "/pages/hedef-simulatoru.html", "permanent": true },
+    { "source": "/hedef-simulatoru.html", "destination": "/pages/hedef-simulatoru.html", "permanent": true },
+    { "source": "/tercih-sihirbazi", "destination": "/pages/tercih-sihirbazi.html", "permanent": true },
+    { "source": "/tercih-sihirbazi.html", "destination": "/pages/tercih-sihirbazi.html", "permanent": true },
+    { "source": "/fasikul-uretici", "destination": "/pages/fasikul-uretici.html", "permanent": true },
+    { "source": "/fasikul-uretici.html", "destination": "/pages/fasikul-uretici.html", "permanent": true }
+  ]
 }
