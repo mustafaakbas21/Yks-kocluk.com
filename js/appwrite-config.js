@@ -1,4 +1,4 @@
-import { Client, Databases, Storage } from "./appwrite-browser.js";
+import { Client, Databases, Storage } from "./appwrite-browser.js?v=20260408-inst";
 
 /** Tüm veritabanı koleksiyonları ve sütunlar: kökte `setup-appwrite.js` (genişletilmiş şema + isteğe `--seed`). */
 
@@ -173,10 +173,19 @@ export function pingAppwriteBackend() {
   return client.ping();
 }
 
-pingAppwriteBackend()
-  .then(function () {
-    console.info("[Appwrite] Ping OK — " + APPWRITE_PROJECT_ID + ".");
-  })
-  .catch(function (err) {
-    console.warn("[Appwrite] Ping başarısız:", err);
-  });
+(function runAppwritePingIfLocalhost() {
+  try {
+    if (typeof globalThis.location === "undefined" || !globalThis.location.hostname) return;
+    var h = String(globalThis.location.hostname || "");
+    if (h !== "localhost" && h !== "127.0.0.1") return;
+  } catch (_e) {
+    return;
+  }
+  pingAppwriteBackend()
+    .then(function () {
+      console.info("[Appwrite] Ping OK — " + APPWRITE_PROJECT_ID + ".");
+    })
+    .catch(function (err) {
+      console.warn("[Appwrite] Ping başarısız:", err);
+    });
+})();

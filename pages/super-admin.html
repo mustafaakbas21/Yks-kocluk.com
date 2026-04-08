@@ -11,6 +11,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@23.0.0/dist/iife/sdk.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-store, max-age=0" />
   <title>DerecePanel — Kurucu</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -1422,11 +1423,97 @@
       text-align: center;
       line-height: 1.45;
     }
+    /* Canlı sitede Appwrite Platforms (CORS) unutulduğunda görünür uyarı */
+    .dp-appwrite-hint {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100000;
+      background: linear-gradient(90deg, rgba(180, 83, 9, 0.96), rgba(146, 64, 14, 0.96));
+      color: #fff8f0;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      padding: 0.65rem 1rem;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .dp-appwrite-hint__inner {
+      max-width: min(110ch, 96vw);
+      margin: 0 auto;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.85rem;
+      flex-wrap: wrap;
+      justify-content: space-between;
+    }
+    .dp-appwrite-hint__inner p {
+      margin: 0;
+      flex: 1 1 18rem;
+    }
+    .dp-appwrite-hint code {
+      background: rgba(0, 0, 0, 0.25);
+      padding: 0.1em 0.35em;
+      border-radius: 4px;
+      font-size: 0.88em;
+    }
+    .dp-appwrite-hint button {
+      flex: 0 0 auto;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+      padding: 0.35rem 0.75rem;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.78rem;
+    }
+    .dp-appwrite-hint button:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    body.dp-appwrite-hint-visible {
+      padding-top: 3.75rem;
+    }
   </style>
   <link rel="stylesheet" href="../css/site-credit.css" />
   <link rel="stylesheet" href="../css/zoho-compose.css" />
 </head>
 <body class="has-site-credit">
+  <div id="saAppwriteCorsBanner" class="dp-appwrite-hint" hidden>
+    <div class="dp-appwrite-hint__inner">
+      <p>
+        <strong>Appwrite bağlantısı:</strong> Bu siteyi (<code id="saAppwriteCorsHostname"></code>) Appwrite’da
+        <strong>Project → Settings → Platforms → Add platform → Web</strong> ile ekleyin; hostname yukarıdaki ile
+        <strong>birebir</strong> aynı olsun (<code>www</code> farklı sayılır). Aksi halde tarayıcı CORS ile
+        istekleri keser; <code>/account</code> 401 ve <code>institutions</code> kayıtları çalışmaz.
+        Şema için proje kökünde: <code>npm run setup:appwrite</code>
+      </p>
+      <button type="button" id="saAppwriteCorsDismiss">Anladım, gizle</button>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var b = document.getElementById("saAppwriteCorsBanner");
+      if (!b) return;
+      if (localStorage.getItem("dp_sa_hide_cors_hint") === "1") return;
+      var h = location.hostname || "";
+      if (h === "localhost" || h === "127.0.0.1" || h === "") return;
+      b.hidden = false;
+      document.body.classList.add("dp-appwrite-hint-visible");
+      var el = document.getElementById("saAppwriteCorsHostname");
+      if (el) el.textContent = h;
+      var btn = document.getElementById("saAppwriteCorsDismiss");
+      if (btn)
+        btn.addEventListener("click", function () {
+          try {
+            localStorage.setItem("dp_sa_hide_cors_hint", "1");
+          } catch (_e) {}
+          b.hidden = true;
+          document.body.classList.remove("dp-appwrite-hint-visible");
+        });
+    })();
+  </script>
   <div id="saLoginGate" class="sa-login-gate" hidden>
     <div class="sa-login-gate__card">
       <div class="sa-login-gate__brand">
@@ -1743,6 +1830,7 @@
       <p style="font-size:0.85rem;color:var(--muted);margin:0 0 1rem;line-height:1.5;max-width:62ch">
         Koç ve öğrenci kayıtları bir <strong>institutionId</strong> ile ilişkilendirilir. Önce kurum oluşturun; ardından koç eklerken listeden seçin.
       </p>
+      <!-- Kurum: Appwrite `institutions` şeması — yalnızca name (+ istemci createdAt). -->
       <form id="formCreateInstitution" method="post" action="#" novalidate class="form-grid" style="margin-bottom:1.5rem;padding-bottom:1.25rem;border-bottom:1px solid rgba(148,163,184,0.2)">
         <div class="form-group form-group--full">
           <h3 class="section-title" style="font-size:1rem;margin:0 0 0.5rem"><i class="fa-solid fa-plus-circle"></i> Kurum oluştur</h3>
@@ -1750,10 +1838,6 @@
         <div class="form-group form-group--full">
           <label for="institutionName">Kurum adı</label>
           <input id="institutionName" required maxlength="200" placeholder="Örn. Paraf Eğitim" autocomplete="organization" class="sa-select-like" />
-        </div>
-        <div class="form-group form-group--full">
-          <label for="institutionLogo">Logo URL (isteğe bağlı)</label>
-          <input id="institutionLogo" type="url" maxlength="2000" placeholder="https://..." class="sa-select-like" />
         </div>
         <div class="form-group form-group--full">
           <button type="submit" class="btn-create" id="btnCreateInstitution"><i class="fa-solid fa-building-circle-check"></i> Kurumu kaydet</button>
@@ -1767,11 +1851,10 @@
             <tr>
               <th>Kurum adı</th>
               <th>Belge ID</th>
-              <th>Logo</th>
             </tr>
           </thead>
           <tbody id="institutionsTableBody">
-            <tr><td colspan="3" class="mono" style="padding:1.25rem">Yükleniyor…</td></tr>
+            <tr><td colspan="2" class="mono" style="padding:1.25rem">Yükleniyor…</td></tr>
           </tbody>
         </table>
       </div>
@@ -2371,6 +2454,6 @@
 
   <script type="module" src="../js/form-password-toggle.js"></script>
   <script type="module" src="../js/sorun-bildir.js"></script>
-  <script type="module" src="../js/super-admin.js"></script>
+  <script type="module" src="../js/super-admin.js?v=20260408-sa-inst"></script>
 </body>
 </html>

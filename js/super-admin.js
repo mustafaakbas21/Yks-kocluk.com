@@ -37,7 +37,7 @@ import {
   databasesUpdateDocumentOrSoft,
   databasesDeleteDocumentOrSoft,
   isAppwriteWriteSoftFailure,
-} from "./appwrite-compat.js";
+} from "./appwrite-compat.js?v=20260408-sa-compat";
 import {
   storage,
   APPWRITE_BUCKET_DESTEK,
@@ -50,7 +50,8 @@ import {
   APPWRITE_BUCKET_SORU_HAVUZU,
   APPWRITE_ENDPOINT,
   APPWRITE_COLLECTION_INSTITUTIONS,
-} from "./appwrite-config.js";
+  subscribeAppwriteDatabaseDocuments,
+} from "./appwrite-config.js?v=20260408-inst";
 import { Query, Account } from "./appwrite-browser.js";
 import { parseFlexibleDate, formatDateTimeTr } from "./date-format.js";
 import {
@@ -98,8 +99,11 @@ let institutionsUnsub = null;
 /** @type {{ id: string, data: function(): Record<string, unknown> }[]} */
 var lastInstitutionDocs = [];
 
-/** Appwrite `onSnapshot` tek seferlik okuma yapıyor; periyodik yenileme + oluşturma sonrası manuel tazeleme gerekir. */
-var SA_USERS_LIST_POLL_MS = 12000;
+/** Appwrite `onSnapshot` yedek yoklama (Realtime açıksa listede gecikme nadiren görülür). */
+var SA_USERS_LIST_POLL_MS = 8000;
+var saRealtimeUnsub = null;
+var saRealtimeUsersTimer = null;
+var saRealtimeInstTimer = null;
 let quotesUnsub = null;
 let settingsUnsub = null;
 let adminLoginChart = null;
@@ -353,6 +357,24 @@ function initSaGatePasswordToggle() {
 }
 
 function saTeardownAdminSubscriptions() {
+  if (saRealtimeUsersTimer) {
+    try {
+      clearTimeout(saRealtimeUsersTimer);
+    } catch (_t0) {}
+    saRealtimeUsersTimer = null;
+  }
+  if (saRealtimeInstTimer) {
+    try {
+      clearTimeout(saRealtimeInstTimer);
+    } catch (_t1) {}
+    saRealtimeInstTimer = null;
+  }
+  if (saRealtimeUnsub) {
+    try {
+      saRealtimeUnsub();
+    } catch (_r) {}
+    saRealtimeUnsub = null;
+  }
   if (coachesUnsub) {
     try {
       coachesUnsub();
@@ -397,8 +419,51 @@ if (saRefreshBtn) {
       subscribeQuoteRequests();
       subscribeMaintenanceSettings();
       subscribeInstitutionsList();
+      saWireAppwriteRealtimeLists();
+      refreshInstitutionsListNow();
+      refreshCoachesListNow();
+      refreshStudentsListNow();
     } catch (_e) {}
   });
+}
+
+function saCollectionIdFromRealtimeEvent(evName) {
+  if (!evName || typeof evName !== "string") return "";
+  var m = evName.match(/\.collections\.([^.]+)\.documents/);
+  return m && m[1] ? String(m[1]).trim() : "";
+}
+
+function saWireAppwriteRealtimeLists() {
+  if (saRealtimeUnsub) return;
+  try {
+    saRealtimeUnsub = subscribeAppwriteDatabaseDocuments(
+      function (response) {
+        var payload = response && response.payload && typeof response.payload === "object" ? response.payload : {};
+        var events = response && Array.isArray(response.events) ? response.events : [];
+        var ev0 = events[0] || "";
+        var coll = String(
+          payload.$collectionId || payload.collectionId || saCollectionIdFromRealtimeEvent(ev0) || ""
+        ).trim();
+        if (coll === "users") {
+          if (saRealtimeUsersTimer) clearTimeout(saRealtimeUsersTimer);
+          saRealtimeUsersTimer = setTimeout(function () {
+            saRealtimeUsersTimer = null;
+            refreshCoachesListNow();
+            refreshStudentsListNow();
+            saAdminsCache = [];
+            loadSaAdminsList(true);
+          }, 200);
+        } else if (coll === APPWRITE_COLLECTION_INSTITUTIONS) {
+          if (saRealtimeInstTimer) clearTimeout(saRealtimeInstTimer);
+          saRealtimeInstTimer = setTimeout(function () {
+            saRealtimeInstTimer = null;
+            refreshInstitutionsListNow();
+          }, 200);
+        }
+      },
+      ["users", APPWRITE_COLLECTION_INSTITUTIONS]
+    );
+  } catch (_eRt) {}
 }
 
 function saBootstrapDashboardSubscriptions() {
@@ -407,6 +472,7 @@ function saBootstrapDashboardSubscriptions() {
   subscribeCoachesList();
   subscribeStudentsList();
   subscribeInstitutionsList();
+  saWireAppwriteRealtimeLists();
   subscribeQuoteRequests();
   subscribeMaintenanceSettings();
 }
@@ -697,6 +763,39 @@ async function saveStudentEdit() {
   }
 }
 
+/**
+ * Koç silinmeden önce: `students` satırları ve varsa `users` öğrenci profili (studentAuthUid).
+ * Appwrite Auth hesabı tarayıcıdan silinmez; sunucu API ile scripts/purge-coaches-students.cjs kullanılabilir.
+ */
+async function saCascadeDeleteStudentsForCoach(coachUsername) {
+  var cid = String(coachUsername || "").trim();
+  if (!cid) return 0;
+  var qSt = query(collection(db, "students"), where("coach_id", "==", cid));
+  var snapSt;
+  try {
+    snapSt = await getDocs(qSt);
+  } catch (e) {
+    logAppwriteError("super-admin.js/saCascadeDeleteStudentsForCoach/getDocs", e);
+    return 0;
+  }
+  var n = 0;
+  for (var i = 0; i < snapSt.docs.length; i++) {
+    var sd = snapSt.docs[i];
+    var sdata = typeof sd.data === "function" ? sd.data() : {};
+    var studUid = String((sdata && sdata.studentAuthUid) || "").trim();
+    if (studUid) {
+      var delProf = await deleteDoc(doc(db, "users", studUid));
+      if (isAppwriteWriteSoftFailure(delProf)) {
+        console.warn("[super-admin] Öğrenci profili silinemedi:", studUid, delProf && delProf.message);
+      }
+    }
+    var delRow = await deleteDoc(doc(db, "students", sd.id));
+    if (!isAppwriteWriteSoftFailure(delRow)) n++;
+    else console.warn("[super-admin] students satırı silinemedi:", sd.id, delRow && delRow.message);
+  }
+  return n;
+}
+
 async function deleteStudentAccount(uid, origUsername) {
   var origEmail = origUsername + EMAIL_DOMAIN;
   if (!window.confirm("Öğrenci hesabı ve verisi silinecek. Emin misiniz?")) return;
@@ -757,8 +856,38 @@ async function deleteStudentAccount(uid, origUsername) {
     await blockCurrentAccount();
     await signOut(tertiaryAuth);
     await signInWithEmailAndPassword(auth, adminEmailRestore, adminPwRestore);
+    try {
+      var unameKey = sanitizeUsername(origUsername);
+      var qRow1 = query(collection(db, "students"), where("portalUsername", "==", unameKey));
+      var qRow2 = query(collection(db, "students"), where("studentAuthUid", "==", uid));
+      var snapRow1 = await getDocs(qRow1);
+      var snapRow2 = await getDocs(qRow2);
+      var rowIds = {};
+      var toDel = [];
+      snapRow1.docs.forEach(function (d) {
+        if (!rowIds[d.id]) {
+          rowIds[d.id] = true;
+          toDel.push(d.id);
+        }
+      });
+      snapRow2.docs.forEach(function (d) {
+        if (!rowIds[d.id]) {
+          rowIds[d.id] = true;
+          toDel.push(d.id);
+        }
+      });
+      for (var ri = 0; ri < toDel.length; ri++) {
+        var delS = await deleteDoc(doc(db, "students", toDel[ri]));
+        if (isAppwriteWriteSoftFailure(delS)) {
+          console.warn("[super-admin] students satırı (öğrenci sil):", toDel[ri], delS && delS.message);
+        }
+      }
+    } catch (_eRow) {}
     alert("Öğrenci kaydı silindi ve giriş hesabı kalıcı olarak engellendi.");
     saCloseModals();
+    try {
+      await refreshStudentsListNow();
+    } catch (_rs) {}
   } catch (err) {
     console.error(err);
     try {
@@ -905,16 +1034,23 @@ async function deleteCoachAccount(uid, origUsername) {
       !window.confirm(
         "Bu koça bağlı " +
           n +
-          " öğrenci var. Yine de koç hesabını silmek istiyor musunuz? (Öğrenci kayıtları kalır; coach_id elle güncellenmeli.)"
+          " öğrenci var. Koç silindiğinde bu öğrencilerin panel kayıtları (students) ve mümkünse kullanıcı profilleri de kaldırılır. Devam?"
       )
     ) {
       return;
     }
   }
   var origEmail = origUsername + EMAIL_DOMAIN;
-  if (!window.confirm("Koç hesabı ve verisi silinecek. Emin misiniz?")) return;
+  if (
+    !window.confirm(
+      "Koç hesabı kapatılacak ve bağlı öğrenci kayıtları temizlenecek. Emin misiniz?"
+    )
+  ) {
+    return;
+  }
   var adminEmailRestoreDel = "";
   var adminPwRestoreDel = "";
+  var removedStudents = 0;
   try {
     var usnap = await getDoc(doc(db, "users", uid));
     var pw =
@@ -945,6 +1081,13 @@ async function deleteCoachAccount(uid, origUsername) {
     adminPwRestoreDel = String(adminPwRestoreDel).trim();
     saTransientAuth = true;
 
+    removedStudents = await saCascadeDeleteStudentsForCoach(origUsername);
+    if (removedStudents > 0) {
+      try {
+        await refreshStudentsListNow();
+      } catch (_rSt0) {}
+    }
+
     var docDeleted = false;
     try {
       await deleteDoc(doc(db, "users", uid));
@@ -970,8 +1113,16 @@ async function deleteCoachAccount(uid, origUsername) {
     await blockCurrentAccount();
     await signOut(secondaryAuth);
     await signInWithEmailAndPassword(auth, adminEmailRestoreDel, adminPwRestoreDel);
-    alert("Koç kaydı silindi ve giriş hesabı kalıcı olarak engellendi.");
+    var msgOk =
+      removedStudents > 0
+        ? "Koç kaydı silindi; " + removedStudents + " öğrenci panel kaydı kaldırıldı. Giriş hesabı engellendi."
+        : "Koç kaydı silindi ve giriş hesabı kalıcı olarak engellendi.";
+    alert(msgOk);
     saCloseModals();
+    try {
+      await refreshCoachesListNow();
+      await refreshStudentsListNow();
+    } catch (_rf) {}
   } catch (err) {
     console.error(err);
     try {
@@ -1873,7 +2024,15 @@ function wireSaAdminsOnce() {
           plainPassword: pw,
           createdAt: serverTimestamp(),
         };
-        await setDoc(doc(db, "users", cred.user.uid), payloadAd);
+        var adWr = await setDoc(doc(db, "users", cred.user.uid), payloadAd);
+        if (isAppwriteWriteSoftFailure(adWr)) {
+          saSetModalMsg(
+            "saAdCreateMsg",
+            false,
+            (adWr && adWr.message) || "Yetkili profili veritabanına yazılamadı (izin / şema)."
+          );
+          return;
+        }
         saCloseAdminModals();
         saToast(true, "Yetkili kaydedildi. Giriş: Kurucu sekmesi, kullanıcı adı «" + un + "», aynı şifre.");
         saAdminsCache = [];
@@ -2532,10 +2691,23 @@ function subscribeInstitutionsList() {
     function (err) {
       console.error(err);
       var tb = document.getElementById("institutionsTableBody");
-      if (tb) tb.innerHTML = "<tr><td colspan='3'>" + escapeHtml(err.message || "Hata") + "</td></tr>";
+      if (tb) tb.innerHTML = "<tr><td colspan='2'>" + escapeHtml(err.message || "Hata") + "</td></tr>";
     },
     { pollIntervalMs: SA_USERS_LIST_POLL_MS }
   );
+}
+
+async function refreshInstitutionsListNow() {
+  try {
+    var qy = query(collection(db, APPWRITE_COLLECTION_INSTITUTIONS));
+    var snap = await getDocs(qy);
+    lastInstitutionDocs = snap.docs.slice();
+    populateCoachInstitutionSelect();
+    populateSaCoachEditInstitutionSelect();
+    renderInstitutionsTable();
+  } catch (e) {
+    console.error("[super-admin] refreshInstitutionsListNow", e);
+  }
 }
 
 function populateCoachInstitutionSelect() {
@@ -2593,26 +2765,18 @@ function renderInstitutionsTable() {
   if (!tb) return;
   if (!lastInstitutionDocs.length) {
     tb.innerHTML =
-      '<tr><td colspan="3" class="mono" style="padding:1.25rem">Henüz kurum yok. Yukarıdaki formdan ekleyin.</td></tr>';
+      '<tr><td colspan="2" class="mono" style="padding:1.25rem">Henüz kurum yok. Yukarıdaki formdan ekleyin.</td></tr>';
     return;
   }
   tb.innerHTML = lastInstitutionDocs
     .map(function (d) {
       var x = d.data();
       var name = escapeHtml(String((x && x.name) || "—"));
-      var logo = String((x && x.logo) || "").trim();
-      var logoCell = logo
-        ? '<a href="' +
-          escapeHtml(logo) +
-          '" target="_blank" rel="noopener" class="mono" style="font-size:0.8rem">Bağlantı</a>'
-        : "—";
       return (
         "<tr><td><strong>" +
         name +
         "</strong></td><td class=\"mono\" style=\"font-size:0.78rem\">" +
         escapeHtml(d.id) +
-        "</td><td>" +
-        logoCell +
         "</td></tr>"
       );
     })
@@ -3197,9 +3361,7 @@ if (formCreateInstitutionEl) {
   formCreateInstitutionEl.addEventListener("submit", async function (e) {
     e.preventDefault();
     var nameEl = document.getElementById("institutionName");
-    var logoEl = document.getElementById("institutionLogo");
     var name = nameEl ? String(nameEl.value || "").trim() : "";
-    var logo = logoEl ? String(logoEl.value || "").trim() : "";
     var btnInst = document.getElementById("btnCreateInstitution");
     var msgEl = document.getElementById("formInstitutionMsg");
     function showInstitutionFormMsg(ok, text) {
@@ -3216,13 +3378,13 @@ if (formCreateInstitutionEl) {
     try {
       var instWr = await addDoc(collection(db, APPWRITE_COLLECTION_INSTITUTIONS), {
         name: name,
-        logo: logo || null,
         createdAt: serverTimestamp(),
       });
       if (isAppwriteWriteSoftFailure(instWr)) {
         showInstitutionFormMsg(false, (instWr && instWr.message) || "Kurum kaydedilemedi.");
         return;
       }
+      await refreshInstitutionsListNow();
       showInstitutionFormMsg(true, "Kurum oluşturuldu. Koç eklerken listeden seçebilirsiniz.");
       e.target.reset();
     } catch (errInst) {
