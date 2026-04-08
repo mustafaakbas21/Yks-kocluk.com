@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>YKS Puan Hesaplama — Tahmini sıralama (bileşen)</title>
+  <link rel="stylesheet" href="../css/derece-interactive-modules.css" />
+</head>
+<body style="margin: 0; background: #f1f5f9; font-family: system-ui, Segoe UI, sans-serif">
+  <main style="padding: 1.5rem; max-width: 56rem; margin: 0 auto">
+    <h1 style="font-size: 1.35rem; color: #0f172a; margin: 0 0 0.5rem">YKS Puan Hesaplama</h1>
+    <p style="color: #64748b; font-size: 0.9rem; margin: 0 0 1.25rem; line-height: 1.5">
+      Koç panelindeki <strong>Canlı Sonuç Panosu</strong> ile aynı <strong>🏆 Tahmini sıralama</strong> kartı
+      <code>yks-puan-hesaplama.js</code> ile otomatik eklenir. Bu sayfa yalnızca kartın görünümünü örnekler.
+    </p>
+    <div class="yks-puan-live-dashboard" style="position: relative; margin: 0">
+      <div class="yks-puan-live-dashboard__head">
+        <h3 class="yks-puan-live-dashboard__title"><i class="fa-solid fa-gauge-high"></i> Canlı Sonuç Panosu</h3>
+        <p class="yks-puan-live-dashboard__sub">Önizleme</p>
+      </div>
+      <div class="yks-puan-live-dashboard__grid" id="yksPuanHesaplamaDemoGrid"></div>
+      <p class="yks-puan-live-dashboard__coeff" style="margin-top: 0.75rem; font-size: 0.72rem; color: #64748b">
+        Örnek değer: 45.230 — gerçek panelde net / OBP girişine göre anlık güncellenir.
+      </p>
+    </div>
+  </main>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/js/all.min.js" crossorigin="anonymous"></script>
+  <script type="module" src="../js/yks-puan-hesaplama.js"></script>
+</body>
+</html>

@@ -117,7 +117,7 @@ async function loadOspForUser(user) {
     var profile = snap.data();
     if (!profile || profile.role !== "student") {
       await signOut(auth);
-      window.location.replace("/login");
+      window.location.replace("/pages/login.html");
       return;
     }
     try {
@@ -127,7 +127,7 @@ async function loadOspForUser(user) {
         try {
           localStorage.setItem("loginFlashError", "Bakımdayız. Şu an yalnızca kurucu girişi açıktır.");
         } catch (e) {}
-        window.location.replace("/login");
+        window.location.replace("/pages/login.html");
         return;
       }
     } catch (se) {
@@ -215,7 +215,7 @@ onAuthStateChanged(auth, async function (user) {
 
   if (!user) {
     if (ospAuthResolved) {
-      window.location.replace("/login");
+      window.location.replace("/pages/login.html");
     }
     return;
   }
@@ -256,14 +256,14 @@ setTimeout(function () {
           },
         });
       }
-      window.location.replace("/login");
+      window.location.replace("/pages/login.html");
     })
     .catch(function (err) {
       console.error("[öğrenci] verifyAppwriteAccount / loadOspForUser", err);
       try {
         alert("Bir sorun oluştu.");
       } catch (e2) {}
-      if (!ospAuthResolved) window.location.replace("/login");
+      if (!ospAuthResolved) window.location.replace("/pages/login.html");
     });
 }, 0);
 
@@ -275,5 +275,5 @@ document.getElementById("ospBtnLogout") &&
       localStorage.removeItem("yksRole");
     } catch (e) {}
     await signOut(auth);
-    window.location.replace("/login");
+    window.location.replace("/pages/login.html");
   });

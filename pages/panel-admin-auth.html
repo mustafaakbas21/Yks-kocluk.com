@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="description" content="DerecePanel oturum" />
+  <script type="importmap">
+    {
+      "imports": {
+        "appwrite": "https://esm.sh/appwrite@23.0.0?bundle"
+      }
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/appwrite@23.0.0/dist/iife/sdk.js"></script>
+  <title>Oturum — DerecePanel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="../css/login-page.css" />
+  <link rel="stylesheet" href="../css/site-credit.css" />
+</head>
+<body class="has-site-credit">
+  <div class="auth-shell">
+    <div class="auth-canvas" aria-hidden="true"></div>
+
+    <div class="auth-brand">
+      <a href="/" class="auth-brand__home"><i class="fa-solid fa-arrow-left"></i> Ana sayfa / vitrin</a>
+
+      <div class="auth-brand__logo">
+        <span class="auth-brand__logo-mark" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></span>
+        DerecePanel
+      </div>
+
+      <h1 class="auth-brand__title">
+        Rota net, <span class="auth-brand__script">hedef</span> daha yakın.
+      </h1>
+      <p class="auth-brand__lead">
+        Bu ekran sadece bir giriş kapısı değil — <strong>sınıfınız ve kontrol kulesiniz</strong> aynı yerde. Netlerinizi izleyin,
+        öğrencilerinize dönün, tek oturumla tüm rollere erişin.
+      </p>
+
+      <section class="auth-features" aria-labelledby="auth-features-title">
+        <div class="auth-features__head">
+          <p class="auth-features__eyebrow"><i class="fa-solid fa-sparkles" aria-hidden="true"></i> Özellikler</p>
+          <h2 id="auth-features-title" class="auth-features__title">Panelde neler var?</h2>
+          <p class="auth-features__intro">
+            YKS sürecini uçtan uca yönetmek için tasarlandı: hedeflerden deneme analizine, kaynak arşivinden raporlara kadar tek platform.
+          </p>
+        </div>
+
+        <ul class="auth-features__grid">
+          <li class="auth-feature-card">
+            <span class="auth-feature-card__icon" aria-hidden="true"><i class="fa-solid fa-bullseye"></i></span>
+            <div class="auth-feature-card__body">
+              <h3 class="auth-feature-card__title">YKS hedef &amp; sayaç</h3>
+              <p class="auth-feature-card__text">TYT/AYT için geri sayım, branş ve alan bazlı hedefler; öğrencinin nereye odaklanacağını net gösterir.</p>
+            </div>
+          </li>
+          <li class="auth-feature-card">
+            <span class="auth-feature-card__icon" aria-hidden="true"><i class="fa-solid fa-chart-column"></i></span>
+            <div class="auth-feature-card__body">
+              <h3 class="auth-feature-card__title">Deneme &amp; net analizi</h3>
+              <p class="auth-feature-card__text">Sınav kayıtları, net trendleri ve görsel özetler; zayıf konuları tek bakışta yakalayın.</p>
+            </div>
+          </li>
+          <li class="auth-feature-card">
+            <span class="auth-feature-card__icon" aria-hidden="true"><i class="fa-solid fa-book-open-reader"></i></span>
+            <div class="auth-feature-card__body">
+              <h3 class="auth-feature-card__title">Kaynak &amp; arşiv</h3>
+              <p class="auth-feature-card__text">Öğrenciye kaynak atama, PDF ve materyal takibi; müfredata uygun içerik düzeni.</p>
+            </div>
+          </li>
+          <li class="auth-feature-card">
+            <span class="auth-feature-card__icon" aria-hidden="true"><i class="fa-solid fa-users-rectangle"></i></span>
+            <div class="auth-feature-card__body">
+              <h3 class="auth-feature-card__title">Koç ↔ öğrenci köprüsü</h3>
+              <p class="auth-feature-card__text">Öğrenci profilleri, notlar ve ilerleme; kurum içi iletişimi tek yerde toplar.</p>
+            </div>
+          </li>
+          <li class="auth-feature-card">
+            <span class="auth-feature-card__icon" aria-hidden="true"><i class="fa-solid fa-calendar-check"></i></span>
+            <div class="auth-feature-card__body">
+              <h3 class="auth-feature-card__title">Randevu &amp; görevler</h3>
+              <p class="auth-feature-card__text">Görüşme planı ve görev hatırlatıcıları; yoğun dönemlerde kaçanı azaltır.</p>
+            </div>
+          </li>
+          <li class="auth-feature-card">
+            <span class="auth-feature-card__icon" aria-hidden="true"><i class="fa-solid fa-database"></i></span>
+            <div class="auth-feature-card__body">
+              <h3 class="auth-feature-card__title">Soru havuzu &amp; test</h3>
+              <p class="auth-feature-card__text">Havuzdan soru seçimi, filtreleme ve PDF çıktısı; sınıf içi değerlendirme için hazır akış.</p>
+            </div>
+          </li>
+          <li class="auth-feature-card">
+            <span class="auth-feature-card__icon" aria-hidden="true"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+            <div class="auth-feature-card__body">
+              <h3 class="auth-feature-card__title">Yapay zekâ destekli içerik</h3>
+              <p class="auth-feature-card__text">Test ve içerik üretiminde yardımcı araçlar; tekrar süresini kısaltır, üretkenliği artırır.</p>
+            </div>
+          </li>
+          <li class="auth-feature-card">
+            <span class="auth-feature-card__icon" aria-hidden="true"><i class="fa-solid fa-shield-heart"></i></span>
+            <div class="auth-feature-card__body">
+              <h3 class="auth-feature-card__title">Merkezi operasyon</h3>
+              <p class="auth-feature-card__text">Hesap yönetimi, bakım modu ve analitik; kurum ölçeğinde kontrol.</p>
+            </div>
+          </li>
+        </ul>
+
+        <div class="auth-trust" role="presentation">
+          <div class="auth-trust__item">
+            <i class="fa-solid fa-lock" aria-hidden="true"></i>
+            <span>Şifreli oturum</span>
+          </div>
+          <div class="auth-trust__item">
+            <i class="fa-solid fa-cloud" aria-hidden="true"></i>
+            <span>Bulut altyapı</span>
+          </div>
+          <div class="auth-trust__item">
+            <i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i>
+            <span>Mobil uyumlu arayüz</span>
+          </div>
+        </div>
+      </section>
+
+      <div class="auth-float" aria-hidden="true">
+        <div class="auth-float__stack">
+          <div class="auth-float__card auth-float__card--a"></div>
+          <div class="auth-float__card auth-float__card--b"></div>
+          <div class="auth-float__card auth-float__card--c">
+            <span class="auth-float__bell"><i class="fa-regular fa-bell"></i></span>
+            <p class="auth-float__notify">
+              Bugün — <strong>3 öğrenci</strong> için geri bildirim bekliyor.
+              <span class="auth-float__trend">Net trend ↑</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="auth-pillars">
+        <div class="auth-pillar">
+          <span class="auth-pillar__k">Tek</span>
+          <span class="auth-pillar__v">oturum</span>
+        </div>
+        <div class="auth-pillar">
+          <span class="auth-pillar__k">Çoklu</span>
+          <span class="auth-pillar__v">rol</span>
+        </div>
+        <div class="auth-pillar">
+          <span class="auth-pillar__k">7/24</span>
+          <span class="auth-pillar__v">erişim</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="auth-aside">
+      <div class="auth-card">
+        <div class="auth-card__head">
+          <h2>Kurucu oturumu</h2>
+          <p>Yetkili hesabınızın e-posta ve şifresi ile giriş yapın.</p>
+        </div>
+
+        <div id="adminAuthError" class="login-error" role="alert"></div>
+
+        <form id="adminAuthForm" novalidate>
+          <div class="login-field">
+            <label for="adminAuthEmail">E-posta</label>
+            <div class="login-input-wrap">
+              <span class="login-input-wrap__icon" aria-hidden="true"><i class="fa-solid fa-envelope"></i></span>
+              <input
+                id="adminAuthEmail"
+                name="email"
+                type="email"
+                autocomplete="username"
+                required
+                placeholder="kurucu@sistem.com"
+              />
+            </div>
+          </div>
+          <div class="login-field">
+            <label for="adminAuthPassword">Şifre</label>
+            <div class="login-input-wrap login-input-wrap--password">
+              <span class="login-input-wrap__icon" aria-hidden="true"><i class="fa-solid fa-key"></i></span>
+              <input
+                id="adminAuthPassword"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                required
+                minlength="8"
+                maxlength="256"
+                placeholder="En az 8 karakter"
+                title="Şifre en az 8, en fazla 256 karakter olmalıdır."
+              />
+              <button
+                type="button"
+                class="login-password-toggle"
+                id="adminAuthPasswordToggle"
+                aria-label="Şifreyi göster"
+                aria-pressed="false"
+                tabindex="0"
+              >
+                <span class="login-password-toggle__icon login-password-toggle__icon--plain" aria-hidden="true">
+                  <i class="fa-solid fa-eye"></i>
+                </span>
+                <span class="login-password-toggle__icon login-password-toggle__icon--slashed" hidden aria-hidden="true">
+                  <i class="fa-solid fa-eye-slash"></i>
+                </span>
+              </button>
+            </div>
+          </div>
+          <button type="submit" class="login-submit" id="adminAuthSubmit">
+            <span>Giriş yap</span>
+            <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+          </button>
+        </form>
+
+        <p class="auth-card__foot">
+          <span class="auth-card__beta">Güvenli oturum</span> — Bu ekran yalnızca yetkili hesaplar içindir.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <p class="site-credit site-credit--auth">
+    Mustafa AKBAŞ - Furkan Şehmus KIYAR - Veysel Anıl KARAASLAN - Efe KARACABEY tarafından üretildi
+  </p>
+
+  <script type="module" src="../js/admin-auth.js"></script>
+</body>
+</html>

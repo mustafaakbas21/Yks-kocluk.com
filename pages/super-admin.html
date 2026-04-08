@@ -1,0 +1,2376 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <script type="importmap">
+    {
+      "imports": {
+        "appwrite": "https://esm.sh/appwrite@23.0.0?bundle"
+      }
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/appwrite@23.0.0/dist/iife/sdk.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DerecePanel — Kurucu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="../css/sorun-bildir.css" />
+  <link rel="stylesheet" href="../css/form-password-toggle.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #030306;
+      --surface: #0a0a10;
+      --surface2: #12121c;
+      --border: rgba(168, 85, 247, 0.15);
+      --neon: #34f5c5;
+      --neon-dim: #0d9f7a;
+      --purple: #a855f7;
+      --purple-glow: rgba(168, 85, 247, 0.45);
+      --text: #e8edf5;
+      --muted: #8b95a8;
+    }
+    * { box-sizing: border-box; }
+    html {
+      scroll-behavior: smooth;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Outfit", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      background-image:
+        radial-gradient(ellipse 90% 70% at 15% -10%, rgba(168, 85, 247, 0.18), transparent 55%),
+        radial-gradient(ellipse 70% 50% at 100% 0%, rgba(52, 245, 197, 0.08), transparent 50%),
+        radial-gradient(ellipse 60% 40% at 50% 100%, rgba(168, 85, 247, 0.06), transparent 45%);
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.75rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(8, 8, 14, 0.92);
+      backdrop-filter: blur(16px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .topbar__brand {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      font-weight: 800;
+      font-size: 1.12rem;
+      letter-spacing: -0.03em;
+    }
+    .topbar__brand i {
+      color: var(--neon);
+      filter: drop-shadow(0 0 12px rgba(52, 245, 197, 0.55));
+      font-size: 1.25rem;
+    }
+    .topbar__tag {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--purple);
+      padding: 0.25rem 0.55rem;
+      border-radius: 8px;
+      border: 1px solid rgba(168, 85, 247, 0.35);
+      background: rgba(168, 85, 247, 0.08);
+    }
+    .btn-ghost {
+      padding: 0.55rem 1.1rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .btn-ghost:hover { color: var(--neon); border-color: rgba(52, 245, 197, 0.35); }
+    #btnScrollQuotes { position: relative; }
+    .sa-quote-badge {
+      position: absolute;
+      top: -6px;
+      right: -8px;
+      min-width: 20px;
+      height: 20px;
+      padding: 0 6px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #f472b6, #a855f7);
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 800;
+      line-height: 20px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(168, 85, 247, 0.45);
+    }
+    .sa-quote-status {
+      min-width: 130px;
+      padding: 0.45rem 0.55rem;
+      border-radius: 10px;
+      border: 1px solid rgba(52, 245, 197, 0.15);
+      background: #060609;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+    main {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 1.75rem 1.5rem 4rem;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    @media (max-width: 1100px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 520px) { .kpi-grid { grid-template-columns: 1fr; } }
+    .kpi-card {
+      background: linear-gradient(145deg, var(--surface2), var(--surface));
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 1.25rem 1.35rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .kpi-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      transform: translate(30%, -40%);
+      opacity: 0.12;
+      pointer-events: none;
+    }
+    .kpi-card--coaches::before { background: var(--neon); }
+    .kpi-card--students::before { background: var(--purple); }
+    .kpi-card--active::before { background: #22d3ee; }
+    .kpi-card--load::before { background: #f472b6; }
+    .kpi-card__label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+    .kpi-card__value {
+      font-size: 1.85rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      font-family: "JetBrains Mono", monospace;
+    }
+    .kpi-card--coaches .kpi-card__value { color: var(--neon); text-shadow: 0 0 24px rgba(52, 245, 197, 0.25); }
+    .kpi-card--students .kpi-card__value { color: #d8b4fe; }
+    .kpi-card--active .kpi-card__value { color: #67e8f9; }
+    .kpi-card--load .kpi-card__value { font-size: 1.35rem; color: #f9a8d4; }
+    .kpi-card__sub {
+      margin-top: 0.45rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 1.5rem 1.75rem 1.25rem;
+      margin-bottom: 1.75rem;
+      box-shadow: 0 0 60px rgba(168, 85, 247, 0.06);
+    }
+    .chart-card__head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .chart-card__title {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .chart-card__title i { color: var(--purple); }
+    .chart-card__hint {
+      font-size: 0.8rem;
+      color: var(--muted);
+      max-width: 420px;
+      line-height: 1.45;
+    }
+    .chart-wrap {
+      position: relative;
+      height: 280px;
+      width: 100%;
+    }
+    h2.section-title {
+      margin: 0 0 1.1rem;
+      font-size: 1.2rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    h2.section-title i { color: var(--neon); }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 1.6rem 1.75rem;
+      margin-bottom: 1.75rem;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem 1.25rem;
+    }
+    @media (max-width: 720px) { .form-grid { grid-template-columns: 1fr; } }
+    .form-group label {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--neon-dim);
+      margin-bottom: 0.35rem;
+    }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 0.7rem 0.9rem;
+      border-radius: 12px;
+      border: 1px solid rgba(52, 245, 197, 0.12);
+      background: #060609;
+      color: var(--text);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.9rem;
+    }
+    .form-group input:focus, .form-group select:focus {
+      outline: none;
+      border-color: var(--purple);
+      box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.15);
+    }
+    .form-group--full { grid-column: 1 / -1; }
+    .btn-create {
+      margin-top: 1.1rem;
+      padding: 0.85rem 1.5rem;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #7c3aed, var(--neon-dim));
+      color: #fff;
+      font-family: inherit;
+      font-weight: 800;
+      font-size: 0.95rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      box-shadow: 0 8px 32px rgba(124, 58, 237, 0.35);
+    }
+    .btn-create:hover { filter: brightness(1.08); }
+    .btn-create:disabled { opacity: 0.5; cursor: not-allowed; }
+    #formCoachMsg {
+      margin-top: 1rem;
+      padding: 0.65rem;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      display: none;
+    }
+    #formCoachMsg.is-ok { display: block; background: rgba(52, 245, 197, 0.1); border: 1px solid rgba(52, 245, 197, 0.3); color: var(--neon); }
+    #formCoachMsg.is-err { display: block; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); color: #fca5a5; }
+    #formStudentMsg.is-ok { display: block !important; background: rgba(52, 245, 197, 0.1); border: 1px solid rgba(52, 245, 197, 0.3); color: var(--neon); }
+    #formStudentMsg.is-err { display: block !important; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); color: #fca5a5; }
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.86rem;
+      min-width: 920px;
+    }
+    th {
+      text-align: left;
+      padding: 0.9rem 1rem;
+      background: rgba(168, 85, 247, 0.08);
+      color: #c4b5fd;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 0.65rem;
+      white-space: nowrap;
+    }
+    td {
+      padding: 0.8rem 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      vertical-align: middle;
+    }
+    tr:hover td { background: rgba(52, 245, 197, 0.04); }
+    tr.is-frozen td { opacity: 0.65; }
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      border-radius: 8px;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+    .badge--pro { background: rgba(168, 85, 247, 0.28); color: #e9d5ff; }
+    .badge--bas { background: rgba(52, 245, 197, 0.14); color: var(--neon); }
+    .badge--frozen { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+    .sa-pri {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.22rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .sa-pri--acil { background: rgba(239, 68, 68, 0.22); color: #fecaca; border: 1px solid rgba(239, 68, 68, 0.45); }
+    .sa-pri--normal { background: rgba(59, 130, 246, 0.18); color: #bfdbfe; border: 1px solid rgba(59, 130, 246, 0.35); }
+    .sa-pri--dusuk { background: rgba(148, 163, 184, 0.14); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.28); }
+    .sa-destek-detail {
+      max-width: 340px;
+      font-size: 0.84rem;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+    .sa-destek-imgcell { margin-top: 0.5rem; }
+    .sa-destek-thumb-wrap { display: inline-block; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+    .sa-destek-thumb { display: block; max-height: 56px; max-width: 100px; object-fit: cover; vertical-align: middle; }
+    .table-wrap--destek table { min-width: 980px; }
+    .mono { font-family: "JetBrains Mono", monospace; font-size: 0.8rem; color: var(--muted); }
+    .cell-coach strong { color: var(--text); display: block; }
+    .cell-coach span { font-size: 0.78rem; color: var(--muted); }
+    .stat-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.65rem;
+      border-radius: 10px;
+      background: rgba(52, 245, 197, 0.1);
+      color: var(--neon);
+      font-weight: 700;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.85rem;
+    }
+    .actions-cell {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+    .btn-action {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 1rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.15s, border-color 0.15s, background 0.15s;
+    }
+    .btn-action:hover { transform: scale(1.06); border-color: rgba(168, 85, 247, 0.4); }
+    .btn-action--key:hover { background: rgba(250, 204, 21, 0.12); }
+    .btn-action--freeze:hover { background: rgba(239, 68, 68, 0.12); }
+    .btn-action--eye:hover { background: rgba(52, 245, 197, 0.12); }
+    .btn-action--mail:hover { background: rgba(56, 189, 248, 0.12); }
+    .btn-action--edit:hover { background: rgba(168, 85, 247, 0.18); border-color: rgba(168, 85, 247, 0.45); }
+    .btn-action--del:hover { background: rgba(239, 68, 68, 0.18); border-color: rgba(239, 68, 68, 0.45); }
+    .btn-action[title] { position: relative; }
+    .table-wrap--students table { min-width: 960px; }
+    .sa-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem;
+    }
+    .sa-modal[hidden] { display: none !important; }
+    .sa-modal__backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(3, 3, 8, 0.72);
+      backdrop-filter: blur(8px);
+    }
+    .sa-modal__panel {
+      position: relative;
+      width: 100%;
+      max-width: 480px;
+      max-height: min(92vh, 720px);
+      overflow: auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+    }
+    .sa-modal__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.1rem 1.25rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .sa-modal__head h3 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 800;
+    }
+    .sa-modal__x {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 1.35rem;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0.25rem;
+      border-radius: 8px;
+    }
+    .sa-modal__x:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+    .sa-modal__body { padding: 1.15rem 1.25rem 1.25rem; }
+    .sa-modal__hint {
+      margin: 0 0 1rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .sa-modal__hint code {
+      color: #c4b5fd;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.78rem;
+    }
+    .sa-modal__msg {
+      display: none;
+      margin-top: 0.75rem;
+      padding: 0.55rem 0.7rem;
+      border-radius: 10px;
+      font-size: 0.82rem;
+    }
+    .sa-modal__msg.is-ok {
+      display: block;
+      background: rgba(52, 245, 197, 0.1);
+      border: 1px solid rgba(52, 245, 197, 0.28);
+      color: var(--neon);
+    }
+    .sa-modal__msg.is-err {
+      display: block;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
+    }
+    .sa-modal__foot {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      justify-content: flex-end;
+      padding: 0 1.25rem 1.2rem;
+    }
+    .btn-danger {
+      padding: 0.65rem 1rem;
+      border-radius: 12px;
+      border: 1px solid rgba(239, 68, 68, 0.45);
+      background: rgba(239, 68, 68, 0.12);
+      color: #fca5a5;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .btn-danger:hover { background: rgba(239, 68, 68, 0.22); }
+    .btn-danger:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* Kurumsal shell + yan menü */
+    .sa-shell {
+      display: flex;
+      align-items: flex-start;
+      gap: 0;
+      max-width: 1560px;
+      margin: 0 auto;
+      padding: 0 1rem;
+    }
+    .sa-sidebar {
+      position: sticky;
+      top: 72px;
+      flex: 0 0 240px;
+      max-height: calc(100vh - 88px);
+      overflow-y: auto;
+      padding: 0.5rem 0.75rem 1.5rem 0;
+      border-right: 1px solid var(--border);
+      scrollbar-width: thin;
+    }
+    .sa-main {
+      flex: 1;
+      min-width: 0;
+      padding: 1.75rem 0 4rem 1.25rem;
+    }
+    .sa-main main {
+      max-width: none;
+      margin: 0;
+      padding: 0;
+    }
+    .sa-nav-group {
+      margin-bottom: 1.35rem;
+    }
+    .sa-nav-group__label {
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 0.5rem 0.35rem;
+      opacity: 0.9;
+    }
+    .sa-nav-link {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.48rem 0.65rem;
+      margin-bottom: 0.2rem;
+      border-radius: 10px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: var(--text);
+      text-decoration: none;
+      border: 1px solid transparent;
+      transition: background 0.18s, border-color 0.18s, color 0.18s;
+    }
+    .sa-nav-link:hover {
+      background: rgba(52, 245, 197, 0.06);
+      border-color: rgba(52, 245, 197, 0.15);
+      color: var(--neon);
+    }
+    .sa-nav-link i {
+      width: 1.1rem;
+      text-align: center;
+      opacity: 0.85;
+      font-size: 0.88rem;
+    }
+    .sa-nav-emoji {
+      font-size: 1rem;
+      line-height: 1;
+      width: 1.25rem;
+      text-align: center;
+      display: inline-block;
+    }
+    .sa-nav-link.is-active {
+      background: rgba(168, 85, 247, 0.12);
+      border-color: rgba(168, 85, 247, 0.35);
+      color: #e9d5ff;
+    }
+
+    /* Zoho Gelen Kutusu — Bento + açık tema */
+    .sa-mail-wrap {
+      border-radius: 22px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      background: linear-gradient(165deg, #f8fafc 0%, #f1f5f9 45%, #e2e8f0 100%);
+      padding: 1.5rem 1.35rem 1.75rem;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    }
+    .sa-mail-wrap .section-title {
+      color: #0f172a;
+    }
+    .sa-mail-wrap .section-title i {
+      color: #6366f1;
+    }
+    .sa-inbox-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .sa-inbox-toolbar .btn-ghost {
+      border-color: rgba(15, 23, 42, 0.12);
+      color: #334155;
+      background: rgba(255, 255, 255, 0.7);
+    }
+    .sa-inbox-toolbar .btn-ghost:hover {
+      color: #0f172a;
+      border-color: rgba(99, 102, 241, 0.35);
+    }
+    .sa-inbox-hint {
+      font-size: 0.85rem;
+      color: #64748b;
+      margin: 0 0 1rem;
+      line-height: 1.55;
+      max-width: 72ch;
+    }
+    .sa-inbox-loader {
+      border-radius: 16px;
+      padding: 1.25rem 1.35rem;
+      background: rgba(255, 255, 255, 0.65);
+      border: 1px solid rgba(15, 23, 42, 0.06);
+      margin-bottom: 1rem;
+    }
+    .sa-inbox-loader > p {
+      margin: 0 0 1rem;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #4338ca;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .sa-inbox-loader > p::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #6366f1;
+      box-shadow: 0 0 14px rgba(99, 102, 241, 0.55);
+      animation: saInboxPulse 1s ease-in-out infinite;
+    }
+    @keyframes saInboxPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.55; transform: scale(0.92); }
+    }
+    #saInboxSkeleton .sa-mail-bento__grid {
+      margin: 0;
+    }
+    .sa-mail-bento__grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 0.85rem;
+    }
+    .sa-mail-bento__card {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      text-align: left;
+      gap: 0.45rem;
+      padding: 1rem 1.05rem 0.95rem;
+      border-radius: 16px;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      background: #ffffff;
+      color: #0f172a;
+      cursor: pointer;
+      font-family: inherit;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+      min-height: 108px;
+    }
+    .sa-mail-bento__card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.1);
+      border-color: rgba(99, 102, 241, 0.25);
+    }
+    .sa-mail-bento__card--unread {
+      border-color: rgba(99, 102, 241, 0.35);
+      background: linear-gradient(145deg, #ffffff 0%, #eef2ff 100%);
+    }
+    .sa-mail-bento__card--unread .sa-mail-bento__from,
+    .sa-mail-bento__card--unread .sa-mail-bento__subject {
+      font-weight: 800;
+    }
+    .sa-mail-bento__from {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #64748b;
+      width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .sa-mail-bento__subject {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #0f172a;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .sa-mail-bento__date {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-top: auto;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .sa-mail-bento__card--skeleton {
+      pointer-events: none;
+      min-height: 108px;
+      background: #f1f5f9;
+      border-style: dashed;
+    }
+    .sa-mail-sk {
+      display: block;
+      border-radius: 8px;
+      background: linear-gradient(90deg, #e2e8f0 0%, #f1f5f9 50%, #e2e8f0 100%);
+      background-size: 200% 100%;
+      animation: saShimmer 1.2s ease-in-out infinite;
+    }
+    .sa-mail-sk--from { height: 12px; width: 55%; }
+    .sa-mail-sk--subj { height: 36px; width: 100%; }
+    .sa-mail-sk--date { height: 10px; width: 40%; margin-top: 0.35rem; }
+    @keyframes saShimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .sa-mail-empty {
+      margin: 0;
+      padding: 2rem;
+      text-align: center;
+      color: #64748b;
+      font-size: 0.9rem;
+      background: rgba(255, 255, 255, 0.75);
+      border-radius: 16px;
+      border: 1px dashed rgba(15, 23, 42, 0.12);
+    }
+    .sa-mail-wrap .sa-sys-err {
+      color: #991b1b;
+      background: rgba(254, 226, 226, 0.95);
+      border-color: rgba(248, 113, 113, 0.45);
+    }
+    .sa-mail-modal[hidden] {
+      display: none !important;
+    }
+    .sa-mail-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 0;
+    }
+    .sa-mail-modal__backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(3, 3, 6, 0.65);
+      backdrop-filter: blur(6px);
+    }
+    .sa-mail-modal__panel {
+      position: relative;
+      width: min(520px, 100vw);
+      max-height: 100vh;
+      overflow: auto;
+      background: #ffffff;
+      color: #0f172a;
+      box-shadow: -12px 0 48px rgba(0, 0, 0, 0.25);
+      padding: 1.35rem 1.35rem 1.75rem;
+      border-left: 1px solid rgba(15, 23, 42, 0.08);
+      animation: saMailSlide 0.28s ease;
+    }
+    @keyframes saMailSlide {
+      from { transform: translateX(100%); opacity: 0.9; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .sa-mail-modal__head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.85rem;
+    }
+    .sa-mail-modal__head h3 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.35;
+      color: #0f172a;
+    }
+    .sa-mail-modal__close {
+      flex-shrink: 0;
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      border: 1px solid rgba(15, 23, 42, 0.1);
+      background: #f8fafc;
+      color: #475569;
+      font-size: 1.25rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .sa-mail-modal__close:hover {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+    .sa-mail-modal__meta {
+      font-size: 0.8rem;
+      color: #64748b;
+      margin: 0 0 1rem;
+      line-height: 1.45;
+    }
+    .sa-mail-modal__body {
+      font-size: 0.88rem;
+      line-height: 1.55;
+      color: #334155;
+    }
+    .sa-mail-modal__loading,
+    .sa-mail-modal__err {
+      margin: 0;
+      color: #64748b;
+    }
+    .sa-mail-modal__err { color: #b91c1c; }
+    .sa-mail-modal__pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 0;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 0.82rem;
+      background: #f8fafc;
+      padding: 1rem;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+    }
+    .sa-mail-modal__html {
+      overflow-x: auto;
+    }
+    .sa-mail-modal__html img {
+      max-width: 100%;
+      height: auto;
+    }
+
+    .sa-view {
+      display: none;
+    }
+    .sa-view.is-active {
+      display: block;
+      animation: saFadeIn 0.22s ease;
+    }
+    @keyframes saFadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: none; }
+    }
+    .sa-welcome-card {
+      margin-bottom: 1.5rem;
+      padding: 1.75rem 1.85rem;
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.14) 0%, rgba(52, 245, 197, 0.06) 100%);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+    }
+    .sa-welcome-card h1 {
+      margin: 0 0 0.45rem;
+      font-size: 1.45rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+    .sa-welcome-card p {
+      margin: 0;
+      font-size: 0.92rem;
+      color: var(--muted);
+      line-height: 1.55;
+      max-width: 52ch;
+    }
+    .sa-daily-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    @media (max-width: 640px) {
+      .sa-daily-grid { grid-template-columns: 1fr; }
+    }
+    .sa-home-hint {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin: 0;
+    }
+
+    /* Sistem / veritabanı analizi */
+    .sa-sys-hero {
+      margin-bottom: 1.35rem;
+      padding: 1.5rem 1.65rem;
+      background: linear-gradient(135deg, rgba(52, 245, 197, 0.08) 0%, rgba(168, 85, 247, 0.1) 100%);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    }
+    .sa-sys-hero__title {
+      margin: 0 0 0.5rem;
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+    .sa-sys-hero__title i { color: var(--neon); margin-right: 0.35rem; }
+    .sa-sys-hero__lead {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+      line-height: 1.55;
+      max-width: 62ch;
+    }
+    .sa-sys-err {
+      margin: 0 0 1rem;
+      padding: 0.65rem 0.9rem;
+      border-radius: 12px;
+      background: rgba(248, 113, 113, 0.12);
+      border: 1px solid rgba(248, 113, 113, 0.35);
+      color: #fecaca;
+      font-size: 0.88rem;
+    }
+    .sa-sys-ping {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.85rem;
+      margin-bottom: 1.25rem;
+    }
+    @media (max-width: 640px) {
+      .sa-sys-ping { grid-template-columns: 1fr; }
+    }
+    .sa-sys-ping__item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.85rem 1.1rem;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: linear-gradient(145deg, var(--surface2), var(--surface));
+    }
+    .sa-sys-ping__label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+    .sa-sys-ping__label i { color: var(--neon); opacity: 0.9; }
+    .sa-sys-ping__value {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .sa-sys-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    @media (max-width: 1100px) { .sa-sys-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 520px) { .sa-sys-kpi-grid { grid-template-columns: 1fr; } }
+    .sa-sys-card {
+      position: relative;
+      padding: 1.2rem 1.25rem;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: linear-gradient(155deg, var(--surface2), var(--surface));
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
+      overflow: hidden;
+    }
+    .sa-sys-card::after {
+      content: "";
+      position: absolute;
+      top: -40%;
+      right: -20%;
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      opacity: 0.1;
+      pointer-events: none;
+    }
+    .sa-sys-card--db::after { background: #34f5c5; }
+    .sa-sys-card--soru::after { background: #a855f7; }
+    .sa-sys-card--users::after { background: #22d3ee; }
+    .sa-sys-card--cal::after { background: #f472b6; }
+    .sa-sys-card__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .sa-sys-card__label {
+      font-size: 0.65rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .sa-sys-card__ico { color: var(--muted); opacity: 0.85; font-size: 1rem; }
+    .sa-sys-card__value {
+      margin: 0;
+      font-size: 1.75rem;
+      font-weight: 800;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: -0.03em;
+      color: var(--text);
+    }
+    .sa-sys-card__value--sm { font-size: 1.15rem; color: var(--neon); }
+    .sa-sys-card__sub {
+      margin: 0.4rem 0 0;
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+    .sa-sys-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.35);
+    }
+    .sa-sys-dot--pending { background: #64748b; animation: saSysPulse 1.2s ease-in-out infinite; }
+    .sa-sys-dot--ok { background: #22c55e; box-shadow: 0 0 14px rgba(34, 197, 94, 0.65); }
+    .sa-sys-dot--err { background: #ef4444; box-shadow: 0 0 12px rgba(239, 68, 68, 0.55); }
+    @keyframes saSysPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.55; transform: scale(0.92); }
+    }
+    .sa-sys-capacity {
+      padding: 1.5rem 1.65rem;
+      border-radius: 22px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      box-shadow: 0 0 60px rgba(168, 85, 247, 0.07);
+    }
+    .sa-sys-capacity__title {
+      margin: 0 0 0.35rem;
+      font-size: 1.05rem;
+      font-weight: 800;
+    }
+    .sa-sys-capacity__title i { color: var(--purple); margin-right: 0.35rem; }
+    .sa-sys-capacity__hint {
+      margin: 0 0 1.35rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.55;
+      max-width: 85ch;
+    }
+    .sa-sys-meter { margin-bottom: 1.5rem; }
+    .sa-sys-meter:last-child { margin-bottom: 0; }
+    .sa-sys-meter__row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.45rem;
+    }
+    .sa-sys-meter__name {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .sa-sys-meter__name i { color: var(--neon); margin-right: 0.35rem; opacity: 0.9; }
+    .sa-sys-meter__pct {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #a5b4fc;
+    }
+    .sa-sys-track {
+      position: relative;
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(168, 85, 247, 0.2);
+      overflow: hidden;
+    }
+    .sa-sys-track__fill {
+      height: 100%;
+      width: 0;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #34f5c5, #a855f7);
+      box-shadow: 0 0 20px rgba(52, 245, 197, 0.35);
+      transition: width 1.12s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .sa-sys-track__fill--db {
+      background: linear-gradient(90deg, #67e8f9, #818cf8);
+      box-shadow: 0 0 18px rgba(103, 232, 249, 0.3);
+    }
+    .sa-sys-track__fill.sa-sys-track__fill--warn {
+      background: linear-gradient(90deg, #f87171, #dc2626) !important;
+      box-shadow: 0 0 22px rgba(248, 113, 113, 0.45) !important;
+    }
+    .sa-sys-meter__meta {
+      margin: 0.45rem 0 0;
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .sa-sys-track__fill { transition: none; }
+      .sa-sys-dot--pending { animation: none; }
+    }
+    @media (prefers-color-scheme: light) {
+      .sa-sys-card,
+      .sa-sys-capacity,
+      .sa-sys-hero {
+        box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+      }
+    }
+
+    .sa-tool-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      margin-top: 1rem;
+    }
+    .sa-tool-actions a.btn-create {
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+    @media (max-width: 960px) {
+      .sa-shell { flex-direction: column; padding: 0 0.75rem; }
+      .sa-sidebar {
+        position: relative;
+        top: 0;
+        flex: none;
+        width: 100%;
+        max-height: none;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 1rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1rem;
+        align-items: flex-start;
+      }
+      .sa-nav-group { margin-bottom: 0.75rem; min-width: 140px; }
+      .sa-main { padding: 1.25rem 0 3rem; }
+    }
+
+    /* Arama + filtre araç çubuğu */
+    .sa-table-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.65rem;
+      margin-bottom: 1rem;
+    }
+    .sa-search-wrap {
+      flex: 1 1 220px;
+      min-width: 180px;
+      position: relative;
+    }
+    .sa-search-wrap i {
+      position: absolute;
+      left: 0.85rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      font-size: 0.88rem;
+      pointer-events: none;
+    }
+    .sa-search-input {
+      width: 100%;
+      padding: 0.62rem 0.85rem 0.62rem 2.35rem;
+      border-radius: 12px;
+      border: 1px solid rgba(52, 245, 197, 0.14);
+      background: #060609;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.88rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .sa-search-input::placeholder {
+      color: #5c6575;
+    }
+    .sa-search-input:focus {
+      outline: none;
+      border-color: rgba(168, 85, 247, 0.55);
+      box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.22), 0 0 28px rgba(52, 245, 197, 0.08);
+    }
+    .sa-filter-select {
+      padding: 0.58rem 0.75rem;
+      border-radius: 10px;
+      border: 1px solid rgba(168, 85, 247, 0.22);
+      background: #0c0c12;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
+      min-width: 140px;
+      cursor: pointer;
+    }
+    .sa-filter-select:focus {
+      outline: none;
+      border-color: rgba(52, 245, 197, 0.45);
+      box-shadow: 0 0 0 2px rgba(52, 245, 197, 0.12);
+    }
+    tr.sa-coach-row,
+    tr.sa-student-row {
+      transition: opacity 0.2s ease;
+    }
+    tr.sa-coach-row.is-filtered-out,
+    tr.sa-student-row.is-filtered-out {
+      display: none !important;
+    }
+    .sa-empty-filter td {
+      text-align: center;
+      padding: 1.35rem 1rem !important;
+      color: #94a3b8;
+      font-size: 0.88rem;
+      font-weight: 600;
+      background: rgba(168, 85, 247, 0.04);
+    }
+    .sa-app-toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 100000;
+      max-width: min(420px, 92vw);
+      padding: 0.9rem 1.2rem;
+      border-radius: 14px;
+      font-weight: 600;
+      font-size: 0.88rem;
+      line-height: 1.4;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .sa-app-toast--ok {
+      background: linear-gradient(145deg, #0d9488, #047857);
+      color: #ecfdf5;
+    }
+    .sa-app-toast--err {
+      background: linear-gradient(145deg, #b91c1c, #7f1d1d);
+      color: #fef2f2;
+    }
+    .sa-admin-table .sa-admin-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+
+    /* Kurucu giriş kapısı — oturum yokken tam panel gizlenir */
+    .sa-login-gate {
+      min-height: calc(100vh - 3rem);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1.25rem 4rem;
+      box-sizing: border-box;
+    }
+    .sa-login-gate[hidden] {
+      display: none !important;
+    }
+    .sa-app-shell[hidden] {
+      display: none !important;
+    }
+    .sa-login-gate__card {
+      width: 100%;
+      max-width: 440px;
+      background: linear-gradient(145deg, var(--surface2), var(--surface));
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 2rem 1.75rem 1.75rem;
+      box-shadow: 0 0 60px rgba(168, 85, 247, 0.12);
+    }
+    .sa-login-gate__brand {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-weight: 800;
+      font-size: 1.05rem;
+      margin-bottom: 0.35rem;
+    }
+    .sa-login-gate__brand i {
+      color: var(--neon);
+      filter: drop-shadow(0 0 10px rgba(52, 245, 197, 0.45));
+    }
+    .sa-login-gate__tag {
+      font-size: 0.58rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--purple);
+      border: 1px solid rgba(168, 85, 247, 0.35);
+      border-radius: 8px;
+      padding: 0.2rem 0.45rem;
+      margin-left: 0.25rem;
+    }
+    .sa-login-gate__title {
+      margin: 0 0 0.35rem;
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+    .sa-login-gate__lead {
+      margin: 0 0 1.35rem;
+      font-size: 0.88rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .sa-login-gate__error {
+      display: none;
+      margin-bottom: 1rem;
+      padding: 0.65rem 0.85rem;
+      border-radius: 12px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      background: rgba(185, 28, 28, 0.2);
+      border: 1px solid rgba(248, 113, 113, 0.35);
+      color: #fecaca;
+    }
+    .sa-login-gate__error.is-visible {
+      display: block;
+    }
+    .sa-login-gate__field {
+      margin-bottom: 1rem;
+    }
+    .sa-login-gate__field label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+    .sa-login-gate__inputwrap {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border-radius: 12px;
+      border: 1px solid rgba(52, 245, 197, 0.14);
+      background: #060609;
+      padding: 0 0.85rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .sa-login-gate__inputwrap:focus-within {
+      border-color: rgba(168, 85, 247, 0.55);
+      box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.18);
+    }
+    .sa-login-gate__inputwrap i {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .sa-login-gate__input {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.92rem;
+      padding: 0.72rem 0;
+      outline: none;
+    }
+    .sa-login-gate__inputwrap--pw .sa-login-gate__pw-toggle {
+      flex-shrink: 0;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 0.35rem;
+      border-radius: 8px;
+      line-height: 1;
+    }
+    .sa-login-gate__inputwrap--pw .sa-login-gate__pw-toggle:hover {
+      color: var(--neon);
+    }
+    .sa-login-gate__submit {
+      width: 100%;
+      margin-top: 0.25rem;
+      padding: 0.82rem 1.2rem;
+      border: none;
+      border-radius: 14px;
+      font-family: inherit;
+      font-weight: 800;
+      font-size: 0.95rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: linear-gradient(135deg, #34f5c5, #14b8a6);
+      color: #04120e;
+      box-shadow: 0 8px 28px rgba(52, 245, 197, 0.25);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .sa-login-gate__submit:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 36px rgba(52, 245, 197, 0.35);
+    }
+    .sa-login-gate__submit:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+    .sa-login-gate__foot {
+      margin-top: 1.25rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.45;
+    }
+  </style>
+  <link rel="stylesheet" href="../css/site-credit.css" />
+  <link rel="stylesheet" href="../css/zoho-compose.css" />
+</head>
+<body class="has-site-credit">
+  <div id="saLoginGate" class="sa-login-gate" hidden>
+    <div class="sa-login-gate__card">
+      <div class="sa-login-gate__brand">
+        <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+        DerecePanel
+        <span class="sa-login-gate__tag">Kurucu</span>
+      </div>
+      <h1 class="sa-login-gate__title">Oturum açın</h1>
+      <p class="sa-login-gate__lead">Yetkili hesabınızın e-posta ve şifresi ile giriş yapın. Bu ekran yalnızca kurucu rolleri içindir.</p>
+      <div id="saGateError" class="sa-login-gate__error" role="alert"></div>
+      <form id="saGateForm" novalidate>
+        <div class="sa-login-gate__field">
+          <label for="saGateEmail">E-posta</label>
+          <div class="sa-login-gate__inputwrap">
+            <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+            <input
+              id="saGateEmail"
+              class="sa-login-gate__input"
+              name="email"
+              type="email"
+              autocomplete="username"
+              required
+              placeholder="kurucu@sistem.com"
+            />
+          </div>
+        </div>
+        <div class="sa-login-gate__field">
+          <label for="saGatePassword">Şifre</label>
+          <div class="sa-login-gate__inputwrap sa-login-gate__inputwrap--pw">
+            <i class="fa-solid fa-key" aria-hidden="true"></i>
+            <input
+              id="saGatePassword"
+              class="sa-login-gate__input"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+              minlength="8"
+              maxlength="256"
+              placeholder="En az 8 karakter"
+            />
+            <button type="button" class="sa-login-gate__pw-toggle" id="saGatePwToggle" aria-label="Şifreyi göster" aria-pressed="false">
+              <span class="sa-gate-eye-plain"><i class="fa-solid fa-eye"></i></span>
+              <span class="sa-gate-eye-slash" hidden><i class="fa-solid fa-eye-slash"></i></span>
+            </button>
+          </div>
+        </div>
+        <button type="submit" class="sa-login-gate__submit" id="saGateSubmit">
+          <span>Giriş yap</span>
+          <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+        </button>
+      </form>
+      <p class="sa-login-gate__foot">Güvenli oturum · Şifreli bağlantı üzerinden Appwrite kimlik doğrulama.</p>
+    </div>
+  </div>
+
+  <div id="saAppShell" class="sa-app-shell" hidden>
+  <header class="topbar">
+    <div class="topbar__brand">
+      <i class="fa-solid fa-chart-line"></i>
+      DerecePanel
+      <span class="topbar__tag">Analytics</span>
+    </div>
+    <div class="topbar__actions" style="display:flex;align-items:center;gap:0.65rem;flex-wrap:wrap">
+      <button type="button" class="btn-ghost" id="btnSaProfileSettings" title="Kişisel ayarlar">
+        <i class="fa-solid fa-user-gear"></i> Profil
+      </button>
+      <button type="button" class="btn-ghost" id="btnScrollQuotes" title="Teklif talepleri">
+        <i class="fa-solid fa-file-invoice"></i> Teklifler
+        <span id="saQuoteBadge" class="sa-quote-badge" hidden>0</span>
+      </button>
+      <button type="button" class="btn-ghost" id="btnSaRefresh" title="Sayfayı yenile">
+        <i class="fa-solid fa-rotate-right"></i> Yenile
+      </button>
+      <button type="button" class="btn-ghost" id="btnLogout"><i class="fa-solid fa-right-from-bracket"></i> Çıkış</button>
+    </div>
+  </header>
+
+  <div class="sa-shell">
+    <aside class="sa-sidebar" aria-label="Kurucu menü">
+      <nav>
+        <div class="sa-nav-group">
+          <p class="sa-nav-group__label">Genel</p>
+          <a class="sa-nav-link is-active" href="#anasayfa" data-sa-route="home"><i class="fa-solid fa-house"></i> Ana sayfa</a>
+        </div>
+        <div class="sa-nav-group">
+          <p class="sa-nav-group__label">Yönetim</p>
+          <a class="sa-nav-link" href="#ozet" data-sa-route="ozet"><i class="fa-solid fa-gauge-high"></i> Özet istatistikler</a>
+          <a class="sa-nav-link" href="#bakim" data-sa-route="bakim"><i class="fa-solid fa-screwdriver-wrench"></i> Bakım modu</a>
+          <a class="sa-nav-link" href="#teklifler" data-sa-route="teklifler"><i class="fa-solid fa-file-invoice"></i> Teklif talepleri</a>
+          <a class="sa-nav-link" href="#gelen-kutusu" data-sa-route="gelen-kutusu"><span class="sa-nav-emoji" aria-hidden="true">📩</span> Gelen Kutusu</a>
+          <a class="sa-nav-link" href="#admin-yonetimi" data-sa-route="admin-yonetimi"><i class="fa-solid fa-shield-halved"></i> Admin Yönetimi</a>
+        </div>
+        <div class="sa-nav-group">
+          <p class="sa-nav-group__label">Koçlar</p>
+          <a class="sa-nav-link" href="#kurumlar" data-sa-route="kurumlar"><i class="fa-solid fa-building"></i> Kurumlar</a>
+          <a class="sa-nav-link" href="#yeni-koc" data-sa-route="yeni-koc"><i class="fa-solid fa-user-plus"></i> Yeni koç</a>
+          <a class="sa-nav-link" href="#koclar" data-sa-route="koclar"><i class="fa-solid fa-table"></i> Koç listesi</a>
+        </div>
+        <div class="sa-nav-group">
+          <p class="sa-nav-group__label">Öğrenciler</p>
+          <a class="sa-nav-link" href="#yeni-ogrenci" data-sa-route="yeni-ogrenci"><i class="fa-solid fa-user-graduate"></i> Yeni öğrenci</a>
+          <a class="sa-nav-link" href="#ogrenciler" data-sa-route="ogrenciler"><i class="fa-solid fa-users"></i> Öğrenci listesi</a>
+        </div>
+        <div class="sa-nav-group">
+          <p class="sa-nav-group__label">Sistem</p>
+          <a class="sa-nav-link" href="#grafik" data-sa-route="grafik"><i class="fa-solid fa-wave-square"></i> Günlük aktif koç grafiği</a>
+          <a class="sa-nav-link" href="#sistem" data-sa-route="sistem"><i class="fa-solid fa-server"></i> Sistem ve veritabanı analizi</a>
+          <a class="sa-nav-link" href="#destek" data-sa-route="destek"><i class="fa-solid fa-life-ring"></i> Sorunlar / Destek talepleri</a>
+        </div>
+      </nav>
+    </aside>
+    <div class="sa-main">
+  <main>
+    <section class="sa-view sa-view--home is-active" data-sa-page="home" aria-label="Ana sayfa">
+      <div class="sa-welcome-card">
+        <h1>Kurucu paneline hoş geldiniz</h1>
+        <p>DerecePanel yönetim merkezi. Sol menüden özet istatistikler, koç ve öğrenci işlemleri ile analiz araçlarına ulaşabilirsiniz.</p>
+      </div>
+      <h2 class="section-title"><i class="fa-solid fa-chart-pie"></i> Günlük analiz</h2>
+      <p style="font-size:0.85rem;color:var(--muted);margin:-0.5rem 0 1rem;line-height:1.5;max-width:56ch">
+        Bugün (yerel saat diliminizde takvim günü) panele giriş yapmış benzersiz <strong>öğrenci</strong> ve <strong>koç</strong> sayısı. Veri, kullanıcı kayıtlarındaki <strong>son giriş</strong> zamanına göre hesaplanır.
+      </p>
+      <div class="sa-daily-grid">
+        <article class="kpi-card kpi-card--students">
+          <div class="kpi-card__label">Bugün giriş yapan öğrenci</div>
+          <div class="kpi-card__value" id="saHomeStudentsToday">—</div>
+          <div class="kpi-card__sub">Benzersiz öğrenci (bugün)</div>
+        </article>
+        <article class="kpi-card kpi-card--coaches">
+          <div class="kpi-card__label">Bugün giriş yapan koç</div>
+          <div class="kpi-card__value" id="saHomeCoachesToday">—</div>
+          <div class="kpi-card__sub">Benzersiz koç (bugün)</div>
+        </article>
+      </div>
+      <p class="sa-home-hint">Referans tarihi: <span id="saHomeDateLabel">—</span></p>
+    </section>
+
+    <section class="sa-view" data-sa-page="sistem" aria-label="Sistem ve veritabanı analizi">
+      <div class="sa-sys-hero">
+        <h1 class="sa-sys-hero__title"><i class="fa-solid fa-chart-line"></i> Sistem ve veritabanı analizi</h1>
+        <p class="sa-sys-hero__lead">
+          Appwrite üzerinden anlık özet. Aşağıdaki gecikme ölçümleri sayfa açılışında ve <strong>her 30 saniyede</strong> yenilenir; özet KPI blokları ise bu sekmeye her gelişinizde bir kez çekilir.
+        </p>
+      </div>
+      <div class="sa-sys-ping" aria-live="polite">
+        <div class="sa-sys-ping__item">
+          <span class="sa-sys-ping__label"><i class="fa-solid fa-bolt" aria-hidden="true"></i> Sunucu (Vercel)</span>
+          <span id="server-ping" class="sa-sys-ping__value">Ölçülüyor...</span>
+        </div>
+        <div class="sa-sys-ping__item">
+          <span class="sa-sys-ping__label"><i class="fa-solid fa-heart-pulse" aria-hidden="true"></i> Appwrite health</span>
+          <span id="db-ping" class="sa-sys-ping__value">Ölçülüyor...</span>
+        </div>
+      </div>
+      <p id="saSysErr" class="sa-sys-err" hidden></p>
+      <div class="sa-sys-kpi-grid">
+        <article class="sa-sys-card sa-sys-card--db">
+          <div class="sa-sys-card__head">
+            <span class="sa-sys-card__label">Veritabanı bağlantısı</span>
+            <span id="saSysDbDot" class="sa-sys-dot sa-sys-dot--pending" title="Durum"></span>
+          </div>
+          <p class="sa-sys-card__value sa-sys-card__value--sm" id="saSysDbStatusText">—</p>
+          <p class="sa-sys-card__sub">Appwrite API · <span class="mono">derece_panel</span></p>
+        </article>
+        <article class="sa-sys-card sa-sys-card--soru">
+          <div class="sa-sys-card__head">
+            <span class="sa-sys-card__label">Toplam soru</span>
+            <i class="fa-solid fa-database sa-sys-card__ico" aria-hidden="true"></i>
+          </div>
+          <p class="sa-sys-card__value" id="saSysTotalSoru">—</p>
+          <p class="sa-sys-card__sub mono">soru_havuzu</p>
+        </article>
+        <article class="sa-sys-card sa-sys-card--users">
+          <div class="sa-sys-card__head">
+            <span class="sa-sys-card__label">Kayıtlı koç / öğrenci</span>
+            <i class="fa-solid fa-users sa-sys-card__ico" aria-hidden="true"></i>
+          </div>
+          <p class="sa-sys-card__value" id="saSysCoachStudent">—</p>
+          <p class="sa-sys-card__sub" id="saSysCoachStudentSub">users · role filtresi</p>
+        </article>
+        <article class="sa-sys-card sa-sys-card--cal">
+          <div class="sa-sys-card__head">
+            <span class="sa-sys-card__label">Toplam randevu</span>
+            <i class="fa-regular fa-calendar-check sa-sys-card__ico" aria-hidden="true"></i>
+          </div>
+          <p class="sa-sys-card__value" id="saSysTotalAppt">—</p>
+          <p class="sa-sys-card__sub mono">appointments</p>
+        </article>
+        <article class="sa-sys-card sa-sys-card--examres">
+          <div class="sa-sys-card__head">
+            <span class="sa-sys-card__label">Optik karne kayıtları</span>
+            <i class="fa-solid fa-file-lines sa-sys-card__ico" aria-hidden="true"></i>
+          </div>
+          <p class="sa-sys-card__value" id="saSysTotalExamResults">—</p>
+          <p class="sa-sys-card__sub mono">ExamResults</p>
+        </article>
+      </div>
+
+      <div class="sa-sys-capacity">
+        <h2 class="sa-sys-capacity__title"><i class="fa-solid fa-gauge-high"></i> Kapasite kullanımı</h2>
+        <p class="sa-sys-capacity__hint">
+          Depolama: <span class="mono">soru_havuzu</span> + <span class="mono">destek_ekranlari</span> bucket’larındaki dosya boyutları toplanır (sayfalama ile, dosya içeriği indirilmez).
+          Veritabanı: seçili koleksiyonlardaki tahmini belge sayısı; limit sabit bir referanstır.
+        </p>
+
+        <div class="sa-sys-meter">
+          <div class="sa-sys-meter__row">
+            <span class="sa-sys-meter__name"><i class="fa-solid fa-hard-drive"></i> Depolama (görseller)</span>
+            <span class="sa-sys-meter__pct" id="saSysStoragePct">—</span>
+          </div>
+          <div class="sa-sys-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="Depolama doluluğu">
+            <div class="sa-sys-track__fill" id="saSysStorageBarFill"></div>
+          </div>
+          <p class="sa-sys-meter__meta" id="saSysStorageMeta">—</p>
+        </div>
+
+        <div class="sa-sys-meter">
+          <div class="sa-sys-meter__row">
+            <span class="sa-sys-meter__name"><i class="fa-solid fa-table"></i> Veritabanı (tahmini belge)</span>
+            <span class="sa-sys-meter__pct" id="saSysDbPct">—</span>
+          </div>
+          <div class="sa-sys-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="Veritabanı doluluğu">
+            <div class="sa-sys-track__fill sa-sys-track__fill--db" id="saSysDbBarFill"></div>
+          </div>
+          <p class="sa-sys-meter__meta" id="saSysDbMeta">—</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="sa-view" data-sa-page="ozet" aria-label="Özet istatistikler">
+      <div class="kpi-grid" id="sa-section-kpi">
+      <article class="kpi-card kpi-card--coaches">
+        <div class="kpi-card__label">Toplam koç</div>
+        <div class="kpi-card__value" id="kpiTotalCoaches">—</div>
+        <div class="kpi-card__sub">Kayıtlı koç hesabı</div>
+      </article>
+      <article class="kpi-card kpi-card--students">
+        <div class="kpi-card__label">Toplam öğrenci</div>
+        <div class="kpi-card__value" id="kpiTotalStudents">—</div>
+        <div class="kpi-card__sub">Tüm koçların öğrencileri</div>
+      </article>
+      <article class="kpi-card kpi-card--active">
+        <div class="kpi-card__label">Son 24 saatte aktif koç</div>
+        <div class="kpi-card__value" id="kpiActiveToday">—</div>
+        <div class="kpi-card__sub">Son 24 saatte giriş yapan koç</div>
+      </article>
+      <article class="kpi-card kpi-card--load">
+        <div class="kpi-card__label">Sistem yükü</div>
+        <div class="kpi-card__value" id="kpiSystemLoad">—</div>
+        <div class="kpi-card__sub" id="kpiSystemLoadSub">Tahmini / mock</div>
+      </article>
+      </div>
+    </section>
+
+    <section class="sa-view" data-sa-page="bakim">
+    <div class="card" id="saSectionMaintenance">
+      <h2 class="section-title"><i class="fa-solid fa-screwdriver-wrench"></i> Bakım modu</h2>
+      <p style="font-size:0.85rem;color:var(--muted);margin:0 0 1rem;line-height:1.55;max-width:62ch">
+        Açıkken <strong>koç</strong> ve <strong>öğrenci</strong> hesapları giriş ekranında reddedilir; yalnızca <strong>kurucu</strong> paneline giriş yapılabilir. Kapatınca herkes tekrar giriş yapabilir.
+      </p>
+      <p id="saMaintenanceStatus" class="mono" style="margin:0 0 1rem;font-size:0.88rem">—</p>
+      <div style="display:flex;flex-wrap:wrap;gap:0.65rem;align-items:center">
+        <button type="button" class="btn-create" id="btnMaintenanceStart"><i class="fa-solid fa-power-off"></i> Bakımı başlat</button>
+        <button type="button" class="btn-danger" id="btnMaintenanceStop"><i class="fa-solid fa-circle-check"></i> Bakımı durdur</button>
+      </div>
+    </div>
+    </section>
+
+    <section class="sa-view" data-sa-page="teklifler">
+    <section class="card" id="saSectionQuotes">
+      <h2 class="section-title"><i class="fa-solid fa-file-invoice"></i> Teklif talepleri</h2>
+      <p style="font-size:0.85rem;color:var(--muted);margin:0 0 1rem;line-height:1.55;max-width:62ch">
+        Ana sayfadaki <strong>Teklif iste</strong> formundan gelen talepler burada listelenir. <strong>Yeni</strong> durumundaki kayıt sayısı üstteki rozetle gösterilir.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Tarih</th>
+              <th>Paket</th>
+              <th>Kurum</th>
+              <th>Yetkili</th>
+              <th>E-posta</th>
+              <th>Telefon</th>
+              <th>Mesaj</th>
+              <th>Durum</th>
+              <th>Sil</th>
+            </tr>
+          </thead>
+          <tbody id="quotesTableBody">
+            <tr><td colspan="9" class="mono" style="padding:1.75rem">Yükleniyor…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    </section>
+
+    <section class="sa-view" data-sa-page="grafik">
+    <section class="chart-card" id="sa-section-chart">
+      <div class="chart-card__head">
+        <h2 class="chart-card__title"><i class="fa-solid fa-wave-square"></i> Günlük aktif koç</h2>
+        <p class="chart-card__hint">Son 7 günde sisteme giriş yapan <strong>benzersiz koç</strong> sayısı (günlük). Veri, koç girişlerinde kaydedilen loglardan üretilir.</p>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="adminLoginChart" aria-label="Son 7 gün aktif koç grafiği"></canvas>
+      </div>
+    </section>
+    </section>
+
+    <section class="sa-view" data-sa-page="kurumlar">
+    <section class="card" id="sa-section-institutions">
+      <h2 class="section-title"><i class="fa-solid fa-building"></i> Kurum yönetimi (çok kiracılı)</h2>
+      <p style="font-size:0.85rem;color:var(--muted);margin:0 0 1rem;line-height:1.5;max-width:62ch">
+        Koç ve öğrenci kayıtları bir <strong>institutionId</strong> ile ilişkilendirilir. Önce kurum oluşturun; ardından koç eklerken listeden seçin.
+      </p>
+      <form id="formCreateInstitution" method="post" action="#" novalidate class="form-grid" style="margin-bottom:1.5rem;padding-bottom:1.25rem;border-bottom:1px solid rgba(148,163,184,0.2)">
+        <div class="form-group form-group--full">
+          <h3 class="section-title" style="font-size:1rem;margin:0 0 0.5rem"><i class="fa-solid fa-plus-circle"></i> Kurum oluştur</h3>
+        </div>
+        <div class="form-group form-group--full">
+          <label for="institutionName">Kurum adı</label>
+          <input id="institutionName" required maxlength="200" placeholder="Örn. Paraf Eğitim" autocomplete="organization" class="sa-select-like" />
+        </div>
+        <div class="form-group form-group--full">
+          <label for="institutionLogo">Logo URL (isteğe bağlı)</label>
+          <input id="institutionLogo" type="url" maxlength="2000" placeholder="https://..." class="sa-select-like" />
+        </div>
+        <div class="form-group form-group--full">
+          <button type="submit" class="btn-create" id="btnCreateInstitution"><i class="fa-solid fa-building-circle-check"></i> Kurumu kaydet</button>
+          <div id="formInstitutionMsg" style="display:none;margin-top:0.75rem;padding:0.65rem;border-radius:10px;font-size:0.88rem;"></div>
+        </div>
+      </form>
+      <h3 class="section-title" style="font-size:1rem;margin:0 0 0.75rem"><i class="fa-solid fa-list"></i> Kayıtlı kurumlar</h3>
+      <div style="overflow-x:auto">
+        <table class="sa-table sa-table--compact" aria-label="Kurum listesi">
+          <thead>
+            <tr>
+              <th>Kurum adı</th>
+              <th>Belge ID</th>
+              <th>Logo</th>
+            </tr>
+          </thead>
+          <tbody id="institutionsTableBody">
+            <tr><td colspan="3" class="mono" style="padding:1.25rem">Yükleniyor…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:1rem;font-size:0.8rem;color:var(--muted)">
+        <strong>Geliştirici:</strong> Eski <code>students</code> verisini temizlemek için konsolda
+        <code>window.__DP_SA_PURGE_STUDENTS_FOR_TENANT_MIGRATION__()</code> çalıştırın (çift onay; geri alınamaz).
+      </p>
+    </section>
+    </section>
+
+    <section class="sa-view" data-sa-page="yeni-koc">
+    <section class="card" id="sa-section-create-coach">
+      <h2 class="section-title"><i class="fa-solid fa-user-plus"></i> Yeni koç hesabı oluştur</h2>
+      <form id="formCreateCoach" method="post" action="#" novalidate>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="coachUsername">Koç kullanıcı adı</label>
+            <input id="coachUsername" required placeholder="ornek_koc" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="coachPassword">Şifre</label>
+            <div class="form-pw-wrap form-pw-wrap--neon">
+              <input id="coachPassword" class="form-pw-wrap__input" type="password" required minlength="8" maxlength="256" placeholder="En az 8 karakter" title="Şifre en az 8, en fazla 256 karakter olmalıdır." />
+              <button type="button" class="form-pw-toggle" aria-label="Şifreyi göster" aria-pressed="false">
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--plain" aria-hidden="true"><i class="fa-solid fa-eye"></i></span>
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--slashed" hidden aria-hidden="true"><i class="fa-solid fa-eye-slash"></i></span>
+              </button>
+            </div>
+          </div>
+          <div class="form-group form-group--full">
+            <label for="coachInstitutionId">Kurum <span style="color:var(--neon)">*</span></label>
+            <select id="coachInstitutionId" required class="sa-select-like" style="width:100%;max-width:100%;padding:0.65rem 0.85rem;border-radius:10px;border:1px solid rgba(148,163,184,0.35);background:var(--surface);color:var(--text);font-size:0.95rem">
+              <option value="">— Kurum seçin —</option>
+            </select>
+            <p id="coachInstitutionEmptyHint" class="mono" style="margin:0.5rem 0 0;font-size:0.82rem;color:#fbbf24;display:none">
+              Önce sol menüden <strong>Kurumlar</strong> sayfasında kurum oluşturmalısınız.
+            </p>
+          </div>
+          <div class="form-group">
+            <label for="coachPhone">İletişim telefonu</label>
+            <input id="coachPhone" type="tel" placeholder="05xx xxx xx xx" />
+          </div>
+          <div class="form-group">
+            <label for="coachPackage">Paket tipi</label>
+            <select id="coachPackage" required>
+              <option value="Başlangıç">Başlangıç</option>
+              <option value="Pro">Pro</option>
+            </select>
+          </div>
+        </div>
+        <button type="submit" class="btn-create" id="btnCreateCoach">
+          <i class="fa-solid fa-cloud-arrow-up"></i> Hesabı oluştur
+        </button>
+        <div id="formCoachMsg"></div>
+      </form>
+    </section>
+    </section>
+
+    <section class="sa-view" data-sa-page="yeni-ogrenci">
+    <section class="card" id="sa-section-create-student">
+      <h2 class="section-title"><i class="fa-solid fa-user-graduate"></i> Yeni öğrenci hesabı oluştur</h2>
+      <p style="font-size:0.85rem;color:var(--muted);margin:0 0 1rem;line-height:1.5;max-width:52ch">
+        Öğrenci, seçtiğiniz koça bağlanır. Giriş: <strong>/pages/login.html</strong> → <strong>Öğrenci</strong> sekmesi.
+      </p>
+      <form id="formCreateStudent" method="post" action="#" novalidate>
+        <div class="form-grid">
+          <div class="form-group form-group--full">
+            <label for="studentCoachSelect">Bağlı koç</label>
+            <select id="studentCoachSelect" required>
+              <option value="">— Önce koç listesi yüklensin —</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="studentUsername">Öğrenci kullanıcı adı</label>
+            <input id="studentUsername" required placeholder="ogrenci_ahmet" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="studentPassword">Şifre</label>
+            <div class="form-pw-wrap form-pw-wrap--neon">
+              <input id="studentPassword" class="form-pw-wrap__input" type="password" required minlength="8" maxlength="256" placeholder="En az 8 karakter" title="Şifre en az 8, en fazla 256 karakter olmalıdır." />
+              <button type="button" class="form-pw-toggle" aria-label="Şifreyi göster" aria-pressed="false">
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--plain" aria-hidden="true"><i class="fa-solid fa-eye"></i></span>
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--slashed" hidden aria-hidden="true"><i class="fa-solid fa-eye-slash"></i></span>
+              </button>
+            </div>
+          </div>
+          <div class="form-group form-group--full">
+            <label for="studentFullName">Ad soyad (isteğe bağlı)</label>
+            <input id="studentFullName" maxlength="120" placeholder="Panelde görünecek isim" />
+          </div>
+        </div>
+        <button type="submit" class="btn-create" id="btnCreateStudent">
+          <i class="fa-solid fa-user-plus"></i> Öğrenci oluştur
+        </button>
+        <div id="formStudentMsg" style="display:none;margin-top:1rem;padding:0.65rem;border-radius:10px;font-size:0.88rem;"></div>
+      </form>
+    </section>
+    </section>
+
+    <section class="sa-view" data-sa-page="ogrenciler">
+    <section id="sa-section-students">
+      <h2 class="section-title"><i class="fa-solid fa-users"></i> Kayıtlı öğrenciler</h2>
+      <p style="font-size:0.85rem;color:var(--muted);margin:0 0 1rem;line-height:1.55;max-width:62ch">
+        <strong>Son giriş</strong> ve <strong>son şifre işlemi</strong> tarih/saat bilgileri Appwrite veritabanında tutulur. Giriş her başarılı öğrenci oturumunda güncellenir.
+        Kullanıcı adının altında panelde saklanan <strong>şifre</strong> gösterilir (yalnızca bu panelden oluşturulan / güncellenen hesaplar). <strong>Düzenle</strong> ile ad, bağlı koç, kullanıcı adı ve şifre; <strong>Sil</strong> ile onay sonrası hesabı kaldırırsınız. 🔑 ile yalnızca şifre; 📧 ile sıfırlama e-postası (kutuya ulaşıyorsa).
+      </p>
+      <div class="sa-table-toolbar" id="saStudentToolbar">
+        <div class="sa-search-wrap">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <input type="search" id="saStudentSearch" class="sa-search-input" placeholder="Öğrenci adı veya e-posta ara…" autocomplete="off" />
+        </div>
+        <select id="saStudentFilterCoach" class="sa-filter-select" aria-label="Bağlı koç filtresi">
+          <option value="all">Tüm koçlar</option>
+        </select>
+        <select id="saStudentFilterPkg" class="sa-filter-select" aria-label="Koç paket türü filtresi">
+          <option value="all">Tüm paketler</option>
+          <option value="bas">Başlangıç</option>
+          <option value="pro">Pro</option>
+        </select>
+      </div>
+      <div class="table-wrap table-wrap--students">
+        <table>
+          <thead>
+            <tr>
+              <th>Öğrenci</th>
+              <th>Bağlı koç</th>
+              <th>Son giriş</th>
+              <th>Son şifre işlemi</th>
+              <th>İşlemler</th>
+            </tr>
+          </thead>
+          <tbody id="studentsTableBody">
+            <tr><td colspan="5" class="mono" style="padding:1.75rem">Yükleniyor…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    </section>
+
+    <section class="sa-view" data-sa-page="koclar">
+    <section id="sa-section-coaches">
+      <h2 class="section-title"><i class="fa-solid fa-table"></i> Koçlar &amp; operasyonlar</h2>
+      <p style="font-size:0.85rem;color:var(--muted);margin:0 0 1rem;line-height:1.55;max-width:62ch">
+        Kullanıcı adının altında panelde saklanan <strong>şifre</strong> gösterilir. <strong>Düzenle</strong> kurum, paket, kullanıcı adı ve şifre; <strong>Sil</strong> onay sonrası koç hesabını kaldırır. Bağlı öğrenci varsa uyarı verilir.
+      </p>
+      <div class="sa-table-toolbar" id="saCoachToolbar">
+        <div class="sa-search-wrap">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <input type="search" id="saCoachSearch" class="sa-search-input" placeholder="Koç adı veya kurum ara…" autocomplete="off" />
+        </div>
+        <select id="saCoachFilterPkg" class="sa-filter-select" aria-label="Paket filtresi">
+          <option value="all">Tüm paketler</option>
+          <option value="bas">Başlangıç</option>
+          <option value="pro">Pro</option>
+        </select>
+        <select id="saCoachFilterStatus" class="sa-filter-select" aria-label="Durum filtresi">
+          <option value="all">Tüm durumlar</option>
+          <option value="active">Aktif</option>
+          <option value="frozen">Donduruldu</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Koç / Kurum</th>
+              <th>Aktif öğrenci</th>
+              <th>Son giriş</th>
+              <th>Paket</th>
+              <th>Durum</th>
+              <th>Güvenlik &amp; aksiyonlar</th>
+            </tr>
+          </thead>
+          <tbody id="coachesTableBody">
+            <tr><td colspan="6" class="mono" style="padding:1.75rem">Yükleniyor…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    </section>
+
+    <section class="sa-view" data-sa-page="admin-yonetimi">
+      <div class="card" id="saSectionAdmins">
+        <h2 class="section-title"><i class="fa-solid fa-shield-halved"></i> Admin yönetimi</h2>
+        <p style="font-size:0.85rem;color:var(--muted);margin:0 0 1rem;line-height:1.55;max-width:72ch">
+          Kayıtlar <span class="mono">users</span> koleksiyonunda <span class="mono">role = admin_roster</span> ile tutulur. Appwrite şemasında tanımlı alanlar kullanılır: görünen ad <span class="mono">fullName</span>, giriş adı <span class="mono">username</span>, iletişim e-postası <span class="mono">institutionName</span>, yetki kodu <span class="mono">packageType</span> (<span class="mono">Admin_Tam</span> / <span class="mono">Admin_Orta</span> / <span class="mono">Admin_Salt</span>). Oluşturma ve güncelleme izinlerini kontrol edin.
+        </p>
+        <div class="sa-table-toolbar" id="saAdminToolbar">
+          <div class="sa-search-wrap">
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            <input type="search" id="saAdminSearch" class="sa-search-input" placeholder="Kullanıcı adı, ad, e-posta, şifre notu veya yetki ara…" autocomplete="off" />
+          </div>
+          <button type="button" class="btn-create" id="btnSaAdminOpenCreate"><i class="fa-solid fa-plus"></i> Yeni Yetkili Ekle</button>
+          <button type="button" class="btn-ghost" id="saAdminRefresh" title="Yenile"><i class="fa-solid fa-rotate"></i></button>
+        </div>
+        <div class="table-wrap">
+          <table class="sa-admin-table">
+            <thead>
+              <tr>
+                <th>Kullanıcı adı</th>
+                <th>Ad Soyad</th>
+                <th>E-Posta</th>
+                <th>Şifre notu</th>
+                <th>Yetki Seviyesi</th>
+                <th style="min-width:200px">İşlemler</th>
+              </tr>
+            </thead>
+            <tbody id="saAdminTableBody">
+              <tr><td colspan="6" class="mono" style="padding:1.75rem">Yükleniyor…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="sa-view" data-sa-page="gelen-kutusu" aria-label="Gelen kutusu Zoho">
+      <div class="sa-mail-wrap">
+        <h2 class="section-title"><i class="fa-solid fa-envelope-open-text"></i> Gelen Kutusu</h2>
+        <p class="sa-inbox-hint">
+          <strong>info@derecepanel.com</strong> ve bağlı Zoho hesabındaki gelen postalar listelenir.
+          Vercel ortamında <span class="mono">ZOHO_CLIENT_ID</span>, <span class="mono">ZOHO_CLIENT_SECRET</span>,
+          <span class="mono">ZOHO_REFRESH_TOKEN</span> gerekir. API tabanı:
+          <span class="mono">https://mail.zoho.eu/api/v1/</span> (gerekirse
+          <span class="mono">ZOHO_MAIL_API_V1_BASE</span> / EU için
+          <span class="mono">ZOHO_MAIL_API_LEGACY_BASE</span>).
+        </p>
+        <div class="sa-inbox-toolbar">
+          <button type="button" class="btn-ghost" id="btnZohoInboxRefresh" title="Listeyi yenile">
+            <i class="fa-solid fa-rotate"></i> Yenile
+          </button>
+        </div>
+        <p id="saInboxError" class="sa-sys-err" hidden></p>
+        <div id="saInboxLoader" class="sa-inbox-loader" hidden>
+          <p>Mailler senkronize ediliyor…</p>
+          <div id="saInboxSkeleton" aria-hidden="true"></div>
+        </div>
+        <div id="saInboxList" class="sa-inbox-list-mount"></div>
+      </div>
+    </section>
+
+    <div id="saMailModal" class="sa-mail-modal" hidden role="dialog" aria-modal="true" aria-labelledby="saMailModalSubject">
+      <div class="sa-mail-modal__backdrop" data-sa-mail-close tabindex="-1"></div>
+      <div class="sa-mail-modal__panel">
+        <div class="sa-mail-modal__head">
+          <h3 id="saMailModalSubject">—</h3>
+          <button type="button" class="sa-mail-modal__close" data-sa-mail-close aria-label="Kapat">×</button>
+        </div>
+        <p id="saMailModalMeta" class="sa-mail-modal__meta"></p>
+        <div id="saMailModalBody" class="sa-mail-modal__body"></div>
+      </div>
+    </div>
+
+    <section class="sa-view" data-sa-page="destek">
+    <section class="card" id="saSectionDestek">
+      <h2 class="section-title"><i class="fa-solid fa-headset"></i> Sorunlar &amp; destek talepleri</h2>
+      <p style="font-size:0.85rem;color:var(--muted);margin:0 0 1rem;line-height:1.55;max-width:72ch">
+        Panel ve vitrindeki <strong>Sorun bildir</strong> akışından gelen kayıtlar Appwrite <span class="mono">derece_panel / hata_bildirimleri</span> koleksiyonunda tutulur.
+        Görseller <span class="mono">destek_ekranlari</span> bucket’ındadır — Console’da koleksiyon ve bucket oluşturmayı unutmayın.
+      </p>
+      <div class="sa-table-toolbar" id="saDestekToolbar">
+        <div class="sa-search-wrap">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <input type="search" id="saDestekSearch" class="sa-search-input" placeholder="İsim, e-posta veya açıklamada ara…" autocomplete="off" />
+        </div>
+        <select id="saDestekSortDate" class="sa-filter-select" aria-label="Tarih sırası">
+          <option value="new">Tarihe göre: yeniden eskiye</option>
+          <option value="old">Tarihe göre: eskiden yeniye</option>
+        </select>
+        <select id="saDestekFilterPriority" class="sa-filter-select" aria-label="Öncelik filtresi">
+          <option value="all">Tüm öncelikler</option>
+          <option value="acil">Yalnızca acil</option>
+          <option value="sort_pri">Önceliğe göre sırala (acil üstte)</option>
+        </select>
+        <button type="button" class="btn-ghost" id="saDestekRefresh" title="Listeyi yenile"><i class="fa-solid fa-rotate"></i></button>
+      </div>
+      <div class="table-wrap table-wrap--destek">
+        <table>
+          <thead>
+            <tr>
+              <th>Tarih</th>
+              <th>Gönderen</th>
+              <th>Kategori</th>
+              <th>Öncelik</th>
+              <th>Durum</th>
+              <th>Sayfa</th>
+              <th>Detay / görsel</th>
+              <th style="min-width:100px">İşlem</th>
+            </tr>
+          </thead>
+          <tbody id="saDestekTableBody">
+            <tr><td colspan="8" class="mono" style="padding:1.75rem">Yükleniyor…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    </section>
+  </main>
+    </div>
+  </div>
+  </div>
+
+  <div id="saModalStudent" class="sa-modal" hidden aria-modal="true" aria-labelledby="saModalStudentTitle">
+    <div class="sa-modal__backdrop" data-sa-close></div>
+    <div class="sa-modal__panel" role="dialog">
+      <div class="sa-modal__head">
+        <h3 id="saModalStudentTitle">Öğrenciyi düzenle</h3>
+        <button type="button" class="sa-modal__x" data-sa-close aria-label="Kapat">&times;</button>
+      </div>
+      <div class="sa-modal__body">
+        <p class="sa-modal__hint">Giriş adresi: <code id="saStEmailRo"></code> (kullanıcı adı + @sistem.com)</p>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="saStUsername">Kullanıcı adı</label>
+            <input id="saStUsername" autocomplete="off" />
+          </div>
+          <div class="form-group form-group--full">
+            <label for="saStFullName">Ad soyad</label>
+            <input id="saStFullName" maxlength="120" placeholder="Panelde görünen isim" />
+          </div>
+          <div class="form-group form-group--full">
+            <label for="saStCoach">Bağlı koç</label>
+            <select id="saStCoach"></select>
+          </div>
+          <div class="form-group form-group--full">
+            <label for="saStNewPw">Yeni şifre (isteğe bağlı)</label>
+            <div class="form-pw-wrap form-pw-wrap--neon">
+              <input id="saStNewPw" class="form-pw-wrap__input" type="password" minlength="8" maxlength="256" autocomplete="new-password" placeholder="Değiştirmeyecekseniz boş bırakın (yeni şifre en az 8 karakter)" title="Yeni şifre en az 8 karakter olmalıdır." />
+              <button type="button" class="form-pw-toggle" aria-label="Şifreyi göster" aria-pressed="false">
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--plain" aria-hidden="true"><i class="fa-solid fa-eye"></i></span>
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--slashed" hidden aria-hidden="true"><i class="fa-solid fa-eye-slash"></i></span>
+              </button>
+            </div>
+          </div>
+          <div class="form-group form-group--full">
+            <label for="saStCurPw">Mevcut şifre</label>
+            <div class="form-pw-wrap form-pw-wrap--neon">
+              <input id="saStCurPw" class="form-pw-wrap__input" type="password" autocomplete="current-password" placeholder="Kullanıcı adı veya şifre değişince zorunlu" />
+              <button type="button" class="form-pw-toggle" aria-label="Şifreyi göster" aria-pressed="false">
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--plain" aria-hidden="true"><i class="fa-solid fa-eye"></i></span>
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--slashed" hidden aria-hidden="true"><i class="fa-solid fa-eye-slash"></i></span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div id="saStMsg" class="sa-modal__msg"></div>
+      </div>
+      <div class="sa-modal__foot">
+        <button type="button" class="btn-danger" id="saStDelete">Hesabı sil</button>
+        <button type="button" class="btn-ghost" data-sa-close>İptal</button>
+        <button type="button" class="btn-create" id="saStSave">Kaydet</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="saModalCoach" class="sa-modal" hidden aria-modal="true" aria-labelledby="saModalCoachTitle">
+    <div class="sa-modal__backdrop" data-sa-close></div>
+    <div class="sa-modal__panel" role="dialog">
+      <div class="sa-modal__head">
+        <h3 id="saModalCoachTitle">Koçu düzenle</h3>
+        <button type="button" class="sa-modal__x" data-sa-close aria-label="Kapat">&times;</button>
+      </div>
+      <div class="sa-modal__body">
+        <p class="sa-modal__hint">Giriş adresi: <code id="saCoEmailRo"></code></p>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="saCoUsername">Kullanıcı adı</label>
+            <input id="saCoUsername" autocomplete="off" />
+          </div>
+          <div class="form-group form-group--full">
+            <label for="saCoInstitutionId">Kurum <span style="color:var(--neon)">*</span></label>
+            <select id="saCoInstitutionId" required class="sa-select-like" style="width:100%;max-width:100%;padding:0.65rem 0.85rem;border-radius:10px;border:1px solid rgba(148,163,184,0.35);background:var(--surface);color:var(--text);font-size:0.95rem">
+              <option value="">— Kurum seçin —</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="saCoPhone">Telefon</label>
+            <input id="saCoPhone" type="tel" />
+          </div>
+          <div class="form-group">
+            <label for="saCoPkg">Paket</label>
+            <select id="saCoPkg">
+              <option value="Başlangıç">Başlangıç</option>
+              <option value="Pro">Pro</option>
+            </select>
+          </div>
+          <div class="form-group form-group--full">
+            <label for="saCoNewPw">Yeni şifre (isteğe bağlı)</label>
+            <div class="form-pw-wrap form-pw-wrap--neon">
+              <input id="saCoNewPw" class="form-pw-wrap__input" type="password" minlength="8" maxlength="256" autocomplete="new-password" placeholder="Değiştirmeyecekseniz boş bırakın (yeni şifre en az 8 karakter)" title="Yeni şifre en az 8 karakter olmalıdır." />
+              <button type="button" class="form-pw-toggle" aria-label="Şifreyi göster" aria-pressed="false">
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--plain" aria-hidden="true"><i class="fa-solid fa-eye"></i></span>
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--slashed" hidden aria-hidden="true"><i class="fa-solid fa-eye-slash"></i></span>
+              </button>
+            </div>
+          </div>
+          <div class="form-group form-group--full">
+            <label for="saCoCurPw">Mevcut şifre</label>
+            <div class="form-pw-wrap form-pw-wrap--neon">
+              <input id="saCoCurPw" class="form-pw-wrap__input" type="password" autocomplete="current-password" placeholder="Kullanıcı adı veya şifre değişince zorunlu" />
+              <button type="button" class="form-pw-toggle" aria-label="Şifreyi göster" aria-pressed="false">
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--plain" aria-hidden="true"><i class="fa-solid fa-eye"></i></span>
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--slashed" hidden aria-hidden="true"><i class="fa-solid fa-eye-slash"></i></span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div id="saCoMsg" class="sa-modal__msg"></div>
+      </div>
+      <div class="sa-modal__foot">
+        <button type="button" class="btn-danger" id="saCoDelete">Hesabı sil</button>
+        <button type="button" class="btn-ghost" data-sa-close>İptal</button>
+        <button type="button" class="btn-create" id="saCoSave">Kaydet</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="saDestekReplyModal" class="sa-modal" hidden aria-modal="true" aria-labelledby="saDestekReplyTitle">
+    <div class="sa-modal__backdrop" data-sa-destek-reply-close tabindex="-1"></div>
+    <div class="sa-modal__panel" role="dialog" style="max-width:520px">
+      <div class="sa-modal__head">
+        <h3 id="saDestekReplyTitle">Destek talebine yanıt</h3>
+        <button type="button" class="sa-modal__x" data-sa-destek-reply-close aria-label="Kapat">&times;</button>
+      </div>
+      <div class="sa-modal__body">
+        <p class="sa-modal__hint" id="saDestekReplyHint" style="font-size:0.85rem;line-height:1.45;max-height:6rem;overflow:auto"></p>
+        <div class="form-group form-group--full" style="margin-top:0.75rem">
+          <label for="saDestekReplyText">Admin yanıtı</label>
+          <textarea id="saDestekReplyText" rows="7" maxlength="8000" placeholder="Kullanıcıya iletilecek mesaj…"></textarea>
+        </div>
+        <div id="saDestekReplyMsg" class="sa-modal__msg"></div>
+      </div>
+      <div class="sa-modal__foot">
+        <button type="button" class="btn-ghost" data-sa-destek-reply-close>İptal</button>
+        <button type="button" class="btn-create" id="saDestekReplySubmit">Gönder (Çözüldü)</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="saAppToast" class="sa-app-toast sa-app-toast--ok" role="status" aria-live="polite" hidden></div>
+
+  <div id="saModalAdminCreate" class="sa-modal" hidden aria-modal="true" aria-labelledby="saModalAdminCreateTitle">
+    <div class="sa-modal__backdrop" data-sa-admin-close></div>
+    <div class="sa-modal__panel" role="dialog" style="max-width:480px">
+      <div class="sa-modal__head">
+        <h3 id="saModalAdminCreateTitle">Yeni yetkili ekle</h3>
+        <button type="button" class="sa-modal__x" data-sa-admin-close aria-label="Kapat">&times;</button>
+      </div>
+      <div class="sa-modal__body">
+        <div class="form-grid">
+          <div class="form-group form-group--full">
+            <label for="saAdCreateName">Ad Soyad</label>
+            <input id="saAdCreateName" type="text" maxlength="160" autocomplete="name" />
+          </div>
+          <div class="form-group form-group--full">
+            <label for="saAdCreateUsername">Kullanıcı adı</label>
+            <input id="saAdCreateUsername" type="text" maxlength="64" autocomplete="username" placeholder="Yalnızca a-z, 0-9, _" />
+          </div>
+          <div class="form-group form-group--full">
+            <label for="saAdCreateEmail">E-posta (iletişim)</label>
+            <input id="saAdCreateEmail" type="email" maxlength="320" autocomplete="email" />
+          </div>
+          <div class="form-group form-group--full">
+            <label for="saAdCreatePw">Şifre (Appwrite girişi + tablo notu)</label>
+            <div class="form-pw-wrap form-pw-wrap--neon">
+              <input id="saAdCreatePw" class="form-pw-wrap__input" type="password" minlength="8" maxlength="256" autocomplete="new-password" placeholder="En az 8 karakter; girişte kullanılır (kullaniciadi@sistem.com)" />
+              <button type="button" class="form-pw-toggle" aria-label="Şifreyi göster" aria-pressed="false">
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--plain" aria-hidden="true"><i class="fa-solid fa-eye"></i></span>
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--slashed" hidden aria-hidden="true"><i class="fa-solid fa-eye-slash"></i></span>
+              </button>
+            </div>
+          </div>
+          <div class="form-group form-group--full">
+            <label for="saAdCreateYetki">Yetki seviyesi</label>
+            <select id="saAdCreateYetki">
+              <option value="tam">Tam yetki</option>
+              <option value="orta">Orta (sınırlı)</option>
+              <option value="salt_okunur">Salt okunur</option>
+            </select>
+          </div>
+        </div>
+        <div id="saAdCreateMsg" class="sa-modal__msg"></div>
+      </div>
+      <div class="sa-modal__foot">
+        <button type="button" class="btn-ghost" data-sa-admin-close>İptal</button>
+        <button type="button" class="btn-create" id="saAdCreateSubmit">Kaydet</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="saModalAdminEdit" class="sa-modal" hidden aria-modal="true" aria-labelledby="saModalAdminEditTitle">
+    <div class="sa-modal__backdrop" data-sa-admin-close></div>
+    <div class="sa-modal__panel" role="dialog" style="max-width:480px">
+      <div class="sa-modal__head">
+        <h3 id="saModalAdminEditTitle">Admin bilgilerini güncelle</h3>
+        <button type="button" class="sa-modal__x" data-sa-admin-close aria-label="Kapat">&times;</button>
+      </div>
+      <div class="sa-modal__body">
+        <input type="hidden" id="saAdEditDocId" value="" />
+        <div class="form-grid">
+          <div class="form-group form-group--full">
+            <label for="saAdEditUsername">Kullanıcı adı</label>
+            <input id="saAdEditUsername" type="text" maxlength="64" autocomplete="username" />
+          </div>
+          <div class="form-group form-group--full">
+            <label for="saAdEditName">Ad Soyad</label>
+            <input id="saAdEditName" type="text" maxlength="160" autocomplete="name" />
+          </div>
+          <div class="form-group form-group--full">
+            <label for="saAdEditEmail">E-posta (iletişim)</label>
+            <input id="saAdEditEmail" type="email" maxlength="320" autocomplete="email" />
+          </div>
+          <div class="form-group form-group--full">
+            <label for="saAdEditYetki">Yetki seviyesi</label>
+            <select id="saAdEditYetki">
+              <option value="tam">Tam yetki</option>
+              <option value="orta">Orta (sınırlı)</option>
+              <option value="salt_okunur">Salt okunur</option>
+            </select>
+          </div>
+          <div class="form-group form-group--full">
+            <label for="saAdEditNewPw">Yeni şifre notu (isteğe bağlı)</label>
+            <div class="form-pw-wrap form-pw-wrap--neon">
+              <input id="saAdEditNewPw" class="form-pw-wrap__input" type="password" minlength="8" maxlength="256" autocomplete="new-password" placeholder="Değiştirmeyecekseniz boş bırakın" />
+              <button type="button" class="form-pw-toggle" aria-label="Şifreyi göster" aria-pressed="false">
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--plain" aria-hidden="true"><i class="fa-solid fa-eye"></i></span>
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--slashed" hidden aria-hidden="true"><i class="fa-solid fa-eye-slash"></i></span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div id="saAdEditMsg" class="sa-modal__msg"></div>
+      </div>
+      <div class="sa-modal__foot">
+        <button type="button" class="btn-ghost" data-sa-admin-close>İptal</button>
+        <button type="button" class="btn-create" id="saAdEditSubmit">Güncelle</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="saModalSaProfile" class="sa-modal" hidden aria-modal="true" aria-labelledby="saModalSaProfileTitle">
+    <div class="sa-modal__backdrop" data-sa-profile-close></div>
+    <div class="sa-modal__panel" role="dialog" style="max-width:460px">
+      <div class="sa-modal__head">
+        <h3 id="saModalSaProfileTitle">Kişisel ayarlar</h3>
+        <button type="button" class="sa-modal__x" data-sa-profile-close aria-label="Kapat">&times;</button>
+      </div>
+      <div class="sa-modal__body">
+        <p class="sa-modal__hint">Oturum: <code id="saProfileEmailRo">—</code></p>
+        <div class="form-grid">
+          <div class="form-group form-group--full">
+            <label for="saProfileName">Görünen ad</label>
+            <input id="saProfileName" type="text" maxlength="128" autocomplete="name" />
+          </div>
+          <div class="form-group form-group--full">
+            <label for="saProfileCurPw">Mevcut şifre</label>
+            <div class="form-pw-wrap form-pw-wrap--neon">
+              <input id="saProfileCurPw" class="form-pw-wrap__input" type="password" autocomplete="current-password" placeholder="Şifre değişince zorunlu" />
+              <button type="button" class="form-pw-toggle" aria-label="Şifreyi göster" aria-pressed="false">
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--plain" aria-hidden="true"><i class="fa-solid fa-eye"></i></span>
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--slashed" hidden aria-hidden="true"><i class="fa-solid fa-eye-slash"></i></span>
+              </button>
+            </div>
+          </div>
+          <div class="form-group form-group--full">
+            <label for="saProfileNewPw">Yeni şifre</label>
+            <div class="form-pw-wrap form-pw-wrap--neon">
+              <input id="saProfileNewPw" class="form-pw-wrap__input" type="password" minlength="8" maxlength="256" autocomplete="new-password" placeholder="Değiştirmeyecekseniz boş" />
+              <button type="button" class="form-pw-toggle" aria-label="Şifreyi göster" aria-pressed="false">
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--plain" aria-hidden="true"><i class="fa-solid fa-eye"></i></span>
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--slashed" hidden aria-hidden="true"><i class="fa-solid fa-eye-slash"></i></span>
+              </button>
+            </div>
+          </div>
+          <div class="form-group form-group--full">
+            <label for="saProfileNewPw2">Yeni şifre (tekrar)</label>
+            <div class="form-pw-wrap form-pw-wrap--neon">
+              <input id="saProfileNewPw2" class="form-pw-wrap__input" type="password" minlength="8" maxlength="256" autocomplete="new-password" />
+              <button type="button" class="form-pw-toggle" aria-label="Şifreyi göster" aria-pressed="false">
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--plain" aria-hidden="true"><i class="fa-solid fa-eye"></i></span>
+                <span class="form-pw-toggle__icon form-pw-toggle__icon--slashed" hidden aria-hidden="true"><i class="fa-solid fa-eye-slash"></i></span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div id="saProfileMsg" class="sa-modal__msg"></div>
+      </div>
+      <div class="sa-modal__foot">
+        <button type="button" class="btn-ghost" data-sa-profile-close>İptal</button>
+        <button type="button" class="btn-create" id="saProfileSubmit">Kaydet</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="site-credit site-credit--admin">
+    Mustafa AKBAŞ - Furkan Şehmus KIYAR - Veysel Anıl KARAASLAN - Efe KARACABEY tarafından üretildi
+  </p>
+
+  <script type="module" src="../js/form-password-toggle.js"></script>
+  <script type="module" src="../js/sorun-bildir.js"></script>
+  <script type="module" src="../js/super-admin.js"></script>
+</body>
+</html>

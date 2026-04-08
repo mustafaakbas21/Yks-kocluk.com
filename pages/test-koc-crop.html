@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DerecePanel — Elite Kırpma &amp; Düzenleme (Test)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="../css/koc-panel.css" />
+  <link rel="stylesheet" href="../css/test-koc-crop.css" />
+</head>
+<body class="tkc-page">
+  <header class="tkc-hero">
+    <div class="tkc-hero__text">
+      <h1 class="tkc-hero__title">
+        <i class="fa-solid fa-scissors" aria-hidden="true"></i> Elite Kırpma &amp; Düzenleme Motoru
+      </h1>
+      <p class="tkc-hero__lead">
+        Yeşil kutuyu seçin: köşedeki araç çubuğundan silin veya OCR düzenleyin. Kırpılan JPEG önizlemeleri kutu bırakıldığında güncellenir.
+      </p>
+    </div>
+    <div class="tkc-hero__actions">
+      <label class="tkc-file-btn">
+        <input type="file" id="tkcFileInput" accept="image/*" hidden />
+        <span><i class="fa-solid fa-image"></i> Görsel yükle</span>
+      </label>
+      <a href="/pages/koc-panel.html" class="tkc-link-back"><i class="fa-solid fa-arrow-left"></i> Panele dön</a>
+    </div>
+  </header>
+
+  <main class="tkc-layout">
+    <section class="tkc-main" aria-label="Kırpma tuvali">
+      <div class="tkc-toolbar" role="toolbar" aria-label="Kırpma araçları">
+        <button type="button" class="tkc-btn tkc-btn--primary" id="btnAutoCrop" title="Sayfada yatay bantlara göre otomatik kutu öner">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> Otomatik Kırp
+        </button>
+        <button type="button" class="tkc-btn tkc-btn--secondary" id="btnManualCrop" title="Tek seferlik sürükleyerek kutu çiz" aria-pressed="false">
+          <i class="fa-solid fa-vector-square"></i> Manuel Kırp
+        </button>
+        <button type="button" class="tkc-btn tkc-btn--accent" id="btnAddGreenBox" title="Sürükleyerek yeni yeşil kutu ekleyin" aria-pressed="false">
+          <i class="fa-solid fa-square-plus"></i> Yeşil Kutu Ekle
+        </button>
+        <button type="button" class="tkc-btn tkc-btn--ghost" id="btnReset" title="Tüm kutuları ve oturumu sıfırla">
+          <i class="fa-solid fa-rotate-left"></i> Sıfırla
+        </button>
+        <button type="button" class="tkc-btn tkc-btn--success" id="btnSave" title="JSON olarak indir">
+          <i class="fa-solid fa-floppy-disk"></i> Kaydet
+        </button>
+        <span class="tkc-toolbar__hint" id="tkcModeHint" aria-live="polite"></span>
+      </div>
+
+      <div class="tkc-canvas-shell">
+        <div class="tkc-canvas-wrap" id="cropCanvasWrap">
+          <canvas id="cropCanvas" width="800" height="1100" aria-label="Soru kırpma tuvali"></canvas>
+          <!-- Floating toolbar + OCR: JS inserts .tkc-float-ui here -->
+          <div class="tkc-floating-layer" id="tkcFloatingLayer" aria-hidden="true"></div>
+        </div>
+        <div class="tkc-canvas-meta">
+          <span id="tkcCanvasSizeLabel">Tuval: —</span>
+          <span id="tkcSelectionLabel" class="tkc-canvas-meta__sel"></span>
+        </div>
+      </div>
+
+      <div class="tkc-list-section">
+        <div class="tkc-list-section__head">
+          <h2 class="tkc-list-section__title"><i class="fa-solid fa-list-check"></i> Kırpılan Sorular</h2>
+          <p class="tkc-list-section__sub">
+            Liste, kutu çizimi / taşıma / yeniden boyutlandırma <strong>bittiğinde</strong> gerçek JPEG kırpmasıyla güncellenir (sürüklerken ağır işlem yok).
+          </p>
+        </div>
+        <ul class="tkc-cropped-list" id="croppedQuestionsList" aria-live="polite"></ul>
+      </div>
+    </section>
+  </main>
+
+  <div class="tkc-toast-host" id="tkcToastHost" aria-live="polite"></div>
+
+  <script type="module" src="../js/test-koc-crop.js"></script>
+</body>
+</html>

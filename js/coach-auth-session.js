@@ -4,10 +4,10 @@
 import { verifyAppwriteAccount, signOut, auth, getAppSettings } from "./appwrite-compat.js";
 import { fetchAppwriteUserProfile, sanitizeUsernameForDb, inferUsernameFromEmail } from "./derece-profile-resolve.js";
 
-export const DP_LOGIN_PATH = "/login.html";
-/** Vitrin ve `login.js` ile aynı yol (çoğu sunucuda uzantısız yönlendirme) */
-export const DP_STUDENT_PANEL_PATH = "/ogrenci-panel";
-export const DP_SUPER_ADMIN_PATH = "/super-admin";
+export const DP_LOGIN_PATH = "/pages/login.html";
+/** Öğrenci paneli HTML yolu (pages/ refaktörü) */
+export const DP_STUDENT_PANEL_PATH = "/pages/ogrenci-panel.html";
+export const DP_SUPER_ADMIN_PATH = "/pages/super-admin.html";
 
 var gatePromise = null;
 /** @type {{ compatUser: { uid: string, email: string, getIdToken: () => Promise<string> }, profile: object, appwriteUser: object } | null} */

@@ -1064,7 +1064,7 @@ export async function blockCurrentAccount() {
 }
 
 export async function sendPasswordResetEmail(email) {
-  await account.createRecovery(String(email || ""), window.location.origin + "/login");
+  await account.createRecovery(String(email || ""), window.location.origin + "/pages/login.html");
 }
 
 /**

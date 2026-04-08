@@ -1,0 +1,2169 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <script type="importmap">
+    {
+      "imports": {
+        "appwrite": "https://esm.sh/appwrite@23.0.0?bundle"
+      }
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/appwrite@23.0.0/dist/iife/sdk.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DerecePanel — Öğrenci</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="../css/koc-panel.css" />
+  <link rel="stylesheet" href="../css/ogrenci-panel.css" />
+  <link rel="stylesheet" href="../css/derece-board.css" />
+  <link rel="stylesheet" href="../css/osp-student-ders.css" />
+  <link rel="stylesheet" href="../css/site-credit.css" />
+  <link rel="stylesheet" href="../css/derece-interactive-modules.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" crossorigin="anonymous" />
+  <link rel="stylesheet" href="../css/sorun-bildir.css" />
+  <style>
+    .osp-dash2-chart-card__canvas { position: relative; }
+    .osp-chart-data-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(250, 245, 255, 0.96);
+      color: #334155;
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-align: center;
+      padding: 1rem;
+      border-radius: 14px;
+      pointer-events: none;
+      z-index: 2;
+      line-height: 1.45;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous"></script>
+</head>
+<body class="osp-body has-site-credit">
+  <!-- Toplu öğrenci Excel (Hızlı Kurulum) koç panelinde: koc-panel.html + js/koc-panel.js -->
+  <div class="sidebar-overlay--osp" id="ospSidebarOverlay" aria-hidden="true"></div>
+
+  <div class="app app--ogrenci">
+    <aside class="sidebar sidebar--ogrenci" id="ospSidebar" aria-label="Öğrenci menüsü">
+      <div class="sidebar__brand">
+        <button type="button" class="sidebar__brand-btn" data-osp-nav="dashboard" title="Ana sayfa">
+          <div class="sidebar__logo"><i class="fa-solid fa-graduation-cap"></i></div>
+          <span class="sidebar__title">DerecePanel</span>
+        </button>
+      </div>
+
+      <nav class="sidebar__nav">
+        <p class="sidebar__section-label">Menü</p>
+        <ul class="sidebar__menu">
+          <li>
+            <button type="button" class="sidebar__link sidebar__link--active" data-osp-nav="dashboard">
+              <i class="fa-solid fa-house"></i><span>Ana Sayfa</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="sidebar__link" data-osp-nav="hedef">
+              <i class="fa-solid fa-bullseye"></i><span>Hedef Simülatörü</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="sidebar__link" data-osp-nav="net-sihirbazi" title="TYT-AYT Net Sihirbazı">
+              <i class="fa-solid fa-crosshairs"></i><span>TYT-AYT Net Sihirbazı</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="sidebar__link" data-osp-nav="tercih-sihirbazi" title="Tercih Sihirbazı — tercih-sihirbazi-veri.json">
+              <i class="fa-solid fa-wand-magic-sparkles"></i><span>Tercih Sihirbazı</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="sidebar__link" data-osp-nav="yks-puan" title="YKS Puan Hesaplama">
+              <i class="fa-solid fa-calculator"></i><span>YKS Puan Hesaplama</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="sidebar__link" data-osp-nav="koca-sor">
+              <i class="fa-solid fa-life-ring"></i><span>Koça Sor</span>
+            </button>
+          </li>
+
+          <li class="osp-sidebar__group has-submenu is-open">
+            <button type="button" class="osp-sidebar__accordion" aria-expanded="true" aria-controls="ospSubDers">
+              <i class="fa-solid fa-chalkboard-user osp-sidebar__acc-icon" aria-hidden="true"></i>
+              <span>Ders Anlatımı</span>
+              <span class="osp-sidebar__chev" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
+            </button>
+            <ul class="osp-sidebar__submenu" id="ospSubDers" role="group">
+              <li>
+                <button type="button" class="sidebar__link" data-osp-nav="ders-board">
+                  <i class="fa-solid fa-pen-ruler"></i><span>Board</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="sidebar__link" data-osp-nav="ders-kutuphane">
+                  <i class="fa-solid fa-book-bookmark"></i><span>Kütüphanem</span>
+                </button>
+              </li>
+            </ul>
+          </li>
+
+          <li class="osp-sidebar__group has-submenu is-open">
+            <button type="button" class="osp-sidebar__accordion" aria-expanded="true" aria-controls="ospSubProgram">
+              <i class="fa-solid fa-book-open osp-sidebar__acc-icon" aria-hidden="true"></i>
+              <span>Program &amp; Kaynak</span>
+              <span class="osp-sidebar__chev" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
+            </button>
+            <ul class="osp-sidebar__submenu" id="ospSubProgram" role="group">
+              <li>
+                <button type="button" class="sidebar__link" data-osp-nav="haftalik">
+                  <i class="fa-solid fa-calendar-week"></i><span>Haftalık Programım</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="sidebar__link" data-osp-nav="kaynaklar">
+                  <i class="fa-solid fa-book"></i><span>Kaynaklarım (İlerleme)</span>
+                </button>
+              </li>
+            </ul>
+          </li>
+
+          <li class="osp-sidebar__group has-submenu is-open">
+            <button type="button" class="osp-sidebar__accordion" aria-expanded="true" aria-controls="ospSubAnaliz">
+              <i class="fa-solid fa-chart-line osp-sidebar__acc-icon" aria-hidden="true"></i>
+              <span>Analiz &amp; Ödeme</span>
+              <span class="osp-sidebar__chev" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
+            </button>
+            <ul class="osp-sidebar__submenu" id="ospSubAnaliz" role="group">
+              <li>
+                <button type="button" class="sidebar__link" data-osp-nav="gelisim">
+                  <i class="fa-solid fa-x-ray"></i><span>Gelişim Röntgenim</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="sidebar__link" data-osp-nav="odeme">
+                  <i class="fa-solid fa-credit-card"></i><span>Ödeme &amp; Taksitlerim</span>
+                </button>
+              </li>
+            </ul>
+          </li>
+        </ul>
+
+        <ul class="sidebar__menu sidebar__menu--footer">
+          <li>
+            <button type="button" class="sidebar__link sidebar__link--logout" id="ospBtnLogout">
+              <i class="fa-solid fa-right-from-bracket"></i><span>Çıkış</span>
+            </button>
+          </li>
+        </ul>
+      </nav>
+    </aside>
+
+    <main class="main main--ogrenci">
+      <header class="main__header">
+        <button type="button" class="osp-menu-toggle" id="ospMenuToggle" aria-label="Menüyü aç">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <h1 class="main__header-title" id="ospHeaderTitle">Ana Sayfa</h1>
+        <p class="main__header-meta" id="ospHeaderMeta">Hesap yükleniyor…</p>
+      </header>
+
+      <div class="osp-views">
+        <!-- Dashboard -->
+        <section class="osp-view" data-osp-view="dashboard" id="ospViewDashboard">
+          <!-- Öğrenci Dashboard 2.0 — aksiyon vitrin -->
+          <section class="osp-dash2-hero" aria-labelledby="ospDash2HeroTitle">
+            <div class="osp-dash2-hero__glow" aria-hidden="true"></div>
+            <div class="osp-dash2-hero__inner">
+              <div class="osp-dash2-hero__icon-wrap" aria-hidden="true">
+                <div class="osp-dash2-hero__icon-ring"></div>
+                <i class="fa-solid fa-wand-magic-sparkles osp-dash2-hero__icon"></i>
+              </div>
+              <div class="osp-dash2-hero__body">
+                <p class="osp-dash2-hero__eyebrow">Bugün ne yapmalıyım?</p>
+                <h2 id="ospDash2HeroTitle" class="osp-dash2-hero__title">AI koç önerisi</h2>
+                <p class="osp-dash2-hero__message" id="ospDash2AiMessage">
+                  Mustafa, son denemede Fonksiyonlar konunda düşüş var. Bugün planında 2 Pomodoro Matematik tekrarı ve 1 Telafi Testi bulunuyor. Hemen başla!
+                </p>
+              </div>
+              <div class="osp-dash2-hero__cta">
+                <button type="button" class="osp-dash2-hero__btn" id="ospDash2BtnStart">
+                  <i class="fa-solid fa-play"></i> Göreve Başla
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <div class="osp-next-task" id="ospNextTaskCard">
+            <div>
+              <span class="osp-next-task__badge">Sıradaki görevim</span>
+              <h2 class="osp-next-task__title" id="ospNextTaskTitle">Matematik — Problemler</h2>
+              <p class="osp-next-task__meta" id="ospNextTaskMeta">50 soru · Bugünün programından</p>
+            </div>
+            <button type="button" class="osp-btn-complete" id="ospBtnCompleteNext">
+              <i class="fa-solid fa-check"></i> Tamamla
+            </button>
+          </div>
+
+          <p class="osp-sync-banner" id="ospCoachBanner">Profil yükleniyor…</p>
+
+          <div class="osp-widget-row" aria-label="Özet kutuları">
+            <div class="osp-widget">
+              <div class="osp-widget__label">Bu haftaki görev tamamlama</div>
+              <div class="osp-widget__value" id="ospWgWeek">%80</div>
+              <p class="osp-widget__hint">Haftalık plan</p>
+            </div>
+            <div class="osp-widget">
+              <div class="osp-widget__label">Son deneme neti</div>
+              <div class="osp-widget__value" id="ospWgNet">38.5</div>
+              <p class="osp-widget__hint">TYT genel</p>
+            </div>
+            <div class="osp-widget">
+              <div class="osp-widget__label">Çözülen toplam soru</div>
+              <div class="osp-widget__value" id="ospWgSolved">12.450</div>
+              <p class="osp-widget__hint">Tüm zamanlar</p>
+            </div>
+          </div>
+
+          <div class="osp-dash2-tools-row" aria-label="Geri sayım ve odaklanma">
+            <section id="osp-yks-countdown-widget" class="yks-countdown-widget osp-yks-countdown osp-yks-countdown--tools" aria-label="YKS 2026 sınavına kalan süre">
+              <div class="yks-countdown-widget__glow" aria-hidden="true"></div>
+              <div class="yks-countdown-widget__inner">
+                <div class="yks-countdown-widget__head">
+                  <span class="yks-countdown-widget__badge">YKS 2026</span>
+                  <h2 class="yks-countdown-widget__title">Sınava kalan süre</h2>
+                  <p class="yks-countdown-widget__meta">Hedef: 20 Haziran 2026 · 10:15</p>
+                </div>
+                <div class="yks-countdown-widget__grid" role="timer" aria-live="polite" aria-relevant="text">
+                  <div class="yks-countdown-widget__cell">
+                    <span class="yks-countdown-widget__value" id="osp-yks-widget-days">0</span>
+                    <span class="yks-countdown-widget__label">Gün</span>
+                  </div>
+                  <div class="yks-countdown-widget__cell">
+                    <span class="yks-countdown-widget__value" id="osp-yks-widget-hours">00</span>
+                    <span class="yks-countdown-widget__label">Saat</span>
+                  </div>
+                  <div class="yks-countdown-widget__cell">
+                    <span class="yks-countdown-widget__value" id="osp-yks-widget-minutes">00</span>
+                    <span class="yks-countdown-widget__label">Dakika</span>
+                  </div>
+                  <div class="yks-countdown-widget__cell">
+                    <span class="yks-countdown-widget__value" id="osp-yks-widget-seconds">00</span>
+                    <span class="yks-countdown-widget__label">Saniye</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="osp-pomodoro-card osp-pomodoro-card--dashboard osp-pomodoro-card--tools" id="ospPomodoroAnchor" aria-label="Odaklanma merkezi">
+              <div class="osp-pomodoro-card__head">
+                <h2 class="osp-pomodoro-card__title"><i class="fa-solid fa-stopwatch"></i> Pomodoro</h2>
+                <div class="osp-pomodoro-presets" role="group" aria-label="Süre seçimi">
+                  <button type="button" id="ospPomo25" class="is-active" data-min="25">25 dk</button>
+                  <button type="button" id="ospPomo40" data-min="40">40 dk</button>
+                </div>
+              </div>
+              <div class="osp-pomodoro-timer" id="ospPomoDisplay">25:00</div>
+              <div class="osp-pomodoro-actions">
+                <button type="button" class="osp-btn-pomo osp-btn-pomo--primary" id="ospPomoStart">Başlat</button>
+                <button type="button" class="osp-btn-pomo osp-btn-pomo--ghost" id="ospPomoPause" disabled>Duraklat</button>
+                <button type="button" class="osp-btn-pomo osp-btn-pomo--mola" id="ospPomoBreak">Mola</button>
+              </div>
+              <p class="osp-pomodoro-hint" id="ospPomoHint">Süre bitince kısa mola ver.</p>
+            </section>
+          </div>
+
+          <div class="osp-dash2-charts-grid">
+            <article class="osp-dash2-chart-card" aria-label="TYT net trendi">
+              <div class="osp-dash2-chart-card__head">
+                <h3><i class="fa-solid fa-chart-line"></i> Net trendi</h3>
+                <p>Son 5 deneme · TYT genel net</p>
+              </div>
+              <div class="osp-dash2-chart-card__canvas">
+                <canvas id="ospDash2LineCanvas" aria-label="TYT net çizgi grafiği"></canvas>
+              </div>
+            </article>
+            <article class="osp-dash2-chart-card" aria-label="Branş dengesi">
+              <div class="osp-dash2-chart-card__head">
+                <h3><i class="fa-solid fa-bullseye"></i> Branş dengesi</h3>
+                <p>Son deneme · radar</p>
+              </div>
+              <div class="osp-dash2-chart-card__canvas osp-dash2-chart-card__canvas--radar">
+                <canvas id="ospDash2RadarCanvas" aria-label="Branş radar grafiği"></canvas>
+              </div>
+            </article>
+          </div>
+
+          <details class="osp-mufredat-card osp-mufredat-details">
+            <summary class="osp-mufredat-details__summary">
+              <span class="osp-mufredat-details__title"><i class="fa-solid fa-list-check"></i> Müfredat — konu takibi</span>
+              <span class="osp-mufredat-details__chev" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
+            </summary>
+            <p class="osp-mufredat-card__lead osp-mufredat-card__lead--compact">TYT / AYT konularını işaretle; veriler bu tarayıcıda saklanır.</p>
+            <div id="ospMufredatMount" class="osp-mufredat-mount"></div>
+          </details>
+
+          <div class="osp-dash-extras">
+            <div class="osp-note-card">
+              <h3>Koç bağlantısı</h3>
+              <p>Görev ve kaynak verilerin koç paneliyle senkron olur.</p>
+            </div>
+            <div class="osp-quick-card">
+              <h3>Hızlı erişim</h3>
+              <a class="osp-quick-link" href="/pages/koc-panel.html" target="_blank" rel="noopener">
+                <i class="fa-solid fa-chalkboard-user"></i> Koç paneli
+              </a>
+              <p class="osp-quick-hint">Koç hesabı olmadan yalnızca önizleme; giriş gerekir.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Haftalık program -->
+        <section class="osp-view" data-osp-view="haftalik" id="ospViewHaftalik" hidden>
+          <div class="osp-haftalik-toolbar">
+            <p class="osp-haftalik-toolbar__hint">
+              Koçunun hazırladığı haftalık plan (salt okunur liste). Görevleri tamamladığında kutuyu işaretle.
+            </p>
+            <button type="button" class="osp-btn-pdf-program" id="ospBtnPdfProgram" title="A4 PDF olarak indir">
+              📄 Programı PDF İndir
+            </button>
+          </div>
+          <div id="ospHaftalikPdfRoot" class="osp-haftalik-pdf-root">
+            <h2 class="osp-haftalik-pdf-title" id="ospHaftalikPdfTitle">Haftalık Programım</h2>
+            <div class="osp-week" id="ospWeekContainer"></div>
+          </div>
+        </section>
+
+        <!-- Kaynaklar -->
+        <section class="osp-view" data-osp-view="kaynaklar" id="ospViewKaynaklar" hidden>
+          <p style="color:var(--osp-muted);font-size:0.88rem;margin:0 0 1rem;">
+            İlerleme çubuğu koç tarafından güncellenir; sen sadece güncel sayfa bilgisini iletirsin.
+          </p>
+          <div class="osp-book-grid" id="ospBookList"></div>
+        </section>
+
+        <!-- Gelişim -->
+        <section class="osp-view" data-osp-view="gelisim" id="ospViewGelisim" hidden>
+          <div class="osp-chart-placeholder">
+            <i class="fa-solid fa-chart-area fa-2x" style="opacity:0.5;margin-bottom:0.75rem;"></i>
+            <p style="margin:0;color:var(--osp-text);font-weight:600;">Gelişim özeti</p>
+            <p style="margin:0.5rem 0 0;font-size:0.85rem;">Ana sayfadaki grafikler Appwrite’daki deneme kayıtlarınızdan üretilir.</p>
+            <div class="osp-stat-inline" id="ospGelisimStats"></div>
+          </div>
+        </section>
+
+        <!-- Hedef Simülatörü -->
+        <section class="osp-view osp-hedef-page" data-osp-view="hedef" id="ospViewHedef" hidden>
+          <p style="font-size:0.88rem;color:var(--osp-muted);margin:0 0 0.75rem;">
+            Önce üniversite; bölüm listesi <code class="text-xs">src/data/yks-data.json</code> statik dosyasından gelir (koç paneli ve Net Sihirbazı ile aynı katalog).
+          </p>
+          <div class="osp-hedef-atlas-bar">
+            <div class="net-sihirbazi-select-row osp-net-sihirbazi-row">
+              <div class="net-sihirbazi-select net-sihirbazi-select--search">
+                <label for="ospHedefUniFilter">Üniversite ara</label>
+                <input type="search" id="ospHedefUniFilter" class="net-sihirbazi-search" placeholder="Yazarak filtreleyin…" autocomplete="off" />
+              </div>
+              <div class="net-sihirbazi-select">
+                <label for="ospHedefUniSelect">Üniversite</label>
+                <select id="ospHedefUniSelect" aria-label="Hedef üniversite"></select>
+              </div>
+              <div class="net-sihirbazi-select net-sihirbazi-select--search">
+                <label for="ospHedefDeptFilter">Bölüm ara</label>
+                <input type="search" id="ospHedefDeptFilter" class="net-sihirbazi-search" placeholder="Yazarak filtreleyin…" autocomplete="off" />
+              </div>
+              <div class="net-sihirbazi-select">
+                <label for="ospHedefDeptSelect">Bölüm / program</label>
+                <select id="ospHedefDeptSelect" aria-label="Hedef bölüm veya program (yerel katalog)"></select>
+              </div>
+            </div>
+          </div>
+          <div class="osp-hedef-hero">
+            <p class="osp-hedef-hero__uni" id="ospHedefUni">—</p>
+            <p class="osp-hedef-hero__bolum" id="ospHedefBolum">Hedef üniversite ve bölüm — Koç panelinden güncellenir</p>
+          </div>
+          <div class="osp-hedef-chart-wrap osp-hedef-chart-wrap--radar">
+            <canvas id="ospHedefRadarCanvas" height="280" width="400" aria-label="Branş netleri radar grafiği"></canvas>
+          </div>
+          <div class="osp-hedef-bars" id="ospHedefBars" aria-live="polite"></div>
+          <div class="osp-hedef-gap-banner" id="ospHedefGapBanner">Hesaplanıyor…</div>
+          <div id="ospHedefNetTableWrap" class="osp-hedef-net-table-host" aria-live="polite"></div>
+        </section>
+
+        <!-- TYT-AYT Net Sihirbazı -->
+        <section class="osp-view osp-net-sihirbazi-page" data-osp-view="net-sihirbazi" id="ospViewNetSihirbazi" hidden>
+          <p class="net-sihirbazi-hint" style="margin:0 0 0.75rem;font-size:0.88rem;color:var(--osp-muted);">
+            Veri kaynağı koç panelindeki Hedef Simülatörü ile aynı: <code class="text-xs">yok-atlas.json</code> / <code class="text-xs">yks-data.json</code>. Bölüm listesi üniversite içinde tekilleştirilmiştir. Güncel netler deneme kayıtlarınızdaki YKS branş detayından gelir.
+          </p>
+          <div class="osp-hedef-atlas-bar dp-hedef-atlas-bar net-sihirbazi-select-row dp-hedef-atlas-bar--two-col">
+            <div class="net-sihirbazi-select">
+              <label for="ospNsUniSelect">Üniversite</label>
+              <select id="ospNsUniSelect" aria-label="Üniversite seçimi"></select>
+            </div>
+            <div class="net-sihirbazi-select">
+              <label for="ospNsDeptSelect">Bölüm</label>
+              <select id="ospNsDeptSelect" aria-label="Bölüm seçimi"></select>
+            </div>
+          </div>
+          <div class="osp-hedef-hero">
+            <p class="osp-hedef-hero__uni" id="ospNsUniTitle">Üniversite ve bölüm seçin</p>
+            <p class="osp-hedef-hero__bolum" id="ospNsDeptSub">Net Sihirbazı — hedef net tablosu</p>
+            <p class="osp-net-sihirbazi-meta" id="ospNsTabanSub">Seçim yapın; veri yüklenirken iskelet gösterilir.</p>
+          </div>
+          <div id="ospNsNetTableWrap" class="osp-hedef-net-table-host" aria-live="polite"></div>
+        </section>
+
+        <!-- Tercih Sihirbazı -->
+        <section class="osp-view" data-osp-view="tercih-sihirbazi" id="ospViewTercihSihirbazi" hidden>
+          <p class="net-sihirbazi-hint" style="margin:0 0 0.75rem;font-size:0.88rem;color:var(--osp-muted);">
+            Program türüne göre <code class="text-xs">yok-atlas-lisans.json</code> veya <code class="text-xs">yok-atlas-onlisans.json</code> yüklenir; sonuçlar <strong>Başarı Sırası</strong>na göre sıralanır.
+          </p>
+          <form id="ospTsForm" class="ts-wizard-form ts-wizard-form--grid ts-filter-surface" style="margin:0 0 1rem" autocomplete="off">
+            <div class="form-group">
+              <label for="ospTsProgramTur">Program türü</label>
+              <select id="ospTsProgramTur" name="programTuru" aria-label="Program türü (veri kaynağı)">
+                <option value="lisans" selected>Lisans (4 Yıllık)</option>
+                <option value="onlisans">Önlisans (2 Yıllık)</option>
+              </select>
+            </div>
+            <div class="form-group form-group--wide">
+              <label for="ospTsUniSearch">Üniversite Ara</label>
+              <input type="search" id="ospTsUniSearch" name="uniSearch" placeholder="Üniversite adı (anlık)" />
+            </div>
+            <div class="form-group form-group--wide">
+              <label for="ospTsBolumSearch">Bölüm Ara</label>
+              <input type="search" id="ospTsBolumSearch" name="bolumSearch" placeholder="Bölüm / program (anlık)" />
+            </div>
+            <div class="form-group">
+              <label for="ospTsCity">Şehir Seçiniz</label>
+              <select id="ospTsCity" name="city" aria-label="Şehir">
+                <option value="">Tüm şehirler</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="ospTsPuan">Puan Türü</label>
+              <select id="ospTsPuan" name="puanTuru" aria-label="Puan türü">
+                <option value="">Tümü</option>
+                <option value="SAY">SAY</option>
+                <option value="EA">EA</option>
+                <option value="SÖZ">SÖZ</option>
+                <option value="DİL">DİL</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="ospTsUniType">Üniversite Türü</label>
+              <select id="ospTsUniType" name="uniType" aria-label="Üniversite türü">
+                <option value="">Tümü</option>
+                <option value="devlet">Devlet</option>
+                <option value="vakıf">Vakıf</option>
+                <option value="kibris">Kıbrıs</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="ospTsBurs">Burs / Ücret Durumu</label>
+              <select id="ospTsBurs" name="bursDurumu" aria-label="Burs veya ücret">
+                <option value="">Tümü</option>
+                <option value="tam_burslu">Tam Burslu</option>
+                <option value="yari_indirim">%50 İndirimli</option>
+                <option value="ucretli">Ücretli</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="ospTsMinSira">Başarı sırası (min)</label>
+              <input type="number" id="ospTsMinSira" name="minSira" min="1" max="99999999" placeholder="örn. 1" />
+            </div>
+            <div class="form-group">
+              <label for="ospTsMaxSira">Başarı sırası (max)</label>
+              <input type="number" id="ospTsMaxSira" name="maxSira" min="1" max="99999999" placeholder="örn. 500000" />
+            </div>
+            <div class="form-group">
+              <label for="ospTsStudentSira">Yerleşme sıranız (isteğe bağlı)</label>
+              <input type="number" id="ospTsStudentSira" name="studentSira" min="1" max="99999999" placeholder="Durum sütunu" />
+            </div>
+            <div class="form-group">
+              <label for="ospTsStudentPuan">Yerleşme puanınız (isteğe bağlı)</label>
+              <input type="text" inputmode="decimal" id="ospTsStudentPuan" name="studentPuan" placeholder="örn. 450,5" />
+            </div>
+            <div class="form-group form-group--actions">
+              <button type="submit" class="btn btn--filter">Filtrele</button>
+            </div>
+          </form>
+          <p id="ospTsMeta" class="net-sihirbazi-hint" style="margin:0 0 0.75rem">Veri yükleniyor…</p>
+          <div class="ts-sihirbaz-stack" style="margin:0">
+            <div id="ospTsTableScroll" class="ts-table-scroll ts-table-scroll--inner" style="margin:0" aria-live="polite"></div>
+            <div id="ospTsPagerHost" class="ts-pager-host" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <!-- YKS Puan Hesaplama -->
+        <section class="osp-view" data-osp-view="yks-puan" id="ospViewYksPuan" hidden>
+          <p style="font-size:0.88rem;color:var(--osp-muted);margin:0 0 1rem;">
+            Her ders için doğru ve yanlış girin; net <strong>Doğru − Yanlış ÷ 4</strong> ile hesaplanır. Alan seçimine göre AYT alanı açılır. Katsayılar güncel ÖSYM yaklaşımına göre özetlenmiştir; sonuçlar bilgilendirme amaçlıdır.
+          </p>
+          <div class="yks-puan-card yks-puan-card--wide" style="margin:0;">
+            <form id="ospYksPuanForm" class="yks-puan-form osp-yks-puan-form" onsubmit="return false;">
+              <div class="yks-puan-obp-block yks-puan-obp-block--top yks-puan-diploma-card">
+                <h4 class="yks-puan-obp-block__title"><i class="fa-solid fa-graduation-cap"></i> Diploma notu (OBP)</h4>
+                <p class="yks-puan-diploma-card__desc">
+                  Yerleştirme puanı hesaplanabilmesi için diploma notu (50–100) veya OBP (30–60) girin.
+                </p>
+                <div class="yks-obp-mode-row" role="radiogroup" aria-label="OBP giriş türü">
+                  <label class="yks-obp-radio"
+                    ><input type="radio" name="ospYksObpMode" id="ospYksObpModeDiploma" value="diploma" checked /> Diploma notu (100 üzerinden, 50–100)</label
+                  >
+                  <label class="yks-obp-radio"
+                    ><input type="radio" name="ospYksObpMode" id="ospYksObpModeObp60" value="obp60" /> OBP puanı (60 üzerinden, 30–60)</label
+                  >
+                </div>
+                <div class="form-group">
+                  <label for="ospYksObpValue" id="ospYksObpValueLabel">Diploma notu (OBP, 50–100)</label>
+                  <input type="number" id="ospYksObpValue" min="50" max="100" step="0.01" inputmode="decimal" placeholder="Max: 100" />
+                </div>
+                <label class="yks-obp-kirik"
+                  ><input type="checkbox" id="ospYksObpKirik" /> Kırık OBP (daha önce yerleştim) — katkı yarıya iner</label
+                >
+              </div>
+              <div class="yks-puan-block">
+                <h3 class="yks-puan-block__title"><i class="fa-solid fa-layer-group"></i> TYT — Doğru / Yanlış</h3>
+                <div class="yks-puan-grid yks-puan-grid--dyb">
+                  <div class="form-group yks-field">
+                    <label for="ospYksTytTrD">Türkçe <span class="yks-field__meta">(40 soru)</span></label>
+                    <div class="yks-dyb-row">
+                      <div class="yks-dyb-inputs" id="ospYksTytTrDyb" role="group" aria-label="Türkçe">
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksTytTrD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksTytTrY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        </div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksTytTrNet">—</span></div>
+                    </div>
+                  </div>
+                  <div class="form-group yks-field">
+                    <label for="ospYksTytSosD">Sosyal Bilimler <span class="yks-field__meta">(20 soru)</span></label>
+                    <div class="yks-dyb-row">
+                      <div class="yks-dyb-inputs" id="ospYksTytSosDyb" role="group" aria-label="Sosyal">
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksTytSosD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksTytSosY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        </div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksTytSosNet">—</span></div>
+                    </div>
+                  </div>
+                  <div class="form-group yks-field">
+                    <label for="ospYksTytMatD">Temel Matematik <span class="yks-field__meta">(40 soru)</span></label>
+                    <div class="yks-dyb-row">
+                      <div class="yks-dyb-inputs" id="ospYksTytMatDyb" role="group" aria-label="Temel Matematik">
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksTytMatD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksTytMatY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        </div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksTytMatNet">—</span></div>
+                    </div>
+                  </div>
+                  <div class="form-group yks-field">
+                    <label for="ospYksTytFenD">Fen Bilimleri <span class="yks-field__meta">(20 soru)</span></label>
+                    <div class="yks-dyb-row">
+                      <div class="yks-dyb-inputs" id="ospYksTytFenDyb" role="group" aria-label="Fen">
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksTytFenD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksTytFenY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        </div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksTytFenNet">—</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="form-group yks-puan-alan-row">
+                <label for="ospYksAlanSelect">AYT alanı</label>
+                <select id="ospYksAlanSelect">
+                  <option value="say">Sayısal</option>
+                  <option value="ea">Eşit ağırlık</option>
+                  <option value="soz">Sözel</option>
+                  <option value="dil">Dil</option>
+                </select>
+              </div>
+              <div id="ospYksPanelAytSay" class="yks-puan-block yks-puan-block--ayt">
+                <h3 class="yks-puan-block__title"><i class="fa-solid fa-flask"></i> AYT — Sayısal</h3>
+                <div class="yks-puan-grid yks-puan-grid--dyb">
+                  <div class="form-group yks-field">
+                    <label for="ospYksAytSayMatD">Matematik <span class="yks-field__meta">(40 soru)</span></label>
+                    <div class="yks-dyb-row">
+                      <div class="yks-dyb-inputs" id="ospYksAytSayMatDyb" role="group" aria-label="AYT Matematik">
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSayMatD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSayMatY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        </div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSayMatNet">—</span></div>
+                    </div>
+                  </div>
+                  <div class="form-group yks-field">
+                    <label for="ospYksAytSayFizD">Fizik <span class="yks-field__meta">(14 soru)</span></label>
+                    <div class="yks-dyb-row">
+                      <div class="yks-dyb-inputs" id="ospYksAytSayFizDyb" role="group" aria-label="Fizik">
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSayFizD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSayFizY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        </div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSayFizNet">—</span></div>
+                    </div>
+                  </div>
+                  <div class="form-group yks-field">
+                    <label for="ospYksAytSayKimD">Kimya <span class="yks-field__meta">(13 soru)</span></label>
+                    <div class="yks-dyb-row">
+                      <div class="yks-dyb-inputs" id="ospYksAytSayKimDyb" role="group" aria-label="Kimya">
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSayKimD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSayKimY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        </div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSayKimNet">—</span></div>
+                    </div>
+                  </div>
+                  <div class="form-group yks-field">
+                    <label for="ospYksAytSayBioD">Biyoloji <span class="yks-field__meta">(13 soru)</span></label>
+                    <div class="yks-dyb-row">
+                      <div class="yks-dyb-inputs" id="ospYksAytSayBioDyb" role="group" aria-label="Biyoloji">
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSayBioD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSayBioY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        </div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSayBioNet">—</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div id="ospYksPanelAytEa" class="yks-puan-block yks-puan-block--ayt" hidden>
+                <h3 class="yks-puan-block__title"><i class="fa-solid fa-scale-balanced"></i> AYT — Eşit ağırlık</h3>
+                <div class="yks-puan-grid yks-puan-grid--dyb">
+                  <div class="form-group yks-field">
+                    <label for="ospYksAytEaMatD">Matematik <span class="yks-field__meta">(40 soru)</span></label>
+                    <div class="yks-dyb-row">
+                      <div class="yks-dyb-inputs" id="ospYksAytEaMatDyb" role="group" aria-label="EA Matematik">
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytEaMatD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytEaMatY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        </div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytEaMatNet">—</span></div>
+                    </div>
+                  </div>
+                  <div class="form-group yks-field">
+                    <label for="ospYksAytEaEdebD">Türk Dili ve Edebiyatı <span class="yks-field__meta">(24 soru)</span></label>
+                    <div class="yks-dyb-row">
+                      <div class="yks-dyb-inputs" id="ospYksAytEaEdebDyb" role="group" aria-label="EA Edebiyat">
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytEaEdebD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytEaEdebY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        </div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytEaEdebNet">—</span></div>
+                    </div>
+                  </div>
+                  <div class="form-group yks-field">
+                    <label for="ospYksAytEaTar1D">Tarih-1 <span class="yks-field__meta">(10 soru)</span></label>
+                    <div class="yks-dyb-row">
+                      <div class="yks-dyb-inputs" id="ospYksAytEaTar1Dyb" role="group" aria-label="EA Tarih-1">
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytEaTar1D" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytEaTar1Y" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        </div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytEaTar1Net">—</span></div>
+                    </div>
+                  </div>
+                  <div class="form-group yks-field">
+                    <label for="ospYksAytEaCog1D">Coğrafya-1 <span class="yks-field__meta">(6 soru)</span></label>
+                    <div class="yks-dyb-row">
+                      <div class="yks-dyb-inputs" id="ospYksAytEaCog1Dyb" role="group" aria-label="EA Coğrafya-1">
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytEaCog1D" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytEaCog1Y" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        </div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytEaCog1Net">—</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div id="ospYksPanelAytSoz" class="yks-puan-block yks-puan-block--ayt" hidden>
+                <h3 class="yks-puan-block__title"><i class="fa-solid fa-book"></i> AYT — Sözel</h3>
+                <div class="yks-puan-grid yks-puan-grid--dyb">
+                  <div class="form-group yks-field">
+                    <label for="ospYksAytSozEdebD">Türk Dili ve Edebiyatı <span class="yks-field__meta">(24 soru)</span></label>
+                    <div class="yks-dyb-row">
+                      <div class="yks-dyb-inputs" id="ospYksAytSozEdebDyb" role="group" aria-label="Sözel Edebiyat">
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSozEdebD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSozEdebY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        </div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSozEdebNet">—</span></div>
+                    </div>
+                  </div>
+                  <div class="form-group yks-field">
+                    <label for="ospYksAytSozTar1D">Tarih-1 <span class="yks-field__meta">(10 soru)</span></label>
+                    <div class="yks-dyb-row">
+                      <div class="yks-dyb-inputs" id="ospYksAytSozTar1Dyb" role="group" aria-label="Sözel Tarih-1">
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSozTar1D" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSozTar1Y" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        </div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSozTar1Net">—</span></div>
+                    </div>
+                  </div>
+                  <div class="form-group yks-field">
+                    <label for="ospYksAytSozCog1D">Coğrafya-1 <span class="yks-field__meta">(6 soru)</span></label>
+                    <div class="yks-dyb-row">
+                      <div class="yks-dyb-inputs" id="ospYksAytSozCog1Dyb" role="group" aria-label="Sözel Coğrafya-1">
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSozCog1D" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSozCog1Y" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        </div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSozCog1Net">—</span></div>
+                    </div>
+                  </div>
+                  <div class="form-group yks-field">
+                    <label for="ospYksAytSozTar2D">Tarih-2 <span class="yks-field__meta">(11 soru)</span></label>
+                    <div class="yks-dyb-row">
+                      <div class="yks-dyb-inputs" id="ospYksAytSozTar2Dyb" role="group" aria-label="Sözel Tarih-2">
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSozTar2D" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSozTar2Y" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        </div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSozTar2Net">—</span></div>
+                    </div>
+                  </div>
+                  <div class="form-group yks-field">
+                    <label for="ospYksAytSozCog2D">Coğrafya-2 <span class="yks-field__meta">(11 soru)</span></label>
+                    <div class="yks-dyb-row">
+                      <div class="yks-dyb-inputs" id="ospYksAytSozCog2Dyb" role="group" aria-label="Sözel Coğrafya-2">
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSozCog2D" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSozCog2Y" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        </div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSozCog2Net">—</span></div>
+                    </div>
+                  </div>
+                  <div class="form-group yks-field">
+                    <label for="ospYksAytSozFelD">Felsefe Grubu <span class="yks-field__meta">(12 soru)</span></label>
+                    <div class="yks-dyb-row">
+                      <div class="yks-dyb-inputs" id="ospYksAytSozFelDyb" role="group" aria-label="Felsefe">
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSozFelD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSozFelY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        </div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSozFelNet">—</span></div>
+                    </div>
+                  </div>
+                  <div class="form-group yks-field">
+                    <label for="ospYksAytSozDkabD">Din Kültürü ve Ahlak Bilgisi <span class="yks-field__meta">(6 soru)</span></label>
+                    <div class="yks-dyb-row">
+                      <div class="yks-dyb-inputs" id="ospYksAytSozDkabDyb" role="group" aria-label="DKAB">
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytSozDkabD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytSozDkabY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        </div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytSozDkabNet">—</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div id="ospYksPanelAytDil" class="yks-puan-block yks-puan-block--ayt" hidden>
+                <h3 class="yks-puan-block__title"><i class="fa-solid fa-language"></i> AYT — Dil</h3>
+                <div class="yks-puan-grid yks-puan-grid--dyb">
+                  <div class="form-group yks-field">
+                    <label for="ospYksAytDilYdD">Yabancı Dil <span class="yks-field__meta">(80 soru)</span></label>
+                    <div class="yks-dyb-row">
+                      <div class="yks-dyb-inputs" id="ospYksAytDilYdDyb" role="group" aria-label="Yabancı Dil">
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytDilYdD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytDilYdY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        </div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytDilYdNet">—</span></div>
+                    </div>
+                  </div>
+                  <div class="form-group yks-field">
+                    <label for="ospYksAytDilEdebD">Türk Dili ve Edebiyatı <span class="yks-field__meta">(24 soru)</span></label>
+                    <div class="yks-dyb-row">
+                      <div class="yks-dyb-inputs" id="ospYksAytDilEdebDyb" role="group" aria-label="Dil Edebiyat">
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">D</span><input type="text" id="ospYksAytDilEdebD" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        <div class="yks-dyb-cell"><span class="yks-dyb-lbl">Y</span><input type="text" id="ospYksAytDilEdebY" class="yks-inp-dyb" inputmode="numeric" autocomplete="off" maxlength="3" /></div>
+                        </div>
+                      <div class="yks-net-badge" title="Net = Doğru − Yanlış ÷ 4"><span class="yks-net-badge__val" id="ospYksAytDilEdebNet">—</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="yks-puan-actions">
+                <button type="button" class="osp-btn-primary" id="ospYksPuanHesaplaBtn">Hesapla</button>
+                <button type="button" class="osp-btn-secondary yks-puan-actions__reset" id="ospYksPuanResetBtn">Sıfırla</button>
+              </div>
+            </form>
+            <aside class="yks-puan-live-dashboard" id="ospYksPuanLiveDashboard" aria-live="polite">
+              <div class="yks-puan-live-dashboard__head">
+                <h3 class="yks-puan-live-dashboard__title"><i class="fa-solid fa-gauge-high"></i> Canlı Sonuç Panosu</h3>
+                <p class="yks-puan-live-dashboard__sub" id="ospYksPuanLiveDashboardSub">Gerçek zamanlı</p>
+              </div>
+              <div class="yks-puan-live-dashboard__grid">
+                <div class="yks-live-card yks-live-card--tyt">
+                  <span class="yks-live-card__label">TYT ham puanı</span>
+                  <span class="yks-live-card__val" id="ospYksPuanDashTytHam">—</span>
+                  <span class="yks-live-card__hint">Taban 100 + katsayı × net</span>
+                </div>
+                <div class="yks-live-card yks-live-card--tyt2">
+                  <span class="yks-live-card__label">Yerleştirmede TYT payı</span>
+                  <span class="yks-live-card__val" id="ospYksPuanDashTytYer">—</span>
+                  <span class="yks-live-card__hint">0,40 × TYT ham</span>
+                </div>
+                <div class="yks-live-card yks-live-card--ayt">
+                  <span class="yks-live-card__label" id="ospYksPuanDashAytLabel">AYT ham puanı</span>
+                  <span class="yks-live-card__val" id="ospYksPuanDashAytHam">—</span>
+                  <span class="yks-live-card__hint" id="ospYksPuanDashAytHint">Seçilen alan</span>
+                </div>
+                <div class="yks-live-card yks-live-card--ayt2">
+                  <span class="yks-live-card__label">Yerleştirmede AYT payı</span>
+                  <span class="yks-live-card__val" id="ospYksPuanDashAytYer">—</span>
+                  <span class="yks-live-card__hint">0,60 × AYT ham</span>
+                </div>
+                <div class="yks-live-card yks-live-card--obp">
+                  <span class="yks-live-card__label">OBP katkısı</span>
+                  <span class="yks-live-card__val" id="ospYksPuanDashObp">—</span>
+                  <span class="yks-live-card__hint">Diploma / OBP60</span>
+                </div>
+                <div class="yks-live-card yks-live-card--total">
+                  <span class="yks-live-card__label">Toplam yerleştirme göstergesi</span>
+                  <span class="yks-live-card__val" id="ospYksPuanDashYerToplam">—</span>
+                  <span class="yks-live-card__hint">Birleşik ham + OBP</span>
+                </div>
+              </div>
+              <p class="yks-puan-live-dashboard__warn" id="ospYksPuanDashWarn" role="status"></p>
+              <p class="yks-puan-live-dashboard__coeff" id="ospYksPuanDashCoeff"></p>
+            </aside>
+            <div class="yks-puan-out-grid" id="ospYksPuanOutWrap" hidden aria-live="polite">
+              <div class="yks-puan-out-card">
+                <h4 class="yks-puan-out-card__title">Ham puanlar</h4>
+                <table class="yks-puan-out-table">
+                  <tbody id="ospYksPuanHamTbody"></tbody>
+                </table>
+              </div>
+              <div class="yks-puan-out-card">
+                <h4 class="yks-puan-out-card__title">Yerleştirme puanları</h4>
+                <table class="yks-puan-out-table">
+                  <tbody id="ospYksPuanYerTbody"></tbody>
+                </table>
+              </div>
+            </div>
+            <p class="yks-puan-legal-hint" id="ospYksPuanHint"></p>
+          </div>
+          <p style="font-size:0.8rem;color:var(--osp-muted);margin-top:1rem;">Resmî ÖSYM yerleştirme puanı değildir; yalnızca eğitim amaçlı gösterim.</p>
+        </section>
+
+        <!-- Koça Sor -->
+        <section class="osp-view osp-koca-page" data-osp-view="koca-sor" id="ospViewKocaSor" hidden>
+          <p style="color:var(--osp-muted);font-size:0.88rem;margin:0 0 1rem;">
+            Çözemediğin sorunun fotoğrafını veya kısa notunu gönder; koçun <strong>Gelen Sorular</strong> kutusunda görür (demo: aynı tarayıcıda localStorage).
+          </p>
+          <div
+            class="osp-koca-dropzone"
+            id="ospKocaDropzone"
+            tabindex="0"
+            role="button"
+            aria-label="Dosya sürükleyip bırak veya tıkla"
+          >
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <p><strong>Dosya veya fotoğraf sürükleyin</strong> ya da tıklayın</p>
+            <p>PNG, JPG veya PDF · max 10 MB (demo)</p>
+          </div>
+          <input type="file" id="ospKocaFile" accept="image/*,.pdf" hidden />
+          <p class="osp-koca-file-name" id="ospKocaFileName"></p>
+          <div class="osp-koca-field">
+            <label for="ospKocaMsg">Mesajın (isteğe bağlı)</label>
+            <textarea id="ospKocaMsg" placeholder="Hangi test, hangi soru numarası…"></textarea>
+          </div>
+          <button type="button" class="osp-koca-submit" id="ospKocaGonder">Gönder</button>
+        </section>
+
+        <!-- Ders Anlatımı — Board (salt okunur) -->
+        <section class="osp-view" data-osp-view="ders-board" id="ospViewDersBoard" hidden>
+          <div id="ospDersBoardEmpty" class="osp-ders-board-empty">
+            <p>Koçunun paylaştığı tahtaları <strong>Kütüphanem</strong> üzerinden açabilirsin.</p>
+            <button type="button" class="osp-btn-primary" data-osp-nav="ders-kutuphane">Kütüphaneye git</button>
+          </div>
+          <div id="ospDersBoardCanvasWrap" class="osp-ders-board-canvas-wrap" hidden>
+            <div class="derece-board derece-board--readonly osp-student-board" id="ospStudentReadOnlyRoot">
+              <div class="derece-board__main" style="flex:1;min-width:0">
+                <p class="osp-student-board__hint">Salt okunur — koçunun gönderdiği tahta.</p>
+                <div class="osp-student-board__bar">
+                  <button type="button" class="osp-student-board__back" data-osp-nav="ders-kutuphane">
+                    <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Kütüphane
+                  </button>
+                  <h1 class="osp-student-board__title" data-osp-student-board-title>Tahta</h1>
+                </div>
+                <div class="derece-board__sheet-wrap"></div>
+              </div>
+              <div class="derece-board__page-strip" aria-label="Sayfalar"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Ders Anlatımı — Kütüphanem -->
+        <section class="osp-view" data-osp-view="ders-kutuphane" id="ospViewDersKutuphane" hidden>
+          <div class="osp-lib-wrap">
+            <div class="osp-lib-tabs" role="tablist" aria-label="Kütüphane sekmeleri">
+              <button type="button" class="osp-lib-tab is-active" role="tab" aria-selected="true" data-osp-lib-tab="coach">
+                Koçun Yolladıkları
+              </button>
+            </div>
+            <div class="osp-lib-panel" data-osp-lib-panel="coach" id="ospLibPanelCoach">
+              <div id="ospSharedBoardGrid" class="osp-shared-grid"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Ödeme -->
+        <section class="osp-view" data-osp-view="odeme" id="ospViewOdeme" hidden>
+          <div id="ospPayAlert"></div>
+          <div class="osp-pay-hero">
+            <div class="osp-pay-card">
+              <div class="osp-pay-card__lbl">Toplam anlaşma</div>
+              <div class="osp-pay-card__val" id="ospPayTotal">—</div>
+              <div class="osp-pay-card__sub">Koçluk paketi</div>
+            </div>
+            <div class="osp-pay-card">
+              <div class="osp-pay-card__lbl">Kalan bakiye</div>
+              <div class="osp-pay-card__val" id="ospPayRemain">—</div>
+              <div class="osp-pay-card__sub">Ödenmesi beklenen</div>
+            </div>
+            <div class="osp-pay-card">
+              <div class="osp-pay-card__lbl">Geciken taksit</div>
+              <div class="osp-pay-card__val" id="ospPayOverdue">—</div>
+              <div class="osp-pay-card__sub" id="ospPayOverdueSub">—</div>
+            </div>
+          </div>
+          <div class="osp-table-wrap">
+            <table class="osp-table">
+              <thead>
+                <tr>
+                  <th>Taksit</th>
+                  <th>Vade</th>
+                  <th>Tutar</th>
+                  <th>Durum</th>
+                </tr>
+              </thead>
+              <tbody id="ospPayTableBody"></tbody>
+            </table>
+          </div>
+          <p style="font-size:0.8rem;color:var(--osp-muted);margin-top:1rem;">
+            Bu alan yalnızca bilgilendirme amaçlıdır; tahsilat veya düzenleme koç panelinden yapılır.
+          </p>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="osp-toast-host" id="ospToastHost" aria-live="polite"></div>
+
+  <!-- Sayfa güncelle modal -->
+  <div class="osp-modal-overlay" id="ospModalOverlay" hidden>
+    <div class="osp-modal" role="dialog" aria-modal="true" aria-labelledby="ospModalTitle">
+      <h3 id="ospModalTitle">Sayfa güncelle</h3>
+      <p id="ospModalBookName">Kitap</p>
+      <div class="osp-modal__field">
+        <label for="ospPageInput">Şu an hangi sayfadasın?</label>
+        <input type="number" id="ospPageInput" min="1" step="1" inputmode="numeric" />
+      </div>
+      <div class="osp-modal__actions">
+        <button type="button" class="osp-btn-ghost" id="ospModalCancel">Vazgeç</button>
+        <button type="button" class="osp-btn-primary" id="ospModalSave">Kaydet</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="site-credit site-credit--panel">
+    Mustafa AKBAŞ - Furkan Şehmus KIYAR - Veysel Anıl KARAASLAN - Efe KARACABEY tarafından üretildi
+  </p>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js" crossorigin="anonymous"></script>
+  <script>
+(function () {
+  "use strict";
+
+  var OSP = {
+    studentName: "Öğrenci",
+    targetNetGap: 0,
+    weekCompletionPct: 0,
+    lastExamNet: null,
+    totalSolved: 0,
+    nextTaskId: "",
+    nextTask: {
+      title: "Koçun henüz görev eklemediği görünüyor",
+      detail: "Haftalık plan güncellendiğinde burada görünür.",
+      done: false
+    },
+    week: [],
+    books: [],
+    payment: {
+      totalAgreement: 0,
+      remaining: 0,
+      overdueInstallments: 0,
+      overdueText: "",
+      rows: []
+    },
+    gelisim: { nets: [] },
+    targetUniversity: "",
+    targetDepartment: "",
+    coachCurrentTytNet: null,
+    coachTargetTytNet: null,
+    lastFetchedExams: []
+  };
+
+  window.OSP = OSP;
+
+  OSP.applyHedef = function (row) {
+    if (!row) return;
+    if (row.targetUniversity) OSP.targetUniversity = String(row.targetUniversity).trim();
+    if (row.targetDepartment) OSP.targetDepartment = String(row.targetDepartment).trim();
+    if (row.fieldType != null && String(row.fieldType).trim() !== "") OSP.fieldType = String(row.fieldType).trim();
+    else if (row.yksAlan != null && String(row.yksAlan).trim() !== "") OSP.fieldType = String(row.yksAlan).trim();
+    if (row.examGroup != null && String(row.examGroup).trim() !== "") OSP.examGroup = String(row.examGroup).trim();
+    if (row.track != null && String(row.track).trim() !== "") OSP.track = String(row.track).trim();
+    var c = parseFloat(String(row.currentTytNet != null ? row.currentTytNet : "").replace(",", "."));
+    var t = parseFloat(String(row.targetTytNet != null ? row.targetTytNet : "").replace(",", "."));
+    if (!isNaN(c)) {
+      OSP.coachCurrentTytNet = c;
+      OSP.lastExamNet = c;
+    }
+    if (!isNaN(t)) OSP.coachTargetTytNet = t;
+    var u = document.getElementById("ospHedefUni");
+    var b = document.getElementById("ospHedefBolum");
+    var wn = document.getElementById("ospWgNet");
+    if (u && OSP.targetUniversity) u.textContent = OSP.targetUniversity;
+    if (b && OSP.targetDepartment) b.textContent = OSP.targetDepartment + " — Hedef net";
+    if (wn && !isNaN(c)) wn.textContent = String(c);
+    renderOspHedefSimulator();
+  };
+
+  function formatPlanUpdatedAt(u) {
+    if (!u) return "—";
+    if (typeof u.toDate === "function") return u.toDate().toLocaleString("tr-TR");
+    if (typeof u === "number") return new Date(u).toLocaleString("tr-TR");
+    if (u.seconds != null) return new Date(u.seconds * 1000).toLocaleString("tr-TR");
+    return "—";
+  }
+
+  OSP.applyPlanFromFirestore = function (data) {
+    if (!data) return;
+    if (typeof data.week_json === "string" && data.week_json) {
+      try {
+        data.week = JSON.parse(data.week_json);
+      } catch (e) {
+        return;
+      }
+    }
+    if (typeof data.next_task_json === "string" && data.next_task_json) {
+      try {
+        data.nextTask = JSON.parse(data.next_task_json);
+      } catch (e) {}
+    }
+    var doneMap = data.taskDoneMap || {};
+    if (typeof data.task_done_map_json === "string" && data.task_done_map_json) {
+      try {
+        doneMap = JSON.parse(data.task_done_map_json) || {};
+      } catch (e) {}
+    }
+    if (data.version !== 1 || !Array.isArray(data.week)) return;
+    data.week.forEach(function (d) {
+      (d.tasks || []).forEach(function (t) {
+        t.done = !!doneMap[t.id];
+      });
+    });
+    OSP.week = data.week;
+    if (data.nextTaskId && data.nextTask) {
+      OSP.nextTaskId = data.nextTaskId;
+      OSP.nextTask = {
+        title: data.nextTask.title,
+        detail: data.nextTask.detail,
+        done: !!(doneMap[data.nextTaskId] || data.nextTask.done),
+      };
+    }
+    OSP.weekCompletionPct = computeWeekPct();
+    var ban = document.getElementById("ospCoachBanner");
+    if (ban) {
+      ban.textContent =
+        "Koç planı (Appwrite) · " +
+        (data.studentName ? data.studentName + " · " : "") +
+        "Güncelleme: " +
+        formatPlanUpdatedAt(data.updatedAt);
+    }
+    var nt = document.getElementById("ospNextTaskTitle");
+    var nm = document.getElementById("ospNextTaskMeta");
+    if (nt) nt.textContent = OSP.nextTask.title;
+    if (nm) nm.textContent = OSP.nextTask.detail;
+    var wg = document.getElementById("ospWgWeek");
+    if (wg) wg.textContent = "%" + OSP.weekCompletionPct;
+    renderWeek();
+    renderDashboardHero();
+    updateNextTaskUi();
+  };
+
+  OSP.applyProfile = function (p) {
+    if (!p) return;
+    if (p.displayName) {
+      var nm = String(p.displayName).trim();
+      var parts = nm.split(/\s+/);
+      OSP.studentName = parts[0] || nm;
+      renderDashboardHero();
+      requestAnimationFrame(function () {
+        initOspDashboard2Charts();
+      });
+    }
+    var ban = document.getElementById("ospCoachBanner");
+    if (ban) {
+      if (p.coachId) {
+        ban.textContent =
+          "Bağlı koç ID: " +
+          p.coachId +
+          " — Koç panelindeki öğrenci listesinde görünürsün.";
+      } else {
+        ban.textContent = "Koç ataması yok — yöneticinle iletişime geç.";
+      }
+    }
+  };
+  try {
+    var _lsn = localStorage.getItem("yksStudentName");
+    if (_lsn) {
+      OSP.studentName = _lsn.trim().split(/\s+/)[0] || _lsn;
+    }
+  } catch (e) {}
+
+  var titles = {
+    dashboard: "Ana Sayfa",
+    hedef: "🎯 Hedef Simülatörü",
+    "net-sihirbazi": "TYT-AYT Net Sihirbazı",
+    "tercih-sihirbazi": "Tercih Sihirbazı",
+    "yks-puan": "YKS Puan Hesaplama",
+    "koca-sor": "🆘 Koça Sor",
+    haftalik: "Haftalık Programım",
+    kaynaklar: "Kaynaklarım",
+    gelisim: "Gelişim Röntgenim",
+    odeme: "Ödeme & Taksitlerim",
+    "ders-board": "Ders Anlatımı — Board",
+    "ders-kutuphane": "Kütüphanem"
+  };
+
+  function ospToast(msg) {
+    var host = document.getElementById("ospToastHost");
+    if (!host) return;
+    var el = document.createElement("div");
+    el.className = "osp-toast";
+    el.textContent = msg;
+    host.appendChild(el);
+    setTimeout(function () {
+      el.remove();
+    }, 3200);
+  }
+
+  function formatNum(n) {
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  }
+
+  function formatTry(n) {
+    return formatNum(n) + " ₺";
+  }
+
+  function setActiveNav(view) {
+    document.querySelectorAll("[data-osp-nav]").forEach(function (btn) {
+      var v = btn.getAttribute("data-osp-nav");
+      var on = v === view;
+      btn.classList.toggle("sidebar__link--active", on && btn.classList.contains("sidebar__link"));
+    });
+  }
+
+  function showView(view) {
+    document.querySelectorAll(".osp-view").forEach(function (sec) {
+      var v = sec.getAttribute("data-osp-view");
+      sec.hidden = v !== view;
+    });
+    var ht = document.getElementById("ospHeaderTitle");
+    if (ht) ht.textContent = titles[view] || "Panel";
+    setActiveNav(view);
+  }
+
+  function openAccordionForView(view) {
+    document.querySelectorAll(".osp-sidebar__group.has-submenu").forEach(function (li) {
+      var hit = li.querySelector('[data-osp-nav="' + view + '"]');
+      if (hit) {
+        li.classList.add("is-open");
+        var acc = li.querySelector(".osp-sidebar__accordion");
+        if (acc) acc.setAttribute("aria-expanded", "true");
+      }
+    });
+  }
+
+  function navigate(view) {
+    if (!titles[view]) return;
+    if (view !== "ders-board") {
+      import("../js/osp-student-ders.js")
+        .then(function (m) {
+          if (m.disposeOspStudentBoardView) m.disposeOspStudentBoardView();
+        })
+        .catch(function () {});
+    }
+    showView(view);
+    openAccordionForView(view);
+    if (view === "hedef") renderOspHedefSimulator();
+    if (view === "dashboard") {
+      requestAnimationFrame(function () {
+        initOspDashboard2Charts();
+      });
+    }
+    if (view === "net-sihirbazi") {
+      import("../js/net-sihirbazi-ui.js")
+        .then(function (m) {
+          m.initNetSihirbazi({
+            uniSelectId: "ospNsUniSelect",
+            deptSelectId: "ospNsDeptSelect",
+            tableWrapId: "ospNsNetTableWrap",
+            uniTitleId: "ospNsUniTitle",
+            deptTitleId: "ospNsDeptSub",
+            subtitleId: "ospNsTabanSub",
+          });
+        })
+        .catch(function (e) {
+          console.error("[OSP] Net Sihirbazı:", e);
+        });
+    }
+    if (view === "yks-puan") {
+      import("../js/net-sihirbazi-ui.js")
+        .then(function (m) {
+          m.initYksPuanHesaplama({ idPrefix: "osp" });
+        })
+        .catch(function (e) {
+          console.error("[OSP] YKS puan:", e);
+        });
+    }
+    if (view === "tercih-sihirbazi") {
+      import("../js/tercih-sihirbazi.js")
+        .then(function (m) {
+          m.initTercihSihirbazi({
+            formId: "ospTsForm",
+            tableWrapId: "ospTsTableScroll",
+            pagerWrapId: "ospTsPagerHost",
+            metaId: "ospTsMeta",
+            citySelectId: "ospTsCity",
+            uniSelectId: null,
+            deptSelectId: null,
+            programTurSelectId: "ospTsProgramTur",
+          });
+        })
+        .catch(function (e) {
+          console.error("[OSP] Tercih Sihirbazı:", e);
+        });
+    }
+    if (view === "ders-kutuphane") {
+      import("../js/osp-student-ders.js")
+        .then(function (m) {
+          if (m.refreshOspStudentLibrary) void m.refreshOspStudentLibrary();
+        })
+        .catch(function (e) {
+          console.error("[OSP] Kütüphane:", e);
+        });
+    }
+    if (view === "ders-board") {
+      import("../js/osp-student-ders.js")
+        .then(function (m) {
+          if (m.mountOspStudentBoardIfPending) void m.mountOspStudentBoardIfPending();
+        })
+        .catch(function (e) {
+          console.error("[OSP] Board:", e);
+        });
+    }
+    try {
+      history.replaceState({ view: view }, "", "#" + view);
+    } catch (e) {}
+  }
+
+  function closeMobileSidebar() {
+    var sb = document.getElementById("ospSidebar");
+    var ov = document.getElementById("ospSidebarOverlay");
+    if (sb) sb.classList.remove("is-open");
+    if (ov) {
+      ov.classList.remove("is-open");
+      ov.setAttribute("aria-hidden", "true");
+    }
+    document.body.style.overflow = "";
+  }
+
+  function openMobileSidebar() {
+    var sb = document.getElementById("ospSidebar");
+    var ov = document.getElementById("ospSidebarOverlay");
+    if (sb) sb.classList.add("is-open");
+    if (ov) {
+      ov.classList.add("is-open");
+      ov.setAttribute("aria-hidden", "false");
+    }
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeOtherAccordions(exceptLi) {
+    document.querySelectorAll(".osp-sidebar__group.has-submenu").forEach(function (li) {
+      if (li === exceptLi) return;
+      li.classList.remove("is-open");
+      var b = li.querySelector(".osp-sidebar__accordion");
+      if (b) b.setAttribute("aria-expanded", "false");
+    });
+  }
+
+  function bindAccordion() {
+    document.querySelectorAll(".osp-sidebar__group.has-submenu").forEach(function (li) {
+      var btn = li.querySelector(".osp-sidebar__accordion");
+      if (!btn) return;
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        var open = !li.classList.contains("is-open");
+        closeOtherAccordions(open ? li : null);
+        li.classList.toggle("is-open", open);
+        btn.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+    });
+  }
+
+  function syncTaskDone(taskId, done) {
+    OSP.week.forEach(function (d) {
+      d.tasks.forEach(function (t) {
+        if (t.id === taskId) t.done = done;
+      });
+    });
+    if (taskId === OSP.nextTaskId) {
+      OSP.nextTask.done = done;
+    }
+    if (taskId === OSP.nextTaskId && done) {
+      ospToast("Görev tamamlandı.");
+    } else {
+      ospToast("İlerleme kaydedildi.");
+    }
+    renderWeek();
+    renderDashboardHero();
+    updateNextTaskUi();
+    OSP.weekCompletionPct = computeWeekPct();
+    var wg = document.getElementById("ospWgWeek");
+    if (wg) wg.textContent = "%" + OSP.weekCompletionPct;
+    if (window.OspPortal && typeof window.OspPortal.updateTaskDone === "function") {
+      void window.OspPortal.updateTaskDone(taskId, done);
+    }
+  }
+
+  function computeWeekPct() {
+    var total = 0,
+      done = 0;
+    OSP.week.forEach(function (d) {
+      d.tasks.forEach(function (t) {
+        total++;
+        if (t.done) done++;
+      });
+    });
+    if (!total) return 0;
+    return Math.round((done / total) * 100);
+  }
+
+  function initOspPdfHaftalik() {
+    var btn = document.getElementById("ospBtnPdfProgram");
+    var root = document.getElementById("ospHaftalikPdfRoot");
+    if (!btn || !root) return;
+    btn.addEventListener("click", function () {
+      var titleEl = document.getElementById("ospHaftalikPdfTitle");
+      if (titleEl) titleEl.textContent = "Haftalık Programım — " + (OSP.studentName || "Öğrenci");
+      var opt = {
+        margin: 10,
+        filename: "Haftalik_Program.pdf",
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+      };
+      try {
+        var h2p = typeof html2pdf !== "undefined" ? html2pdf : window.html2pdf;
+        if (!h2p) {
+          ospToast("PDF kütüphanesi bulunamadı.");
+          return;
+        }
+        var out = h2p().set(opt).from(root).save();
+        if (out && typeof out.then === "function") {
+          out
+            .then(function () {
+              ospToast("Haftalik_Program.pdf indirildi.");
+            })
+            .catch(function () {
+              ospToast("PDF oluşturulamadı.");
+            });
+        } else {
+          ospToast("Haftalik_Program.pdf indiriliyor…");
+        }
+      } catch (err) {
+        ospToast("PDF oluşturulamadı.");
+      }
+    });
+  }
+
+  function updateNextTaskUi() {
+    var btn = document.getElementById("ospBtnCompleteNext");
+    var card = document.getElementById("ospNextTaskCard");
+    if (!OSP.nextTask.done) {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Tamamla';
+      }
+      if (card) card.style.opacity = "1";
+    } else {
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-check-double"></i> Tamamlandı';
+      }
+      if (card) card.style.opacity = "0.85";
+    }
+  }
+
+  function renderDashboardHero() {
+    var msg = document.getElementById("ospDash2AiMessage");
+    if (!msg) return;
+    var name = OSP.studentName || "Öğrenci";
+    var ex = OSP.lastFetchedExams || [];
+    var lastTyt = null;
+    var i;
+    for (i = ex.length - 1; i >= 0; i--) {
+      if (String((ex[i].examType || ex[i].type || ex[i].tur || "").toUpperCase()) === "TYT") {
+        var nn = parseFloat(String(ex[i].net != null ? ex[i].net : "").replace(",", "."));
+        if (!isNaN(nn)) {
+          lastTyt = nn;
+          break;
+        }
+      }
+    }
+    if (lastTyt != null) {
+      msg.textContent =
+        name +
+        ", son kayıtlı TYT deneme netin " +
+        lastTyt +
+        ". Haftalık planındaki görevleri işaretleyerek tempoyu koru.";
+    } else {
+      msg.textContent =
+        name +
+        ", koçunun girdiği deneme ve haftalık plan verileri burada birikecek. Şimdilik hedeflerine odaklan.";
+    }
+  }
+
+  var ospDash2LineChart = null;
+  var ospDash2RadarChart = null;
+
+  function destroyOspDashboard2Charts() {
+    if (ospDash2LineChart) {
+      try {
+        ospDash2LineChart.destroy();
+      } catch (e) {}
+      ospDash2LineChart = null;
+    }
+    if (ospDash2RadarChart) {
+      try {
+        ospDash2RadarChart.destroy();
+      } catch (e) {}
+      ospDash2RadarChart = null;
+    }
+  }
+
+  function ospSetChartOverlay(canvas, show, text) {
+    if (!canvas) return;
+    var wrap = canvas.closest(".osp-dash2-chart-card__canvas");
+    if (!wrap) return;
+    if (window.getComputedStyle(wrap).position === "static") wrap.style.position = "relative";
+    var o = wrap.querySelector(".osp-chart-data-overlay");
+    if (!show) {
+      if (o) o.remove();
+      return;
+    }
+    if (!o) {
+      o = document.createElement("div");
+      o.className = "osp-chart-data-overlay";
+      o.setAttribute("role", "status");
+      wrap.appendChild(o);
+    }
+    o.textContent = text || "Grafik için yeterli veri yok";
+  }
+
+  function ospParseExamNet(v) {
+    if (v == null) return null;
+    var n = parseFloat(String(v).replace(",", "."));
+    return isNaN(n) ? null : n;
+  }
+
+  function ospTyBucket(key) {
+    var k = String(key || "");
+    if (k.indexOf("turkce") === 0 || k === "turkce") return 0;
+    if (k.indexOf("matematik") === 0 || k === "matematik") return 1;
+    if (k.indexOf("fen_") === 0 || k === "fen") return 2;
+    if (k.indexOf("sosyal_") === 0 || k === "sosyal") return 3;
+    return -1;
+  }
+
+  function ospRadarFromBranchDetail(detail) {
+    if (!detail || !detail.rows || typeof detail.rows !== "object") return null;
+    var totals = [0, 0, 0, 0];
+    var counts = [0, 0, 0, 0];
+    Object.keys(detail.rows).forEach(function (key) {
+      var row = detail.rows[key];
+      if (!row || row.soru == null) return;
+      var ix = ospTyBucket(key);
+      if (ix < 0) return;
+      var soru = Number(row.soru) || 0;
+      var d = Number(row.d) || 0;
+      var y = Number(row.y) || 0;
+      if (soru <= 0) return;
+      var net = d - y / 4;
+      var pct = Math.min(100, Math.max(0, Math.round((net / soru) * 100)));
+      totals[ix] += pct;
+      counts[ix]++;
+    });
+    var data = counts.map(function (c, i) {
+      return c ? Math.round(totals[i] / c) : 0;
+    });
+    if (!data.some(function (x) {
+      return x > 0;
+    }))
+      return null;
+    return data;
+  }
+
+  function initOspDashboard2Charts() {
+    if (typeof Chart === "undefined") return;
+    var lineEl = document.getElementById("ospDash2LineCanvas");
+    var radarEl = document.getElementById("ospDash2RadarCanvas");
+    if (!lineEl || !radarEl) return;
+
+    destroyOspDashboard2Charts();
+    ospSetChartOverlay(lineEl, false);
+    ospSetChartOverlay(radarEl, false);
+
+    var exams = OSP.lastFetchedExams || [];
+    var tytPts = [];
+    exams.forEach(function (e) {
+      var tur = String(e.examType || e.type || e.tur || "").toUpperCase();
+      if (tur !== "TYT") return;
+      var n = ospParseExamNet(e.net);
+      if (n == null) return;
+      tytPts.push({
+        label: ((e.date || "").slice(0, 10) || e.examName || "TYT").trim(),
+        net: n,
+      });
+    });
+    if (tytPts.length > 5) tytPts = tytPts.slice(tytPts.length - 5);
+    var lineVals = tytPts.map(function (p) {
+      return p.net;
+    });
+    var lineLabels = tytPts.map(function (p) {
+      return p.label;
+    });
+
+    var commonFont = { family: "'Plus Jakarta Sans', 'Inter', system-ui, sans-serif", size: 11 };
+
+    if (lineVals.length >= 2) {
+      var ctxL = lineEl.getContext("2d");
+      var wrap = lineEl.closest(".osp-dash2-chart-card__canvas");
+      var gh = wrap && wrap.clientHeight ? wrap.clientHeight : 260;
+      var grad = ctxL.createLinearGradient(0, 0, 0, gh);
+      grad.addColorStop(0, "rgba(124, 58, 237, 0.48)");
+      grad.addColorStop(0.45, "rgba(109, 40, 217, 0.15)");
+      grad.addColorStop(1, "rgba(124, 58, 237, 0)");
+      var tMin = Math.min.apply(null, lineVals);
+      var tMax = Math.max.apply(null, lineVals);
+      ospDash2LineChart = new Chart(ctxL, {
+        type: "line",
+        data: {
+          labels: lineLabels,
+          datasets: [
+            {
+              label: "TYT net",
+              data: lineVals,
+              borderColor: "#7c3aed",
+              backgroundColor: grad,
+              borderWidth: 2.5,
+              tension: 0.42,
+              fill: true,
+              pointBackgroundColor: "#6d28d9",
+              pointBorderColor: "#fff",
+              pointBorderWidth: 2,
+              pointRadius: 5,
+              pointHoverRadius: 7,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 900, easing: "easeOutQuart" },
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: "rgba(15, 23, 42, 0.92)",
+              titleFont: commonFont,
+              bodyFont: commonFont,
+              padding: 12,
+              cornerRadius: 12,
+            },
+          },
+          scales: {
+            y: {
+              beginAtZero: false,
+              suggestedMin: Math.max(0, tMin - 2),
+              suggestedMax: tMax + 2,
+              grid: { color: "rgba(148, 163, 184, 0.2)" },
+              ticks: { font: commonFont, color: "#64748b" },
+            },
+            x: {
+              grid: { display: false },
+              ticks: { font: commonFont, color: "#64748b" },
+            },
+          },
+        },
+      });
+    } else {
+      ospSetChartOverlay(lineEl, true);
+    }
+
+    var radarVals = null;
+    var ri;
+    for (ri = exams.length - 1; ri >= 0; ri--) {
+      radarVals = ospRadarFromBranchDetail(exams[ri].yksBranchDetail);
+      if (radarVals) break;
+    }
+
+    if (radarVals) {
+      ospDash2RadarChart = new Chart(radarEl.getContext("2d"), {
+        type: "radar",
+        data: {
+          labels: ["Türkçe", "Matematik", "Fen", "Sosyal"],
+          datasets: [
+            {
+              label: "Branş başarı %",
+              data: radarVals,
+              borderColor: "#7c3aed",
+              backgroundColor: "rgba(124, 58, 237, 0.22)",
+              borderWidth: 2,
+              pointBackgroundColor: "#6d28d9",
+              pointBorderColor: "#fff",
+              pointRadius: 4,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 900, easing: "easeOutQuart" },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: "rgba(15, 23, 42, 0.92)",
+              bodyFont: commonFont,
+              titleFont: commonFont,
+              padding: 12,
+              cornerRadius: 12,
+              callbacks: {
+                label: function (ctx) {
+                  return ctx.label + ": %" + ctx.raw;
+                },
+              },
+            },
+          },
+          scales: {
+            r: {
+              min: 0,
+              max: 100,
+              ticks: { stepSize: 20, color: "#94a3b8", backdropColor: "transparent" },
+              grid: { color: "rgba(124, 58, 237, 0.12)" },
+              angleLines: { color: "rgba(124, 58, 237, 0.14)" },
+              pointLabels: { font: commonFont, color: "#475569" },
+            },
+          },
+        },
+      });
+    } else {
+      ospSetChartOverlay(radarEl, true);
+    }
+  }
+
+  OSP.initDashboard2Charts = initOspDashboard2Charts;
+
+  OSP.refreshDashboardAfterExams = function () {
+    renderDashboardHero();
+    var dash = document.getElementById("ospViewDashboard");
+    if (dash && !dash.hidden) initOspDashboard2Charts();
+  };
+
+  function renderWeek() {
+    var c = document.getElementById("ospWeekContainer");
+    if (!c) return;
+    c.innerHTML = "";
+    if (!OSP.week || !OSP.week.length) {
+      c.innerHTML =
+        '<p class="osp-zero-hint" style="margin:0;padding:1.25rem;color:var(--osp-muted);text-align:center">Koçunuz haftalık plan paylaştığında günler burada listelenir.</p>';
+      return;
+    }
+    OSP.week.forEach(function (day) {
+      var card = document.createElement("div");
+      card.className = "osp-day-card";
+      var head = document.createElement("div");
+      head.className = "osp-day-card__head";
+      head.textContent = day.day + " · " + day.date;
+      card.appendChild(head);
+      day.tasks.forEach(function (task) {
+        var row = document.createElement("div");
+        row.className = "osp-task-row" + (task.done ? " osp-task-row--done" : "");
+        var cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = !!task.done;
+        cb.setAttribute("aria-label", "Tamamlandı: " + task.title);
+        cb.addEventListener("change", function () {
+          syncTaskDone(task.id, cb.checked);
+        });
+        var body = document.createElement("div");
+        body.className = "osp-task-row__body";
+        var h = document.createElement("p");
+        h.className = "osp-task-row__title";
+        h.textContent = task.title;
+        var p = document.createElement("p");
+        p.className = "osp-task-row__detail";
+        p.textContent = task.detail;
+        body.appendChild(h);
+        body.appendChild(p);
+        var pill = document.createElement("span");
+        pill.className = "osp-pill" + (task.done ? "" : " osp-pill--pending");
+        pill.textContent = task.done ? "Tamamlandı" : "Bekliyor";
+        row.appendChild(cb);
+        row.appendChild(body);
+        row.appendChild(pill);
+        card.appendChild(row);
+      });
+      c.appendChild(card);
+    });
+  }
+
+  var modalBookId = null;
+
+  function renderBooks() {
+    var c = document.getElementById("ospBookList");
+    if (!c) return;
+    c.innerHTML = "";
+    if (!OSP.books || !OSP.books.length) {
+      c.innerHTML =
+        '<p class="osp-zero-hint" style="margin:0;padding:1.25rem;color:var(--osp-muted);text-align:center">Atanmış kaynak yok. Koçunuz kitap atadığında burada görünür.</p>';
+      return;
+    }
+    OSP.books.forEach(function (book) {
+      var pct = Math.min(100, Math.round((book.currentPage / book.totalPages) * 100));
+      var card = document.createElement("div");
+      card.className = "osp-book-card";
+      var left = document.createElement("div");
+      var h = document.createElement("h3");
+      h.className = "osp-book-card__title";
+      h.textContent = book.name;
+      var meta = document.createElement("div");
+      meta.className = "osp-book-card__meta";
+      meta.textContent = "Toplam " + book.totalPages + " sayfa · Koç ataması";
+      var bar = document.createElement("div");
+      bar.className = "osp-progress";
+      var fill = document.createElement("div");
+      fill.className = "osp-progress__fill";
+      fill.style.width = pct + "%";
+      bar.appendChild(fill);
+      left.appendChild(h);
+      left.appendChild(meta);
+      left.appendChild(bar);
+      var actions = document.createElement("div");
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "osp-btn-secondary";
+      btn.textContent = "Sayfa güncelle";
+      btn.addEventListener("click", function () {
+        openPageModal(book.id);
+      });
+      actions.appendChild(btn);
+      card.appendChild(left);
+      card.appendChild(actions);
+      c.appendChild(card);
+    });
+  }
+
+  function openPageModal(bookId) {
+    modalBookId = bookId;
+    var book = OSP.books.find(function (b) {
+      return b.id === bookId;
+    });
+    var ov = document.getElementById("ospModalOverlay");
+    var inp = document.getElementById("ospPageInput");
+    var title = document.getElementById("ospModalBookName");
+    if (title && book) title.textContent = book.name;
+    if (inp && book) inp.value = String(book.currentPage);
+    if (ov) ov.hidden = false;
+    if (inp) inp.focus();
+  }
+
+  function closePageModal() {
+    var ov = document.getElementById("ospModalOverlay");
+    if (ov) ov.hidden = true;
+    modalBookId = null;
+  }
+
+  function savePageModal() {
+    if (!modalBookId) return;
+    var inp = document.getElementById("ospPageInput");
+    var v = inp ? parseInt(inp.value, 10) : NaN;
+    if (!v || v < 1) {
+      ospToast("Geçerli bir sayfa numarası gir.");
+      return;
+    }
+    var book = OSP.books.find(function (b) {
+      return b.id === modalBookId;
+    });
+    if (book) {
+      book.currentPage = Math.min(v, book.totalPages);
+      ospToast("Sayfa bilgisi yerelde güncellendi: " + book.name + " → " + book.currentPage + ". sayfa");
+      renderBooks();
+    }
+    closePageModal();
+  }
+
+  function renderPayment() {
+    var p = OSP.payment;
+    document.getElementById("ospPayTotal").textContent = formatTry(p.totalAgreement);
+    document.getElementById("ospPayRemain").textContent = formatTry(p.remaining);
+    var od = document.getElementById("ospPayOverdue");
+    var ods = document.getElementById("ospPayOverdueSub");
+    if (od) od.textContent = p.overdueInstallments ? p.overdueInstallments + " adet" : "Yok";
+    if (ods) ods.textContent = p.overdueText || "";
+    var alert = document.getElementById("ospPayAlert");
+    if (alert) {
+      if (p.overdueInstallments > 0) {
+        alert.className = "osp-alert";
+        alert.textContent = "Uyarı: " + p.overdueText;
+        alert.hidden = false;
+      } else {
+        alert.className = "osp-alert osp-alert--ok";
+        alert.textContent = "Geciken taksit görünmüyor.";
+        alert.hidden = false;
+      }
+    }
+    var tb = document.getElementById("ospPayTableBody");
+    if (tb) {
+      tb.innerHTML = "";
+      if (!p.rows || !p.rows.length) {
+        var tr0 = document.createElement("tr");
+        tr0.innerHTML =
+          '<td colspan="4" style="text-align:center;color:var(--osp-muted);padding:0.85rem">Taksit kaydı yok — veriler koç panelinden yansır.</td>';
+        tb.appendChild(tr0);
+      }
+      (p.rows || []).forEach(function (r) {
+        var tr = document.createElement("tr");
+        tr.innerHTML =
+          "<td>#" +
+          r.no +
+          "</td><td>" +
+          r.due +
+          "</td><td>" +
+          formatTry(r.amount) +
+          "</td><td>" +
+          r.status +
+          "</td>";
+        tb.appendChild(tr);
+      });
+    }
+  }
+
+  function renderGelisim() {
+    var el = document.getElementById("ospGelisimStats");
+    if (!el) return;
+    var nets = (OSP.gelisim && OSP.gelisim.nets) || [];
+    if (!nets.length) {
+      el.innerHTML =
+        '<span style="font-size:0.85rem;color:var(--osp-muted)">Deneme kaydı geldikçe özet burada güncellenir.</span>';
+      return;
+    }
+    var last = nets[nets.length - 1];
+    var first = nets[0];
+    el.innerHTML =
+      '<div class="osp-stat-inline__item"><strong>' +
+      last +
+      '</strong><span style="font-size:0.78rem;color:var(--osp-muted)">Son TYT net</span></div>' +
+      '<div class="osp-stat-inline__item"><strong>+' +
+      (last - first).toFixed(1) +
+      '</strong><span style="font-size:0.78rem;color:var(--osp-muted)">Dönem artışı</span></div>';
+  }
+
+  function renderOspHedefSimulator() {
+    if (typeof window.__ospHedefRender === "function") window.__ospHedefRender();
+  }
+
+  function initOspPomodoro() {
+    var display = document.getElementById("ospPomoDisplay");
+    var btn25 = document.getElementById("ospPomo25");
+    var btn40 = document.getElementById("ospPomo40");
+    var start = document.getElementById("ospPomoStart");
+    var pause = document.getElementById("ospPomoPause");
+    var brk = document.getElementById("ospPomoBreak");
+    var hint = document.getElementById("ospPomoHint");
+    if (!display || !start || !pause || !brk) return;
+
+    var minutes = 25;
+    var totalSec = 25 * 60;
+    var remaining = totalSec;
+    var timer = null;
+    var isBreak = false;
+
+    function fmt(sec) {
+      var m = Math.floor(sec / 60);
+      var s = sec % 60;
+      return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+    }
+
+    function stopTick() {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    }
+
+    function applyPreset(m) {
+      minutes = m;
+      totalSec = m * 60;
+      remaining = totalSec;
+      isBreak = false;
+      display.textContent = fmt(remaining);
+      display.classList.remove("osp-pomodoro-timer--break");
+      if (btn25 && btn40) {
+        btn25.classList.toggle("is-active", m === 25);
+        btn40.classList.toggle("is-active", m === 40);
+      }
+    }
+
+    if (btn25) btn25.addEventListener("click", function () {
+      stopTick();
+      applyPreset(25);
+      start.disabled = false;
+      pause.disabled = true;
+    });
+    if (btn40) btn40.addEventListener("click", function () {
+      stopTick();
+      applyPreset(40);
+      start.disabled = false;
+      pause.disabled = true;
+    });
+
+    pause.addEventListener("click", function () {
+      stopTick();
+      start.disabled = false;
+      pause.disabled = true;
+      if (hint) hint.textContent = "Duraklatıldı.";
+    });
+
+    brk.addEventListener("click", function () {
+      stopTick();
+      isBreak = true;
+      remaining = 5 * 60;
+      display.classList.add("osp-pomodoro-timer--break");
+      display.textContent = fmt(remaining);
+      start.disabled = false;
+      pause.disabled = true;
+      if (hint) hint.textContent = "Mola: 5 dk — Başlat ile geri sayımı çalıştır.";
+    });
+
+    start.addEventListener("click", function () {
+      if (remaining <= 0 && !isBreak) remaining = totalSec;
+      if (remaining <= 0 && isBreak) remaining = 5 * 60;
+      display.classList.toggle("osp-pomodoro-timer--break", isBreak);
+      if (timer) return;
+      timer = setInterval(function () {
+        remaining -= 1;
+        if (remaining <= 0) {
+          stopTick();
+          display.textContent = "00:00";
+          start.disabled = false;
+          pause.disabled = true;
+          ospToast(isBreak ? "Mola bitti." : "Odak süresi tamamlandı!");
+          if (isBreak) {
+            isBreak = false;
+            remaining = totalSec;
+            display.classList.remove("osp-pomodoro-timer--break");
+            display.textContent = fmt(remaining);
+          } else {
+            remaining = totalSec;
+            display.textContent = fmt(remaining);
+          }
+          if (hint) hint.textContent = "Hazırsan yeni tur için Başlat.";
+          return;
+        }
+        display.textContent = fmt(remaining);
+      }, 1000);
+      start.disabled = true;
+      pause.disabled = false;
+      if (hint) hint.textContent = isBreak ? "Mola süresi işliyor…" : "Odaklanıyorsun…";
+    });
+  }
+
+  function initOspKocaSor() {
+    var dz = document.getElementById("ospKocaDropzone");
+    var fi = document.getElementById("ospKocaFile");
+    var fn = document.getElementById("ospKocaFileName");
+    var msg = document.getElementById("ospKocaMsg");
+    var btn = document.getElementById("ospKocaGonder");
+    if (!dz || !fi || !btn) return;
+    var picked = null;
+    dz.addEventListener("click", function () {
+      fi.click();
+    });
+    dz.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        fi.click();
+      }
+    });
+    dz.addEventListener("dragover", function (e) {
+      e.preventDefault();
+      dz.classList.add("osp-koca-dropzone--drag");
+    });
+    dz.addEventListener("dragleave", function () {
+      dz.classList.remove("osp-koca-dropzone--drag");
+    });
+    dz.addEventListener("drop", function (e) {
+      e.preventDefault();
+      dz.classList.remove("osp-koca-dropzone--drag");
+      var f = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) {
+        picked = f;
+        if (fn) fn.textContent = f.name;
+      }
+    });
+    fi.addEventListener("change", function () {
+      var f = fi.files && fi.files[0];
+      picked = f || null;
+      if (fn) fn.textContent = picked ? picked.name : "";
+    });
+    btn.addEventListener("click", async function () {
+      var text = msg ? String(msg.value || "").trim() : "";
+      if (!text && !picked) {
+        ospToast("Kısa bir mesaj veya dosya ekleyin.");
+        return;
+      }
+      var combined = text;
+      if (picked) {
+        combined = (combined ? combined + "\n\n" : "") + "📎 Ek: " + picked.name + " (şimdilik yalnızca dosya adı iletilir.)";
+      }
+      if (!window.OspPortal || typeof window.OspPortal.sendMessageToCoach !== "function") {
+        ospToast("Oturum hazır değil. Sayfayı yenileyin.");
+        return;
+      }
+      btn.disabled = true;
+      try {
+        var r = await window.OspPortal.sendMessageToCoach(combined);
+        if (r && r.ok) {
+          ospToast("Koçunuza iletildi. Gelen Sorular’dan yanıtlayabilir.");
+          if (msg) msg.value = "";
+          picked = null;
+          fi.value = "";
+          if (fn) fn.textContent = "";
+        } else {
+          ospToast((r && r.message) || "Gönderilemedi.");
+        }
+      } catch (_e) {
+        ospToast("Gönderilemedi.");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+
+  function init() {
+    initOspPdfHaftalik();
+
+    document.querySelectorAll("[data-osp-nav]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var v = btn.getAttribute("data-osp-nav");
+        navigate(v);
+        closeMobileSidebar();
+      });
+    });
+
+    document.getElementById("ospBtnCompleteNext").addEventListener("click", function () {
+      if (OSP.nextTask.done) return;
+      syncTaskDone(OSP.nextTaskId, true);
+      updateNextTaskUi();
+    });
+
+    document.getElementById("ospMenuToggle").addEventListener("click", function () {
+      var sb = document.getElementById("ospSidebar");
+      if (sb && sb.classList.contains("is-open")) closeMobileSidebar();
+      else openMobileSidebar();
+    });
+    document.getElementById("ospSidebarOverlay").addEventListener("click", closeMobileSidebar);
+
+    document.getElementById("ospModalCancel").addEventListener("click", closePageModal);
+    document.getElementById("ospModalSave").addEventListener("click", savePageModal);
+    document.getElementById("ospModalOverlay").addEventListener("click", function (e) {
+      if (e.target.id === "ospModalOverlay") closePageModal();
+    });
+
+    bindAccordion();
+
+    initOspPomodoro();
+    initOspKocaSor();
+
+    renderDashboardHero();
+    initOspDashboard2Charts();
+
+    var btnDash2 = document.getElementById("ospDash2BtnStart");
+    if (btnDash2 && !btnDash2.dataset.bound) {
+      btnDash2.dataset.bound = "1";
+      btnDash2.addEventListener("click", function () {
+        var anchor = document.getElementById("ospPomodoroAnchor");
+        if (anchor) {
+          anchor.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+        ospToast("Odak merkezine geçildi — Pomodoro ile başlayabilirsin.");
+      });
+    }
+
+    document.getElementById("ospWgNet").textContent = String(OSP.lastExamNet);
+    document.getElementById("ospWgSolved").textContent = formatNum(OSP.totalSolved);
+    document.getElementById("ospWgWeek").textContent = "%" + computeWeekPct();
+    document.getElementById("ospNextTaskTitle").textContent = OSP.nextTask.title;
+    document.getElementById("ospNextTaskMeta").textContent = OSP.nextTask.detail;
+    updateNextTaskUi();
+
+    renderWeek();
+    renderBooks();
+    renderPayment();
+    renderGelisim();
+
+    function bootOspWidgets(done) {
+      import("../js/osp-student-widgets.js")
+        .then(function (m) {
+          try {
+            m.mountOspMufredatAccordion("ospMufredatMount");
+            m.initOspYksCountdown();
+            m.wireOspHedefSimulator();
+          } catch (e) {
+            console.warn("[OSP widgets]", e);
+          }
+          if (typeof done === "function") done();
+        })
+        .catch(function (e) {
+          console.warn("[OSP widgets] yükleme", e);
+          if (typeof done === "function") done();
+        });
+    }
+
+    bootOspWidgets(function () {
+      var hash = (location.hash || "").replace(/^#/, "");
+      if (titles[hash]) navigate(hash);
+      else navigate("dashboard");
+    });
+
+    window.addEventListener("resize", function () {
+      if (window.innerWidth > 992) closeMobileSidebar();
+      if (document.getElementById("ospViewDashboard") && !document.getElementById("ospViewDashboard").hidden) {
+        initOspDashboard2Charts();
+      }
+    });
+  }
+
+  window.__ospNavigate = navigate;
+  window.ospToast = ospToast;
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+  </script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js" crossorigin="anonymous"></script>
+  <script type="module" src="../js/sorun-bildir.js"></script>
+  <script type="module" src="../js/ogrenci-panel-app.js"></script>
+</body>
+</html>

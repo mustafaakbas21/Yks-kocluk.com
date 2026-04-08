@@ -269,11 +269,11 @@ async function resolveAndRedirectByProfile(user) {
       minimal: isKurucuRole(profile.role),
     });
     if (profile.role === "student") {
-      window.location.replace("/ogrenci-panel");
+      window.location.replace("/pages/ogrenci-panel.html");
       return;
     }
     if (isKurucuRole(profile.role)) {
-      window.location.replace("/super-admin");
+      window.location.replace("/pages/super-admin.html");
       return;
     }
     if (profile.role === "coach") {
@@ -286,7 +286,7 @@ async function resolveAndRedirectByProfile(user) {
         return;
       }
     }
-    window.location.replace("/koc-panel");
+    window.location.replace("/pages/koc-panel.html");
   } catch (e) {
     var msg = e && e.message != null ? String(e.message) : "";
     logAppwriteError("login.js/resolveAndRedirectByProfile", e);
@@ -467,7 +467,7 @@ loginFormEl.addEventListener("submit", async function (e) {
       } catch (e) {
         logAppwriteError("login.js/submit/studentLastLogin", e);
       }
-      window.location.replace("/ogrenci-panel");
+      window.location.replace("/pages/ogrenci-panel.html");
       return;
     }
     if (isKurucuRole(profile.role)) {
@@ -478,7 +478,7 @@ loginFormEl.addEventListener("submit", async function (e) {
           sessionStorage.setItem("dp_sa_reauth_pw", password);
         }
       } catch (e) {}
-      window.location.replace("/super-admin");
+      window.location.replace("/pages/super-admin.html");
     } else {
       try {
         sessionStorage.removeItem("superAdminViewAsCoach");
@@ -498,7 +498,7 @@ loginFormEl.addEventListener("submit", async function (e) {
       } catch (e) {
         logAppwriteError("login.js/submit/coachLoginLog", e);
       }
-      window.location.replace("/koc-panel");
+      window.location.replace("/pages/koc-panel.html");
     }
   } catch (err) {
     var rawMsg = err && err.message != null ? String(err.message) : "";

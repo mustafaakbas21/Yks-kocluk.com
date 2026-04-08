@@ -3039,7 +3039,7 @@ function onTableAction(ev) {
       alert("sessionStorage kullanılamıyor.");
       return;
     }
-    window.location.href = "/koc-panel";
+    window.location.href = "/pages/koc-panel.html";
   }
 }
 

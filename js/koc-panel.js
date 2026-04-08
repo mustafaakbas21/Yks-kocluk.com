@@ -303,7 +303,7 @@ function showSaAnalyticsToolBanner() {
   bar.innerHTML =
     '<span><i class="fa-solid fa-chart-line" style="margin-right:0.45rem;color:#34f5c5"></i>Kurucu — <strong>' +
     escapeHtml(label) +
-    '</strong></span><a href="/super-admin" style="color:#c4b5fd;text-decoration:underline;font-weight:800">Kurucu paneline dön</a>';
+    '</strong></span><a href="/pages/super-admin.html" style="color:#c4b5fd;text-decoration:underline;font-weight:800">Kurucu paneline dön</a>';
   document.body.insertBefore(bar, document.body.firstChild);
 }
 
@@ -343,7 +343,7 @@ function showImpersonateBanner(coachUsername) {
         sessionStorage.removeItem("superAdminViewAsCoach");
       } catch (err) {}
       document.body.style.paddingTop = "";
-      window.location.href = "/super-admin";
+      window.location.href = "/pages/super-admin.html";
     });
   }
 }
@@ -1631,7 +1631,7 @@ function initAiTestGenWizard() {
       } catch (eNav) {
         console.error("[ai-test] navigate:", eNav);
         try {
-          window.location.href = "/test-tasarimi";
+          window.location.href = "/pages/test-tasarimi.html";
         } catch (_e3) {}
       }
       if (btnAi) btnAi.disabled = false;
@@ -20294,7 +20294,7 @@ function finalizeKocPanelAdmission(profile, user) {
     });
   }
   if (profile.role === "student") {
-    window.location.replace("/ogrenci-panel");
+    window.location.replace("/pages/ogrenci-panel.html");
     return;
   }
   if (profile.role === "admin") {
@@ -20316,7 +20316,7 @@ function finalizeKocPanelAdmission(profile, user) {
       bootstrapKocPanelAfterAuth();
       return;
     }
-    window.location.replace("/super-admin");
+    window.location.replace("/pages/super-admin.html");
     return;
   }
   if (profile.role !== "coach") {
