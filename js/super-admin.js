@@ -37,7 +37,7 @@ import {
   databasesUpdateDocumentOrSoft,
   databasesDeleteDocumentOrSoft,
   isAppwriteWriteSoftFailure,
-} from "./appwrite-compat.js?v=20260409-sa-coach-list";
+} from "./appwrite-compat.js?v=20260409-schema-users";
 import {
   storage,
   APPWRITE_BUCKET_DESTEK,

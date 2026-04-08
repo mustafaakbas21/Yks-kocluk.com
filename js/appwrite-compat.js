@@ -245,6 +245,72 @@ function __isPermissionLikeError(e) {
   );
 }
 
+/** Belge yazımı: Console’da tanımlı olmayan attribute (400). */
+function __isDocumentStructureUnknownAttributeError(e) {
+  const msg = String((e && e.message) || "");
+  return /invalid document structure/i.test(msg) && /unknown attribute/i.test(msg);
+}
+
+function __unknownAttributeNameFromError(e) {
+  const msg = String((e && e.message) || "");
+  let m = msg.match(/Unknown attribute:\s*"([^"]+)"/i);
+  if (m) return m[1].trim();
+  m = msg.match(/Unknown attribute:\s*'([^']+)'/i);
+  if (m) return m[1].trim();
+  m = msg.match(/unknown attribute[:\s]+([a-zA-Z0-9_]+)/i);
+  return m ? m[1].trim() : "";
+}
+
+function __throwFriendlyDocumentSchemaError(collectionId, err) {
+  const cid = String(collectionId || "");
+  const attr = __unknownAttributeNameFromError(err) || "bilinmeyen alan";
+  const hint =
+    "Appwrite veritabanı şeması güncel değil: «" +
+    cid +
+    "» koleksiyonunda «" +
+    attr +
+    "» alanı tanımlı değil. Çözüm: Appwrite Console → Databases → " +
+    cid +
+    " → Attributes bölümünde bu alanı ekleyin; veya sunucuda .env ile API anahtarı ayarlayıp `npm run setup:appwrite` çalıştırın (setup-appwrite.js tüm gerekli sütunları oluşturur).";
+  console.warn("[Appwrite] Orijinal hata:", err && err.message ? err.message : err);
+  throw new Error(hint);
+}
+
+/**
+ * setup-appwrite.js ile hizalı: tanımsız anahtar gönderilmez (Unknown attribute riski azalır).
+ * Eksik sütun hâlâ Console/setup ile eklenmelidir.
+ */
+const USERS_WRITE_KEYS = new Set([
+  "username",
+  "role",
+  "fullName",
+  "coach_id",
+  "institutionId",
+  "institutionName",
+  "phone",
+  "packageType",
+  "plainPassword",
+  "frozen",
+  "createdAt",
+  "lastLogin",
+  "lastPasswordChangeAt",
+]);
+
+const COACHES_WRITE_KEYS = new Set(["username", "institutionId", "fullName", "name"]);
+
+function pickCollectionWritePayload(collectionId, payload) {
+  const cid = String(collectionId || "");
+  let allow = null;
+  if (cid === "users") allow = USERS_WRITE_KEYS;
+  else if (cid === "coaches") allow = COACHES_WRITE_KEYS;
+  if (!allow) return payload;
+  const out = {};
+  Object.keys(payload || {}).forEach(function (k) {
+    if (allow.has(k)) out[k] = payload[k];
+  });
+  return out;
+}
+
 /**
  * `addDoc` / `setDoc` / `updateDoc` dönüşünde `__softFail: true` ise izin veya koleksiyon/şema kaynaklı iptal.
  * @param {unknown} r
@@ -407,11 +473,14 @@ export async function addDoc(collectionRef, data) {
   }
   const payload = normalizeValue(raw);
   mergeCoachIdIntoPayload(c.collectionId, payload);
+  const payloadForWrite = pickCollectionWritePayload(c.collectionId, payload);
   /** institutions: şemada yalnızca özel attribute `name` — $createdAt Appwrite meta. */
-  var docPayloadForCreate = payload;
+  var docPayloadForCreate = payloadForWrite;
   if (String(c.collectionId || "") === "institutions") {
     docPayloadForCreate = {};
-    if (payload.name !== undefined && payload.name !== null) docPayloadForCreate.name = payload.name;
+    if (payloadForWrite.name !== undefined && payloadForWrite.name !== null) {
+      docPayloadForCreate.name = payloadForWrite.name;
+    }
   }
   const perms = isCoachScopedCollection(c.collectionId) ? buildScopedDocumentPermissions() : undefined;
   try {
@@ -441,6 +510,9 @@ export async function addDoc(collectionRef, data) {
       );
       return { id: null, __softFail: true, message: String((err && err.message) || "") };
     }
+    if (__isDocumentStructureUnknownAttributeError(err)) {
+      __throwFriendlyDocumentSchemaError(c.collectionId, err);
+    }
     logAppwriteError("appwrite-compat.js/addDoc", err);
     throw err;
   }
@@ -457,6 +529,7 @@ export async function setDoc(docRef, data) {
   }
   const payload = normalizeValue(raw);
   mergeCoachIdIntoPayload(d.collectionId, payload);
+  const payloadForWrite = pickCollectionWritePayload(d.collectionId, payload);
   const docPerms = isCoachScopedCollection(d.collectionId) ? buildScopedDocumentPermissions() : undefined;
   function softReturn(err) {
     if (__isWriteMissingCollectionError(err) || __isPermissionLikeError(err)) {
@@ -471,15 +544,21 @@ export async function setDoc(docRef, data) {
     return null;
   }
   try {
-    await databases.updateDocument(APPWRITE_DATABASE_ID, d.collectionId, d.docId, payload);
+    await databases.updateDocument(APPWRITE_DATABASE_ID, d.collectionId, d.docId, payloadForWrite);
   } catch (_e) {
     const sr = softReturn(_e);
     if (sr) return sr;
+    if (__isDocumentStructureUnknownAttributeError(_e)) {
+      __throwFriendlyDocumentSchemaError(d.collectionId, _e);
+    }
     try {
-      await databases.createDocument(APPWRITE_DATABASE_ID, d.collectionId, d.docId, payload, docPerms);
+      await databases.createDocument(APPWRITE_DATABASE_ID, d.collectionId, d.docId, payloadForWrite, docPerms);
     } catch (err) {
       const sr2 = softReturn(err);
       if (sr2) return sr2;
+      if (__isDocumentStructureUnknownAttributeError(err)) {
+        __throwFriendlyDocumentSchemaError(d.collectionId, err);
+      }
       logAppwriteError("appwrite-compat.js/setDoc", err);
       throw err;
     }
@@ -489,8 +568,9 @@ export async function setDoc(docRef, data) {
 export async function updateDoc(docRef, data) {
   const d = parseDocRef(docRef.pathSegments);
   const payload = normalizeValue(data || {});
+  const payloadForWrite = pickCollectionWritePayload(d.collectionId, payload);
   try {
-    await databases.updateDocument(APPWRITE_DATABASE_ID, d.collectionId, d.docId, payload);
+    await databases.updateDocument(APPWRITE_DATABASE_ID, d.collectionId, d.docId, payloadForWrite);
   } catch (err) {
     if (__isWriteMissingCollectionError(err) || __isPermissionLikeError(err)) {
       __blacklistedCollections.add(d.collectionId);
@@ -500,6 +580,9 @@ export async function updateDoc(docRef, data) {
         err && err.message ? "(" + err.message + ")" : ""
       );
       return { __softFail: true, message: String((err && err.message) || "") };
+    }
+    if (__isDocumentStructureUnknownAttributeError(err)) {
+      __throwFriendlyDocumentSchemaError(d.collectionId, err);
     }
     logAppwriteError("appwrite-compat.js/updateDoc", err);
     throw err;
@@ -614,12 +697,13 @@ export async function databasesCreateDocumentOrSoft(databaseId, collectionId, do
   }
   const payload = normalizeValue(raw);
   mergeCoachIdIntoPayload(cid, payload);
+  const payloadForWrite = pickCollectionWritePayload(cid, payload);
   var perms = permissionsOverride;
   if (perms === undefined && isCoachScopedCollection(cid)) {
     perms = buildScopedDocumentPermissions();
   }
   try {
-    return await databases.createDocument(databaseId, cid, documentId, payload, perms);
+    return await databases.createDocument(databaseId, cid, documentId, payloadForWrite, perms);
   } catch (err) {
     if (__isWriteMissingCollectionError(err) || __isPermissionLikeError(err)) {
       __blacklistedCollections.add(cid);
@@ -630,6 +714,9 @@ export async function databasesCreateDocumentOrSoft(databaseId, collectionId, do
       );
       return { __softFail: true, message: String((err && err.message) || "") };
     }
+    if (__isDocumentStructureUnknownAttributeError(err)) {
+      __throwFriendlyDocumentSchemaError(cid, err);
+    }
     logAppwriteError("appwrite-compat.js/databasesCreateDocumentOrSoft", err);
     throw err;
   }
@@ -639,8 +726,9 @@ export async function databasesCreateDocumentOrSoft(databaseId, collectionId, do
 export async function databasesUpdateDocumentOrSoft(databaseId, collectionId, documentId, data) {
   const cid = String(collectionId || "");
   const payload = normalizeValue(data || {});
+  const payloadForWrite = pickCollectionWritePayload(cid, payload);
   try {
-    await databases.updateDocument(databaseId, cid, documentId, payload);
+    await databases.updateDocument(databaseId, cid, documentId, payloadForWrite);
   } catch (err) {
     if (__isWriteMissingCollectionError(err) || __isPermissionLikeError(err)) {
       __blacklistedCollections.add(cid);
@@ -650,6 +738,9 @@ export async function databasesUpdateDocumentOrSoft(databaseId, collectionId, do
         err && err.message ? "(" + err.message + ")" : ""
       );
       return { __softFail: true, message: String((err && err.message) || "") };
+    }
+    if (__isDocumentStructureUnknownAttributeError(err)) {
+      __throwFriendlyDocumentSchemaError(cid, err);
     }
     logAppwriteError("appwrite-compat.js/databasesUpdateDocumentOrSoft", err);
     throw err;
