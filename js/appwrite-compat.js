@@ -176,9 +176,15 @@ function __isCollectionMissingError(e) {
   const msg = e && e.message != null ? String(e.message) : String(e || "");
   const type = e && e.type != null ? String(e.type).toLowerCase() : "";
   if (type === "collection_not_found" || /collection_not_found/i.test(type)) return true;
-  return /collection.*not found|unknown collection|invalid collection|could not be found|collection with the requested id could not be found/i.test(
-    msg
-  );
+  // Belge yok (updateDocument 404): setDoc aynı yolda createDocument dener; bunu koleksiyon eksik sanma.
+  if (
+    /document with the requested id/i.test(msg) ||
+    /document_not_found/i.test(type) ||
+    /document_not_found/i.test(msg)
+  ) {
+    return false;
+  }
+  return /collection.*not found|unknown collection|invalid collection|collection with the requested id could not be found/i.test(msg);
 }
 
 /** createDocument / updateDocument: koleksiyon yok veya benzeri 404. */

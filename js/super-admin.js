@@ -37,7 +37,7 @@ import {
   databasesUpdateDocumentOrSoft,
   databasesDeleteDocumentOrSoft,
   isAppwriteWriteSoftFailure,
-} from "./appwrite-compat.js?v=20260408-sa-compat-creat";
+} from "./appwrite-compat.js?v=20260408-sa-setdoc-health";
 import {
   storage,
   APPWRITE_BUCKET_DESTEK,
@@ -4065,6 +4065,11 @@ async function measureSystemSpeeds() {
   var pDb = (async function () {
     var t0 = performance.now();
     try {
+      // /v1/health bazı barındırmalarda tarayıcıdan CORS vermez; API ile aynı origin kuralları için Account.get kullan.
+      if (saAccountApi) {
+        await saAccountApi.get();
+        return { ok: true, ms: performance.now() - t0 };
+      }
       await fetch(healthUrl, { method: "GET", cache: "no-store", mode: "cors" });
       return { ok: true, ms: performance.now() - t0 };
     } catch (_e) {
