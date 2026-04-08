@@ -95,9 +95,44 @@ function sanitizeUsernameForDb(v) {
     .replace(/[^a-z0-9_]/g, "");
 }
 
+function loginRoleIsCoach(role) {
+  var r = String(role || "")
+    .trim()
+    .toLowerCase();
+  return r === "coach" || r === "koc" || r === "koç";
+}
+
 function inferUsernameFromEmail(email) {
   var local = String(email || "").split("@")[0] || "";
   return sanitizeUsernameForDb(local);
+}
+
+/**
+ * Eski veri: kurum yalnızca `coaches` koleksiyonundaysa `users` profili boş kalabiliyor.
+ * Girişte `coaches` ile tamamla; böylece koç panele geçebilir.
+ */
+async function enrichUsersProfileWithCoachesCollection(prof, uname) {
+  if (!prof || !uname) return prof;
+  if (!loginRoleIsCoach(prof.role)) return prof;
+  var iid = prof.institutionId != null ? String(prof.institutionId).trim() : "";
+  if (iid) return prof;
+  try {
+    var res = await databasesListDocumentsOrSoft(APPWRITE_DATABASE_ID, "coaches", [
+      AQuery.equal("username", uname),
+      AQuery.limit(1),
+    ]);
+    if (isAppwriteWriteSoftFailure(res) || !res.documents || !res.documents.length) return prof;
+    var c = res.documents[0];
+    var lid = c.institutionId != null ? String(c.institutionId).trim() : "";
+    if (!lid) return prof;
+    return Object.assign({}, prof, {
+      institutionId: lid,
+      institutionName: c.institutionName != null ? c.institutionName : prof.institutionName,
+    });
+  } catch (e) {
+    logAppwriteError("login.js/enrichUsersProfileWithCoachesCollection", e);
+    return prof;
+  }
 }
 
 async function findProfileFromDatabase(authUser, fallbackUsername) {
@@ -178,8 +213,26 @@ async function findProfileFromDatabase(authUser, fallbackUsername) {
 }
 
 async function ensureProfileSynchronized(authUser, loginMode, rawUser) {
+  var unameForMerge = sanitizeUsernameForDb(rawUser || inferUsernameFromEmail(authUser && authUser.email));
   var existing = await findProfileFromDatabase(authUser, rawUser);
-  if (existing && existing.role) return existing;
+  if (existing && existing.role) {
+    var merged = await enrichUsersProfileWithCoachesCollection(existing, unameForMerge);
+    var authUid = authUser && authUser.uid ? String(authUser.uid) : "";
+    var hadInst =
+      existing.institutionId != null ? String(existing.institutionId).trim() : "";
+    var nowInst = merged.institutionId != null ? String(merged.institutionId).trim() : "";
+    if (authUid && loginRoleIsCoach(merged.role) && nowInst && !hadInst) {
+      try {
+        await updateDoc(doc(db, "users", authUid), {
+          institutionId: nowInst,
+          institutionName: merged.institutionName != null ? merged.institutionName : null,
+        });
+      } catch (e) {
+        logAppwriteError("login.js/ensureProfileSynchronized/syncInstitutionFromCoaches", e);
+      }
+    }
+    return merged;
+  }
 
   var uid = authUser && authUser.uid ? String(authUser.uid) : "";
   var email = authUser && authUser.email ? String(authUser.email).toLowerCase() : "";

@@ -147,6 +147,94 @@ function saRoleIsCoach(role) {
   return r === "coach" || r === "koc" || r === "koç";
 }
 
+/** Tablo satırı: yalnızca `coaches` koleksiyonunda olan eski kayıt (Appwrite Auth `users` belgesi yok). */
+var SA_LEGACY_COACH_PREFIX = "legacy_coach_";
+
+function saCoachesLegacyRowToSnapshot(row) {
+  var pid = row && (row.$id != null ? row.$id : row.id);
+  var r = row || {};
+  return {
+    id: SA_LEGACY_COACH_PREFIX + String(pid || "x"),
+    data: function () {
+      return {
+        username: r.username || "",
+        role: "coach",
+        institutionId: r.institutionId != null ? r.institutionId : "",
+        institutionName: r.institutionName != null ? r.institutionName : null,
+        fullName: r.fullName || r.name || null,
+        packageType: r.packageType || "—",
+        phone: r.phone,
+        frozen: r.frozen === true,
+        plainPassword: r.plainPassword,
+        lastLogin: r.lastLogin,
+      };
+    },
+  };
+}
+
+/**
+ * Koçları `users` + eski `coaches` ile birleştirir; `users` içinde boş kurumu `coaches`ten doldurur.
+ */
+async function saLoadCoachRowsMerged() {
+  var qUsers = query(collection(db, "users"), where("role", "==", "coach"));
+  var snapUsers = await getDocs(qUsers);
+  var legacySnap = null;
+  try {
+    legacySnap = await getDocs(collection(db, "coaches"));
+  } catch (_e) {
+    legacySnap = null;
+  }
+  var legacyByUsername = new Map();
+  if (legacySnap && legacySnap.docs && legacySnap.docs.length) {
+    legacySnap.docs.forEach(function (d) {
+      var x = typeof d.data === "function" ? d.data() : {};
+      var u = String(x.username || "")
+        .trim()
+        .toLowerCase();
+      if (u) legacyByUsername.set(u, x);
+    });
+  }
+  var seenUsernames = new Set();
+  var out = [];
+  snapUsers.docs.forEach(function (d) {
+    var x = typeof d.data === "function" ? d.data() : {};
+    var u = String(x.username || "")
+      .trim()
+      .toLowerCase();
+    if (u) seenUsernames.add(u);
+    var leg = u ? legacyByUsername.get(u) : null;
+    var iid = x.institutionId != null ? String(x.institutionId).trim() : "";
+    if (!iid && leg) {
+      var li = leg.institutionId != null ? String(leg.institutionId).trim() : "";
+      if (li) {
+        var merged = Object.assign({}, x, {
+          institutionId: li,
+          institutionName: leg.institutionName != null ? leg.institutionName : x.institutionName,
+        });
+        out.push({
+          id: d.id,
+          data: function () {
+            return merged;
+          },
+        });
+        return;
+      }
+    }
+    out.push(d);
+  });
+  if (legacySnap && legacySnap.docs && legacySnap.docs.length) {
+    legacySnap.docs.forEach(function (d) {
+      var x = typeof d.data === "function" ? d.data() : {};
+      var u = String(x.username || "")
+        .trim()
+        .toLowerCase();
+      if (!u || seenUsernames.has(u)) return;
+      out.push(saCoachesLegacyRowToSnapshot(x));
+    });
+  }
+  return out;
+}
+
 function escapeHtml(s) {
   var d = document.createElement("div");
   d.textContent = s;
@@ -2457,12 +2545,45 @@ async function renderCoachesTable(docs) {
       var n = await countStudentsForCoach(uname);
       var last = formatLastLogin(x.lastLogin);
       var uid = d.id;
+      var isLegacyOnly = String(uid).indexOf(SA_LEGACY_COACH_PREFIX) === 0;
       var email = sanitizeUsername(uname) + EMAIL_DOMAIN;
+      var actionsCell = isLegacyOnly
+        ? '<td class="actions-cell"><span class="mono" style="font-size:0.78rem;color:var(--muted);line-height:1.35">Eski «coaches» kaydı — giriş için Appwrite’da bu kullanıcı adıyla «users» profili olmalı.</span></td>'
+        : '<td class="actions-cell">' +
+          '<button type="button" class="btn-action btn-action--key" data-act="pwd" data-uid="' +
+          escapeHtml(uid) +
+          '" data-email="' +
+          escapeHtml(email) +
+          '" title="Şifre sıfırla">🔑</button>' +
+          '<button type="button" class="btn-action btn-action--freeze" data-act="freeze" data-uid="' +
+          escapeHtml(uid) +
+          '" data-frozen="' +
+          (frozen ? "1" : "0") +
+          '" title="' +
+          (frozen ? "Hesabı aç" : "Hesabı dondur") +
+          '">' +
+          (frozen ? "✅" : "🛑") +
+          "</button>" +
+          '<button type="button" class="btn-action btn-action--edit" data-act="edit" data-uid="' +
+          escapeHtml(uid) +
+          '" title="Düzenle"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>' +
+          '<button type="button" class="btn-action btn-action--del" data-act="del" data-uid="' +
+          escapeHtml(uid) +
+          '" data-user="' +
+          escapeHtml(uname) +
+          '" title="Sil"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>' +
+          '<button type="button" class="btn-action btn-action--eye" data-act="imp" data-user="' +
+          escapeHtml(uname) +
+          '" data-institution-id="' +
+          escapeHtml(coachInstId) +
+          '" title="Panele sız (impersonate)">👁️</button>' +
+          "</td>";
 
       return {
         html:
           '<tr class="sa-coach-row ' +
           (frozen ? "is-frozen" : "") +
+          (isLegacyOnly ? " sa-coach-row--legacy" : "") +
           '" data-sa-user="' +
           escapeHtml(uname) +
           '" data-sa-inst="' +
@@ -2501,35 +2622,8 @@ async function renderCoachesTable(docs) {
             ? '<span class="badge badge--frozen">Donduruldu</span>'
             : '<span class="mono" style="color:#34f5c5">Aktif</span>') +
           "</td>" +
-          '<td class="actions-cell">' +
-          '<button type="button" class="btn-action btn-action--key" data-act="pwd" data-uid="' +
-          escapeHtml(uid) +
-          '" data-email="' +
-          escapeHtml(email) +
-          '" title="Şifre sıfırla">🔑</button>' +
-          '<button type="button" class="btn-action btn-action--freeze" data-act="freeze" data-uid="' +
-          escapeHtml(uid) +
-          '" data-frozen="' +
-          (frozen ? "1" : "0") +
-          '" title="' +
-          (frozen ? "Hesabı aç" : "Hesabı dondur") +
-          '">' +
-          (frozen ? "✅" : "🛑") +
-          "</button>" +
-          '<button type="button" class="btn-action btn-action--edit" data-act="edit" data-uid="' +
-          escapeHtml(uid) +
-          '" title="Düzenle"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>' +
-          '<button type="button" class="btn-action btn-action--del" data-act="del" data-uid="' +
-          escapeHtml(uid) +
-          '" data-user="' +
-          escapeHtml(uname) +
-          '" title="Sil"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>' +
-          '<button type="button" class="btn-action btn-action--eye" data-act="imp" data-user="' +
-          escapeHtml(uname) +
-          '" data-institution-id="' +
-          escapeHtml(coachInstId) +
-          '" title="Panele sız (impersonate)">👁️</button>' +
-          "</td></tr>",
+          actionsCell +
+          "</tr>",
       };
     })
   );
@@ -3220,8 +3314,14 @@ function subscribeCoachesList() {
   var q = query(collection(db, "users"), where("role", "==", "coach"));
   coachesUnsub = onSnapshot(
     q,
-    function (snap) {
-      renderCoachesTable(snap.docs);
+    function (_snap) {
+      saLoadCoachRowsMerged()
+        .then(function (docs) {
+          return renderCoachesTable(docs);
+        })
+        .catch(function (e) {
+          console.error("[super-admin] subscribeCoachesList merge", e);
+        });
     },
     function (err) {
       console.error(err);
@@ -3235,9 +3335,8 @@ function subscribeCoachesList() {
 /** Koç tablosunu sunucudan tekrar oku (oluşturma/düzenleme sonrası; tam sayfa yenileme gerekmez). */
 async function refreshCoachesListNow() {
   try {
-    var q = query(collection(db, "users"), where("role", "==", "coach"));
-    var snap = await getDocs(q);
-    await renderCoachesTable(snap.docs);
+    var docs = await saLoadCoachRowsMerged();
+    await renderCoachesTable(docs);
   } catch (e) {
     console.error("[super-admin] refreshCoachesListNow", e);
   }
