@@ -2,11 +2,17 @@
  * Fasikül / Kitap Üretici — Gemini 1.5 Flash + pdfmake (Matbaa v3.1 Dinamik Prompt)
  * Müfredat: ./yks-mufredat.js
  *
- * Gemini çağrıları: POST /api/gemini-fasikul (Vercel serverless; anahtar yalnızca GEMINI_API_KEY ortam değişkeninde).
- * Özel URL: window.__GEMINI_PROXY_URL = "https://..." (test / CDN sonrası).
+ * Gemini: doğrudan Google Generative Language API (tarayıcı). Anahtar GEMINI_API_KEY veya window.__GEMINI_API_KEY.
  */
 
 import { YKS2026_Mufredat } from "./yks-mufredat.js";
+
+/** Google AI Studio / Cloud API anahtarı (istemcide görünür). Boşsa window.__GEMINI_API_KEY kullanılır. */
+const GEMINI_API_KEY = "";
+
+const GEMINI_MODEL_ID = "gemini-1.5-flash";
+const GEMINI_GENERATE_CONTENT_BASE =
+  "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL_ID + ":generateContent";
 
 const MIN_QUESTIONS = 1;
 const MAX_QUESTIONS = 40;
@@ -15,12 +21,24 @@ const MAX_QUESTIONS = 40;
 const GEMINI_MAX_OUTPUT_TOKENS = 8192;
 const DEFAULT_WATERMARK = "DerecePanel";
 
-/** Sunucu proxy yolu (Vercel: api/gemini-fasikul.js) */
-function getGeminiProxyUrl() {
-  if (typeof window !== "undefined" && window.__GEMINI_PROXY_URL) {
-    return String(window.__GEMINI_PROXY_URL).replace(/\/?$/, "");
+function resolveGeminiApiKey() {
+  var fromWindow =
+    typeof window !== "undefined" && window.__GEMINI_API_KEY
+      ? String(window.__GEMINI_API_KEY).trim()
+      : "";
+  var fromConst = String(GEMINI_API_KEY || "").trim();
+  return fromWindow || fromConst;
+}
+
+/** Google resmi endpoint (?key= ile kimlik doğrulama). */
+function getGeminiGenerateContentUrl() {
+  var key = resolveGeminiApiKey();
+  if (!key) {
+    throw new Error(
+      "GEMINI_API_KEY tanımlı değil. js/fasikul-uretici.js içinde GEMINI_API_KEY sabitini doldurun veya window.__GEMINI_API_KEY atayın."
+    );
   }
-  return "/api/gemini-fasikul";
+  return GEMINI_GENERATE_CONTENT_BASE + "?key=" + encodeURIComponent(key);
 }
 
 /** Appwrite yerine mock öğrenci listesi */
@@ -360,7 +378,7 @@ function stripJsonCodeFences(raw) {
 
 async function fetchGeminiFasikulJson(form) {
   var n = clampInt(form.questionCount, MIN_QUESTIONS, MAX_QUESTIONS);
-  var url = getGeminiProxyUrl();
+  var url = getGeminiGenerateContentUrl();
   var body = {
     systemInstruction: { parts: [{ text: buildGeminiSystemInstruction(form) }] },
     contents: [{ role: "user", parts: [{ text: buildGeminiUserPrompt(form) }] }],
@@ -379,32 +397,49 @@ async function fetchGeminiFasikulJson(form) {
       responseJsonSchema: FASIKUL_RESPONSE_JSON_SCHEMA,
     },
   };
-  var res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  var rawText = await res.text();
+  var res;
+  var rawText = "";
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (netErr) {
+    throw new Error(
+      "Gemini ağ hatası: " + (netErr && netErr.message ? netErr.message : String(netErr))
+    );
+  }
+  try {
+    rawText = await res.text();
+  } catch (readErr) {
+    throw new Error("Yanıt gövdesi okunamadı: " + (readErr && readErr.message ? readErr.message : String(readErr)));
+  }
   var data;
   try {
     data = JSON.parse(rawText);
-  } catch (_e) {
-    throw new Error("Gemini yanıtı JSON değil: " + rawText.slice(0, 200));
+  } catch (_parseErr) {
+    throw new Error("Gemini yanıtı geçerli JSON değil: " + String(rawText || "").slice(0, 240));
   }
   if (!res.ok) {
     var msg =
-      (data.error && (data.error.message || data.error)) ||
+      (data.error && (data.error.message || data.error.status)) ||
       (typeof data.error === "string" && data.error) ||
       "HTTP " + res.status;
-    if (res.status === 500 && data.error && String(data.error).indexOf("GEMINI_API_KEY") !== -1) {
-      msg = "Sunucuda GEMINI_API_KEY tanımlı değil (Vercel ortam değişkeni veya vercel dev + .env).";
-    }
     throw new Error("Gemini API: " + msg);
+  }
+  if (!data || typeof data !== "object") {
+    throw new Error("Gemini yanıtı beklenen nesne biçiminde değil.");
   }
   var parts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
   var text = parts && parts[0] && parts[0].text;
-  if (!text) throw new Error("Gemini boş yanıt döndü.");
-  var parsed = JSON.parse(stripJsonCodeFences(text));
+  if (!text) throw new Error("Gemini boş veya beklenmeyen yapıda yanıt döndü.");
+  var parsed;
+  try {
+    parsed = JSON.parse(stripJsonCodeFences(text));
+  } catch (_inner) {
+    throw new Error("Model çıktısı JSON olarak çözülemedi: " + String(text).slice(0, 200));
+  }
   if (!parsed.konuOzeti || !Array.isArray(parsed.sorular)) {
     throw new Error("JSON şeması eksik.");
   }

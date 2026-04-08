@@ -92,6 +92,8 @@ export async function fetchAppwriteUserProfile(authUser, fallbackUsername) {
           role: "coach",
           fullName: coachDoc.fullName || coachDoc.name || null,
           coach_id: uname,
+          institutionId: coachDoc.institutionId != null ? String(coachDoc.institutionId).trim() : "",
+          institutionName: coachDoc.institutionName || null,
         };
       }
       if (isAppwriteWriteSoftFailure(coachesByUsername)) {

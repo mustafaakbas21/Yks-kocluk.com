@@ -49,6 +49,7 @@ import {
   APPWRITE_COLLECTION_EXAM_RESULTS,
   APPWRITE_BUCKET_SORU_HAVUZU,
   APPWRITE_ENDPOINT,
+  APPWRITE_COLLECTION_INSTITUTIONS,
 } from "./appwrite-config.js";
 import { Query, Account } from "./appwrite-browser.js";
 import { parseFlexibleDate, formatDateTimeTr } from "./date-format.js";
@@ -93,6 +94,12 @@ function takeSaReauthPasswordForCreate() {
 
 let coachesUnsub = null;
 let studentsUnsub = null;
+let institutionsUnsub = null;
+/** @type {{ id: string, data: function(): Record<string, unknown> }[]} */
+var lastInstitutionDocs = [];
+
+/** Appwrite `onSnapshot` tek seferlik okuma yapıyor; periyodik yenileme + oluşturma sonrası manuel tazeleme gerekir. */
+var SA_USERS_LIST_POLL_MS = 12000;
 let quotesUnsub = null;
 let settingsUnsub = null;
 let adminLoginChart = null;
@@ -102,6 +109,21 @@ let lastStudentDocs = [];
 let cachedStudentTotal = 0;
 let saStudentCtx = { uid: "", origUsername: "" };
 let saCoachCtx = { uid: "", origUsername: "" };
+/** Koç düzenle modalı: kurum select yeniden doldurulunca seçimi korumak için */
+var saCoachEditPendingInstitutionId = "";
+
+function getInstitutionIdForCoachUsername(coachUsername) {
+  var want = String(coachUsername || "").trim();
+  if (!want) return "";
+  for (var i = 0; i < lastCoachDocs.length; i++) {
+    var d = lastCoachDocs[i];
+    var x = typeof d.data === "function" ? d.data() : {};
+    if ((x.role || "") !== "coach") continue;
+    if (String(x.username || "").trim() !== want) continue;
+    return String(x.institutionId || "").trim();
+  }
+  return "";
+}
 let saAuthBootstrapped = false;
 /** Appwrite: geçici çıkış / hesap değiştirme sırasında login'e yönlendirmeyi kapat */
 let saTransientAuth = false;
@@ -355,6 +377,12 @@ function saTeardownAdminSubscriptions() {
     } catch (e) {}
     settingsUnsub = null;
   }
+  if (institutionsUnsub) {
+    try {
+      institutionsUnsub();
+    } catch (e) {}
+    institutionsUnsub = null;
+  }
   saAuthBootstrapped = false;
   saSessionGateDone = false;
 }
@@ -368,6 +396,7 @@ if (saRefreshBtn) {
       subscribeStudentsList();
       subscribeQuoteRequests();
       subscribeMaintenanceSettings();
+      subscribeInstitutionsList();
     } catch (_e) {}
   });
 }
@@ -377,6 +406,7 @@ function saBootstrapDashboardSubscriptions() {
   saAuthBootstrapped = true;
   subscribeCoachesList();
   subscribeStudentsList();
+  subscribeInstitutionsList();
   subscribeQuoteRequests();
   subscribeMaintenanceSettings();
 }
@@ -509,15 +539,15 @@ async function openCoachEditModal(uid) {
   }
   saCoachCtx.uid = uid;
   saCoachCtx.origUsername = sanitizeUsername(x.username || "");
+  saCoachEditPendingInstitutionId = String(x.institutionId || "").trim();
   var un = document.getElementById("saCoUsername");
-  var inst = document.getElementById("saCoInst");
   var ph = document.getElementById("saCoPhone");
   var pkg = document.getElementById("saCoPkg");
   var np = document.getElementById("saCoNewPw");
   var cp = document.getElementById("saCoCurPw");
   var em = document.getElementById("saCoEmailRo");
   if (un) un.value = saCoachCtx.origUsername;
-  if (inst) inst.value = (x.institutionName || "").trim();
+  populateSaCoachEditInstitutionSelect();
   if (ph) ph.value = (x.phone || "").trim();
   if (pkg) pkg.value = x.packageType === "Pro" ? "Pro" : "Başlangıç";
   if (np) np.value = "";
@@ -547,6 +577,11 @@ async function saveStudentEdit() {
     saSetModalMsg("saStMsg", false, "Bağlı koç seçin.");
     return;
   }
+  var newStInstitutionId = getInstitutionIdForCoachUsername(coachId);
+  if (!newStInstitutionId) {
+    saSetModalMsg("saStMsg", false, "Seçilen koçun kurumu tanımlı değil.");
+    return;
+  }
   if (newPw && newPw.length < 8) {
     saSetModalMsg("saStMsg", false, "Yeni şifre en az 8 karakter olmalıdır.");
     return;
@@ -567,7 +602,20 @@ async function saveStudentEdit() {
       await updateDoc(doc(db, "users", uid), {
         fullName: full.trim() || null,
         coach_id: coachId,
+        institutionId: newStInstitutionId,
       });
+      try {
+        var qStSync = query(collection(db, "students"), where("studentAuthUid", "==", uid));
+        var stSnapSync = await getDocs(qStSync);
+        for (var si = 0; si < stSnapSync.docs.length; si++) {
+          await updateDoc(doc(db, "students", stSnapSync.docs[si].id), {
+            coach_id: coachId,
+            institutionId: newStInstitutionId,
+          });
+        }
+      } catch (syncErr) {
+        logAppwriteError("super-admin.js/saveStudentEdit/syncStudents", syncErr);
+      }
       saSetModalMsg("saStMsg", true, "Kaydedildi.");
       setTimeout(saCloseModals, 600);
       return;
@@ -605,12 +653,25 @@ async function saveStudentEdit() {
       username: newU,
       fullName: full.trim() || null,
       coach_id: coachId,
+      institutionId: newStInstitutionId,
     };
     if (newPw.length >= 8) {
       stPayload.lastPasswordChangeAt = serverTimestamp();
       stPayload.plainPassword = newPw;
     }
     await updateDoc(doc(db, "users", uid), stPayload);
+    try {
+      var qStSync2 = query(collection(db, "students"), where("studentAuthUid", "==", uid));
+      var stSnapSync2 = await getDocs(qStSync2);
+      for (var sj = 0; sj < stSnapSync2.docs.length; sj++) {
+        await updateDoc(doc(db, "students", stSnapSync2.docs[sj].id), {
+          coach_id: coachId,
+          institutionId: newStInstitutionId,
+        });
+      }
+    } catch (syncErr2) {
+      logAppwriteError("super-admin.js/saveStudentEdit/syncStudents-auth", syncErr2);
+    }
     await signOut(tertiaryAuth);
     await signInWithEmailAndPassword(auth, adminEmailRestore, adminPwRestore);
     saStudentCtx.origUsername = newU;
@@ -723,7 +784,12 @@ async function saveCoachEdit() {
   var origU = saCoachCtx.origUsername;
   if (!uid || !origU) return;
   var newU = sanitizeUsername(document.getElementById("saCoUsername") && document.getElementById("saCoUsername").value);
-  var inst = (document.getElementById("saCoInst") && document.getElementById("saCoInst").value.trim()) || "";
+  var instSel = document.getElementById("saCoInstitutionId");
+  var instId = instSel ? String(instSel.value || "").trim() : "";
+  var instName = "";
+  if (instSel && instSel.selectedIndex >= 0 && instSel.options[instSel.selectedIndex]) {
+    instName = String(instSel.options[instSel.selectedIndex].text || "").trim();
+  }
   var ph = (document.getElementById("saCoPhone") && document.getElementById("saCoPhone").value.trim()) || "";
   var pkg = (document.getElementById("saCoPkg") && document.getElementById("saCoPkg").value) || "Başlangıç";
   var newPw = (document.getElementById("saCoNewPw") && document.getElementById("saCoNewPw").value) || "";
@@ -734,8 +800,8 @@ async function saveCoachEdit() {
     saSetModalMsg("saCoMsg", false, "Geçerli bir kullanıcı adı girin.");
     return;
   }
-  if (!inst) {
-    saSetModalMsg("saCoMsg", false, "Kurum adı zorunlu.");
+  if (!instId) {
+    saSetModalMsg("saCoMsg", false, "Kurum seçimi zorunlu.");
     return;
   }
   if (newPw && newPw.length < 8) {
@@ -756,10 +822,12 @@ async function saveCoachEdit() {
   try {
     if (!needAuth) {
       await updateDoc(doc(db, "users", uid), {
-        institutionName: inst,
+        institutionId: instId,
+        institutionName: instName || null,
         phone: ph || null,
         packageType: pkg,
       });
+      saCoachEditPendingInstitutionId = instId;
       saSetModalMsg("saCoMsg", true, "Kaydedildi.");
       setTimeout(saCloseModals, 600);
       return;
@@ -795,7 +863,8 @@ async function saveCoachEdit() {
     }
     var coPayload = {
       username: newU,
-      institutionName: inst,
+      institutionId: instId,
+      institutionName: instName || null,
       phone: ph || null,
       packageType: pkg,
     };
@@ -804,6 +873,7 @@ async function saveCoachEdit() {
     await signOut(secondaryAuth);
     await signInWithEmailAndPassword(auth, adminEmailRestoreCo, adminPwRestoreCo);
     saCoachCtx.origUsername = newU;
+    saCoachEditPendingInstitutionId = instId;
     var em = document.getElementById("saCoEmailRo");
     if (em) em.textContent = newU + EMAIL_DOMAIN;
     saSetModalMsg("saCoMsg", true, "Güncellendi.");
@@ -1151,6 +1221,7 @@ function saCanonicalRoute() {
     "sa-section-create-student": "yeni-ogrenci",
     "sa-section-students": "ogrenciler",
     "sa-section-coaches": "koclar",
+    "sa-section-institutions": "kurumlar",
   };
   if (legacy[k]) return legacy[k];
   var pages = [
@@ -1159,6 +1230,7 @@ function saCanonicalRoute() {
     "bakim",
     "teklifler",
     "grafik",
+    "kurumlar",
     "yeni-koc",
     "yeni-ogrenci",
     "ogrenciler",
@@ -2210,6 +2282,7 @@ async function renderCoachesTable(docs) {
       var x = d.data();
       var uname = x.username || "—";
       var inst = x.institutionName || "—";
+      var coachInstId = String(x.institutionId || "").trim();
       var pkg = x.packageType || "—";
       var pkgKey = saPkgKeyFromLabel(pkg);
       var badge = pkg === "Pro" ? "badge--pro" : "badge--bas";
@@ -2286,6 +2359,8 @@ async function renderCoachesTable(docs) {
           '" title="Sil"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>' +
           '<button type="button" class="btn-action btn-action--eye" data-act="imp" data-user="' +
           escapeHtml(uname) +
+          '" data-institution-id="' +
+          escapeHtml(coachInstId) +
           '" title="Panele sız (impersonate)">👁️</button>' +
           "</td></tr>",
       };
@@ -2428,9 +2503,142 @@ function subscribeStudentsList() {
       console.error(err);
       var tb = document.getElementById("studentsTableBody");
       if (tb) tb.innerHTML = "<tr><td colspan='5'>" + escapeHtml(err.message || "Hata") + "</td></tr>";
-    }
+    },
+    { pollIntervalMs: SA_USERS_LIST_POLL_MS }
   );
 }
+
+async function refreshStudentsListNow() {
+  try {
+    var q = query(collection(db, "users"), where("role", "==", "student"));
+    var snap = await getDocs(q);
+    renderStudentsTable(snap);
+  } catch (e) {
+    console.error("[super-admin] refreshStudentsListNow", e);
+  }
+}
+
+function subscribeInstitutionsList() {
+  if (institutionsUnsub) institutionsUnsub();
+  var qy = query(collection(db, APPWRITE_COLLECTION_INSTITUTIONS));
+  institutionsUnsub = onSnapshot(
+    qy,
+    function (snap) {
+      lastInstitutionDocs = snap.docs.slice();
+      populateCoachInstitutionSelect();
+      populateSaCoachEditInstitutionSelect();
+      renderInstitutionsTable();
+    },
+    function (err) {
+      console.error(err);
+      var tb = document.getElementById("institutionsTableBody");
+      if (tb) tb.innerHTML = "<tr><td colspan='3'>" + escapeHtml(err.message || "Hata") + "</td></tr>";
+    },
+    { pollIntervalMs: SA_USERS_LIST_POLL_MS }
+  );
+}
+
+function populateCoachInstitutionSelect() {
+  var sel = document.getElementById("coachInstitutionId");
+  if (!sel) return;
+  var cur = sel.value;
+  sel.innerHTML = '<option value="">— Kurum seçin —</option>';
+  lastInstitutionDocs.forEach(function (d) {
+    var x = d.data();
+    var name = String((x && x.name) || d.id || "Kurum");
+    var o = document.createElement("option");
+    o.value = d.id;
+    o.textContent = name;
+    sel.appendChild(o);
+  });
+  if (
+    cur &&
+    Array.prototype.some.call(sel.options, function (opt) {
+      return opt.value === cur;
+    })
+  ) {
+    sel.value = cur;
+  }
+  var hint = document.getElementById("coachInstitutionEmptyHint");
+  if (hint) {
+    hint.style.display = lastInstitutionDocs.length === 0 ? "block" : "none";
+  }
+}
+
+function populateSaCoachEditInstitutionSelect() {
+  var sel = document.getElementById("saCoInstitutionId");
+  if (!sel) return;
+  var cur = saCoachEditPendingInstitutionId || sel.value;
+  sel.innerHTML = '<option value="">— Kurum seçin —</option>';
+  lastInstitutionDocs.forEach(function (d) {
+    var x = d.data();
+    var name = String((x && x.name) || d.id || "Kurum");
+    var o = document.createElement("option");
+    o.value = d.id;
+    o.textContent = name;
+    sel.appendChild(o);
+  });
+  if (
+    cur &&
+    Array.prototype.some.call(sel.options, function (opt) {
+      return opt.value === cur;
+    })
+  ) {
+    sel.value = cur;
+  }
+}
+
+function renderInstitutionsTable() {
+  var tb = document.getElementById("institutionsTableBody");
+  if (!tb) return;
+  if (!lastInstitutionDocs.length) {
+    tb.innerHTML =
+      '<tr><td colspan="3" class="mono" style="padding:1.25rem">Henüz kurum yok. Yukarıdaki formdan ekleyin.</td></tr>';
+    return;
+  }
+  tb.innerHTML = lastInstitutionDocs
+    .map(function (d) {
+      var x = d.data();
+      var name = escapeHtml(String((x && x.name) || "—"));
+      var logo = String((x && x.logo) || "").trim();
+      var logoCell = logo
+        ? '<a href="' +
+          escapeHtml(logo) +
+          '" target="_blank" rel="noopener" class="mono" style="font-size:0.8rem">Bağlantı</a>'
+        : "—";
+      return (
+        "<tr><td><strong>" +
+        name +
+        "</strong></td><td class=\"mono\" style=\"font-size:0.78rem\">" +
+        escapeHtml(d.id) +
+        "</td><td>" +
+        logoCell +
+        "</td></tr>"
+      );
+    })
+    .join("");
+}
+
+/**
+ * Tehlikeli: tüm `students` belgelerini siler (çok kiracılı geçiş öncesi). Konsoldan çağrılır.
+ */
+window.__DP_SA_PURGE_STUDENTS_FOR_TENANT_MIGRATION__ = async function () {
+  if (!window.confirm("TÜM öğrenci (students) kayıtları silinecek. Emin misiniz?")) return;
+  if (!window.confirm("Son onay: Bu işlem geri alınamaz. Devam?")) return;
+  var n = 0;
+  try {
+    var snap = await getDocs(query(collection(db, "students")));
+    for (var i = 0; i < snap.docs.length; i++) {
+      await deleteDoc(doc(db, "students", snap.docs[i].id));
+      n++;
+    }
+    alert("Silinen students belgesi: " + n);
+    await refreshStudentsListNow();
+  } catch (e) {
+    console.error(e);
+    alert((e && e.message) || String(e));
+  }
+};
 
 /** Yalnızca Appwrite belge $id — asla $collectionId kullanılmaz. */
 function saQuoteDocumentId(d) {
@@ -2818,9 +3026,15 @@ function onTableAction(ev) {
   }
 
   if (act === "imp" && user) {
+    var iidImpPre = (btn.getAttribute("data-institution-id") || "").trim();
+    if (!iidImpPre) {
+      alert("Bu koçta kurum atanmamış. Önce «Düzenle» ile kurum seçin; aksi halde kiracı izolasyonu uygulanamaz.");
+      return;
+    }
     if (!window.confirm("Koç paneline kurucu olarak bu koçun verileriyle girmek istiyor musunuz?")) return;
     try {
       sessionStorage.setItem("superAdminViewAsCoach", user.trim());
+      sessionStorage.setItem("superAdminViewAsCoachInstitutionId", iidImpPre);
     } catch (e) {
       alert("sessionStorage kullanılamıyor.");
       return;
@@ -2841,8 +3055,20 @@ function subscribeCoachesList() {
       console.error(err);
       var tb = document.getElementById("coachesTableBody");
       if (tb) tb.innerHTML = "<tr><td colspan='6'>" + escapeHtml(err.message || "Hata") + "</td></tr>";
-    }
+    },
+    { pollIntervalMs: SA_USERS_LIST_POLL_MS }
   );
+}
+
+/** Koç tablosunu sunucudan tekrar oku (oluşturma/düzenleme sonrası; tam sayfa yenileme gerekmez). */
+async function refreshCoachesListNow() {
+  try {
+    var q = query(collection(db, "users"), where("role", "==", "coach"));
+    var snap = await getDocs(q);
+    await renderCoachesTable(snap.docs);
+  } catch (e) {
+    console.error("[super-admin] refreshCoachesListNow", e);
+  }
 }
 
 function showStudentFormMsg(ok, text) {
@@ -2872,6 +3098,14 @@ document.getElementById("formCreateStudent") &&
     }
     if (!coachId) {
       showStudentFormMsg(false, "Bağlı koç seçin.");
+      return;
+    }
+    var stInstitutionId = getInstitutionIdForCoachUsername(coachId);
+    if (!stInstitutionId) {
+      showStudentFormMsg(
+        false,
+        "Seçilen koçun kurumu tanımlı değil. Koçu düzenleyip kurum atayın veya listeyi yenileyin."
+      );
       return;
     }
     if (!u) {
@@ -2906,27 +3140,47 @@ document.getElementById("formCreateStudent") &&
         email,
         pass
       );
-      await setDoc(doc(db, "users", cred.user.uid), {
+      var stUserWr = await setDoc(doc(db, "users", cred.user.uid), {
         username: u,
         role: "student",
         coach_id: coachId,
+        institutionId: stInstitutionId,
         fullName: full || null,
         frozen: false,
         plainPassword: pass,
         createdAt: serverTimestamp(),
         lastPasswordChangeAt: serverTimestamp(),
       });
+      if (isAppwriteWriteSoftFailure(stUserWr)) {
+        showStudentFormMsg(
+          false,
+          (stUserWr && stUserWr.message) || "Öğrenci profili veritabanına yazılamadı (izin / şema)."
+        );
+        return;
+      }
       // Koç paneli, öğrencileri `students` koleksiyonundan `coach_id` ile okur.
       // Admin panelinden eklenen öğrenciyi de aynı modele yansıt.
-      await addDoc(collection(db, "students"), {
+      var stRow = await addDoc(collection(db, "students"), {
         name: full || u,
         coach_id: coachId,
+        institutionId: stInstitutionId,
         portalUsername: u,
         studentAuthUid: cred.user.uid,
         createdAt: serverTimestamp(),
       });
+      if (isAppwriteWriteSoftFailure(stRow)) {
+        showStudentFormMsg(
+          false,
+          (stRow && stRow.message) || "Öğrenci satırı (students) yazılamadı; kullanıcı hesabı oluşmuş olabilir."
+        );
+        return;
+      }
+      await refreshStudentsListNow();
       showStudentFormMsg(true, "Öğrenci hesabı oluşturuldu: " + u + " (koç: " + coachId + "). Giriş: Öğrenci sekmesi.");
       e.target.reset();
+      try {
+        location.hash = "#ogrenciler";
+      } catch (_h) {}
     } catch (err) {
       console.error(err);
       var msg = err.message || String(err);
@@ -2938,18 +3192,64 @@ document.getElementById("formCreateStudent") &&
     }
   });
 
+var formCreateInstitutionEl = document.getElementById("formCreateInstitution");
+if (formCreateInstitutionEl) {
+  formCreateInstitutionEl.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var nameEl = document.getElementById("institutionName");
+    var logoEl = document.getElementById("institutionLogo");
+    var name = nameEl ? String(nameEl.value || "").trim() : "";
+    var logo = logoEl ? String(logoEl.value || "").trim() : "";
+    var btnInst = document.getElementById("btnCreateInstitution");
+    var msgEl = document.getElementById("formInstitutionMsg");
+    function showInstitutionFormMsg(ok, text) {
+      if (!msgEl) return;
+      msgEl.style.display = "block";
+      msgEl.textContent = text;
+      msgEl.className = ok ? "is-ok" : "is-err";
+    }
+    if (!name) {
+      showInstitutionFormMsg(false, "Kurum adı zorunlu.");
+      return;
+    }
+    if (btnInst) btnInst.disabled = true;
+    try {
+      var instWr = await addDoc(collection(db, APPWRITE_COLLECTION_INSTITUTIONS), {
+        name: name,
+        logo: logo || null,
+        createdAt: serverTimestamp(),
+      });
+      if (isAppwriteWriteSoftFailure(instWr)) {
+        showInstitutionFormMsg(false, (instWr && instWr.message) || "Kurum kaydedilemedi.");
+        return;
+      }
+      showInstitutionFormMsg(true, "Kurum oluşturuldu. Koç eklerken listeden seçebilirsiniz.");
+      e.target.reset();
+    } catch (errInst) {
+      console.error(errInst);
+      showInstitutionFormMsg(false, (errInst && errInst.message) || String(errInst));
+    } finally {
+      if (btnInst) btnInst.disabled = false;
+    }
+  });
+}
+
 var formCreateCoachEl = document.getElementById("formCreateCoach");
 if (formCreateCoachEl) {
   formCreateCoachEl.addEventListener("submit", async function (e) {
   e.preventDefault();
   var uEl = document.getElementById("coachUsername");
   var pEl = document.getElementById("coachPassword");
-  var instEl = document.getElementById("coachInstitution");
+  var instSelCoach = document.getElementById("coachInstitutionId");
   var phoneEl = document.getElementById("coachPhone");
   var pkgEl = document.getElementById("coachPackage");
   var u = sanitizeUsername(uEl && uEl.value);
   var pass = pEl ? pEl.value : "";
-  var inst = instEl ? String(instEl.value || "").trim() : "";
+  var instIdCoach = instSelCoach ? String(instSelCoach.value || "").trim() : "";
+  var instNameCoach = "";
+  if (instSelCoach && instSelCoach.selectedIndex >= 0 && instSelCoach.options[instSelCoach.selectedIndex]) {
+    instNameCoach = String(instSelCoach.options[instSelCoach.selectedIndex].text || "").trim();
+  }
   var phone = phoneEl ? String(phoneEl.value || "").trim() : "";
   var pkg = pkgEl ? pkgEl.value : "";
   var btn = document.getElementById("btnCreateCoach");
@@ -2967,8 +3267,8 @@ if (formCreateCoachEl) {
     showFormMsg(false, "Şifre en az 8 karakter olmalıdır.");
     return;
   }
-  if (!inst) {
-    showFormMsg(false, "Kurum adı zorunlu.");
+  if (!instIdCoach) {
+    showFormMsg(false, "Kurum seçimi zorunlu. Önce Kurumlar sayfasından kurum oluşturun.");
     return;
   }
   if (btn) btn.disabled = true;
@@ -2997,19 +3297,32 @@ if (formCreateCoachEl) {
       email,
       pass
     );
-    await setDoc(doc(db, "users", cred.user.uid), {
+    var coachWr = await setDoc(doc(db, "users", cred.user.uid), {
       username: u,
       role: "coach",
-      institutionName: inst,
+      institutionId: instIdCoach,
+      institutionName: instNameCoach || null,
       phone: phone || null,
       packageType: pkg,
       frozen: false,
       plainPassword: pass,
       createdAt: serverTimestamp(),
     });
-    showFormMsg(true, "Koç hesabı oluşturuldu: " + u + " — giriş: kullanıcı adı + şifre.");
+    if (isAppwriteWriteSoftFailure(coachWr)) {
+      showFormMsg(
+        false,
+        (coachWr && coachWr.message) || "Koç profili veritabanına yazılamadı (izin / şema). Hesap oluşmuş olabilir; kontrol edin."
+      );
+      if (fcMsg) fcMsg.style.display = "block";
+      return;
+    }
+    await refreshCoachesListNow();
+    showFormMsg(true, "Koç hesabı oluşturuldu: " + u + " — giriş: kullanıcı adı + şifre. Liste güncellendi.");
     if (fcMsg) fcMsg.style.display = "block";
     e.target.reset();
+    try {
+      location.hash = "#koclar";
+    } catch (_h) {}
   } catch (err) {
     console.error(err);
     var msg = err.message || String(err);

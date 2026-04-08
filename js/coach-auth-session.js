@@ -71,6 +71,20 @@ export function persistDereceAuthIdentity(accountUser, profile, opts) {
       localStorage.setItem("yksRole", profile.role || "");
       localStorage.setItem("yksStudentName", profile.fullName || profile.displayName || "");
       localStorage.setItem("yksCoachId", profile.coach_id || profile.coachId || "");
+      var tenantId = profile.institutionId != null ? String(profile.institutionId).trim() : "";
+      if (tenantId) {
+        try {
+          sessionStorage.setItem("dp_institution_id", tenantId);
+        } catch (_s) {}
+        localStorage.setItem("yksInstitutionId", tenantId);
+      } else {
+        try {
+          sessionStorage.removeItem("dp_institution_id");
+        } catch (_s2) {}
+        try {
+          localStorage.removeItem("yksInstitutionId");
+        } catch (_l) {}
+      }
     }
   } catch (e) {}
 }

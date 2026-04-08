@@ -160,6 +160,8 @@ async function findProfileFromDatabase(authUser, fallbackUsername) {
           role: "coach",
           fullName: coachDoc.fullName || coachDoc.name || null,
           coach_id: uname,
+          institutionId: coachDoc.institutionId != null ? String(coachDoc.institutionId).trim() : "",
+          institutionName: coachDoc.institutionName || null,
         };
       }
       if (isAppwriteWriteSoftFailure(coachesByUsername)) {
@@ -273,6 +275,16 @@ async function resolveAndRedirectByProfile(user) {
     if (isKurucuRole(profile.role)) {
       window.location.replace("/super-admin");
       return;
+    }
+    if (profile.role === "coach") {
+      var sessCoachIid = profile.institutionId != null ? String(profile.institutionId).trim() : "";
+      if (!sessCoachIid) {
+        await signOut(auth);
+        showError(
+          "Koç hesabınız henüz bir kuruma bağlı değil. Kurucu panelinden koç kaydınıza kurum atanmalıdır."
+        );
+        return;
+      }
     }
     window.location.replace("/koc-panel");
   } catch (e) {
@@ -422,6 +434,16 @@ loginFormEl.addEventListener("submit", async function (e) {
       showError("Bu hesap dondurulmuş. Kurucu ile iletişime geçin.");
       return;
     }
+    if (loginMode === "coach" && profile.role === "coach") {
+      var coachIid = profile.institutionId != null ? String(profile.institutionId).trim() : "";
+      if (!coachIid) {
+        await signOut(auth);
+        showError(
+          "Koç hesabınız henüz bir kuruma bağlı değil. Kurucu panelinden koç kaydınıza kurum atanmalıdır; destek için kurumunuzla iletişime geçin."
+        );
+        return;
+      }
+    }
     if (loginMode === "coach" && profile.role !== "coach") {
       await signOut(auth);
       showError("Bu hesap koç değil. Öğrenci sekmesini kullanın.");
@@ -460,6 +482,7 @@ loginFormEl.addEventListener("submit", async function (e) {
     } else {
       try {
         sessionStorage.removeItem("superAdminViewAsCoach");
+        sessionStorage.removeItem("superAdminViewAsCoachInstitutionId");
       } catch (_) {}
       try {
         await updateDoc(doc(db, "users", u.uid), { lastLogin: serverTimestamp() });

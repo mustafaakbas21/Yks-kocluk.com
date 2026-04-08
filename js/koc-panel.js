@@ -14,6 +14,7 @@ import {
   yksMufredatDatasi,
 } from "./yks-mufredat.js";
 import { initFasikulUreticiModule } from "./fasikul-uretici.js";
+import { initTaramaUreticiModule } from "./tarama-uretici.js";
 import { initExamDefinitionProfessionalUI } from "./exam-definition-module.js";
 import { initOptikAdvancedBindings } from "./optik-advanced-module.js";
 import { findAtlasProgramById } from "./yok-atlas-data.js";
@@ -252,6 +253,34 @@ function getCoachIdResolved() {
   return getPoolCoachKey() || "";
 }
 
+/** Çok kiracılı sorgular: kurucu «koç gibi görün» oturumunda sessionStorage, aksi halde profil / depolama. */
+function getInstitutionIdResolved() {
+  try {
+    var impIid = (sessionStorage.getItem("superAdminViewAsCoachInstitutionId") || "").trim();
+    if (impIid) return impIid;
+  } catch (e) {}
+  try {
+    var ls = (localStorage.getItem("yksInstitutionId") || "").trim();
+    if (ls) return ls;
+  } catch (e2) {}
+  try {
+    var ss = (sessionStorage.getItem("dp_institution_id") || "").trim();
+    if (ss) return ss;
+  } catch (e3) {}
+  return "";
+}
+
+function resolveInstitutionIdForKocPanel(profile) {
+  try {
+    var imp = (sessionStorage.getItem("superAdminViewAsCoachInstitutionId") || "").trim();
+    if (imp) return imp;
+  } catch (e) {}
+  if (profile && profile.institutionId != null && String(profile.institutionId).trim()) {
+    return String(profile.institutionId).trim();
+  }
+  return "";
+}
+
 function showSaAnalyticsToolBanner() {
   if (document.getElementById("saAnalyticsToolBanner")) return;
   var tool = "";
@@ -327,7 +356,11 @@ function coachQuery(collectionName) {
   var cid = getCoachIdResolved();
   if (!cid) return null;
   var name = String(collectionName || "");
+  var iid = getInstitutionIdResolved();
   if (name === "students" || name === "exams" || name === "appointments") {
+    if (iid) {
+      return query(collection(db, name), where("coach_id", "==", cid), where("institutionId", "==", iid));
+    }
     return query(collection(db, name), where("coach_id", "==", cid));
   }
   return query(collection(db, name));
@@ -366,11 +399,23 @@ function filterSnapshotDocsByCoach(snap) {
   if (!cid) {
     return { docs: [], forEach: function () {}, size: 0, empty: true };
   }
+  var iid = getInstitutionIdResolved();
   var filtered = snap.docs.filter(function (d) {
     var x = typeof d.data === "function" ? d.data() : {};
     var coachField = x.coach_id != null ? x.coach_id : x.coachId;
-    if (coachField === undefined || coachField === null || String(coachField).trim() === "") return true;
-    return String(coachField) === String(cid);
+    if (coachField === undefined || coachField === null || String(coachField).trim() === "") {
+      if (iid) {
+        var emptyCoachDocIid = x.institutionId != null ? String(x.institutionId).trim() : "";
+        return !emptyCoachDocIid || emptyCoachDocIid === iid;
+      }
+      return true;
+    }
+    if (String(coachField) !== String(cid)) return false;
+    if (iid) {
+      var docIid = x.institutionId != null ? String(x.institutionId).trim() : "";
+      return docIid === iid;
+    }
+    return true;
   });
   return {
     docs: filtered,
@@ -16515,7 +16560,8 @@ function navigateTo(view) {
     previous === "auto-cropper" ||
     previous === "pdf-cropper" ||
     previous === "soru-arsivi" ||
-    previous === "fasikul-uretici";
+    previous === "fasikul-uretici" ||
+    previous === "tarama-uretici";
   var nowTm =
     view === "testmaker" ||
     view === "library" ||
@@ -16524,7 +16570,8 @@ function navigateTo(view) {
     view === "auto-cropper" ||
     view === "pdf-cropper" ||
     view === "soru-arsivi" ||
-    view === "fasikul-uretici";
+    view === "fasikul-uretici" ||
+    view === "tarama-uretici";
   if (wasTm && !nowTm) testmakerWorkspaceLeave();
   try {
   document.querySelectorAll(".main-view").forEach(function (el) {
@@ -16653,7 +16700,7 @@ function navigateTo(view) {
   var taramalarLiNav = document.querySelector(".sidebar__item--taramalar");
   var taramalarAccNav = document.getElementById("sidebarTaramalarToggle");
   if (taramalarLiNav && taramalarAccNav) {
-    var inTaramalarNav = view === "fasikul-uretici";
+    var inTaramalarNav = view === "fasikul-uretici" || view === "tarama-uretici";
     taramalarLiNav.classList.toggle("sidebar__item--taramalar-open", inTaramalarNav);
     taramalarAccNav.setAttribute("aria-expanded", inTaramalarNav ? "true" : "false");
     taramalarAccNav.classList.toggle("sidebar__link--active", inTaramalarNav);
@@ -16669,7 +16716,8 @@ function navigateTo(view) {
         (a === "auto-cropper" && view === "auto-cropper") ||
         (a === "pdf-cropper" && view === "pdf-cropper") ||
         (a === "soru-arsivi" && view === "soru-arsivi") ||
-        (a === "fasikul-uretici" && view === "fasikul-uretici")
+        (a === "fasikul-uretici" && view === "fasikul-uretici") ||
+        (a === "tarama-uretici" && view === "tarama-uretici")
     );
   });
   tmSyncRibbonActive(view);
@@ -16759,7 +16807,8 @@ function navigateTo(view) {
     view === "auto-cropper" ||
     view === "pdf-cropper" ||
     view === "soru-arsivi" ||
-    view === "fasikul-uretici"
+    view === "fasikul-uretici" ||
+    view === "tarama-uretici"
   ) {
     testmakerWorkspaceEnter();
     renderTestsTable();
@@ -16770,6 +16819,13 @@ function navigateTo(view) {
       initFasikulUreticiModule();
     } catch (e) {
       console.warn("[fasikul-uretici]", e);
+    }
+  }
+  if (view === "tarama-uretici") {
+    try {
+      initTaramaUreticiModule();
+    } catch (e) {
+      console.warn("[tarama-uretici]", e);
     }
   }
   if (view === "testmaker") {
@@ -16885,6 +16941,7 @@ function displayTestmakerView(viewDomId) {
     "view-pdf-cropper": "pdf-cropper",
     "view-soru-arsivi": "soru-arsivi",
     "fasikul-uretici-view": "fasikul-uretici",
+    "tarama-uretici-view": "tarama-uretici",
   };
   var route = map[viewDomId];
   if (route) {
@@ -17832,6 +17889,7 @@ function initNavigation() {
       else if (action === "pdf-cropper" || action === "ai-parser") navigateTo("pdf-cropper");
       else if (action === "soru-arsivi") navigateTo("soru-arsivi");
       else if (action === "fasikul-uretici") navigateTo("fasikul-uretici");
+      else if (action === "tarama-uretici") navigateTo("tarama-uretici");
       else navigateTo("testmaker");
     });
   }
@@ -20218,9 +20276,11 @@ function finalizeKocPanelAdmission(profile, user) {
   try {
     imp = !!(sessionStorage.getItem("superAdminViewAsCoach") || "").trim();
   } catch (_im) {}
+  var tenantIid = resolveInstitutionIdForKocPanel(profile);
   try {
     setCoachDataIsolation({
       coachIdForQueries: getCoachIdResolved(),
+      institutionIdForQueries: tenantIid,
       appwriteUserId: user && user.uid ? String(user.uid) : "",
       skipDocumentAcl: imp,
     });
@@ -20261,6 +20321,17 @@ function finalizeKocPanelAdmission(profile, user) {
   }
   if (profile.role !== "coach") {
     return signOut(auth).then(function () {
+      window.location.replace(DP_LOGIN_PATH);
+    });
+  }
+  if (!tenantIid) {
+    return signOut(auth).then(function () {
+      try {
+        localStorage.setItem(
+          "loginFlashError",
+          "Koç hesabınız bir kuruma bağlı görünmüyor. Kurucu panelinden koç kaydınıza kurum atayın veya yeniden giriş yapın."
+        );
+      } catch (eFlash) {}
       window.location.replace(DP_LOGIN_PATH);
     });
   }

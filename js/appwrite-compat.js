@@ -30,9 +30,17 @@ const account = new Account(client);
  * Koç izolasyonu: `coach_id` alanı + belge ACL (oturum Appwrite `$id`).
  * Not: `coach_id` veri alanında genelde koç kullanıcı adı; ACL `Role.user(session.$id)` ile eşleşir.
  */
-const COACH_SCOPED_COLLECTION_IDS = new Set(["students", "exams", "appointments"]);
+const COACH_SCOPED_COLLECTION_IDS = new Set([
+  "students",
+  "exams",
+  "appointments",
+  "ExamResults",
+  "meeting_logs",
+]);
 
 var __dataCoachId = "";
+/** Oturumdaki koçun kurum kimliği (Appwrite belge $id); sorgu + yazma izolasyonu */
+var __dataInstitutionId = "";
 var __aclUserId = "";
 var __skipDocumentAcl = false;
 /** @type {((studentDocId: string) => boolean) | null} */
@@ -40,17 +48,19 @@ var __examStudentGuard = null;
 
 /**
  * Koç paneli oturumu: sorgu filtresi + yeni belge izinleri.
- * @param {{ coachIdForQueries?: string, appwriteUserId?: string, skipDocumentAcl?: boolean }} opts
+ * @param {{ coachIdForQueries?: string, institutionIdForQueries?: string, appwriteUserId?: string, skipDocumentAcl?: boolean }} opts
  */
 export function setCoachDataIsolation(opts) {
   opts = opts || {};
   __dataCoachId = String(opts.coachIdForQueries || "").trim();
+  __dataInstitutionId = String(opts.institutionIdForQueries || "").trim();
   __aclUserId = String(opts.appwriteUserId || "").trim();
   __skipDocumentAcl = !!opts.skipDocumentAcl;
 }
 
 export function clearCoachDataIsolation() {
   __dataCoachId = "";
+  __dataInstitutionId = "";
   __aclUserId = "";
   __skipDocumentAcl = false;
   __examStudentGuard = null;
@@ -74,10 +84,23 @@ function constraintsIncludeCoachIdEqual(constraints) {
   });
 }
 
+function constraintsIncludeInstitutionIdEqual(constraints) {
+  return (constraints || []).some(function (c) {
+    return c && c.__type === "where" && c.field === "institutionId" && c.op === "==";
+  });
+}
+
 function queriesArrayMentionsCoachId(queries) {
   return (queries || []).some(function (q) {
     var s = typeof q === "string" ? q : String(q && q.toString ? q.toString() : q || "");
     return /coach_id/i.test(s);
+  });
+}
+
+function queriesArrayMentionsInstitutionId(queries) {
+  return (queries || []).some(function (q) {
+    var s = typeof q === "string" ? q : String(q && q.toString ? q.toString() : q || "");
+    return /institutionId/i.test(s);
   });
 }
 
@@ -95,10 +118,18 @@ function buildScopedDocumentPermissions() {
 }
 
 function mergeCoachIdIntoPayload(collectionId, payload) {
-  if (!isCoachScopedCollection(collectionId) || !__dataCoachId) return;
-  if (payload.coach_id != null && String(payload.coach_id).trim() !== "") return;
-  if (payload.coachId != null && String(payload.coachId).trim() !== "") return;
-  payload.coach_id = __dataCoachId;
+  if (!isCoachScopedCollection(collectionId)) return;
+  if (__dataCoachId) {
+    var hasCoach =
+      (payload.coach_id != null && String(payload.coach_id).trim() !== "") ||
+      (payload.coachId != null && String(payload.coachId).trim() !== "");
+    if (!hasCoach) payload.coach_id = __dataCoachId;
+  }
+  if (__dataInstitutionId) {
+    if (payload.institutionId == null || String(payload.institutionId).trim() === "") {
+      payload.institutionId = __dataInstitutionId;
+    }
+  }
 }
 
 function validateExamPayloadBeforeNormalize(raw) {
@@ -485,6 +516,9 @@ export async function databasesListDocumentsOrSoft(arg1, arg2, arg3) {
       if (__dataCoachId && isCoachScopedCollection(collectionId) && !queriesArrayMentionsCoachId(qObj)) {
         qObj = [AQuery.equal("coach_id", __dataCoachId)].concat(qObj);
       }
+      if (__dataInstitutionId && isCoachScopedCollection(collectionId) && !queriesArrayMentionsInstitutionId(qObj)) {
+        qObj = [AQuery.equal("institutionId", __dataInstitutionId)].concat(qObj);
+      }
       return await databases.listDocuments(
         Object.assign({}, arg1, {
           queries: qObj,
@@ -494,6 +528,9 @@ export async function databasesListDocumentsOrSoft(arg1, arg2, arg3) {
     var qList = Array.isArray(arg3) ? arg3.slice() : [];
     if (__dataCoachId && isCoachScopedCollection(collectionId) && !queriesArrayMentionsCoachId(qList)) {
       qList = [AQuery.equal("coach_id", __dataCoachId)].concat(qList);
+    }
+    if (__dataInstitutionId && isCoachScopedCollection(collectionId) && !queriesArrayMentionsInstitutionId(qList)) {
+      qList = [AQuery.equal("institutionId", __dataInstitutionId)].concat(qList);
     }
     return await databases.listDocuments(databaseId, collectionId, qList);
   } catch (err) {
@@ -653,6 +690,9 @@ export async function getDocs(refOrQuery) {
   const queries = compileConstraints(constraints);
   if (__dataCoachId && isCoachScopedCollection(c.collectionId) && !constraintsIncludeCoachIdEqual(constraints)) {
     queries.unshift(AQuery.equal("coach_id", __dataCoachId));
+  }
+  if (__dataInstitutionId && isCoachScopedCollection(c.collectionId) && !constraintsIncludeInstitutionIdEqual(constraints)) {
+    queries.unshift(AQuery.equal("institutionId", __dataInstitutionId));
   }
   queries.push(AQuery.limit(500));
   try {

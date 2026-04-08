@@ -89,6 +89,8 @@ export const APPWRITE_COLLECTION_MESSAGES = "messages";
 /** Oturum profili — `login.js` / koç kapısı ile uyumlu (Appwrite Console ID’leri) */
 export const APPWRITE_COLLECTION_USERS = "users";
 export const APPWRITE_COLLECTION_COACHES = "coaches";
+/** Kurumsal çok kiracılı yapı — koç/öğrenci institutionId ile bağlanır */
+export const APPWRITE_COLLECTION_INSTITUTIONS = "institutions";
 
 const client = new Client()
   .setEndpoint(APPWRITE_ENDPOINT)
