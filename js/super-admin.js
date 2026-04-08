@@ -37,7 +37,7 @@ import {
   databasesUpdateDocumentOrSoft,
   databasesDeleteDocumentOrSoft,
   isAppwriteWriteSoftFailure,
-} from "./appwrite-compat.js?v=20260408-sa-setdoc-health";
+} from "./appwrite-compat.js?v=20260409-sa-coach-list";
 import {
   storage,
   APPWRITE_BUCKET_DESTEK,
@@ -122,7 +122,7 @@ function getInstitutionIdForCoachUsername(coachUsername) {
   for (var i = 0; i < lastCoachDocs.length; i++) {
     var d = lastCoachDocs[i];
     var x = typeof d.data === "function" ? d.data() : {};
-    if ((x.role || "") !== "coach") continue;
+    if (!saRoleIsCoach(x.role)) continue;
     if (String(x.username || "").trim() !== want) continue;
     return String(x.institutionId || "").trim();
   }
@@ -137,6 +137,14 @@ function sanitizeUsername(s) {
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9_]/g, "");
+}
+
+/** users.role: koç listeleri (eski kayıtlar koc/koç olabilir). */
+function saRoleIsCoach(role) {
+  var r = String(role || "")
+    .trim()
+    .toLowerCase();
+  return r === "coach" || r === "koc" || r === "koç";
 }
 
 function escapeHtml(s) {
@@ -537,7 +545,7 @@ function fillSaStCoachSelect(selectedCoach) {
   if (!sel) return;
   sel.innerHTML = "";
   lastCoachDocs.forEach(function (d) {
-    if ((d.data().role || "") !== "coach") return;
+    if (!saRoleIsCoach(d.data().role)) return;
     var u = d.data().username || "";
     if (!u) return;
     var o = document.createElement("option");
@@ -599,7 +607,7 @@ async function openCoachEditModal(uid) {
     return;
   }
   var x = snap.data();
-  if ((x.role || "") !== "coach") {
+  if (!saRoleIsCoach(x.role)) {
     alert("Bu kayıt koç değil.");
     return;
   }
@@ -1296,7 +1304,7 @@ function refreshDailyHomeStats() {
   var elD = document.getElementById("saHomeDateLabel");
   if (!elS || !elC) return;
   var coachList = lastCoachDocs.filter(function (d) {
-    return (d.data().role || "") === "coach";
+    return saRoleIsCoach(d.data().role);
   });
   elC.textContent = String(saCountDocsWithLastLoginToday(coachList));
   elS.textContent = String(saCountDocsWithLastLoginToday(lastStudentDocs));
@@ -1312,7 +1320,7 @@ function refreshDailyHomeStats() {
 
 async function updateKpiCardsAndTotals(coachDocs) {
   var coaches = coachDocs.filter(function (d) {
-    return (d.data().role || "") === "coach";
+    return saRoleIsCoach(d.data().role);
   });
 
   document.getElementById("kpiTotalCoaches").textContent = String(coaches.length);
@@ -2281,7 +2289,7 @@ function saCoachPkgForUsername(username) {
   if (!u || !lastCoachDocs || !lastCoachDocs.length) return "other";
   for (var i = 0; i < lastCoachDocs.length; i++) {
     var d = lastCoachDocs[i];
-    if ((d.data().role || "") !== "coach") continue;
+    if (!saRoleIsCoach(d.data().role)) continue;
     if (String(d.data().username || "") === u) return saPkgKeyFromLabel(d.data().packageType);
   }
   return "other";
@@ -2356,7 +2364,7 @@ function populateSaStudentCoachFilter() {
   sel.innerHTML = '<option value="all">Tüm koçlar</option>';
   if (lastCoachDocs && lastCoachDocs.length) {
     lastCoachDocs.forEach(function (d) {
-      if ((d.data().role || "") !== "coach") return;
+      if (!saRoleIsCoach(d.data().role)) return;
       var u = d.data().username || "";
       if (!u) return;
       var o = document.createElement("option");
@@ -2423,7 +2431,7 @@ async function renderCoachesTable(docs) {
   if (!tb) return;
 
   var coachDocs = docs.filter(function (d) {
-    return (d.data().role || "") === "coach";
+    return saRoleIsCoach(d.data().role);
   });
 
   if (coachDocs.length === 0) {
@@ -2551,7 +2559,7 @@ function populateStudentCoachSelect() {
   var cur = sel.value;
   sel.innerHTML = '<option value="">— Koç seçin —</option>';
   lastCoachDocs.forEach(function (d) {
-    if ((d.data().role || "") !== "coach") return;
+    if (!saRoleIsCoach(d.data().role)) return;
     var u = d.data().username || "";
     if (!u) return;
     var o = document.createElement("option");
@@ -3467,7 +3475,6 @@ if (formCreateCoachEl) {
       packageType: pkg,
       frozen: false,
       plainPassword: pass,
-      createdAt: serverTimestamp(),
     });
     if (isAppwriteWriteSoftFailure(coachWr)) {
       showFormMsg(

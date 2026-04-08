@@ -342,6 +342,40 @@ export function query(collectionRef, ...constraints) {
   return { __type: "query", collectionRef, constraints };
 }
 
+/**
+ * listDocuments indeksi yoksa / sorgu reddedilirse: limit + istemci tarafında == süzgeci.
+ * `role` için büyük/küçük harf duyarsız; "koc"/"koç" de koç sayılır.
+ */
+function __filterDocumentsByFirestoreLikeConstraints(documents, constraints) {
+  const wheres = (constraints || []).filter(function (c) {
+    return c && c.__type === "where" && c.op === "==";
+  });
+  if (!wheres.length) return (documents || []).slice();
+  return (documents || []).filter(function (doc) {
+    return wheres.every(function (w) {
+      const got = doc[w.field];
+      const want = w.value;
+      if (w.field === "role") {
+        const g = String(got || "")
+          .trim()
+          .toLowerCase();
+        const x = String(want || "")
+          .trim()
+          .toLowerCase();
+        if (x === "coach") {
+          return g === "coach" || g === "koc" || g === "koç";
+        }
+        return g === x;
+      }
+      if (got === want) return true;
+      return (
+        String(got != null ? got : "")
+          .trim() === String(want != null ? want : "").trim()
+      );
+    });
+  });
+}
+
 function compileConstraints(constraints) {
   const out = [];
   (constraints || []).forEach(function (c) {
@@ -711,6 +745,29 @@ export async function getDocs(refOrQuery) {
     const res = await databases.listDocuments(APPWRITE_DATABASE_ID, c.collectionId, queries);
     return makeDocsSnapshot(res.documents || []);
   } catch (e) {
+    if (
+      c.collectionId === "users" &&
+      __isInvalidQueryError(e) &&
+      constraints.length > 0 &&
+      !__blacklistedCollections.has(c.collectionId)
+    ) {
+      try {
+        const resFb = await databases.listDocuments(APPWRITE_DATABASE_ID, c.collectionId, [
+          AQuery.limit(500),
+        ]);
+        const filtered = __filterDocumentsByFirestoreLikeConstraints(
+          resFb.documents || [],
+          constraints
+        );
+        console.warn(
+          "[Appwrite] getDocs users: rol/şema sorgusu başarısız, tam liste süzüldü:",
+          e && e.message ? String(e.message).slice(0, 120) : e
+        );
+        return makeDocsSnapshot(filtered);
+      } catch (e2) {
+        logAppwriteError("appwrite-compat.js/getDocs(users fallback)", e2);
+      }
+    }
     if (__is404ishError(e) || __isCollectionMissingError(e)) {
       __blacklistedCollections.add(c.collectionId);
     } else if (__isInvalidQueryError(e) || __isPermissionLikeError(e)) {
