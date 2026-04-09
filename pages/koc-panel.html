@@ -2499,6 +2499,7 @@
     .avatar-gallery-sheet__grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.45rem; padding: 1rem; overflow-y: auto; flex: 1; }
     .avatar-gallery__cell { border: 2px solid transparent; border-radius: 12px; padding: 0; cursor: pointer; background: #fff; overflow: hidden; aspect-ratio: 1; transition: border-color 0.15s, transform 0.15s; }
     .avatar-gallery__cell:hover, .avatar-gallery__cell:focus-visible { border-color: var(--purple-600); transform: scale(1.04); outline: none; }
+    .avatar-gallery__cell.is-selected { border-color: var(--purple-600); box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.45); transform: scale(1.02); }
     .avatar-gallery__cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .tm-pdf-editor-hero { margin-bottom: 1.25rem; }
     .tm-saved-pdf-library.tm-saved-pdf-library--ebook { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.15rem; list-style: none; padding: 0; margin: 0; }
@@ -5701,106 +5702,6 @@
                     </tr>
                   </tbody>
                 </table>
-              </div>
-            </div>
-          </div>
-
-          <div id="karne-modal" class="fixed inset-0 z-[320] hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="karne-modal-title">
-            <div class="absolute inset-0 bg-slate-900/55 backdrop-blur-[2px]" data-karne-close tabindex="-1"></div>
-            <div class="relative z-10 flex min-h-full items-center justify-center p-3 sm:p-6 pointer-events-none">
-              <div class="pointer-events-auto w-full max-w-5xl max-h-[94vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-slate-200/80 overflow-hidden">
-                <header class="flex flex-wrap items-start justify-between gap-3 px-4 sm:px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-violet-50/40 shrink-0">
-                  <div class="min-w-0">
-                    <h2 id="karne-modal-title" class="text-lg font-bold text-slate-900 truncate" data-karne-student-name>—</h2>
-                    <p class="text-sm font-semibold text-violet-700 mt-0.5" data-karne-exam-name>—</p>
-                    <p class="text-xs text-slate-500 mt-1" data-karne-exam-date>—</p>
-                  </div>
-                  <div class="flex flex-wrap items-center gap-2 shrink-0">
-                    <button type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors" data-karne-close>Kapat</button>
-                    <button type="button" id="karne-btn-pdf-download" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-sm font-bold shadow-md shadow-emerald-600/25 transition-colors">
-                      <span aria-hidden="true">📥</span> PDF olarak indir
-                    </button>
-                  </div>
-                </header>
-                <div class="flex-1 overflow-y-auto overscroll-contain px-3 sm:px-6 py-4 bg-slate-100/60">
-                  <div id="pdf-content" class="mx-auto bg-white text-slate-800 rounded-xl border border-slate-200 shadow-sm p-5 sm:p-8" style="width: 210mm; max-width: 100%; min-height: 297mm; box-sizing: border-box;">
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                      <div class="rounded-xl border border-slate-100 bg-slate-50/80 p-4">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Puan ve sıralama</h3>
-                        <table class="w-full text-sm">
-                          <tbody class="divide-y divide-slate-200">
-                            <tr><td class="py-2 text-slate-600">Toplam puan (özet)</td><td class="py-2 text-right font-bold text-slate-900" data-karne-pdf-puan>—</td></tr>
-                            <tr><td class="py-2 text-slate-600">TYT toplam net</td><td class="py-2 text-right font-semibold" data-karne-pdf-tytnet>—</td></tr>
-                            <tr><td class="py-2 text-slate-600">AYT toplam net</td><td class="py-2 text-right font-semibold" data-karne-pdf-aynet>—</td></tr>
-                            <tr><td class="py-2 text-slate-600">Kurum sıralaması</td><td class="py-2 text-right font-semibold" data-karne-pdf-kurumsira>—</td></tr>
-                            <tr><td class="py-2 text-slate-600">Genel sıralama</td><td class="py-2 text-right font-semibold text-violet-700" data-karne-pdf-genelsira>—</td></tr>
-                          </tbody>
-                        </table>
-                      </div>
-                      <div class="rounded-xl border border-slate-100 bg-white p-4 shadow-inner">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Son 6 sınav net trendi</h3>
-                        <p class="text-[11px] text-slate-400 mb-3">TYT denemeleri (tarih sırası · veri yoksa örnek eğilim gösterilir)</p>
-                        <div class="h-52 sm:h-56 relative">
-                          <canvas id="karnePdfChartCanvas" aria-label="Son 6 sınav net grafiği"></canvas>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="space-y-6 mb-8">
-                      <div data-karne-section-tyt>
-                        <h3 class="text-sm font-bold text-slate-800 border-b border-violet-200 pb-2 mb-3">TYT ders analizi</h3>
-                        <div class="overflow-x-auto rounded-lg border border-slate-100">
-                          <table class="w-full text-xs sm:text-sm">
-                            <thead class="bg-slate-50 text-slate-600 font-semibold">
-                              <tr>
-                                <th class="text-left px-3 py-2">Ders</th>
-                                <th class="text-center px-2 py-2">Soru</th>
-                                <th class="text-center px-2 py-2">Doğru</th>
-                                <th class="text-center px-2 py-2">Yanlış</th>
-                                <th class="text-center px-2 py-2">Boş</th>
-                                <th class="text-center px-2 py-2">Net</th>
-                              </tr>
-                            </thead>
-                            <tbody id="karnePdfTytBody" class="divide-y divide-slate-100"></tbody>
-                          </table>
-                        </div>
-                      </div>
-                      <div data-karne-section-ayt hidden>
-                        <h3 class="text-sm font-bold text-slate-800 border-b border-indigo-200 pb-2 mb-3">AYT ders analizi</h3>
-                        <div class="overflow-x-auto rounded-lg border border-slate-100">
-                          <table class="w-full text-xs sm:text-sm">
-                            <thead class="bg-slate-50 text-slate-600 font-semibold">
-                              <tr>
-                                <th class="text-left px-3 py-2">Ders</th>
-                                <th class="text-center px-2 py-2">Soru</th>
-                                <th class="text-center px-2 py-2">Doğru</th>
-                                <th class="text-center px-2 py-2">Yanlış</th>
-                                <th class="text-center px-2 py-2">Boş</th>
-                                <th class="text-center px-2 py-2">Net</th>
-                              </tr>
-                            </thead>
-                            <tbody id="karnePdfAytBody" class="divide-y divide-slate-100"></tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      <h3 class="text-sm font-bold text-slate-800 border-b border-emerald-200/80 pb-2 mb-3">Konu analizi (matris özeti)</h3>
-                      <p class="text-xs text-slate-500 mb-3">Branş bazlı performans · doğrular yeşil, eksikler kırmızı</p>
-                      <div class="overflow-x-auto rounded-lg border border-slate-100">
-                        <table class="w-full text-xs sm:text-sm">
-                          <thead class="bg-emerald-50/90 text-slate-700 font-semibold">
-                            <tr>
-                              <th class="text-left px-3 py-2">Konu / ders</th>
-                              <th class="text-center px-2 py-2">Doğru cevap özeti</th>
-                              <th class="text-center px-2 py-2">Öğrenci performansı</th>
-                            </tr>
-                          </thead>
-                          <tbody id="karnePdfTopicBody" class="divide-y divide-slate-100"></tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -9149,6 +9050,124 @@
   </div>
 
   <div class="toast toast--tr" id="panelToast" role="status" aria-live="polite" hidden></div>
+
+  <!-- Ultra-Detaylı Karne önizleme: Tailwind important yalnızca .tw-important-root altında çalışır; viewport’a sabitlenmiş katman -->
+  <div class="tw-important-root fixed inset-0 z-[100] pointer-events-none" id="karne-modal-tailwind-root" aria-hidden="true">
+    <div
+      id="karne-modal"
+      class="hidden pointer-events-auto fixed inset-0 z-[100] bg-gray-900/70 overflow-y-auto flex justify-center items-start pt-10 pb-10 backdrop-blur-sm"
+      aria-hidden="true"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="karne-modal-title"
+    >
+      <div class="fixed inset-0 z-0 cursor-pointer" data-karne-close tabindex="-1" aria-hidden="true"></div>
+      <div class="relative z-10 w-full max-w-5xl px-4 sm:px-6 flex flex-col items-stretch gap-4 pb-16">
+        <div class="flex flex-wrap justify-end items-center gap-3 shrink-0">
+          <button
+            type="button"
+            class="inline-flex items-center justify-center rounded-xl bg-red-600 hover:bg-red-700 active:scale-[0.98] text-white text-sm font-bold px-5 py-2.5 shadow-lg shadow-red-900/25 transition-all"
+            data-karne-close
+          >
+            Kapat
+          </button>
+          <button
+            type="button"
+            id="karne-btn-pdf-download"
+            class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-sm font-bold px-5 py-2.5 shadow-lg shadow-emerald-900/25 transition-all"
+          >
+            <span aria-hidden="true">📥</span> PDF olarak indir
+          </button>
+        </div>
+        <div
+          id="pdf-content"
+          class="bg-white w-full max-w-5xl p-6 sm:p-10 rounded-xl shadow-2xl relative text-slate-800 mx-auto"
+          style="width: 210mm; max-width: 100%; min-height: 297mm; box-sizing: border-box;"
+        >
+          <header class="mb-10 pb-5 border-b-2 border-slate-200">
+            <h2 id="karne-modal-title" class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight" data-karne-student-name>—</h2>
+            <p class="text-base font-semibold text-violet-700 mt-2" data-karne-exam-name>—</p>
+            <p class="text-sm text-slate-500 mt-2" data-karne-exam-date>—</p>
+          </header>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+            <div class="rounded-xl border border-slate-100 bg-slate-50/90 p-5">
+              <h3 class="text-xl font-bold text-slate-900 border-b border-slate-300 pb-3 mb-5">Puan ve sıralama</h3>
+              <table class="w-full text-sm">
+                <tbody class="divide-y divide-slate-200">
+                  <tr><td class="py-2.5 text-slate-600">Toplam puan (özet)</td><td class="py-2.5 text-right font-bold text-slate-900" data-karne-pdf-puan>—</td></tr>
+                  <tr><td class="py-2.5 text-slate-600">TYT toplam net</td><td class="py-2.5 text-right font-semibold text-slate-800" data-karne-pdf-tytnet>—</td></tr>
+                  <tr><td class="py-2.5 text-slate-600">AYT toplam net</td><td class="py-2.5 text-right font-semibold text-slate-800" data-karne-pdf-aynet>—</td></tr>
+                  <tr><td class="py-2.5 text-slate-600">Kurum sıralaması</td><td class="py-2.5 text-right font-semibold text-slate-800" data-karne-pdf-kurumsira>—</td></tr>
+                  <tr><td class="py-2.5 text-slate-600">Genel sıralama</td><td class="py-2.5 text-right font-semibold text-violet-700" data-karne-pdf-genelsira>—</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="rounded-xl border border-slate-100 bg-white p-5 shadow-inner">
+              <h3 class="text-xl font-bold text-slate-900 border-b border-slate-300 pb-3 mb-3">Son 6 sınav net trendi</h3>
+              <p class="text-xs text-slate-500 mb-4 leading-relaxed">TYT denemeleri (tarih sırası · veri yoksa örnek eğilim gösterilir)</p>
+              <div class="h-52 sm:h-60 relative">
+                <canvas id="karnePdfChartCanvas" aria-label="Son 6 sınav net grafiği"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="space-y-10 mb-10">
+            <div data-karne-section-tyt>
+              <h3 class="text-xl font-bold text-slate-900 border-b border-violet-300 pb-3 mb-5">TYT ders analizi</h3>
+              <div class="overflow-x-auto rounded-lg border border-slate-100">
+                <table class="w-full text-xs sm:text-sm">
+                  <thead class="bg-slate-50 text-slate-600 font-semibold">
+                    <tr>
+                      <th class="text-left px-3 py-2.5">Ders</th>
+                      <th class="text-center px-2 py-2.5">Soru</th>
+                      <th class="text-center px-2 py-2.5">Doğru</th>
+                      <th class="text-center px-2 py-2.5">Yanlış</th>
+                      <th class="text-center px-2 py-2.5">Boş</th>
+                      <th class="text-center px-2 py-2.5">Net</th>
+                    </tr>
+                  </thead>
+                  <tbody id="karnePdfTytBody" class="divide-y divide-slate-100"></tbody>
+                </table>
+              </div>
+            </div>
+            <div data-karne-section-ayt hidden>
+              <h3 class="text-xl font-bold text-slate-900 border-b border-indigo-300 pb-3 mb-5">AYT ders analizi</h3>
+              <div class="overflow-x-auto rounded-lg border border-slate-100">
+                <table class="w-full text-xs sm:text-sm">
+                  <thead class="bg-slate-50 text-slate-600 font-semibold">
+                    <tr>
+                      <th class="text-left px-3 py-2.5">Ders</th>
+                      <th class="text-center px-2 py-2.5">Soru</th>
+                      <th class="text-center px-2 py-2.5">Doğru</th>
+                      <th class="text-center px-2 py-2.5">Yanlış</th>
+                      <th class="text-center px-2 py-2.5">Boş</th>
+                      <th class="text-center px-2 py-2.5">Net</th>
+                    </tr>
+                  </thead>
+                  <tbody id="karnePdfAytBody" class="divide-y divide-slate-100"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="mt-2">
+            <h3 class="text-xl font-bold text-slate-900 border-b border-emerald-400/80 pb-3 mb-4">Konu analizi (matris özeti)</h3>
+            <p class="text-sm text-slate-500 mb-4 leading-relaxed">Branş bazlı performans · doğrular yeşil, eksikler kırmızı</p>
+            <div class="overflow-x-auto rounded-lg border border-slate-100">
+              <table class="w-full text-xs sm:text-sm">
+                <thead class="bg-emerald-50/90 text-slate-700 font-semibold">
+                  <tr>
+                    <th class="text-left px-3 py-2.5">Konu / ders</th>
+                    <th class="text-center px-2 py-2.5">Doğru cevap özeti</th>
+                    <th class="text-center px-2 py-2.5">Öğrenci performansı</th>
+                  </tr>
+                </thead>
+                <tbody id="karnePdfTopicBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <p class="site-credit site-credit--panel">
     Mustafa AKBAŞ - Furkan Şehmus KIYAR - Veysel Anıl KARAASLAN - Efe KARACABEY tarafından üretildi
