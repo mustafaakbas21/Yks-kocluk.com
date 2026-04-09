@@ -1,12 +1,9 @@
 /**
- * Gemini HTTP proxy — anahtar yalnızca sunucuda (GEMINI_API_KEY).
- *
- * Vercel: Environment Variables → GEMINI_API_KEY
- * Yerel: `.env` + `npx vercel dev`
- *
- * İstemci: POST /api/ai (Google generateContent ile aynı JSON gövdesi)
+ * Gemini proxy — POST /api/ai
+ * GEMINI_API_KEY yalnızca sunucuda (Vercel Environment / .env + vercel dev).
+ * Google yanıtı (başarı/hata) aynı HTTP durumu ve gövde ile iletilir.
  */
-const UPSTREAM = "https://generativelanguage.googleapis.com/v1beta/models";
+const model = "gemini-1.5-flash";
 
 module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") {
@@ -26,9 +23,6 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: "Sunucu yapılandırması eksik (GEMINI_API_KEY)." });
   }
 
-  const model = (process.env.GEMINI_MODEL || "gemini-1.5-flash").trim();
-  const url = UPSTREAM + "/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(key.trim());
-
   var payload = req.body;
   if (typeof payload === "string") {
     try {
@@ -41,17 +35,35 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: "Gövde gerekli" });
   }
 
+  const url =
+    "https://generativelanguage.googleapis.com/v1beta/models/" +
+    encodeURIComponent(model) +
+    ":generateContent?key=" +
+    encodeURIComponent(String(key).trim());
+
   try {
-    var upstream = await fetch(url, {
+    const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    var text = await upstream.text();
-    res.setHeader("Content-Type", "application/json; charset=utf-8");
-    return res.status(upstream.status).send(text);
+    const text = await response.text();
+    let jsonBody;
+    try {
+      jsonBody = text ? JSON.parse(text) : {};
+    } catch (_parse) {
+      jsonBody = {
+        _proxyNote: "Google gövdesi JSON parse edilemedi; ham metin kısaltıldı.",
+        _httpStatusFromGoogle: response.status,
+        _rawSnippet: String(text).slice(0, 4000),
+      };
+    }
+    return res.status(response.status).json(jsonBody);
   } catch (err) {
-    console.error("[api/ai]", err);
-    return res.status(502).json({ error: "Gemini bağlantı hatası" });
+    console.error("[api/ai] fetch", err);
+    return res.status(502).json({
+      proxyError: true,
+      message: err && err.message ? String(err.message) : String(err),
+    });
   }
 };

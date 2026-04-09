@@ -421,7 +421,6 @@ async function fetchGeminiFasikulJson(form) {
   };
   var url = getFasikulGenerateEndpoint();
   var res;
-  var rawText = "";
   try {
     res = await fetch(url, {
       method: "POST",
@@ -434,33 +433,19 @@ async function fetchGeminiFasikulJson(form) {
         (netErr && netErr.message ? netErr.message : String(netErr))
     );
   }
-  try {
-    rawText = await res.text();
-  } catch (readErr) {
-    throw new Error("Yanıt gövdesi okunamadı: " + (readErr && readErr.message ? readErr.message : String(readErr)));
-  }
   var data;
   try {
-    data = JSON.parse(rawText);
-  } catch (_parseErr) {
-    throw new Error("Sunucu yanıtı geçerli JSON değil: " + String(rawText || "").slice(0, 240));
+    data = await res.json();
+  } catch (readErr) {
+    throw new Error(
+      "API yanıtı JSON olarak okunamadı (HTTP " +
+        res.status +
+        "): " +
+        (readErr && readErr.message ? readErr.message : String(readErr))
+    );
   }
   if (!res.ok) {
-    var msg =
-      (data.error && (data.error.message || data.error.status)) ||
-      (typeof data.error === "string" && data.error) ||
-      "HTTP " + res.status;
-    if (res.status === 404) {
-      throw new Error(
-        "Fasikül API bulunamadı (404). Vercel’de `api/ai.js` deploy edildiğinden ve redeploy yaptığınızdan emin olun."
-      );
-    }
-    if (res.status === 500 && typeof data.error === "string" && data.error.indexOf("GEMINI_API_KEY") !== -1) {
-      throw new Error(
-        "Sunucuda GEMINI_API_KEY tanımlı değil. Vercel ortam değişkenlerine veya `.env` dosyasına anahtarı ekleyin."
-      );
-    }
-    throw new Error("Fasikül üretimi başarısız: " + msg);
+    throw new Error("Google/API Hatası: " + JSON.stringify(data));
   }
   if (!data || typeof data !== "object") {
     throw new Error("Sunucu yanıtı beklenen biçimde değil.");
