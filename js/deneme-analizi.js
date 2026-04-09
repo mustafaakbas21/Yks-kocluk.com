@@ -17,7 +17,19 @@ import {
   serverTimestamp,
   Timestamp,
 } from "./appwrite-compat.js";
-import { APPWRITE_COLLECTION_EXAM_RESULTS } from "./appwrite-config.js";
+import {
+  APPWRITE_COLLECTION_EXAM_RESULTS,
+  APPWRITE_COLLECTION_MR_EXAM_DEFICIENCIES,
+  APPWRITE_BUCKET_DENEME_DEPOSU,
+  storage,
+} from "./appwrite-config.js";
+import {
+  analyzeStudentDeficiencies,
+  aggregateTopicDeficiencies,
+  extractStudentAnswersFromExamDetail,
+  buildMrDeficiencyWritePayloads,
+} from "./deneme-mr-motor.js";
+import { ID } from "./appwrite-browser.js?v=20260408-inst";
 import {
   YKS_TYT_BRANCHES,
   YKS_AYT_BY_ALAN,
@@ -25,12 +37,18 @@ import {
   yks2026DersKeys,
   yks2026KonuOptionsForDers,
 } from "./yks-mufredat.js";
+import { extractTextFromPDF, analyzeExamWithAI } from "./deneme-ai-pdf-matrix.js";
 
 (function (global) {
   "use strict";
 
   var chartRadar = null;
   var chartBar = null;
+  var karneModalChart = null;
+  /** @type {Array<Record<string, unknown>>} */
+  var karneKurumCache = [];
+  var karneUiBound = false;
+  var KARNE_DEMO_TREND = [34.75, 30, 31, 47.5, 48.75, 53.5];
 
   /** koc-panel.js getCoachIdResolved ile aynı mantık: localStorage boşsa oturum e-postası */
   function getCoachId() {
@@ -246,6 +264,7 @@ import {
       out.push({
         id: d.id,
         name: x.name || x.studentName || "Öğrenci",
+        sube: String(x.sube || x.subclass || x.branch || x.sinif || "").trim() || "—",
       });
     });
     out.sort(function (a, b) {
@@ -401,6 +420,435 @@ import {
     } catch (e) {}
     chartRadar = null;
     chartBar = null;
+  }
+
+  function destroyKarneModalChart() {
+    try {
+      if (karneModalChart && typeof karneModalChart.destroy === "function") karneModalChart.destroy();
+    } catch (e) {}
+    karneModalChart = null;
+  }
+
+  function dybFromRowKey(det, key) {
+    var rows = det && det.rows;
+    if (!rows || !rows[key]) return { d: 0, y: 0, b: 0, soru: 0 };
+    var r = rows[key];
+    var cl = clampDy(r.soru, r.d, r.y);
+    var b = Math.max(0, r.soru - cl.d - cl.y);
+    return { d: cl.d, y: cl.y, b: b, soru: r.soru };
+  }
+
+  function formatDyb(dyb) {
+    return dyb.d + "/" + dyb.y + "/" + dyb.b;
+  }
+
+  function tytTotalNetFromDet(det) {
+    if (!det || !det.rows) return 0;
+    if (det.computed && typeof det.computed.totalNet === "number") return det.computed.totalNet;
+    var sum = 0;
+    Object.keys(det.rows).forEach(function (k) {
+      sum += branchNetFromRow(det.rows[k]);
+    });
+    return sum;
+  }
+
+  function lastSixTytNetsFromDocs(docs) {
+    var tyt = (docs || []).filter(function (e) {
+      var tur = String(e.examType || "").toUpperCase();
+      return tur === "TYT" && e.yksBranchDetail && e.yksBranchDetail.rows && typeof e.yksBranchDetail.rows === "object";
+    });
+    tyt.sort(function (a, b) {
+      return String(a.date || "").localeCompare(String(b.date || ""));
+    });
+    var last = tyt.slice(-6);
+    return last.map(function (e) {
+      var det = e.yksBranchDetail;
+      return tytTotalNetFromDet(det);
+    });
+  }
+
+  function chartTrendValuesFromDocs(docs) {
+    var nets = lastSixTytNetsFromDocs(docs);
+    if (nets.length >= 6) return nets.slice(-6);
+    return KARNE_DEMO_TREND.slice();
+  }
+
+  function pickLatestAytAny(docs) {
+    var modes = ["sayisal", "esit_agirlik", "sozel", "dil"];
+    for (var i = 0; i < modes.length; i++) {
+      var p = pickLatestForMode(docs, "AYT", modes[i]);
+      if (p) return p;
+    }
+    return null;
+  }
+
+  function renderKarnePdfBranchRows(branches) {
+    if (!branches || !branches.length) {
+      return '<tr><td colspan="6" class="px-3 py-4 text-center text-slate-400 text-sm">Kayıt yok</td></tr>';
+    }
+    return branches
+      .map(function (row) {
+        return (
+          "<tr class=\"hover:bg-slate-50/90\">" +
+          '<td class="px-3 py-2 font-medium text-slate-800">' +
+          escapeHtml(row.ders) +
+          "</td>" +
+          '<td class="text-center px-2 py-2">' +
+          row.soru +
+          "</td>" +
+          '<td class="text-center px-2 py-2 text-emerald-700 font-semibold">' +
+          row.d +
+          "</td>" +
+          '<td class="text-center px-2 py-2 text-red-600 font-semibold">' +
+          row.y +
+          "</td>" +
+          '<td class="text-center px-2 py-2 text-slate-500">' +
+          row.b +
+          "</td>" +
+          '<td class="text-center px-2 py-2 font-bold text-violet-700">' +
+          formatNum(row.net) +
+          "</td></tr>"
+        );
+      })
+      .join("");
+  }
+
+  function renderKarneTopicMatrixRows(branches) {
+    if (!branches || !branches.length) {
+      return '<tr><td colspan="3" class="px-3 py-4 text-center text-slate-400 text-sm">Konu / branş verisi yok</td></tr>';
+    }
+    return branches
+      .map(function (row) {
+        var clean = row.y === 0 && row.b === 0;
+        var icon = clean
+          ? '<span class="text-emerald-600 text-lg font-bold" aria-label="Başarılı">✓</span>'
+          : '<span class="text-red-500 text-lg font-bold" aria-label="Eksik">✗</span>';
+        var correctSummary = row.soru ? row.d + " / " + row.soru + " doğru" : "—";
+        var perf = row.d + "D · " + row.y + "Y · " + row.b + "B";
+        return (
+          "<tr class=\"hover:bg-slate-50/80\">" +
+          '<td class="px-3 py-2 font-medium text-slate-800">' +
+          escapeHtml(row.ders) +
+          "</td>" +
+          '<td class="px-2 py-2 text-center text-slate-600">' +
+          escapeHtml(correctSummary) +
+          "</td>" +
+          '<td class="px-2 py-2 text-center whitespace-nowrap">' +
+          icon +
+          ' <span class="text-slate-600 text-xs ml-1">' +
+          escapeHtml(perf) +
+          "</span></td></tr>"
+        );
+      })
+      .join("");
+  }
+
+  function renderKarnePdfBarChart(values) {
+    var canvas = document.getElementById("karnePdfChartCanvas");
+    if (!canvas || typeof Chart === "undefined") return;
+    destroyKarneModalChart();
+    var labels = [];
+    for (var i = 0; i < values.length; i++) labels.push("Sınav " + (i + 1));
+    karneModalChart = new Chart(canvas, {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Net (TYT)",
+            data: values,
+            backgroundColor: "rgba(99, 102, 241, 0.78)",
+            borderColor: "rgba(67, 56, 202, 1)",
+            borderWidth: 1,
+            borderRadius: 8,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "rgba(15, 23, 42, 0.92)",
+            titleColor: "#f8fafc",
+            bodyColor: "#e2e8f0",
+            padding: 10,
+          },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { color: "#64748b" },
+            grid: { color: "rgba(148, 163, 184, 0.2)" },
+          },
+          x: {
+            ticks: { color: "#64748b", maxRotation: 0 },
+            grid: { display: false },
+          },
+        },
+      },
+    });
+  }
+
+  function closeKarneModal() {
+    var m = document.getElementById("karne-modal");
+    if (!m) return;
+    m.classList.add("hidden");
+    m.setAttribute("aria-hidden", "true");
+    destroyKarneModalChart();
+    try {
+      document.body.style.overflow = "";
+    } catch (e2) {}
+  }
+
+  function openKarneModal(idx) {
+    var payload = karneKurumCache[idx];
+    if (!payload) return;
+    var m = document.getElementById("karne-modal");
+    if (!m) return;
+    var titleEl = document.getElementById("karne-modal-title");
+    var examNameEl = document.querySelector("[data-karne-exam-name]");
+    var dateEl = document.querySelector("[data-karne-exam-date]");
+    if (titleEl) titleEl.textContent = String(payload.studentName || "—");
+    var tyt = payload.latestTyt;
+    var exName = tyt && tyt.examName ? String(tyt.examName) : "Son deneme";
+    var exDate = tyt && tyt.date ? String(tyt.date) : "—";
+    if (examNameEl) examNameEl.textContent = exName;
+    if (dateEl) dateEl.textContent = exDate ? "Tarih: " + exDate : "—";
+
+    var puanEl = document.querySelector("[data-karne-pdf-puan]");
+    var tytNetEl = document.querySelector("[data-karne-pdf-tytnet]");
+    var aytNetEl = document.querySelector("[data-karne-pdf-aynet]");
+    var kurumEl = document.querySelector("[data-karne-pdf-kurumsira]");
+    var genelEl = document.querySelector("[data-karne-pdf-genelsira]");
+    var total = karneKurumCache.length || 1;
+    if (puanEl) puanEl.textContent = formatNum(payload.puan);
+    if (tytNetEl) tytNetEl.textContent = formatNum(payload.tytNet);
+    if (aytNetEl) aytNetEl.textContent = formatNum(payload.aytNet);
+    if (kurumEl) kurumEl.textContent = payload.rank + " / " + total;
+    if (genelEl) genelEl.textContent = "Kurum içi · " + payload.rank + " / " + total;
+
+    var branchesTyt = [];
+    var branchesAyt = [];
+    if (tyt && tyt.yksBranchDetail) {
+      var vmT = buildViewModelFromExam(tyt, "TYT", "sayisal");
+      if (vmT && vmT.branches) branchesTyt = vmT.branches;
+    }
+    var ayt = payload.latestAyt;
+    var secAyt = document.querySelector("[data-karne-section-ayt]");
+    var bodyAyt = document.getElementById("karnePdfAytBody");
+    if (ayt && ayt.yksBranchDetail) {
+      var alan = normalizeAytAlanKey(ayt.yksBranchDetail.aytAlan || "sayisal");
+      var vmA = buildViewModelFromExam(ayt, "AYT", alan);
+      if (vmA && vmA.branches) branchesAyt = vmA.branches;
+    }
+    if (secAyt) secAyt.hidden = !branchesAyt.length;
+    var bodyTyt = document.getElementById("karnePdfTytBody");
+    if (bodyTyt) bodyTyt.innerHTML = renderKarnePdfBranchRows(branchesTyt);
+    if (bodyAyt) bodyAyt.innerHTML = renderKarnePdfBranchRows(branchesAyt);
+
+    var topicBody = document.getElementById("karnePdfTopicBody");
+    var allBranches = branchesTyt.concat(branchesAyt);
+    if (topicBody) topicBody.innerHTML = renderKarneTopicMatrixRows(allBranches);
+
+    m.classList.remove("hidden");
+    m.setAttribute("aria-hidden", "false");
+    try {
+      document.body.style.overflow = "hidden";
+    } catch (e3) {}
+
+    var vals = payload.chartValues && payload.chartValues.length ? payload.chartValues : KARNE_DEMO_TREND.slice();
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        renderKarnePdfBarChart(vals);
+      });
+    });
+  }
+
+  function downloadKarnePdf() {
+    var el = document.getElementById("pdf-content");
+    var h2p = typeof html2pdf !== "undefined" ? html2pdf : global.html2pdf;
+    if (!el || !h2p) {
+      if (global.YKSPanel && typeof global.YKSPanel.toast === "function") {
+        global.YKSPanel.toast("PDF kütüphanesi yüklenemedi. Sayfayı yenileyin.", { variant: "error" });
+      } else {
+        alert("PDF kütüphanesi yüklenemedi.");
+      }
+      return;
+    }
+    var nameEl = document.getElementById("karne-modal-title");
+    var raw = nameEl ? String(nameEl.textContent || "").trim() : "Ogrenci";
+    var fname = raw.replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, "_") || "Ogrenci";
+    var opt = {
+      margin: [10, 10, 10, 10],
+      filename: fname + "_Karne.pdf",
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, logging: false, letterRendering: true },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+    };
+    try {
+      var chain = h2p().set(opt).from(el);
+      var out = chain.save && chain.save();
+      if (out && typeof out.catch === "function") {
+        out.catch(function (err) {
+          console.error("[karne-pdf]", err);
+          if (global.YKSPanel && typeof global.YKSPanel.toast === "function") {
+            global.YKSPanel.toast("PDF oluşturulamadı.", { variant: "error" });
+          }
+        });
+      }
+    } catch (err) {
+      console.error("[karne-pdf]", err);
+      if (global.YKSPanel && typeof global.YKSPanel.toast === "function") {
+        global.YKSPanel.toast("PDF oluşturulamadı.", { variant: "error" });
+      }
+    }
+  }
+
+  function bindKarneSonuclarUiOnce() {
+    if (karneUiBound) return;
+    karneUiBound = true;
+    document.addEventListener("click", function (ev) {
+      var t = ev.target;
+      if (!t || !t.closest) return;
+      if (t.closest("[data-karne-close]")) {
+        closeKarneModal();
+        return;
+      }
+      var btn = t.closest("[data-karne-open]");
+      if (btn) {
+        var idx = parseInt(String(btn.getAttribute("data-karne-open") || ""), 10);
+        if (!isNaN(idx)) openKarneModal(idx);
+      }
+    });
+    var pdfBtn = document.getElementById("karne-btn-pdf-download");
+    if (pdfBtn) {
+      pdfBtn.addEventListener("click", function () {
+        downloadKarnePdf();
+      });
+    }
+    var refBtn = document.getElementById("karneKurumRefreshBtn");
+    if (refBtn) {
+      refBtn.addEventListener("click", function () {
+        void refreshKarneSonuclariTable();
+      });
+    }
+    document.addEventListener("keydown", function (ev) {
+      if (ev.key !== "Escape") return;
+      var m = document.getElementById("karne-modal");
+      if (m && !m.classList.contains("hidden")) closeKarneModal();
+    });
+  }
+
+  async function refreshKarneSonuclariTable() {
+    var tbody = document.getElementById("karneKurumTableBody");
+    if (!tbody) return;
+    bindKarneSonuclarUiOnce();
+    var ph = document.getElementById("karneKurumTablePlaceholder");
+    var cid = getCoachId();
+    if (!cid) {
+      tbody.innerHTML =
+        '<tr><td colspan="9" class="px-4 py-10 text-center text-slate-500 text-sm">Oturum bulunamadı.</td></tr>';
+      karneKurumCache = [];
+      return;
+    }
+    tbody.innerHTML =
+      '<tr><td colspan="9" class="px-4 py-10 text-center text-slate-500 text-sm"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Yükleniyor…</td></tr>';
+    try {
+      var students = await fetchStudentsForCoach(cid);
+      karneKurumCache = [];
+      var rows = [];
+      for (var i = 0; i < students.length; i++) {
+        var st = students[i];
+        var docs = await fetchExamDocuments(st.id, cid);
+        var tyt = pickLatestForMode(docs, "TYT", null);
+        var ayt = pickLatestAytAny(docs);
+        var tytDet = tyt && tyt.yksBranchDetail ? tyt.yksBranchDetail : null;
+        var aytDet = ayt && ayt.yksBranchDetail ? ayt.yksBranchDetail : null;
+        var turk = tytDet ? dybFromRowKey(tytDet, "turkce") : { d: 0, y: 0, b: 0, soru: 0 };
+        var mat = tytDet ? dybFromRowKey(tytDet, "matematik") : { d: 0, y: 0, b: 0, soru: 0 };
+        var tytNet = tytDet ? tytTotalNetFromDet(tytDet) : 0;
+        var aytNet = 0;
+        if (aytDet) {
+          aytNet =
+            aytDet.computed && typeof aytDet.computed.totalNet === "number"
+              ? aytDet.computed.totalNet
+              : tytTotalNetFromDet(aytDet);
+        }
+        var puan = Math.round((tytNet + aytNet) * 100) / 100;
+        rows.push({
+          studentId: st.id,
+          studentName: st.name,
+          sube: st.sube || "—",
+          tytTurkceDyn: formatDyb(turk),
+          tytMatDyn: formatDyb(mat),
+          tytNet: tytNet,
+          aytNet: aytNet,
+          puan: puan,
+          rank: 0,
+          latestTyt: tyt,
+          latestAyt: ayt,
+          chartValues: chartTrendValuesFromDocs(docs),
+        });
+      }
+      rows.sort(function (a, b) {
+        if (b.puan !== a.puan) return b.puan - a.puan;
+        return String(a.studentName).localeCompare(String(b.studentName), "tr");
+      });
+      for (var r = 0; r < rows.length; r++) {
+        rows[r].rank = r + 1;
+      }
+      karneKurumCache = rows;
+      if (!rows.length) {
+        tbody.innerHTML =
+          '<tr><td colspan="9" class="px-4 py-10 text-center text-slate-500 text-sm">Henüz öğrenci veya deneme kaydı yok.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows
+        .map(function (row, idx) {
+          return (
+            "<tr class=\"hover:bg-violet-50/40 transition-colors\">" +
+            '<td class="px-4 py-3 font-semibold text-slate-800">' +
+            escapeHtml(row.studentName) +
+            "</td>" +
+            '<td class="px-3 py-3 text-slate-600">' +
+            escapeHtml(String(row.sube)) +
+            "</td>" +
+            '<td class="px-3 py-3 text-center font-mono text-xs sm:text-sm text-slate-700">' +
+            escapeHtml(row.tytTurkceDyn) +
+            "</td>" +
+            '<td class="px-3 py-3 text-center font-mono text-xs sm:text-sm text-slate-700">' +
+            escapeHtml(row.tytMatDyn) +
+            "</td>" +
+            '<td class="px-3 py-3 text-center font-bold text-violet-700">' +
+            formatNum(row.tytNet) +
+            "</td>" +
+            '<td class="px-3 py-3 text-center font-bold text-indigo-700">' +
+            formatNum(row.aytNet) +
+            "</td>" +
+            '<td class="px-3 py-3 text-center font-extrabold text-slate-900">' +
+            formatNum(row.puan) +
+            "</td>" +
+            '<td class="px-3 py-3 text-center"><span class="inline-flex min-w-[2.25rem] justify-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-700">' +
+            row.rank +
+            "</span></td>" +
+            '<td class="px-4 py-3 text-right">' +
+            '<button type="button" class="inline-flex items-center justify-center rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold px-3 py-2 shadow-sm shadow-blue-600/20 transition-colors" data-karne-open="' +
+            idx +
+            '">Karneyi görüntüle</button>' +
+            "</td></tr>"
+          );
+        })
+        .join("");
+      if (ph) ph.remove();
+    } catch (err) {
+      console.error("[karne-sonuclar]", err);
+      tbody.innerHTML =
+        '<tr><td colspan="9" class="px-4 py-10 text-center text-red-600 text-sm">Liste yüklenemedi. Bağlantıyı kontrol edin.</td></tr>';
+      karneKurumCache = [];
+    }
   }
 
   function pctClass(pct) {
@@ -840,6 +1288,8 @@ import {
 
   function initDenemeAnaliziPremium() {
     var root = document.getElementById("denemeAnaliziPremiumRoot");
+    bindKarneSonuclarUiOnce();
+    void refreshKarneSonuclariTable();
     if (!root) return;
     renderToolbar(root);
     void populateStudentSelect(root).then(function () {
@@ -849,6 +1299,8 @@ import {
 
   function destroyDenemeAnaliziPremium() {
     destroyCharts();
+    destroyKarneModalChart();
+    closeKarneModal();
   }
 
   /* ——— Denemeler: koç planlama (exams + recordType coach_exam_plan) ——— */
@@ -858,8 +1310,136 @@ import {
   var dnmAiExamFile = null;
   var dnmAiKeyFile = null;
   var dnmMatrixBusy = false;
+
+  var DNM_PDF_OVERLAY_DEFAULT_TITLE = "PDF'ler analiz ediliyor…";
+  var DNM_PDF_OVERLAY_DEFAULT_SUB = "Kazanımlar çıkarılıyor; satırlar birazdan listelenecek.";
+
+  function dnmResetPdfAnalyzingOverlayCopy() {
+    var t = document.getElementById("dnmPdfAnalyzingTitle");
+    var s = document.getElementById("dnmPdfAnalyzingSub");
+    if (t) t.textContent = DNM_PDF_OVERLAY_DEFAULT_TITLE;
+    if (s) s.textContent = DNM_PDF_OVERLAY_DEFAULT_SUB;
+  }
+
+  function dnmSetPdfAnalyzingOverlayCopy(title, sub) {
+    var t = document.getElementById("dnmPdfAnalyzingTitle");
+    var s = document.getElementById("dnmPdfAnalyzingSub");
+    if (t) t.textContent = title || DNM_PDF_OVERLAY_DEFAULT_TITLE;
+    if (s) s.textContent = sub || DNM_PDF_OVERLAY_DEFAULT_SUB;
+  }
+
+  function dnmRefreshAiPdfMatrixButton() {
+    var btn = document.getElementById("btnDnmAiPdfMatrix");
+    if (!btn) return;
+    dnmSyncPdfFilesFromInputs();
+    var f = dnmAiExamFile;
+    var ok = false;
+    if (f && f.size) {
+      var mime = String(f.type || "").toLowerCase();
+      var name = String(f.name || "").toLowerCase();
+      ok = mime.indexOf("pdf") !== -1 || name.endsWith(".pdf");
+    }
+    btn.disabled = !ok;
+    if (ok) btn.removeAttribute("title");
+    else btn.setAttribute("title", "Önce geçerli bir kitapçık PDF dosyası seçin");
+  }
+
+  async function dnmRunAiPdfMatrixExtract() {
+    if (dnmMatrixBusy) return;
+    dnmSyncPdfFilesFromInputs();
+    var file = dnmAiExamFile;
+    if (!file || !file.size) {
+      alert("Önce deneme kitapçığı için bir PDF seçin.");
+      return;
+    }
+    var mime = String(file.type || "").toLowerCase();
+    var name = String(file.name || "").toLowerCase();
+    if (mime.indexOf("pdf") === -1 && !name.endsWith(".pdf")) {
+      alert("Sadece PDF kitapçığı bu işlem için kullanılabilir.");
+      return;
+    }
+    var turEl = document.getElementById("dnmPlanSinavTuru");
+    if (!turEl || !String(turEl.value || "").trim()) {
+      alert("Önce sınav türü seçin.");
+      return;
+    }
+    var tb = document.getElementById("dnmMatrixBody");
+    if (tb && tb.querySelectorAll("tr.js-dnm-mx-dynamic-row").length) {
+      if (!window.confirm("Mevcut soru–konu matrisi satırları AI çıktısı ile değiştirilsin mi?")) return;
+    }
+    var examKey = dnmMufredatExamKey(turEl.value);
+    var nEl = document.getElementById("dnmQCount");
+    var hint = parseInt(String(nEl && nEl.value ? nEl.value : ""), 10);
+    if (isNaN(hint) || hint < 1) hint = 0;
+
+    dnmMatrixBusy = true;
+    var ov = document.getElementById("dnmPdfAnalyzingOverlay");
+    var saveBtn = document.getElementById("btnDnmSave");
+    var aiBtn = document.getElementById("btnDnmAiPdfMatrix");
+    dnmSetPdfAnalyzingOverlayCopy(
+      "Yapay Zeka denemeyi analiz ediyor…",
+      "PDF metni okunuyor ve soru–konu eşlemesi üretiliyor; lütfen bekleyin."
+    );
+    if (ov) ov.hidden = false;
+    if (saveBtn) saveBtn.disabled = true;
+    if (aiBtn) aiBtn.disabled = true;
+
+    try {
+      var pdfText = await extractTextFromPDF(file);
+      var result = await analyzeExamWithAI(pdfText, {
+        examType: String(turEl.value || "").trim(),
+        questionCountHint: hint > 0 ? hint : undefined,
+      });
+      var rows = result && result.rows ? result.rows : [];
+      if (!rows.length) {
+        throw new Error("AI yanıtında matris satırı yok.");
+      }
+      dnmRenderMatrixRows(rows, examKey);
+      var det = document.getElementById("dnmDetailsAdvanced");
+      if (det) det.open = true;
+      if (global.YKSPanel && typeof global.YKSPanel.toast === "function") {
+        global.YKSPanel.toast("Matris AI ile dolduruldu. Satırları mutlaka doğrulayın.");
+      } else {
+        alert("Matris AI ile dolduruldu. Satırları mutlaka doğrulayın.");
+      }
+    } catch (e) {
+      console.error("[dnm-ai-pdf]", e);
+      var errMsg =
+        e && e.message
+          ? String(e.message)
+          : "AI şu an yoğun, lütfen sonra tekrar deneyin veya manuel doldurun";
+      if (
+        errMsg.indexOf("Failed to fetch") !== -1 ||
+        errMsg.indexOf("NetworkError") !== -1 ||
+        errMsg.indexOf("Load failed") !== -1
+      ) {
+        errMsg = "AI şu an yoğun, lütfen sonra tekrar deneyin veya manuel doldurun";
+      }
+      if (global.YKSPanel && typeof global.YKSPanel.toast === "function") {
+        global.YKSPanel.toast(errMsg, { variant: "error" });
+      } else {
+        alert(errMsg);
+      }
+    } finally {
+      dnmMatrixBusy = false;
+      dnmResetPdfAnalyzingOverlayCopy();
+      if (ov) ov.hidden = true;
+      if (saveBtn) saveBtn.disabled = false;
+      dnmRefreshAiPdfMatrixButton();
+    }
+  }
   var dnmXimFile = null;
   var dnmXimUiBound = false;
+  /** @type {Record<string, string> | null} */
+  var dnmStudentsCache = null;
+  var dnmAccordionUiBound = false;
+  /** ÖSYM YKS kitapçık türü onay kutuları (A–E) — `dnmBooklet*` id’leri ile eşleşir */
+  var DNM_KITAPCIK_TUR_LETTERS = ["A", "B", "C", "D", "E"];
+  /** Geçerli doğru şık harfi (YKS beş şıklı) */
+  function dnmNormalizeAnswerKeyLetter(ch) {
+    var c = String(ch != null ? ch : "A").trim().toUpperCase().charAt(0);
+    return "ABCDE".indexOf(c) !== -1 ? c : "A";
+  }
 
   function dnmMufredatExamKey(tur) {
     var t = String(tur || "TYT").toUpperCase();
@@ -870,10 +1450,7 @@ import {
   }
 
   function dnmToggleAiUploadSection() {
-    var sec = document.getElementById("dnmAiUploadSection");
-    var st = document.getElementById("dnmPlanSinavTuru");
-    if (!sec || !st) return;
-    sec.hidden = !String(st.value || "").trim();
+    /* PDF alanları her zaman görünür; eski davranış kaldırıldı */
   }
 
   function dnmClearMatrixUi() {
@@ -886,7 +1463,7 @@ import {
   function dnmSimulateMatrixRows(n, examKey) {
     var dersList = yks2026DersKeys(examKey);
     if (!dersList || !dersList.length) dersList = ["TYT Türkçe"];
-    var letters = ["A", "B", "C", "D", "E"];
+    var letters = "ABCDE".split("");
     var rows = [];
     for (var i = 1; i <= n; i++) {
       var ders = dersList[(i - 1) % dersList.length];
@@ -902,72 +1479,113 @@ import {
     return rows;
   }
 
-  function dnmRenderMatrixRows(rows, examKey) {
+  function dnmAppendMatrixRowDynamic(examKey, r) {
+    r = r || {};
     var tbody = document.getElementById("dnmMatrixBody");
     var tbl = document.getElementById("dnmMatrixTable");
-    if (!tbody || !tbl || !rows || !rows.length) return;
-    tbody.innerHTML = "";
+    if (!tbody || !tbl) return;
+    var qno = r.questionNo != null ? Number(r.questionNo) : 1;
+    if (isNaN(qno) || qno < 1) qno = 1;
+    if (qno > 40) qno = 40;
+    var tr = document.createElement("tr");
+    tr.className = "js-dnm-mx-dynamic-row";
+    tr.setAttribute("data-dnm-q", String(qno));
     var dersList = yks2026DersKeys(examKey);
     if (!dersList || !dersList.length) dersList = ["TYT Türkçe"];
-    rows.forEach(function (r) {
-      var tr = document.createElement("tr");
-      tr.dataset.dnmQ = String(r.questionNo);
-      var tdN = document.createElement("td");
-      tdN.className = "dnm-col-n";
-      tdN.textContent = String(r.questionNo);
-      var tdD = document.createElement("td");
-      var selD = document.createElement("select");
-      selD.className = "dnm-matrix-select js-dnm-mx-ders";
-      selD.setAttribute("aria-label", "Soru " + r.questionNo + " ders");
-      dersList.forEach(function (dk) {
-        var o = document.createElement("option");
-        o.value = dk;
-        o.textContent = dk;
-        if (dk === r.ders) o.selected = true;
-        selD.appendChild(o);
-      });
-      tdD.appendChild(selD);
-      var tdK = document.createElement("td");
-      var selK = document.createElement("select");
-      selK.className = "dnm-matrix-select js-dnm-mx-konu";
-      selK.setAttribute("aria-label", "Soru " + r.questionNo + " konu");
-      tdK.appendChild(selK);
-      var tdA = document.createElement("td");
-      tdA.className = "dnm-col-ans";
-      var selA = document.createElement("select");
-      selA.className = "dnm-matrix-select js-dnm-mx-ans";
-      selA.setAttribute("aria-label", "Soru " + r.questionNo + " doğru şık");
-      "ABCDE".split("").forEach(function (L) {
-        var o = document.createElement("option");
-        o.value = L;
-        o.textContent = L;
-        if (L === String(r.answer || "A").toUpperCase().charAt(0)) o.selected = true;
-        selA.appendChild(o);
-      });
-      tdA.appendChild(selA);
-      tr.appendChild(tdN);
-      tr.appendChild(tdD);
-      tr.appendChild(tdK);
-      tr.appendChild(tdA);
-      tbody.appendChild(tr);
-      function refillKonu() {
-        var dval = selD.value;
-        selK.innerHTML = "";
-        yks2026KonuOptionsForDers(examKey, dval).forEach(function (ko) {
-          var o = document.createElement("option");
-          o.value = ko.value;
-          o.textContent = ko.text;
-          selK.appendChild(o);
-        });
-        var want = String(r.konu || "").trim();
-        if (want && Array.prototype.some.call(selK.options, function (op) { return op.value === want; })) {
-          selK.value = want;
-        } else if (selK.options[0]) selK.selectedIndex = 0;
-      }
-      refillKonu();
-      selD.addEventListener("change", refillKonu);
+    var selD = document.createElement("select");
+    selD.className = "dnm-matrix-select js-dnm-mx-ders";
+    selD.setAttribute("aria-label", "Ders");
+    dersList.forEach(function (dk) {
+      var o = document.createElement("option");
+      o.value = dk;
+      o.textContent = dk;
+      if (String(r.ders || "").trim() === dk) o.selected = true;
+      selD.appendChild(o);
     });
+    var tdD = document.createElement("td");
+    tdD.appendChild(selD);
+    var tdQ = document.createElement("td");
+    tdQ.className = "dnm-col-n";
+    var selQ = document.createElement("select");
+    selQ.className = "dnm-matrix-select js-dnm-mx-qno";
+    selQ.setAttribute("aria-label", "Soru numarası");
+    for (var qi = 1; qi <= 40; qi++) {
+      var oq = document.createElement("option");
+      oq.value = String(qi);
+      oq.textContent = String(qi);
+      if (qi === qno) oq.selected = true;
+      selQ.appendChild(oq);
+    }
+    tdQ.appendChild(selQ);
+    var selK = document.createElement("select");
+    selK.className = "dnm-matrix-select js-dnm-mx-konu";
+    selK.setAttribute("aria-label", "Konu");
+    var tdK = document.createElement("td");
+    tdK.appendChild(selK);
+    var tdA = document.createElement("td");
+    tdA.className = "dnm-col-ans";
+    var selA = document.createElement("select");
+    selA.className = "dnm-matrix-select js-dnm-mx-ans";
+    var ansPick = dnmNormalizeAnswerKeyLetter(r.answer);
+    "ABCDE".split("").forEach(function (L) {
+      var o = document.createElement("option");
+      o.value = L;
+      o.textContent = L;
+      if (L === ansPick) o.selected = true;
+      selA.appendChild(o);
+    });
+    tdA.appendChild(selA);
+    var tdRm = document.createElement("td");
+    tdRm.className = "dnm-col-rm";
+    var btnRm = document.createElement("button");
+    btnRm.type = "button";
+    btnRm.className = "dnm-icon-btn";
+    btnRm.setAttribute("aria-label", "Satırı sil");
+    btnRm.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+    btnRm.addEventListener("click", function (e) {
+      e.stopPropagation();
+      tr.remove();
+      var tb = document.getElementById("dnmMatrixBody");
+      var tbx = document.getElementById("dnmMatrixTable");
+      if (tb && (!tb.children || tb.children.length === 0) && tbx) tbx.hidden = true;
+    });
+    tdRm.appendChild(btnRm);
+    tr.appendChild(tdD);
+    tr.appendChild(tdQ);
+    tr.appendChild(tdK);
+    tr.appendChild(tdA);
+    tr.appendChild(tdRm);
+    function refillKonu() {
+      var dval = selD.value;
+      selK.innerHTML = "";
+      yks2026KonuOptionsForDers(examKey, dval).forEach(function (ko) {
+        var o = document.createElement("option");
+        o.value = ko.value;
+        o.textContent = ko.text;
+        selK.appendChild(o);
+      });
+      var want = String(r.konu || "").trim();
+      if (want && Array.prototype.some.call(selK.options, function (op) { return op.value === want; })) {
+        selK.value = want;
+      } else if (selK.options[0]) selK.selectedIndex = 0;
+    }
+    function syncQAttr() {
+      var v = parseInt(String(selQ.value || "1"), 10);
+      if (!isNaN(v)) tr.setAttribute("data-dnm-q", String(v));
+    }
+    refillKonu();
+    selD.addEventListener("change", refillKonu);
+    selQ.addEventListener("change", syncQAttr);
+    tbody.appendChild(tr);
     tbl.hidden = false;
+  }
+
+  function dnmRenderMatrixRows(rows, examKey) {
+    dnmClearMatrixUi();
+    if (!rows || !rows.length) return;
+    rows.forEach(function (r) {
+      dnmAppendMatrixRowDynamic(examKey, r);
+    });
   }
 
   function dnmCollectMatrixFromDom() {
@@ -975,17 +1593,19 @@ import {
     var tbl = document.getElementById("dnmMatrixTable");
     if (!tbody || !tbl || tbl.hidden) return [];
     var out = [];
-    tbody.querySelectorAll("tr[data-dnm-q]").forEach(function (tr) {
-      var q = parseInt(tr.getAttribute("data-dnm-q"), 10);
+    tbody.querySelectorAll("tr.js-dnm-mx-dynamic-row").forEach(function (tr) {
       var d = tr.querySelector(".js-dnm-mx-ders");
+      var qn = tr.querySelector(".js-dnm-mx-qno");
       var k = tr.querySelector(".js-dnm-mx-konu");
       var a = tr.querySelector(".js-dnm-mx-ans");
-      if (!d || !k || !a || isNaN(q)) return;
+      if (!d || !qn || !k || !a) return;
+      var q = parseInt(String(qn.value || tr.getAttribute("data-dnm-q") || "0"), 10);
+      if (isNaN(q)) return;
       out.push({
         questionNo: q,
         ders: String(d.value || "").trim(),
         konu: String(k.value || "").trim(),
-        answer: String(a.value || "A").trim().toUpperCase().charAt(0),
+        answer: dnmNormalizeAnswerKeyLetter(a.value),
       });
     });
     out.sort(function (x, y) {
@@ -1033,7 +1653,46 @@ import {
     dnmRunAiAnalysisSimulated();
   }
 
-  function dnmBuildMatrixManual() {
+  function dnmGetExamKeyFromForm() {
+    var turEl = document.getElementById("dnmPlanSinavTuru");
+    if (!turEl || !String(turEl.value || "").trim()) return null;
+    return dnmMufredatExamKey(turEl.value);
+  }
+
+  function dnmAddMatrixRowClick() {
+    var ek = dnmGetExamKeyFromForm();
+    if (!ek) {
+      alert("Önce sınav türü seçin.");
+      return;
+    }
+    var nextQ = 1;
+    var tb = document.getElementById("dnmMatrixBody");
+    if (tb && tb.querySelectorAll("tr.js-dnm-mx-dynamic-row").length) {
+      var maxQ = 0;
+      tb.querySelectorAll(".js-dnm-mx-qno").forEach(function (sel) {
+        var v = parseInt(String(sel.value || "0"), 10);
+        if (!isNaN(v) && v > maxQ) maxQ = v;
+      });
+      nextQ = Math.min(40, maxQ + 1);
+    }
+    dnmAppendMatrixRowDynamic(ek, { questionNo: nextQ, answer: "A" });
+  }
+
+  function dnmInitMatrixClick() {
+    var ek = dnmGetExamKeyFromForm();
+    if (!ek) {
+      alert("Önce sınav türü seçin.");
+      return;
+    }
+    var tb = document.getElementById("dnmMatrixBody");
+    if (tb && tb.children && tb.children.length) {
+      if (!window.confirm("Mevcut matris satırları silinsin mi?")) return;
+    }
+    dnmClearMatrixUi();
+    dnmAppendMatrixRowDynamic(ek, { questionNo: 1, answer: "A" });
+  }
+
+  function dnmBuildMatrixBulk() {
     var turEl = document.getElementById("dnmPlanSinavTuru");
     if (!turEl || !String(turEl.value || "").trim()) {
       alert("Önce sınav türü seçin.");
@@ -1050,7 +1709,7 @@ import {
     var firstK = topics[0] ? topics[0].value : "Genel";
     var rows = [];
     for (var i = 1; i <= n; i++) {
-      rows.push({ questionNo: i, ders: firstD, konu: firstK, answer: "A" });
+      rows.push({ questionNo: Math.min(40, i), ders: firstD, konu: firstK, answer: "A" });
     }
     dnmRenderMatrixRows(rows, examKey);
     var det = document.getElementById("dnmDetailsAdvanced");
@@ -1097,27 +1756,152 @@ import {
     });
   }
 
+  function dnmSyncPdfFilesFromInputs() {
+    var fb = document.getElementById("dnmFileBookletPdf");
+    var fk = document.getElementById("dnmFileAnswerKeyPdf");
+    var lb = document.getElementById("dnmFileBookletPdfLabel");
+    var lk = document.getElementById("dnmFileAnswerKeyPdfLabel");
+    var la = document.getElementById("dnmAiExamFileLabel");
+    var lka = document.getElementById("dnmAiKeyFileLabel");
+    if (fb && fb.files && fb.files[0]) {
+      dnmAiExamFile = fb.files[0];
+      if (lb) lb.textContent = dnmAiExamFile.name;
+      if (la) la.textContent = dnmAiExamFile.name;
+    }
+    if (fk && fk.files && fk.files[0]) {
+      dnmAiKeyFile = fk.files[0];
+      if (lk) lk.textContent = dnmAiKeyFile.name;
+      if (lka) lka.textContent = dnmAiKeyFile.name;
+    }
+  }
+
+  function dnmCollectBookletTypes() {
+    var out = [];
+    DNM_KITAPCIK_TUR_LETTERS.forEach(function (L) {
+      var el = document.getElementById("dnmBooklet" + L);
+      if (el && el.checked) out.push(L);
+    });
+    return out;
+  }
+
+  function dnmSetBookletTypesFromRow(row) {
+    var raw = row.bookletTypesJson || row.bookletVariants || "";
+    var arr = [];
+    try {
+      if (raw && String(raw).charAt(0) === "[") arr = JSON.parse(raw);
+      else if (raw) arr = String(raw).split(/[,\s]+/).filter(Boolean);
+    } catch (e) {
+      arr = [];
+    }
+    DNM_KITAPCIK_TUR_LETTERS.forEach(function (L) {
+      var el = document.getElementById("dnmBooklet" + L);
+      if (el) el.checked = arr.indexOf(L) !== -1;
+    });
+  }
+
+  async function dnmMaybeUploadExamPdfs() {
+    var ids = { bookletId: "", answerKeyId: "" };
+    try {
+      if (dnmAiExamFile && dnmAiExamFile.size) {
+        var mime = String(dnmAiExamFile.type || "").toLowerCase();
+        var name = String(dnmAiExamFile.name || "").toLowerCase();
+        if (mime.indexOf("pdf") !== -1 || name.endsWith(".pdf")) {
+          var fid = ID.unique();
+          await storage.createFile({
+            bucketId: APPWRITE_BUCKET_DENEME_DEPOSU,
+            fileId: fid,
+            file: dnmAiExamFile,
+          });
+          ids.bookletId = fid;
+        }
+      }
+      if (dnmAiKeyFile && dnmAiKeyFile.size) {
+        var mime2 = String(dnmAiKeyFile.type || "").toLowerCase();
+        var name2 = String(dnmAiKeyFile.name || "").toLowerCase();
+        if (mime2.indexOf("pdf") !== -1 || name2.endsWith(".pdf")) {
+          var fid2 = ID.unique();
+          await storage.createFile({
+            bucketId: APPWRITE_BUCKET_DENEME_DEPOSU,
+            fileId: fid2,
+            file: dnmAiKeyFile,
+          });
+          ids.answerKeyId = fid2;
+        }
+      }
+    } catch (e) {
+      console.warn("[dnm] Storage:", e);
+      if (global.YKSPanel && typeof global.YKSPanel.toast === "function") {
+        global.YKSPanel.toast(
+          "PDF dosyaları depoya yüklenemedi (izin veya ağ). Kayıt metadatası yine de saklanır.",
+          { variant: "warning" }
+        );
+      }
+    }
+    return ids;
+  }
+
   function dnmBindAiMatrixUi() {
-    dnmWireFileDrop("dnmAiDropExam", "dnmAiFileExam", "dnmAiExamFileLabel", function (f) {
+    dnmWireFileDrop("dnmAiDropExam", "dnmFileBookletPdf", "dnmFileBookletPdfLabel", function (f) {
       dnmAiExamFile = f;
+      var la = document.getElementById("dnmAiExamFileLabel");
+      if (la) la.textContent = f ? f.name : "";
       dnmTryRunDualPdfAnalysis();
+      dnmRefreshAiPdfMatrixButton();
     });
-    dnmWireFileDrop("dnmAiDropKey", "dnmAiFileKey", "dnmAiKeyFileLabel", function (f) {
+    dnmWireFileDrop("dnmAiDropKey", "dnmFileAnswerKeyPdf", "dnmFileAnswerKeyPdfLabel", function (f) {
       dnmAiKeyFile = f;
+      var lka = document.getElementById("dnmAiKeyFileLabel");
+      if (lka) lka.textContent = f ? f.name : "";
       dnmTryRunDualPdfAnalysis();
     });
+    var fb = document.getElementById("dnmFileBookletPdf");
+    var fk = document.getElementById("dnmFileAnswerKeyPdf");
+    if (fb) {
+      fb.addEventListener("change", function () {
+        dnmSyncPdfFilesFromInputs();
+        dnmTryRunDualPdfAnalysis();
+        dnmRefreshAiPdfMatrixButton();
+      });
+    }
+    if (fk) {
+      fk.addEventListener("change", function () {
+        dnmSyncPdfFilesFromInputs();
+        dnmTryRunDualPdfAnalysis();
+        dnmRefreshAiPdfMatrixButton();
+      });
+    }
     var st = document.getElementById("dnmPlanSinavTuru");
     if (st) {
       st.addEventListener("change", function () {
         dnmToggleAiUploadSection();
+        dnmRefreshAiPdfMatrixButton();
       });
     }
-    var b = document.getElementById("btnDnmBuildMatrix");
-    if (b) {
-      b.addEventListener("click", function () {
-        dnmBuildMatrixManual();
+    var bAdd = document.getElementById("btnDnmAddMatrixRow");
+    if (bAdd) {
+      bAdd.addEventListener("click", function () {
+        dnmAddMatrixRowClick();
       });
     }
+    var bInit = document.getElementById("btnDnmInitMatrix");
+    if (bInit) {
+      bInit.addEventListener("click", function () {
+        dnmInitMatrixClick();
+      });
+    }
+    var bBulk = document.getElementById("btnDnmBuildMatrixBulk");
+    if (bBulk) {
+      bBulk.addEventListener("click", function () {
+        dnmBuildMatrixBulk();
+      });
+    }
+    var bAiPdf = document.getElementById("btnDnmAiPdfMatrix");
+    if (bAiPdf) {
+      bAiPdf.addEventListener("click", function () {
+        void dnmRunAiPdfMatrixExtract();
+      });
+    }
+    dnmRefreshAiPdfMatrixButton();
   }
 
   var DNM_YAYIN_LABELS = {
@@ -1585,12 +2369,356 @@ import {
       var snapAll = await getDocs(collection(db, "exams"));
       collectFromSnap(snapAll, out);
     }
+    /* En yakın / en güncel tarih üstte (ISO string DESC) */
     out.sort(function (a, b) {
       var da = dnmExamDateToIso(a) || "";
       var db = dnmExamDateToIso(b) || "";
       return db.localeCompare(da);
     });
     return out;
+  }
+
+  /**
+   * Eski optik akışında üretilen sahte student_id; Appwrite `students` belgesi değildir.
+   * Yeni kayıtlar yalnızca eşleşen gerçek öğrenci $id ile yazılır (optik-okuma.js).
+   */
+  function dnmIsSyntheticExamResultStudentId(sid) {
+    return /^optik_unmatched_/i.test(String(sid || "").trim());
+  }
+
+  async function dnmEnsureStudentsCache() {
+    if (dnmStudentsCache) return dnmStudentsCache;
+    dnmStudentsCache = {};
+    var cid = getCoachId();
+    if (!cid) return dnmStudentsCache;
+    try {
+      var list = await fetchStudentsForCoach(cid);
+      list.forEach(function (s) {
+        dnmStudentsCache[s.id] = s.name;
+      });
+    } catch (e) {
+      console.warn("[dnm] öğrenci önbellek", e);
+    }
+    return dnmStudentsCache;
+  }
+
+  async function dnmFetchExamResultsForPlan(planRow) {
+    if (!planRow || !planRow.id) return [];
+    var cid = getCoachId();
+    var out = [];
+    try {
+      var snap = await getDocs(
+        query(collection(db, APPWRITE_COLLECTION_EXAM_RESULTS), where("exam_id", "==", planRow.id))
+      );
+      snap.forEach(function (d) {
+        var x = typeof d.data === "function" ? d.data() : {};
+        out.push({ id: d.id, data: x });
+      });
+    } catch (e) {
+      console.warn("[dnm] ExamResults exam_id:", e);
+    }
+    if (!out.length && cid) {
+      try {
+        var snap2 = await getDocs(
+          query(collection(db, APPWRITE_COLLECTION_EXAM_RESULTS), where("coach_id", "==", cid))
+        );
+        var wantName = String(planRow.examName || "")
+          .trim()
+          .toLowerCase();
+        var wantDate = dnmExamDateToIso(planRow);
+        snap2.forEach(function (d) {
+          var x = typeof d.data === "function" ? d.data() : {};
+          var en = String(x.exam_name || "")
+            .trim()
+            .toLowerCase();
+          var saved = x.saved_at;
+          var ds = "";
+          if (saved && typeof saved.toDate === "function") {
+            try {
+              ds = saved.toDate().toISOString().slice(0, 10);
+            } catch (e) {}
+          } else if (typeof saved === "string") ds = saved.slice(0, 10);
+          if (wantName && en === wantName && (!wantDate || ds === wantDate)) {
+            out.push({ id: d.id, data: x });
+          }
+        });
+      } catch (e2) {
+        console.warn("[dnm] ExamResults yedek süzme:", e2);
+      }
+    }
+    return out.filter(function (entry) {
+      var x = entry && entry.data ? entry.data : {};
+      var sid = x.student_id != null ? x.student_id : x.studentId;
+      return !dnmIsSyntheticExamResultStudentId(sid);
+    });
+  }
+
+  function dnmParseDetailJson(raw) {
+    try {
+      if (typeof raw === "string") return JSON.parse(raw || "{}");
+      if (raw && typeof raw === "object") return raw;
+    } catch (e) {}
+    return {};
+  }
+
+  function dnmNormalizePlanMatrix(planRow) {
+    var rawMx = planRow && (planRow.answerKeyMatrix || planRow.answer_key_matrix);
+    if (!Array.isArray(rawMx) || !rawMx.length) return [];
+    return rawMx.map(function (x, idx) {
+      return {
+        questionNo: x.questionNo != null ? Number(x.questionNo) : idx + 1,
+        ders: String(x.ders || x.subject || "").trim(),
+        konu: String(x.konu || x.topic || "").trim(),
+        answer: dnmNormalizeAnswerKeyLetter(x.answer != null ? x.answer : x.correct),
+      };
+    });
+  }
+
+  function dnmApplyMrBadgesToStudentTable(trDetail, badgeByResultId) {
+    var tb = trDetail.querySelector("[data-dnm-stu-rows]");
+    if (!tb) return;
+    tb.querySelectorAll("tr[data-dnm-result-id]").forEach(function (tr) {
+      var rid = tr.getAttribute("data-dnm-result-id") || "";
+      var cell = tr.querySelector(".dnm-stu-cell");
+      if (!cell) return;
+      cell.querySelectorAll(".dnm-mr-badge").forEach(function (el) {
+        el.remove();
+      });
+      var b = badgeByResultId && badgeByResultId[rid];
+      if (!b || !b.text) return;
+      var span = document.createElement("span");
+      span.className =
+        "dnm-mr-badge " + (b.danger ? "dnm-mr-badge--danger" : "dnm-mr-badge--warn");
+      span.setAttribute("role", "status");
+      span.textContent = b.text;
+      cell.appendChild(span);
+    });
+  }
+
+  async function dnmMrDeleteDocumentsForStudentExam(studentId, examId) {
+    var sid = String(studentId || "").trim();
+    var eid = String(examId || "").trim();
+    if (!sid || !eid) return;
+    var cref = collection(db, APPWRITE_COLLECTION_MR_EXAM_DEFICIENCIES);
+    var q = query(cref, where("student_id", "==", sid), where("exam_id", "==", eid));
+    var snap = await getDocs(q);
+    var ids = [];
+    snap.forEach(function (d) {
+      ids.push(d.id);
+    });
+    for (var i = 0; i < ids.length; i++) {
+      var delR = await deleteDoc(doc(db, APPWRITE_COLLECTION_MR_EXAM_DEFICIENCIES, ids[i]));
+      if (isAppwriteWriteSoftFailure(delR)) {
+        console.warn("[dnm] MR satırı silinemedi:", delR && delR.message ? delR.message : delR);
+      }
+    }
+  }
+
+  async function dnmMrWriteDeficiencyPayloads(payloads) {
+    var cref = collection(db, APPWRITE_COLLECTION_MR_EXAM_DEFICIENCIES);
+    for (var j = 0; j < payloads.length; j++) {
+      var wr = await addDoc(cref, payloads[j]);
+      if (isAppwriteWriteSoftFailure(wr)) return false;
+    }
+    return true;
+  }
+
+  async function dnmRunMrAnalysisForAccordion(planRow, trDetail, results, matrix, runId) {
+    var cid = getCoachId();
+    var examId = String(planRow && planRow.id ? planRow.id : "").trim();
+    if (!cid || !examId || !Array.isArray(matrix) || !matrix.length || !trDetail || !Array.isArray(results)) {
+      return;
+    }
+    /** @type {Record<string, { text: string, danger: boolean }>} */
+    var badgeByResultId = Object.create(null);
+    var analyzedAt = new Date().toISOString();
+    for (var i = 0; i < results.length; i++) {
+      if (String(trDetail.dataset.dnmMrRunId || "") !== String(runId)) return;
+      var entry = results[i];
+      var x = entry.data || {};
+      var sid = String(x.student_id || "").trim();
+      if (!sid || dnmIsSyntheticExamResultStudentId(sid)) continue;
+      var detail = dnmParseDetailJson(x.detail_json);
+      var answers = extractStudentAnswersFromExamDetail(detail);
+      if (!Object.keys(answers).length) continue;
+      var deficiencies = analyzeStudentDeficiencies(answers, matrix);
+      var aggregated = aggregateTopicDeficiencies(deficiencies, matrix);
+      try {
+        await dnmMrDeleteDocumentsForStudentExam(sid, examId);
+        if (aggregated.length) {
+          var payloads = buildMrDeficiencyWritePayloads({
+            coachId: cid,
+            examId: examId,
+            studentId: sid,
+            examResultId: entry.id,
+            aggregated: aggregated,
+            analyzedAtIso: analyzedAt,
+          });
+          var ok = await dnmMrWriteDeficiencyPayloads(payloads);
+          if (ok) {
+            var anyHigh = aggregated.some(function (r) {
+              return r.severity_high;
+            });
+            badgeByResultId[entry.id] = {
+              text: "MR raporu hazır · " + aggregated.length + " konu",
+              danger: anyHigh,
+            };
+          }
+        }
+      } catch (err) {
+        console.warn("[dnm] MR analiz:", err && err.message ? err.message : err);
+      }
+    }
+    if (String(trDetail.dataset.dnmMrRunId || "") !== String(runId)) return;
+    dnmApplyMrBadgesToStudentTable(trDetail, badgeByResultId);
+  }
+
+  function dnmStudentNetFromResultRow(entry, studentsMap) {
+    var x = entry.data || {};
+    var detail = dnmParseDetailJson(x.detail_json);
+    var net =
+      detail.computed && typeof detail.computed.totalNet === "number"
+        ? detail.computed.totalNet
+        : null;
+    if (net == null && x.net != null) net = parseFloat(String(x.net).replace(",", "."), 10);
+    if (isNaN(net)) net = "—";
+    var sid = String(x.student_id || "").trim();
+    var name = (studentsMap && studentsMap[sid]) || sid || "—";
+    return { name: name, net: net, id: entry.id };
+  }
+
+  function dnmRenderAccordionPanels(planRow, trDetail, results, studentsMap) {
+    var esc = String(planRow.id || "").replace(/[^a-zA-Z0-9_-]/g, "_");
+    var kurumEl = trDetail.querySelector("[data-dnm-kurum-body]");
+    var stuBody = trDetail.querySelector("[data-dnm-stu-body]");
+    var n = results.length;
+    var sum = 0;
+    var cnt = 0;
+    results.forEach(function (e) {
+      var r = dnmStudentNetFromResultRow(e, studentsMap);
+      if (typeof r.net === "number") {
+        sum += r.net;
+        cnt++;
+      }
+    });
+    var avg = cnt ? Math.round((sum / cnt) * 10) / 10 : null;
+    if (kurumEl) {
+      kurumEl.innerHTML =
+        n === 0
+          ? '<p class="text-slate-500 text-sm m-0">Bu deneme için henüz kurum geneli sonuç özeti oluşturulabilecek kayıt yok.</p>'
+          : '<ul class="list-none m-0 p-0 space-y-2 text-sm text-slate-700">' +
+            "<li><strong>Girilen sonuç sayısı:</strong> " +
+            n +
+            "</li>" +
+            (avg != null
+              ? "<li><strong>Ortalama net:</strong> " + avg + "</li>"
+              : "<li><strong>Ortalama net:</strong> hesaplanamadı (detay eksik)</li>") +
+            "</ul>";
+    }
+    if (stuBody) {
+      if (!n) {
+        stuBody.innerHTML =
+          '<p class="text-slate-500 text-sm m-0">Öğrenci sonucu bulunmuyor.</p>';
+        return;
+      }
+      var rows = results
+        .map(function (e) {
+          return dnmStudentNetFromResultRow(e, studentsMap);
+        })
+        .sort(function (a, b) {
+          return String(a.name).localeCompare(String(b.name), "tr");
+        });
+      var h =
+        '<table class="min-w-full text-sm text-left border border-slate-200 rounded-lg overflow-hidden">' +
+        '<thead class="bg-slate-100 text-slate-600 font-semibold">' +
+        '<tr><th class="px-3 py-2">Öğrenci</th><th class="px-3 py-2">Net</th></tr></thead><tbody data-dnm-stu-rows="' +
+        esc +
+        '">';
+      rows.forEach(function (r) {
+        var nameLow = String(r.name).toLowerCase();
+        var rid = escapeHtml(String(r.id || ""));
+        h +=
+          '<tr class="border-t border-slate-100" data-dnm-stu-name="' +
+          escapeHtml(nameLow) +
+          '" data-dnm-result-id="' +
+          rid +
+          '"><td class="px-3 py-2"><div class="dnm-stu-cell flex flex-col gap-1"><span class="dnm-stu-cell__name font-medium text-slate-800">' +
+          escapeHtml(String(r.name)) +
+          '</span></div></td><td class="px-3 py-2 font-medium tabular-nums">' +
+          escapeHtml(String(r.net)) +
+          "</td></tr>";
+      });
+      h += "</tbody></table>";
+      stuBody.innerHTML = h;
+    }
+  }
+
+  async function dnmHydrateAccordionDetail(planRow, trDetail) {
+    if (trDetail.dataset.dnmHydrated === "1") return;
+    trDetail.dataset.dnmHydrated = "1";
+    var inner = trDetail.querySelector(".dnm-acc-inner");
+    if (!inner) return;
+    inner.innerHTML =
+      '<div class="flex flex-wrap gap-2 border-b border-slate-200 pb-3 mb-4">' +
+      '<button type="button" class="dnm-acc-tab px-4 py-2 rounded-lg text-sm font-semibold bg-violet-600 text-white" data-dnm-acc-tab="kurum">Kurum Sonuçları</button>' +
+      '<button type="button" class="dnm-acc-tab px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200" data-dnm-acc-tab="ogrenci">Öğrenci Sonuçları</button>' +
+      "</div>" +
+      '<div class="dnm-acc-panel" data-dnm-acc-panel="kurum">' +
+      '<div class="text-sm text-slate-600" data-dnm-kurum-body><p class="text-slate-500 m-0">Yükleniyor…</p></div>' +
+      "</div>" +
+      '<div class="dnm-acc-panel hidden" data-dnm-acc-panel="ogrenci" hidden>' +
+      '<input type="text" class="w-full max-w-md mb-3 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none" placeholder="Öğrenci Adı Ara..." data-dnm-stu-search />' +
+      '<div class="dnm-acc-stu-table-wrap overflow-x-auto" data-dnm-stu-body></div>' +
+      "</div>";
+    await dnmEnsureStudentsCache();
+    var results = await dnmFetchExamResultsForPlan(planRow);
+    trDetail.dataset.dnmResultsJson = JSON.stringify(results.map(function (r) { return { id: r.id, data: r.data }; }));
+    dnmRenderAccordionPanels(planRow, trDetail, results, dnmStudentsCache || {});
+    var matrix = dnmNormalizePlanMatrix(planRow);
+    var runId = String(Date.now()) + "_" + Math.random().toString(36).slice(2, 10);
+    trDetail.dataset.dnmMrRunId = runId;
+    if (matrix.length && results.length && getCoachId()) {
+      void dnmRunMrAnalysisForAccordion(planRow, trDetail, results, matrix, runId);
+    }
+    var search = trDetail.querySelector("[data-dnm-stu-search]");
+    if (search) {
+      search.addEventListener("input", function () {
+        var q = String(search.value || "")
+          .trim()
+          .toLocaleLowerCase("tr");
+        var tb = trDetail.querySelector("[data-dnm-stu-rows]");
+        if (!tb) return;
+        tb.querySelectorAll("tr[data-dnm-stu-name]").forEach(function (tr) {
+          var nm = tr.getAttribute("data-dnm-stu-name") || "";
+          tr.hidden = q && nm.indexOf(q) === -1;
+        });
+      });
+    }
+  }
+
+  function dnmBindAccordionTabs(root) {
+    if (dnmAccordionUiBound || !root) return;
+    dnmAccordionUiBound = true;
+    root.addEventListener("click", function (ev) {
+      var tab = ev.target.closest && ev.target.closest("[data-dnm-acc-tab]");
+      if (!tab || !root.contains(tab)) return;
+      var host = tab.closest("tr.dnm-tr--detail");
+      if (!host) return;
+      var t = tab.getAttribute("data-dnm-acc-tab");
+      host.querySelectorAll(".dnm-acc-tab").forEach(function (b) {
+        var on = b.getAttribute("data-dnm-acc-tab") === t;
+        b.classList.toggle("bg-violet-600", on);
+        b.classList.toggle("text-white", on);
+        b.classList.toggle("text-slate-600", !on);
+        b.classList.toggle("bg-slate-100", !on);
+        b.classList.toggle("hover:bg-slate-200", !on);
+      });
+      host.querySelectorAll(".dnm-acc-panel").forEach(function (p) {
+        var show = p.getAttribute("data-dnm-acc-panel") === t;
+        p.hidden = !show;
+        p.classList.toggle("hidden", !show);
+      });
+    });
   }
 
   function dnmSinavBadgeClass(tur) {
@@ -1636,9 +2764,11 @@ import {
       var st = row.planStatus || row.status || "Bekliyor";
       if (st === "Planlandı") st = "Bekliyor";
       var tr = document.createElement("tr");
-      tr.className = "dnm-tr";
+      tr.className = "dnm-tr dnm-tr--main";
       tr.dataset.dnmId = row.id;
+      tr.dataset.dnmPlanId = row.id;
       tr.innerHTML =
+        '<td class="dnm-td dnm-td--chev" aria-hidden="true"><i class="fa-solid fa-chevron-right dnm-chevron"></i></td>' +
         '<td class="dnm-td dnm-td--name"><span class="dnm-cell-title" title="' +
         escapeHtml(row.examName || "") +
         '">' +
@@ -1674,6 +2804,16 @@ import {
         '" title="Sil" aria-label="Sil"><i class="fa-solid fa-trash"></i></button>' +
         "</td>";
       tbody.appendChild(tr);
+      var trD = document.createElement("tr");
+      trD.className = "dnm-tr dnm-tr--detail";
+      trD.hidden = true;
+      trD.dataset.dnmDetailFor = row.id;
+      trD.innerHTML =
+        '<td colspan="8" class="dnm-td">' +
+        '<div class="tw-important-root dnm-acc-inner p-4 sm:p-5 min-h-[120px]">' +
+        '<p class="text-sm text-slate-500 m-0">Detaylar için satıra tıklayın.</p>' +
+        "</div></td>";
+      tbody.appendChild(trD);
     });
   }
 
@@ -1733,6 +2873,23 @@ import {
     var fk = document.getElementById("dnmAiFileKey");
     if (fe) fe.value = "";
     if (fk) fk.value = "";
+    var fb = document.getElementById("dnmFileBookletPdf");
+    var fkAns = document.getElementById("dnmFileAnswerKeyPdf");
+    if (fb) fb.value = "";
+    if (fkAns) fkAns.value = "";
+    var lb = document.getElementById("dnmFileBookletPdfLabel");
+    var lbf = document.getElementById("dnmFileAnswerKeyPdfLabel");
+    if (lb) lb.textContent = "";
+    if (lbf) lbf.textContent = "";
+    var sh = document.getElementById("dnmStoredPdfHint");
+    if (sh) {
+      sh.hidden = true;
+      sh.textContent = "";
+    }
+    DNM_KITAPCIK_TUR_LETTERS.forEach(function (L) {
+      var el = document.getElementById("dnmBooklet" + L);
+      if (el) el.checked = false;
+    });
     dnmClearMatrixUi();
     dnmToggleAiUploadSection();
     var ov = document.getElementById("dnmPdfAnalyzingOverlay");
@@ -1740,6 +2897,8 @@ import {
     dnmMatrixBusy = false;
     var saveBtn = document.getElementById("btnDnmSave");
     if (saveBtn) saveBtn.disabled = false;
+    dnmResetPdfAnalyzingOverlayCopy();
+    dnmRefreshAiPdfMatrixButton();
   }
 
   function dnmFillFormFromRow(row) {
@@ -1754,6 +2913,7 @@ import {
     var d = document.getElementById("dnmPlanDate");
     if (d) d.value = dnmExamDateToIso(row) || new Date().toISOString().slice(0, 10);
     dnmSetZorlukPills(row.difficulty || "orta");
+    dnmSetBookletTypesFromRow(row);
     dnmAiExamFile = null;
     dnmAiKeyFile = null;
     var le = document.getElementById("dnmAiExamFileLabel");
@@ -1764,6 +2924,29 @@ import {
     var fk = document.getElementById("dnmAiFileKey");
     if (fe) fe.value = "";
     if (fk) fk.value = "";
+    var fb = document.getElementById("dnmFileBookletPdf");
+    var fkAns = document.getElementById("dnmFileAnswerKeyPdf");
+    if (fb) fb.value = "";
+    if (fkAns) fkAns.value = "";
+    var lb = document.getElementById("dnmFileBookletPdfLabel");
+    var lbf = document.getElementById("dnmFileAnswerKeyPdfLabel");
+    if (lb) lb.textContent = "";
+    if (lbf) lbf.textContent = "";
+    var sh = document.getElementById("dnmStoredPdfHint");
+    var bid = row.bookletPdfFileId || row.denemeKitapcikFileId || (row.aiExtractionMeta && row.aiExtractionMeta.bookletPdfStorageId);
+    var aid = row.answerKeyPdfFileId || row.cevapAnahtariFileId || (row.aiExtractionMeta && row.aiExtractionMeta.answerKeyPdfStorageId);
+    if (sh) {
+      if (bid || aid) {
+        sh.hidden = false;
+        sh.textContent =
+          "Bu planda kayıtlı PDF" +
+          (bid && aid ? "ler" : "") +
+          " var. Yeni dosya seçerek güncelleyebilirsiniz.";
+      } else {
+        sh.hidden = true;
+        sh.textContent = "";
+      }
+    }
     dnmClearMatrixUi();
     dnmToggleAiUploadSection();
     var rawMx = row.answerKeyMatrix;
@@ -1775,17 +2958,14 @@ import {
           questionNo: x.questionNo != null ? Number(x.questionNo) : idx + 1,
           ders: String(x.ders || x.subject || "").trim(),
           konu: String(x.konu || x.topic || "").trim(),
-          answer: String(x.answer || x.correct || "A")
-            .trim()
-            .toUpperCase()
-            .charAt(0),
+          answer: dnmNormalizeAnswerKeyLetter(x.answer != null ? x.answer : x.correct),
         };
       });
       dnmRenderMatrixRows(normalized, ek);
       var det = document.getElementById("dnmDetailsAdvanced");
       if (det) det.open = true;
     }
-    dnmToggleAiUploadSection();
+    dnmRefreshAiPdfMatrixButton();
   }
 
   async function dnmReloadList() {
@@ -1854,6 +3034,9 @@ import {
     var examDateTs = Timestamp.fromDate(new Date(dateStr + "T12:00:00"));
     var editId = editEl ? String(editEl.value || "").trim() : "";
     var matrix = dnmCollectMatrixFromDom();
+    dnmSyncPdfFilesFromInputs();
+    var pdfIds = await dnmMaybeUploadExamPdfs();
+    var bookletTypesArr = dnmCollectBookletTypes();
     var payload = {
       coach_id: cid,
       recordType: DNM_RECORD,
@@ -1874,11 +3057,26 @@ import {
       payload.answerKeyMatrix = matrix;
       payload.answer_key_matrix = matrix;
     }
+    if (pdfIds.bookletId) {
+      payload.bookletPdfFileId = pdfIds.bookletId;
+      payload.denemeKitapcikFileId = pdfIds.bookletId;
+    }
+    if (pdfIds.answerKeyId) {
+      payload.answerKeyPdfFileId = pdfIds.answerKeyId;
+      payload.cevapAnahtariFileId = pdfIds.answerKeyId;
+    }
+    if (bookletTypesArr.length) {
+      payload.bookletTypesJson = JSON.stringify(bookletTypesArr);
+      payload.bookletVariants = bookletTypesArr.join(",");
+    }
     payload.aiExtractionMeta = {
       simulated: true,
       examPdfFileName: dnmAiExamFile ? dnmAiExamFile.name : null,
       answerKeyFileName: dnmAiKeyFile ? dnmAiKeyFile.name : null,
       matrixRowCount: matrix.length,
+      bookletPdfStorageId: pdfIds.bookletId || null,
+      answerKeyPdfStorageId: pdfIds.answerKeyId || null,
+      bookletTypes: bookletTypesArr,
       savedAtIso: new Date().toISOString(),
     };
     try {
@@ -1934,7 +3132,6 @@ import {
       });
     }
     wireOpenDenemeModal(document.getElementById("btnDnmNewExam"));
-    wireOpenDenemeModal(document.getElementById("btnOpenDenemeModal"));
     dnmBindExcelImportUi();
     dnmBindAiMatrixUi();
 
@@ -1958,6 +3155,7 @@ import {
     });
 
     if (root) {
+      dnmBindAccordionTabs(root);
       root.addEventListener("click", function (ev) {
         var ed = ev.target.closest && ev.target.closest("[data-dnm-edit]");
         if (ed) {
@@ -1987,6 +3185,32 @@ import {
               alert((e && e.message) || String(e));
             }
           })();
+          return;
+        }
+        var trMain = ev.target.closest && ev.target.closest("tr.dnm-tr--main");
+        if (trMain && root.contains(trMain)) {
+          if (ev.target.closest && ev.target.closest("button")) return;
+          var pid = trMain.getAttribute("data-dnm-plan-id") || trMain.dataset.dnmPlanId;
+          if (!pid) return;
+          var tbody = trMain.parentElement;
+          if (!tbody) return;
+          var detail = tbody.querySelector('tr.dnm-tr--detail[data-dnm-detail-for="' + pid + '"]');
+          var wasOpen = detail && !detail.hidden;
+          tbody.querySelectorAll("tr.dnm-tr--detail").forEach(function (r) {
+            r.hidden = true;
+          });
+          tbody.querySelectorAll("tr.dnm-tr--main .dnm-chevron").forEach(function (c) {
+            c.style.transform = "";
+          });
+          if (!wasOpen && detail) {
+            detail.hidden = false;
+            var ch = trMain.querySelector(".dnm-chevron");
+            if (ch) ch.style.transform = "rotate(90deg)";
+            var planRow = dnmPlansCache.find(function (r) {
+              return r.id === pid;
+            });
+            if (planRow) void dnmHydrateAccordionDetail(planRow, detail);
+          }
         }
       });
     }
@@ -2013,7 +3237,7 @@ import {
     function hook() {
       if (!global.YKSPanel || typeof global.YKSPanel.onNavigate !== "function") return false;
       global.YKSPanel.onNavigate(function (view) {
-        if (view === "deneme-analiz-denemeler" || view === "deneme-analiz-takvim") initDenemePlanlamaPage();
+        if (view === "deneme-analiz-denemeler") initDenemePlanlamaPage();
       });
       return true;
     }
@@ -2031,4 +3255,5 @@ import {
 
   global.initDenemeAnaliziPremium = initDenemeAnaliziPremium;
   global.destroyDenemeAnaliziPremium = destroyDenemeAnaliziPremium;
+  global.refreshKarneSonuclariTable = refreshKarneSonuclariTable;
 })(typeof window !== "undefined" ? window : globalThis);

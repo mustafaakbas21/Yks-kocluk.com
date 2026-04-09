@@ -34,6 +34,7 @@ import {
   getAppSettings,
   logAppwriteError,
   databasesListDocumentsOrSoft,
+  databasesCreateDocumentOrSoft,
   databasesUpdateDocumentOrSoft,
   databasesDeleteDocumentOrSoft,
   isAppwriteWriteSoftFailure,
@@ -50,9 +51,10 @@ import {
   APPWRITE_BUCKET_SORU_HAVUZU,
   APPWRITE_ENDPOINT,
   APPWRITE_COLLECTION_INSTITUTIONS,
+  APPWRITE_COLLECTION_GLOBAL_EXAMS,
   subscribeAppwriteDatabaseDocuments,
 } from "./appwrite-config.js?v=20260408-inst";
-import { Query, Account } from "./appwrite-browser.js";
+import { Query, Account, ID } from "./appwrite-browser.js";
 import { parseFlexibleDate, formatDateTimeTr } from "./date-format.js";
 import {
   configureZohoInboxPreset,
@@ -1488,6 +1490,7 @@ function saCanonicalRoute() {
     "admin-yonetimi",
     "gelen-kutusu",
     "sistem",
+    "global-deneme-takvim",
   ];
   if (pages.indexOf(k) >= 0) return k;
   return "home";
@@ -1827,6 +1830,207 @@ function saApplyRoute() {
     wireZohoInbox();
     loadEmails();
   }
+  if (route === "global-deneme-takvim") {
+    wireSaGlobalDenemeTakvimOnce();
+  }
+}
+
+/** denemeler.net → tablo; seçilenler `global_denemeler` (`APPWRITE_COLLECTION_GLOBAL_EXAMS`). */
+var saGdTakvimWired = false;
+/** @type {{ name: string, publisher: string, date: string, examType?: string }[]} */
+var saGdTakvimRows = [];
+
+function saGdNormKey(adi, dateIso) {
+  return String(adi || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ") +
+    "|" +
+    String(dateIso || "").slice(0, 10);
+}
+
+async function saGdLoadExistingKeys() {
+  var set = new Set();
+  try {
+    var res = await databasesListDocumentsOrSoft({
+      databaseId: APPWRITE_DATABASE_ID,
+      collectionId: APPWRITE_COLLECTION_GLOBAL_EXAMS,
+      queries: [Query.limit(5000)],
+    });
+    (res.documents || []).forEach(function (d) {
+      var adi = d.adi != null ? d.adi : "";
+      var ts = d.tarihSaat != null ? String(d.tarihSaat) : "";
+      var day = ts.slice(0, 10);
+      if (adi && day) set.add(saGdNormKey(adi, day));
+    });
+  } catch (e) {
+    console.warn("[sa-gd-takvim] existing list", e);
+  }
+  return set;
+}
+
+function wireSaGlobalDenemeTakvimOnce() {
+  if (saGdTakvimWired) return;
+  saGdTakvimWired = true;
+  var syncBtn = document.getElementById("saGdBtnSync");
+  var saveBtn = document.getElementById("saGdBtnSave");
+  var tbody = document.getElementById("saGdTableBody");
+  var errEl = document.getElementById("saGdErr");
+  var busy = document.getElementById("saGdBusy");
+
+  function setErr(msg) {
+    if (!errEl) return;
+    if (!msg) {
+      errEl.hidden = true;
+      errEl.textContent = "";
+      return;
+    }
+    errEl.hidden = false;
+    errEl.textContent = msg;
+  }
+
+  function setBusy(on) {
+    if (busy) busy.hidden = !on;
+    if (syncBtn) syncBtn.disabled = !!on;
+    if (saveBtn) saveBtn.disabled = !!on;
+  }
+
+  function renderTable(rows) {
+    saGdTakvimRows = rows || [];
+    if (!tbody) return;
+    if (!saGdTakvimRows.length) {
+      tbody.innerHTML =
+        '<tr><td colspan="4" class="px-4 py-6 text-center text-slate-500 text-sm">Önce takvimi senkronize edin.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = saGdTakvimRows
+      .map(function (r, i) {
+        return (
+          "<tr class=\"border-b border-slate-100/80 hover:bg-slate-800/40\">" +
+          '<td class="px-4 py-3"><input type="checkbox" class="sa-gd-row-cb rounded border-slate-500 bg-slate-900 text-teal-400 focus:ring-teal-500" data-sa-gd-i="' +
+          i +
+          '" checked /></td>' +
+          '<td class="px-4 py-3 text-sm text-slate-200">' +
+          escapeHtml(r.publisher || "—") +
+          "</td>" +
+          '<td class="px-4 py-3 text-sm font-medium text-white">' +
+          escapeHtml(r.name || "—") +
+          "</td>" +
+          '<td class="px-4 py-3 text-sm text-slate-300 whitespace-nowrap">' +
+          escapeHtml(r.date || "—") +
+          "</td>" +
+          "</tr>"
+        );
+      })
+      .join("");
+  }
+
+  if (syncBtn) {
+    syncBtn.addEventListener("click", function () {
+      setErr("");
+      setBusy(true);
+      var urlInput = document.getElementById("scrapeUrlInput");
+      var targetUrl = urlInput ? String(urlInput.value || "").trim() : "";
+      fetch("/api/scrape-exams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ targetUrl: targetUrl }),
+      })
+        .then(function (res) {
+          return res.json().then(function (body) {
+            return { ok: res.ok, body: body };
+          });
+        })
+        .then(function (pack) {
+          var body = pack.body || {};
+          if (!pack.ok || !body.ok) {
+            setErr((body && body.error) || "Senkronizasyon başarısız.");
+            renderTable([]);
+            return;
+          }
+          var exams = body.exams || [];
+          var src = (body && body.source) || "";
+          saToast(true, String(exams.length) + " kayıt çekildi" + (src ? " · " + src : "") + ".");
+          renderTable(exams);
+        })
+        .catch(function (e) {
+          console.error(e);
+          setErr((e && e.message) || String(e));
+          renderTable([]);
+        })
+        .finally(function () {
+          setBusy(false);
+        });
+    });
+  }
+
+  if (saveBtn) {
+    saveBtn.addEventListener("click", function () {
+      void (async function () {
+        setErr("");
+        if (!tbody || !saGdTakvimRows.length) {
+          saToast(false, "Kaydedilecek satır yok.");
+          return;
+        }
+        var idxs = [];
+        tbody.querySelectorAll("input.sa-gd-row-cb[data-sa-gd-i]").forEach(function (cb) {
+          if (cb.checked) idxs.push(parseInt(cb.getAttribute("data-sa-gd-i"), 10));
+        });
+        if (!idxs.length) {
+          saToast(false, "En az bir satır seçin.");
+          return;
+        }
+        setBusy(true);
+        var existing = await saGdLoadExistingKeys();
+        var saved = 0;
+        var skipped = 0;
+        var failed = 0;
+        try {
+          for (var j = 0; j < idxs.length; j++) {
+            var i = idxs[j];
+            var row = saGdTakvimRows[i];
+            if (!row || !row.name || !row.publisher || !row.date) continue;
+            var key = saGdNormKey(row.name, row.date);
+            if (existing.has(key)) {
+              skipped++;
+              continue;
+            }
+            var tur = String(row.examType || "YKS").toUpperCase().slice(0, 16);
+            var iso = String(row.date).slice(0, 10) + "T09:00:00.000+00:00";
+            var cr = await databasesCreateDocumentOrSoft(
+              APPWRITE_DATABASE_ID,
+              APPWRITE_COLLECTION_GLOBAL_EXAMS,
+              ID.unique(),
+              {
+                adi: String(row.name).slice(0, 500),
+                yayinevi: String(row.publisher).slice(0, 300),
+                sinavTuru: tur,
+                tarihSaat: iso,
+                coach_id: "",
+              }
+            );
+            if (isAppwriteWriteSoftFailure(cr)) {
+              failed++;
+              continue;
+            }
+            existing.add(key);
+            saved++;
+          }
+        } finally {
+          setBusy(false);
+        }
+        if (failed && !saved) {
+          setErr("Kayıt reddedildi (Appwrite izin veya şema).");
+          saToast(false, "Kayıt başarısız.");
+        } else {
+          saToast(true, saved + " kaydedildi · " + skipped + " zaten vardı" + (failed ? " · " + failed + " hata" : ""));
+        }
+      })();
+    });
+  }
+
+  renderTable([]);
 }
 
 var saAdminsCache = [];

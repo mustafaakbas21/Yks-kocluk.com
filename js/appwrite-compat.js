@@ -36,6 +36,7 @@ const COACH_SCOPED_COLLECTION_IDS = new Set([
   "appointments",
   "ExamResults",
   "meeting_logs",
+  "mr_exam_deficiencies",
 ]);
 
 var __dataCoachId = "";
@@ -101,6 +102,17 @@ function queriesArrayMentionsInstitutionId(queries) {
   return (queries || []).some(function (q) {
     var s = typeof q === "string" ? q : String(q && q.toString ? q.toString() : q || "");
     return /institutionId/i.test(s);
+  });
+}
+
+function __appwriteQueryToString(q) {
+  return typeof q === "string" ? q : String(q && q.toString ? q.toString() : q || "");
+}
+
+/** Appwrite şemasında institutionId yokken listDocuments 400 verir — bu sorguları çıkarıp istemcide süzmek için */
+function __queriesWithoutInstitutionId(queries) {
+  return (queries || []).filter(function (q) {
+    return !/\binstitutionId\b/i.test(__appwriteQueryToString(q));
   });
 }
 
@@ -294,6 +306,7 @@ const USERS_WRITE_KEYS = new Set([
   "createdAt",
   "lastLogin",
   "lastPasswordChangeAt",
+  "avatarUrl",
 ]);
 
 const COACHES_WRITE_KEYS = new Set(["username", "institutionId", "fullName", "name"]);
@@ -857,6 +870,38 @@ export async function getDocs(refOrQuery) {
         return makeDocsSnapshot(filtered);
       } catch (e2) {
         logAppwriteError("appwrite-compat.js/getDocs(users fallback)", e2);
+      }
+    }
+    if (
+      c.collectionId === "ExamResults" &&
+      __isInvalidQueryError(e) &&
+      !__blacklistedCollections.has(c.collectionId) &&
+      /institutionId|not found in schema/i.test(String((e && e.message) || ""))
+    ) {
+      try {
+        var qEr = compileConstraints(constraints);
+        if (__dataCoachId && isCoachScopedCollection(c.collectionId) && !constraintsIncludeCoachIdEqual(constraints)) {
+          qEr.unshift(AQuery.equal("coach_id", __dataCoachId));
+        }
+        qEr = __queriesWithoutInstitutionId(qEr);
+        qEr.push(AQuery.limit(500));
+        const resEr = await databases.listDocuments(APPWRITE_DATABASE_ID, c.collectionId, qEr);
+        let docsEr = resEr.documents || [];
+        docsEr = __filterDocumentsByFirestoreLikeConstraints(docsEr, constraints);
+        if (__dataInstitutionId) {
+          docsEr = docsEr.filter(function (d) {
+            var gi = String(d.institutionId != null ? d.institutionId : "").trim();
+            if (!gi) return true;
+            return gi === __dataInstitutionId;
+          });
+        }
+        console.warn(
+          "[Appwrite] getDocs ExamResults: institutionId şemada yok veya sorgu reddedildi; coach_id + istemci süzgeci kullanıldı:",
+          e && e.message ? String(e.message).slice(0, 160) : e
+        );
+        return makeDocsSnapshot(docsEr);
+      } catch (eEr2) {
+        logAppwriteError("appwrite-compat.js/getDocs(ExamResults fallback)", eEr2);
       }
     }
     if (__is404ishError(e) || __isCollectionMissingError(e)) {

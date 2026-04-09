@@ -30,29 +30,42 @@ function loadData() {
 function norm(s) {
   return String(s || "")
     .toLocaleLowerCase("tr")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
 function findUniByName(name) {
   if (!name) return null;
-  var n = String(name).trim();
+  var raw = String(name).trim();
+  var n = norm(raw);
   var list = getHedefAppwriteUniversities();
   for (var i = 0; i < list.length; i++) {
-    if (hedefUniDisplayName(list[i]) === n) return list[i];
+    var disp = hedefUniDisplayName(list[i]);
+    if (disp === raw || norm(disp) === n) return list[i];
   }
   return null;
 }
 
 function searchUniversities(q, limit) {
-  limit = limit || 12;
+  limit = limit || 14;
   var nq = norm(q);
   if (!nq) return [];
+  var tokens = nq.split(" ").filter(Boolean);
   var list = getHedefAppwriteUniversities();
+  if (!list || !list.length) return [];
   var out = [];
   for (var i = 0; i < list.length && out.length < limit; i++) {
     var u = list[i];
-    if (norm(hedefUniDisplayName(u)).indexOf(nq) !== -1) out.push(u);
+    var hay = norm(hedefUniDisplayName(u));
+    var hit =
+      tokens.length > 1
+        ? tokens.every(function (t) {
+            return hay.indexOf(t) !== -1;
+          })
+        : hay.indexOf(nq) !== -1;
+    if (hit) out.push(u);
   }
   return out;
 }
@@ -135,7 +148,7 @@ function bindPicker(cfg) {
     var list = searchUniversities(q, 14);
     if (!list.length) {
       dd.innerHTML =
-        '<div class="yks-uni-dropdown__empty">Sonuç yok — farklı anahtar kelime deneyin veya Appwrite’ta üniversite kaydı olduğundan emin olun.</div>';
+        '<div class="yks-uni-dropdown__empty">Sonuç yok — farklı kelime deneyin. Veri dosyası yüklenmediyse <code class="text-xs">src/data/yks-data.json</code> yolunu ve ağı kontrol edin.</div>';
       dd.hidden = false;
       return;
     }

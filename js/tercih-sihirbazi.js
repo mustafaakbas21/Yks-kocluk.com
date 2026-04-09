@@ -2,9 +2,11 @@
  * Tercih Sihirbazı — program türüne göre tek JSON: yok-atlas-lisans.json | yok-atlas-onlisans.json
  * (Scraper çıktısını src/data/ altına kopyalayın.)
  */
+import { getHedefCatalogJsonUrlCandidates } from "./hedef-appwrite-catalog.js";
+
 var DATA_SOURCES = {
-  lisans: { url: "src/data/yok-atlas-lisans.json", tag: "lisans" },
-  onlisans: { url: "src/data/yok-atlas-onlisans.json", tag: "onlisans" },
+  lisans: { file: "yok-atlas-lisans.json", tag: "lisans" },
+  onlisans: { file: "yok-atlas-onlisans.json", tag: "onlisans" },
 };
 
 /** @type {object[]|null} */
@@ -238,17 +240,23 @@ function normalizeAnyRow(raw, index, sourceTag) {
 }
 
 function fetchJsonBundle(entry) {
-  return fetch(entry.url, { cache: "no-store" })
-    .then(function (res) {
-      if (!res.ok) return { rows: [], tag: entry.tag };
-      return res.json().then(function (data) {
-        var arr = Array.isArray(data) ? data : data && data.rows ? data.rows : [];
-        return { rows: arr, tag: entry.tag };
+  var urls = getHedefCatalogJsonUrlCandidates(entry.file || "yok-atlas-lisans.json");
+  var tag = entry.tag;
+  function step(i) {
+    if (i >= urls.length) return Promise.resolve({ rows: [], tag: tag });
+    return fetch(urls[i], { cache: "no-store" })
+      .then(function (res) {
+        if (!res.ok) return step(i + 1);
+        return res.json().then(function (data) {
+          var arr = Array.isArray(data) ? data : data && data.rows ? data.rows : [];
+          return { rows: arr, tag: tag };
+        });
+      })
+      .catch(function () {
+        return step(i + 1);
       });
-    })
-    .catch(function () {
-      return { rows: [], tag: entry.tag };
-    });
+  }
+  return step(0);
 }
 
 /** @param {"lisans"|"onlisans"} programKey */

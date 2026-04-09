@@ -2,8 +2,32 @@
  * Üniversite / bölüm tek kaynak: önce YÖK Atlas (`yok-atlas.json`), yoksa `yks-data.json`.
  */
 
-/** @type {string[]} */
-var YKS_DATA_JSON_URLS = ["src/data/yok-atlas.json", "src/data/yks-data.json"];
+/**
+ * Statik JSON için fetch URL adayları.
+ * `/pages/koc-panel.html` altında `/src/data/x.json` → sunucuda `/pages/src/data/...` (404) olur;
+ * `new URL('../src/data/x', location.href)` proje kökündeki dosyayı verir.
+ * @param {string} filename örn. yks-data.json
+ * @returns {string[]}
+ */
+export function getHedefCatalogJsonUrlCandidates(filename) {
+  var urls = [];
+  if (typeof location !== "undefined" && location.href) {
+    try {
+      urls.push(new URL("../src/data/" + filename, location.href).href);
+    } catch (_e) {}
+    try {
+      urls.push(new URL("../../src/data/" + filename, location.href).href);
+    } catch (_e2) {}
+  }
+  urls.push("/src/data/" + filename);
+  urls.push("/data/" + filename);
+  var seen = Object.create(null);
+  return urls.filter(function (u) {
+    if (!u || seen[u]) return false;
+    seen[u] = true;
+    return true;
+  });
+}
 
 /** @type {boolean} */
 var _ready = false;
@@ -94,25 +118,33 @@ export function getDedupedProgramsForUniversity(uniDocId) {
 export async function ensureHedefSimulatorAppwriteData() {
   if (_ready) return;
   try {
+    var fileSpecs = [
+      { name: "yok-atlas.json", skipIfUniversitiesEmpty: true },
+      { name: "yks-data.json", skipIfUniversitiesEmpty: false },
+    ];
     var data = null;
-    for (var u = 0; u < YKS_DATA_JSON_URLS.length; u++) {
-      try {
-        var res = await fetch(YKS_DATA_JSON_URLS[u], { cache: "no-store" });
-        if (!res.ok) continue;
-        var dataTry = await res.json();
-        var ulistCheck = Array.isArray(dataTry.universities) ? dataTry.universities : [];
-        if (ulistCheck.length === 0 && u < YKS_DATA_JSON_URLS.length - 1) continue;
-        data = dataTry;
-        break;
-      } catch (_e) {
-        /* 404 / ağ: sessizce bir sonraki URL veya boş katalog */
+    outer: for (var fi = 0; fi < fileSpecs.length; fi++) {
+      var spec = fileSpecs[fi];
+      var candidates = getHedefCatalogJsonUrlCandidates(spec.name);
+      for (var ci = 0; ci < candidates.length; ci++) {
+        try {
+          var res = await fetch(candidates[ci], { cache: "no-store" });
+          if (!res.ok) continue;
+          var dataTry = await res.json();
+          var ulistCheck = Array.isArray(dataTry.universities) ? dataTry.universities : [];
+          if (ulistCheck.length === 0 && spec.skipIfUniversitiesEmpty) continue;
+          data = dataTry;
+          break outer;
+        } catch (_e) {
+          /* ağ / parse: sonraki aday */
+        }
       }
     }
     if (!data) {
       data = { universities: [], programs: [] };
       if (typeof console !== "undefined" && typeof console.info === "function") {
         console.info(
-          "[Uni/Program kataloğu] src/data/yok-atlas.json veya yks-data.json yüklenemedi; boş katalog (universities: [], programs: []) kullanılıyor."
+          "[Uni/Program kataloğu] yok-atlas.json / yks-data.json yüklenemedi (src/data veya /data yollarını kontrol edin); boş katalog kullanılıyor."
         );
       }
     }

@@ -1,6 +1,8 @@
 /**
  * YKS Koçluk — Panel (Appwrite + tüm butonlar)
  * Menüye özellik eklemek için: window.YKSPanel.onNavigate(fn) veya data-nav ile navigate
+ *
+ * Deneme kitapçığı → AI matris: `deneme-analizi.js` içinde `analyzeExamWithAI` (`deneme-ai-pdf-matrix.js`) → sunucu `POST /api/analyze-exam` (Gemini; anahtar `GEMINI_API_KEY` yalnızca Vercel/.env).
  */
 
 import {
@@ -79,6 +81,9 @@ import {
   setCoachDataIsolation,
   setExamStudentGuard,
   clearCoachDataIsolation,
+  getAccountPrefs,
+  updateAccountPrefs,
+  uploadCoachAvatarToStorage,
 } from "./appwrite-compat.js";
 import {
   saveSoruHavuzuEntry,
@@ -140,6 +145,7 @@ import {
   YKS_AVATAR_FEMALE_URLS,
   YKS_AVATAR_ALL_40_URLS,
   getDicebearFallbackForFileId,
+  buildYksAvatarStorageViewUrl,
 } from "./yks-avatar-pack.js";
 import { getCoachPanelGate, getLastCoachGateResult, DP_LOGIN_PATH } from "./coach-auth-session.js";
 import { fetchAppwriteUserProfile } from "./derece-profile-resolve.js";
@@ -312,6 +318,15 @@ function getInitialKocViewFromUrl() {
     var p = new URLSearchParams(window.location.search);
     var view = (p.get("view") || "").trim();
     if (view === "gorusme-odasi") return "gorusme-odasi";
+    if (
+      view === "deneme-analiz-denemeler" ||
+      view === "deneme-analiz-optik" ||
+      view === "deneme-analiz-karne" ||
+      view === "deneme-analiz-takvim" ||
+      view === "deneme-analiz-telafi"
+    ) {
+      return view;
+    }
     var h = (window.location.hash || "").replace(/^#\/?/, "").trim();
     if (h === "gorusme-odasi" || h === "view=gorusme-odasi") return "gorusme-odasi";
     var t = (p.get("tool") || "").trim();
@@ -3514,6 +3529,151 @@ function escapeHtml(text) {
   div.textContent = String(text);
   return div.innerHTML;
 }
+
+/**
+ * ExamResults içinde geçmişte kullanılan sahte öğrenci kimliği — `students` koleksiyonunda karşılığı yoktur.
+ * Yeni optik kayıtları yalnızca panel öğrencisiyle eşleşince yazılır (`optik-okuma.js`).
+ */
+function isSyntheticExamResultStudentId(sid) {
+  return /^optik_unmatched_/i.test(String(sid || "").trim());
+}
+
+try {
+  window.isSyntheticExamResultStudentId = isSyntheticExamResultStudentId;
+} catch (_eSyn) {}
+
+/**
+ * Global deneme takvimi tablosu — GG.AA.YYYY ve ISO; yerel gün ile durum (bugün tüm gün geçerli).
+ * @param {string|undefined|null} raw
+ * @returns {Date|null}
+ */
+function parseGlobalExamDateToLocalMidnight(raw) {
+  if (raw == null || raw === "") return null;
+  var s = String(raw).trim();
+  var m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\b/);
+  if (m) {
+    var dd = parseInt(m[1], 10);
+    var mm = parseInt(m[2], 10);
+    var yyyy = parseInt(m[3], 10);
+    if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31 && yyyy >= 1900 && yyyy <= 2100) {
+      var d = new Date(yyyy, mm - 1, dd, 0, 0, 0, 0);
+      if (d.getFullYear() === yyyy && d.getMonth() === mm - 1 && d.getDate() === dd) return d;
+    }
+    return null;
+  }
+  var iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    var y = parseInt(iso[1], 10);
+    var mo = parseInt(iso[2], 10);
+    var da = parseInt(iso[3], 10);
+    if (mo >= 1 && mo <= 12 && da >= 1 && da <= 31) {
+      var d2 = new Date(y, mo - 1, da, 0, 0, 0, 0);
+      if (d2.getFullYear() === y && d2.getMonth() === mo - 1 && d2.getDate() === da) return d2;
+    }
+  }
+  var t = Date.parse(s);
+  if (!isNaN(t)) {
+    var d3 = new Date(t);
+    return new Date(d3.getFullYear(), d3.getMonth(), d3.getDate(), 0, 0, 0, 0);
+  }
+  return null;
+}
+
+function startOfLocalDay(d) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+}
+
+/** @param {Date} examDay — yerel gece yarısı */
+function getGlobalExamCalendarStatus(examDay) {
+  var today = startOfLocalDay(new Date());
+  var exam = startOfLocalDay(examDay);
+  var diff = exam.getTime() - today.getTime();
+  if (diff > 0) return "upcoming";
+  if (diff === 0) return "today";
+  return "past";
+}
+
+function formatGlobalExamDisplayDate(examDay) {
+  if (!examDay) return "—";
+  var dd = String(examDay.getDate()).padStart(2, "0");
+  var mm = String(examDay.getMonth() + 1).padStart(2, "0");
+  return dd + "." + mm + "." + examDay.getFullYear();
+}
+
+function globalExamStatusBadgeHtml(status) {
+  if (status === "upcoming") {
+    return (
+      '<span class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-gradient-to-r from-slate-100 to-sky-50 px-2.5 py-1 text-xs font-bold text-slate-600 shadow-sm ring-1 ring-slate-200/80">' +
+      "⏳ Yaklaşıyor</span>"
+    );
+  }
+  if (status === "today") {
+    return (
+      '<span class="inline-flex items-center gap-1 rounded-full border border-emerald-300/80 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800 shadow-sm animate-pulse ring-1 ring-emerald-200">' +
+      "🟢 Devam Ediyor</span>"
+    );
+  }
+  return (
+    '<span class="inline-flex items-center gap-1 rounded-full border border-red-100 bg-red-50/80 px-2.5 py-1 text-xs font-semibold text-red-400 opacity-90">' +
+    "🔴 Bitti</span>"
+  );
+}
+
+function sortGlobalExamRowsByDateAsc(rows) {
+  var copy = (rows || []).slice();
+  copy.sort(function (a, b) {
+    var da = parseGlobalExamDateToLocalMidnight(a.tarihSaat != null ? a.tarihSaat : a.tarih || "");
+    var db = parseGlobalExamDateToLocalMidnight(b.tarihSaat != null ? b.tarihSaat : b.tarih || "");
+    var ta = da ? da.getTime() : 0;
+    var tb = db ? db.getTime() : 0;
+    if (ta !== tb) return ta - tb;
+    return String(a.adi || "").localeCompare(String(b.adi || ""), "tr");
+  });
+  return copy;
+}
+
+function renderGlobalDenemeTakvimDataTable(rows) {
+  var tbody = document.getElementById("gdtMainTableBody");
+  if (!tbody) return;
+  var sorted = sortGlobalExamRowsByDateAsc(rows);
+  if (!sorted.length) {
+    tbody.innerHTML =
+      '<tr><td colspan="5" class="px-4 py-8 text-center text-sm text-slate-500">Bu filtre için kayıt yok.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = sorted
+    .map(function (r) {
+      var examDay = parseGlobalExamDateToLocalMidnight(r.tarihSaat != null ? r.tarihSaat : r.tarih || "");
+      var dateCell = examDay
+        ? escapeHtml(formatGlobalExamDisplayDate(examDay))
+        : escapeHtml(String(r.tarihSaat || "—").slice(0, 16));
+      var status = examDay ? getGlobalExamCalendarStatus(examDay) : "past";
+      var badge = globalExamStatusBadgeHtml(status);
+      return (
+        '<tr class="border-b border-violet-100/80 hover:bg-violet-50/60 transition-colors">' +
+        '<td class="px-4 py-3 text-sm font-semibold text-slate-800">' +
+        escapeHtml(r.adi || "—") +
+        "</td>" +
+        '<td class="px-4 py-3 text-sm text-slate-600">' +
+        escapeHtml(r.yayinevi || "—") +
+        "</td>" +
+        '<td class="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">' +
+        dateCell +
+        "</td>" +
+        '<td class="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">' +
+        escapeHtml(r.sinavTuru || "YKS") +
+        "</td>" +
+        '<td class="px-4 py-3">' +
+        badge +
+        "</td></tr>"
+      );
+    })
+    .join("");
+}
+
+try {
+  window.renderGlobalDenemeTakvimDataTable = renderGlobalDenemeTakvimDataTable;
+} catch (_e) {}
 
 function firestoreDocExists(snap) {
   if (!snap) return false;
@@ -7454,6 +7614,73 @@ function firestoreErrorHtml(err) {
 
 var profileSettingsInitial = { name: "", email: "" };
 
+/** Sağ panel + modal senkronu — Appwrite prefs / users.avatarUrl */
+var COACH_PROFILE_AVATAR_DEFAULT =
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=coachYKS";
+var coachProfileAvatarPersistedDisplayUrl = "";
+var coachProfileAvatarPending = { kind: "none", galleryUrl: "", file: null };
+
+function coachAvatarUrlsEquivalent(a, b) {
+  return String(a || "").trim() === String(b || "").trim();
+}
+
+function extractAvatarFileIdFromViewUrl(url) {
+  var m = /\/files\/([^/]+)\/view/.exec(String(url || ""));
+  return m ? decodeURIComponent(m[1]) : "";
+}
+
+function applyCoachProfileAvatarToSidebar(src) {
+  var img = document.getElementById("profileAvatarImg");
+  if (!img) return;
+  var u = String(src || "").trim() || COACH_PROFILE_AVATAR_DEFAULT;
+  img.src = u;
+  img.alt = "Koç";
+}
+
+async function resolvePersistedCoachAvatarUrl() {
+  var u = "";
+  try {
+    var prefs = await getAccountPrefs();
+    u = String((prefs && prefs.avatarUrl) || "").trim();
+    if (!u && prefs && prefs.avatarFileId) {
+      u = buildYksAvatarStorageViewUrl(String(prefs.avatarFileId).trim());
+    }
+  } catch (_e) {}
+  if (!u && auth.currentUser && auth.currentUser.uid) {
+    try {
+      var snap = await getDoc(doc(db, "users", auth.currentUser.uid));
+      if (firestoreDocExists(snap) && typeof snap.data === "function") {
+        var d = snap.data();
+        u = String(d.avatarUrl || "").trim();
+      }
+    } catch (_e2) {}
+  }
+  if (!u) u = COACH_PROFILE_AVATAR_DEFAULT;
+  return u;
+}
+
+async function refreshCoachProfileSidebarAvatar() {
+  try {
+    var url = await resolvePersistedCoachAvatarUrl();
+    coachProfileAvatarPersistedDisplayUrl = url;
+    applyCoachProfileAvatarToSidebar(url);
+  } catch (e) {
+    console.warn("[coach avatar] sidebar:", e);
+  }
+}
+
+async function syncCoachProfileModalAvatarFromServer() {
+  coachProfileAvatarPending = { kind: "none", galleryUrl: "", file: null };
+  try {
+    var url = await resolvePersistedCoachAvatarUrl();
+    coachProfileAvatarPersistedDisplayUrl = url;
+    var cprev = document.getElementById("coachProfileAvatarPreview");
+    if (cprev) cprev.src = url;
+  } catch (e) {
+    console.warn("[coach avatar] modal önizleme:", e);
+  }
+}
+
 function setProfileSettingsMsg(text, isErr) {
   var el = document.getElementById("profileSettingsMsg");
   if (!el) return;
@@ -7511,6 +7738,7 @@ async function fillProfileSettingsForm() {
       profileSettingsInitial.email = (r.user.email && String(r.user.email).trim()) || "";
       if (n) n.value = profileSettingsInitial.name;
       if (e) e.value = profileSettingsInitial.email;
+      await syncCoachProfileModalAvatarFromServer();
       return;
     }
   } catch (err) {}
@@ -7524,6 +7752,7 @@ async function fillProfileSettingsForm() {
       if (e && !e.value) e.value = profileSettingsInitial.email;
     }
   }
+  await syncCoachProfileModalAvatarFromServer();
 }
 
 async function submitProfileSettings() {
@@ -7582,6 +7811,11 @@ async function submitProfileSettings() {
   var btn = document.getElementById("btnProfileSettingsSave");
   await runWithSubmitButtonBusy(btn, async function () {
     try {
+      var didNameOrEmailOrPass =
+        name !== profileSettingsInitial.name ||
+        (!!emailCh && eEl && !eEl.disabled) ||
+        passCh;
+
       if (name !== profileSettingsInitial.name) {
         await updateAccountName(name);
         try {
@@ -7596,13 +7830,71 @@ async function submitProfileSettings() {
       if (passCh) {
         await updatePassword(nw, cur);
       }
+
+      var pend = coachProfileAvatarPending;
+      var needAvatarWrite = false;
+      if (pend.kind === "upload" && pend.file) {
+        needAvatarWrite = true;
+      } else if (
+        pend.kind === "gallery" &&
+        pend.galleryUrl &&
+        !coachAvatarUrlsEquivalent(pend.galleryUrl, coachProfileAvatarPersistedDisplayUrl)
+      ) {
+        needAvatarWrite = true;
+      }
+
+      var savedAvatarUrl = "";
+      var avatarWritten = false;
+      if (needAvatarWrite) {
+        var finalUrl = "";
+        var finalFid = "";
+        if (pend.kind === "upload" && pend.file) {
+          finalFid = await uploadCoachAvatarToStorage(pend.file);
+          finalUrl = buildYksAvatarStorageViewUrl(finalFid);
+        } else if (pend.kind === "gallery" && pend.galleryUrl) {
+          finalUrl = String(pend.galleryUrl).trim();
+          finalFid = extractAvatarFileIdFromViewUrl(finalUrl);
+        }
+        if (finalUrl) {
+          var prefPatch = { avatarUrl: finalUrl };
+          prefPatch.avatarFileId = finalFid || "";
+          await updateAccountPrefs(prefPatch);
+          try {
+            if (auth.currentUser && auth.currentUser.uid) {
+              var _avU = await updateDoc(doc(db, "users", auth.currentUser.uid), { avatarUrl: finalUrl });
+              if (isAppwriteWriteSoftFailure(_avU)) {
+                console.warn("[coach avatar] users.avatarUrl yedek yazımı atlandı (şema veya izin).");
+              }
+            }
+          } catch (_eDoc) {
+            console.warn("[coach avatar] users belgesi güncellenemedi:", _eDoc);
+          }
+          savedAvatarUrl = finalUrl;
+          avatarWritten = true;
+        }
+      }
+
       profileSettingsInitial.name = name;
       profileSettingsInitial.email = email;
+      coachProfileAvatarPending = { kind: "none", galleryUrl: "", file: null };
+      if (avatarWritten && savedAvatarUrl) {
+        coachProfileAvatarPersistedDisplayUrl = savedAvatarUrl;
+        applyCoachProfileAvatarToSidebar(savedAvatarUrl);
+        var cprev = document.getElementById("coachProfileAvatarPreview");
+        if (cprev) cprev.src = savedAvatarUrl;
+      }
+
       if (curPw) curPw.value = "";
       if (np) np.value = "";
       if (np2) np2.value = "";
       updateCoachProfile();
-      dpToastApiSuccess();
+      if (avatarWritten && !didNameOrEmailOrPass) {
+        showToast("Profil fotoğrafınız başarıyla güncellendi.", { variant: "success" });
+      } else if (avatarWritten && didNameOrEmailOrPass) {
+        showToast("Profiliniz ve fotoğrafınız güncellendi.", { variant: "success" });
+      } else {
+        dpToastApiSuccess();
+      }
       closeModal("profileSettingsModal");
     } catch (err) {
       console.error(err);
@@ -8337,7 +8629,7 @@ function openAvatarGallerySheet(target) {
       if (window.__avatarPickTarget === "coach") {
         var cprev = document.getElementById("coachProfileAvatarPreview");
         if (cprev) cprev.src = u;
-        window.__coachGalleryAvatarUrl = u;
+        coachProfileAvatarPending = { kind: "gallery", galleryUrl: u, file: null };
       } else if (window.__avatarPickTarget === "edit") {
         setEditStudentAvatarPreview(u, { mode: "preset" });
       } else {
@@ -8352,12 +8644,60 @@ function openAvatarGallerySheet(target) {
   }
 }
 
+async function onCoachProfileAvatarFileChosen(file) {
+  if (!file || !/^image\//i.test(file.type || "")) {
+    showToast("Lütfen bir görsel seçin.", { variant: "danger" });
+    return;
+  }
+  try {
+    var dataUrl = await fileToResizedDataUrl(file, 512, 0.88);
+    var cprev = document.getElementById("coachProfileAvatarPreview");
+    if (cprev) cprev.src = dataUrl;
+    coachProfileAvatarPending = { kind: "upload", galleryUrl: "", file: file };
+  } catch (e) {
+    console.error("[coach avatar upload]", e);
+    showToast("Resim işlenemedi.", { variant: "danger" });
+  }
+}
+
 function initCoachProfileAvatarUi() {
   var btn = document.getElementById("btnCoachProfileAvatarGallery");
   if (btn && !btn.dataset.boundCoachGal) {
     btn.dataset.boundCoachGal = "1";
     btn.addEventListener("click", function () {
       openAvatarGallerySheet("coach");
+    });
+  }
+  var dz = document.getElementById("coachProfileAvatarDropzone");
+  var fin = document.getElementById("coachProfileAvatarFile");
+  if (dz && fin && !dz.dataset.boundCoachDrop) {
+    dz.dataset.boundCoachDrop = "1";
+    dz.addEventListener("click", function () {
+      fin.click();
+    });
+    dz.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        fin.click();
+      }
+    });
+    dz.addEventListener("dragover", function (ev) {
+      ev.preventDefault();
+      dz.classList.add("is-dragover");
+    });
+    dz.addEventListener("dragleave", function () {
+      dz.classList.remove("is-dragover");
+    });
+    dz.addEventListener("drop", function (ev) {
+      ev.preventDefault();
+      dz.classList.remove("is-dragover");
+      var f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+      if (f) void onCoachProfileAvatarFileChosen(f);
+    });
+    fin.addEventListener("change", function () {
+      var f = fin.files && fin.files[0];
+      fin.value = "";
+      if (f) void onCoachProfileAvatarFileChosen(f);
     });
   }
 }
@@ -10179,6 +10519,23 @@ function updateStudentEditSubmitButtonMode(s) {
   setCreate(needsCreate);
 }
 
+/** Hedef üniversite / bölüm — Appwrite string limitleri ve boş değerler */
+function sanitizeStudentHedefPayload(data) {
+  if (!data || typeof data !== "object") return;
+  function clip(val, max) {
+    var s = String(val == null ? "" : val).trim();
+    if (!s) return null;
+    if (s.length > max) s = s.slice(0, max);
+    return s;
+  }
+  var tu = clip(data.targetUniversity, 400);
+  var td = clip(data.targetDepartment, 500);
+  if (tu) data.targetUniversity = tu;
+  else delete data.targetUniversity;
+  if (td) data.targetDepartment = td;
+  else delete data.targetDepartment;
+}
+
 async function submitStudentAddForm(e) {
   e.preventDefault();
   var form = e.target;
@@ -10247,6 +10604,7 @@ async function submitStudentAddForm(e) {
       : getAvatarByGender(data.gender);
   data.track = data.examGroup && data.examGroup !== "" ? data.examGroup : "TYT + AYT";
   data.status = data.status || "Aktif";
+  sanitizeStudentHedefPayload(data);
 
   var passEl = document.getElementById("st_studentPassword");
   var pass2El = document.getElementById("st_studentPasswordConfirm");
@@ -10937,6 +11295,7 @@ async function submitStudentEditForm(e) {
     targetUniversity: gv("editTargetUniversity") || null,
     targetDepartment: gv("editTargetDepartment") || null,
   };
+  sanitizeStudentHedefPayload(data);
   if (data.agreedTotalFee !== "") {
     var fee2 = parseFloat(String(data.agreedTotalFee).replace(",", "."), 10);
     data.agreedTotalFee = isNaN(fee2) ? null : fee2;
@@ -16749,6 +17108,13 @@ function navigateTo(view) {
       }
     }
   }
+  if (view === "deneme-analiz-takvim" && typeof window.initGlobalDenemeTakvimReadonly === "function") {
+    try {
+      void window.initGlobalDenemeTakvimReadonly();
+    } catch (e) {
+      console.warn("[global-deneme-takvim]", e);
+    }
+  }
   if (view === "optik-okuyucu" || view === "karne" || view === "deneme-analiz-optik" || view === "deneme-analiz-karne") {
     initOptikKarneTools();
   }
@@ -20237,6 +20603,7 @@ function bootstrapKocPanelAfterAuth() {
   initYksFeaturePages();
   initDashboardYksCountdownWidget();
   updateCoachProfile();
+  void refreshCoachProfileSidebarAvatar();
   subscribeFirestore();
   initPanelGlobalRealtimeBridge();
   initDashboardMeetingActivityToggles();

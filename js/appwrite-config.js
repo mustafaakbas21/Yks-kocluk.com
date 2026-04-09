@@ -49,6 +49,8 @@ export const APPWRITE_BUCKET_AVATARLAR = "soru_havuzu";
  * İzinler: oturumlu kullanıcıya okuma/yazma (koç paneli ile uyumlu).
  */
 export const APPWRITE_COLLECTION_GLOBAL_DENEMELER = "global_denemeler";
+/** Merkezi takvim (UI/API adı); Appwrite’da `global_denemeler` koleksiyonu ile aynı tablo. */
+export const APPWRITE_COLLECTION_GLOBAL_EXAMS = APPWRITE_COLLECTION_GLOBAL_DENEMELER;
 /** Eski Net Sihirbazı hedef satırları (isteğe bağlı) */
 export const APPWRITE_COLLECTION_YKS_NET_TARGETS = "yks_net_sihirbazi_targets";
 /**
@@ -71,6 +73,8 @@ export const APPWRITE_COLLECTION_EXAMS = "Exams";
 export const APPWRITE_COLLECTION_EXAM_RESULTS = "ExamResults";
 /** MR (Emar) — Konu/Soru ilerleme (öğrenci başına tek belge, JSON alanları) */
 export const APPWRITE_COLLECTION_MR_PROFILES = "mr_student_profiles";
+/** Deneme sonrası konu bazlı eksikler (sınav + öğrenci + konu satırı); setup-appwrite.js / appwrite-setup.js ile şema */
+export const APPWRITE_COLLECTION_MR_EXAM_DEFICIENCIES = "mr_exam_deficiencies";
 /** Koç paneli öğrenci listesi — `coach_id` ile Appwrite sorgusu (`koc-panel.js` → coachQuery) */
 export const APPWRITE_COLLECTION_STUDENTS = "students";
 /** Görüşme Odası — koç notları (Quill HTML); setup-appwrite.js ile oluşturulmalı */

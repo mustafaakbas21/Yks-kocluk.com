@@ -3,9 +3,14 @@
  * Üniversite / bölüm çapraz filtreleme ve yks-data.json katalog eşlemesi.
  */
 
-import { hedefProgramDisplayName, hedefUniDisplayName } from "./hedef-appwrite-catalog.js";
+import {
+  hedefProgramDisplayName,
+  hedefUniDisplayName,
+  getHedefCatalogJsonUrlCandidates,
+} from "./hedef-appwrite-catalog.js";
 
-export const YOK_ATLAS_LISANS_URL = "src/data/yok-atlas-lisans.json";
+/** @deprecated Aday URL’ler için getHedefCatalogJsonUrlCandidates("yok-atlas-lisans.json") kullanın */
+export const YOK_ATLAS_LISANS_URL = "/src/data/yok-atlas-lisans.json";
 
 function normDedupeKey(s) {
   return String(s || "")
@@ -45,20 +50,29 @@ export function normalizeLisansRow(raw, ix) {
  * @returns {Promise<object[]>}
  */
 export function fetchYokAtlasLisansFlatRows() {
-  return fetch(YOK_ATLAS_LISANS_URL, { cache: "no-store" })
-    .then(function (res) {
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return res.json();
-    })
-    .then(function (data) {
-      var arr = Array.isArray(data) ? data : data && data.rows ? data.rows : [];
-      var out = [];
-      for (var i = 0; i < arr.length; i++) {
-        var row = normalizeLisansRow(arr[i], i);
-        if (row.Universite || row.Bolum) out.push(row);
-      }
-      return out;
-    });
+  var urls = getHedefCatalogJsonUrlCandidates("yok-atlas-lisans.json");
+  function step(i) {
+    if (i >= urls.length) {
+      return Promise.reject(new Error("yok-atlas-lisans.json yüklenemedi"));
+    }
+    return fetch(urls[i], { cache: "no-store" })
+      .then(function (res) {
+        if (!res.ok) return step(i + 1);
+        return res.json().then(function (data) {
+          var arr = Array.isArray(data) ? data : data && data.rows ? data.rows : [];
+          var out = [];
+          for (var j = 0; j < arr.length; j++) {
+            var row = normalizeLisansRow(arr[j], j);
+            if (row.Universite || row.Bolum) out.push(row);
+          }
+          return out;
+        });
+      })
+      .catch(function () {
+        return step(i + 1);
+      });
+  }
+  return step(0);
 }
 
 /**

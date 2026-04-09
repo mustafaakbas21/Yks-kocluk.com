@@ -97,9 +97,16 @@ function setRandevuChartChrome(opts) {
   var canvas = document.getElementById("randevuChart");
   var emptyEl = document.getElementById("randevuChartEmpty");
   var errEl = document.getElementById("randevuChartError");
+  var defaultRandevuEmpty = "Bu hafta için planlanmış randevu bulunmuyor.";
   if (emptyEl) {
     emptyEl.hidden = !opts.showEmpty;
-    if (opts.emptyMessage) emptyEl.textContent = opts.emptyMessage;
+    var msgR = emptyEl.querySelector(".dashboard-chart-empty__msg");
+    if (msgR) {
+      msgR.textContent =
+        opts.emptyMessage != null && String(opts.emptyMessage).trim() !== ""
+          ? opts.emptyMessage
+          : defaultRandevuEmpty;
+    }
   }
   if (errEl) {
     errEl.hidden = !opts.showError;
@@ -117,7 +124,7 @@ export async function fetchAndRenderAppointmentChart() {
       setRandevuChartChrome({
         showEmpty: true,
         showError: false,
-        emptyMessage: "Randevu koleksiyonu yüklenemedi.",
+        emptyMessage: "Randevular yüklenemedi.",
       });
       return;
     }
@@ -132,7 +139,7 @@ export async function fetchAndRenderAppointmentChart() {
     setRandevuChartChrome({
       showEmpty: false,
       showError: true,
-      errorMessage: "Grafik yüklenirken hata oluştu. Bağlantıyı deneyin.",
+      errorMessage: "Grafik yüklenirken bir sorun oluştu. Lütfen tekrar deneyin.",
     });
   }
 }
@@ -168,7 +175,7 @@ export function renderAppointmentsChart(docs) {
     setRandevuChartChrome({
       showEmpty: true,
       showError: false,
-      emptyMessage: "Bu hafta kayıtlı randevu yok. Yoğunluk grafiği için randevu ekleyin.",
+      emptyMessage: "",
     });
     return;
   }
@@ -392,11 +399,7 @@ export function renderInstitutionNetTrendChart(getExams) {
       return x != null;
     });
   if (!hasData) {
-    if (emptyEl) {
-      emptyEl.hidden = false;
-      emptyEl.textContent =
-        "Henüz tarihli deneme kaydı yok. Net trendi için exams koleksiyonuna deneme ekleyin.";
-    }
+    if (emptyEl) emptyEl.hidden = false;
     canvas.hidden = true;
     return;
   }
@@ -498,15 +501,22 @@ export function renderInstitutionNetTrendChart(getExams) {
 function setDashboardApptBarChrome(opts) {
   var canvas = document.getElementById("dashboardApptIntensityChart");
   var emptyEl = document.getElementById("dashboardApptIntensityEmpty");
+  var defaultApptEmpty = "Bu hafta için planlanmış randevu bulunmuyor.";
   if (emptyEl) {
     emptyEl.hidden = !opts.showEmpty;
-    if (opts.emptyMessage) emptyEl.textContent = opts.emptyMessage;
+    var msgEl = emptyEl.querySelector(".dashboard-chart-empty__msg");
+    if (msgEl) {
+      msgEl.textContent =
+        opts.emptyMessage != null && String(opts.emptyMessage).trim() !== ""
+          ? opts.emptyMessage
+          : defaultApptEmpty;
+    }
   }
   if (canvas) canvas.hidden = !!opts.showEmpty;
 }
 
 /**
- * Randevu yoğunluğu (7 gün) — önbellekteki / Appwrite ile senkron randevu listesi
+ * Randevu yoğunluğu (7 gün) — önbellekteki randevu listesi
  * @param {() => unknown[]} getAppointments Düz nesneler (expandAppointmentData)
  */
 export function renderDashboardAppointmentIntensityBar(getAppointments) {
@@ -516,7 +526,7 @@ export function renderDashboardAppointmentIntensityBar(getAppointments) {
   if (typeof sortT !== "function") {
     setDashboardApptBarChrome({
       showEmpty: true,
-      emptyMessage: "Randevu sıralama fonksiyonu tanımlı değil.",
+      emptyMessage: "",
     });
     return;
   }
@@ -544,8 +554,7 @@ export function renderDashboardAppointmentIntensityBar(getAppointments) {
   if (total === 0) {
     setDashboardApptBarChrome({
       showEmpty: true,
-      emptyMessage:
-        "Bu hafta kayıtlı randevu yok. Appwrite randevuları geldikçe grafik dolacaktır.",
+      emptyMessage: "",
     });
     return;
   }
