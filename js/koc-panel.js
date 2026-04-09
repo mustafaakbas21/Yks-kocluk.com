@@ -8370,6 +8370,36 @@ var studentEditAvatarState = {
   customDataUrl: "",
 };
 
+/** Appwrite Storage view URL’leri veya tam URL stringleri için galeri eşlemesi (index yerine). */
+function normalizeStudentAvatarUrlForMatch(u) {
+  var s = String(u || "").trim();
+  if (!s) return "";
+  var m = /\/files\/([^/?#]+)\/(?:view|preview)/i.exec(s);
+  if (m) {
+    try {
+      return "aw:" + decodeURIComponent(m[1]);
+    } catch (_e) {
+      return "aw:" + m[1];
+    }
+  }
+  return s.split("#")[0];
+}
+
+function syncAvatarGallerySelectedCells(grid, currentUrl) {
+  if (!grid) return;
+  var want = normalizeStudentAvatarUrlForMatch(currentUrl);
+  grid.querySelectorAll(".avatar-gallery__cell").forEach(function (cell) {
+    var fromAttr = cell.getAttribute("data-avatar-src");
+    var img = cell.querySelector("img");
+    var fromImg = img && img.src ? String(img.src).split("#")[0] : "";
+    var match =
+      !!want &&
+      (normalizeStudentAvatarUrlForMatch(fromAttr) === want ||
+        normalizeStudentAvatarUrlForMatch(fromImg) === want);
+    cell.classList.toggle("is-selected", match);
+  });
+}
+
 function normalizeGender(gender) {
   // Artık yalnızca Erkek / Kadın destekleniyor.
   if (gender === "Kadın" || gender === "Kadin") return "Kadın";
@@ -8582,10 +8612,9 @@ function openAvatarGallerySheet(target) {
   }
 
   if (!grid || !pool.length) return;
-  window.__avatarGalleryPool = pool;
 
   grid.innerHTML = pool
-    .map(function (url, idx) {
+    .map(function (url) {
       var fid = "";
       try {
         var m = /\/files\/([^/]+)\/view/.exec(String(url));
@@ -8593,8 +8622,8 @@ function openAvatarGallerySheet(target) {
       } catch (_e) {}
       var fb = fid ? getDicebearFallbackForFileId(fid) : "";
       return (
-        '<button type="button" class="avatar-gallery__cell" data-avatar-idx="' +
-        idx +
+        '<button type="button" class="avatar-gallery__cell" data-avatar-src="' +
+        escapeHtml(url) +
         '"><img src="' +
         escapeHtml(url) +
         '" alt="" loading="lazy" width="96" height="96" decoding="async" data-fallback="' +
@@ -8620,11 +8649,13 @@ function openAvatarGallerySheet(target) {
   if (!grid.dataset.avatarGalleryDelegated) {
     grid.dataset.avatarGalleryDelegated = "1";
     grid.addEventListener("click", function (ev) {
-      var b = ev.target.closest && ev.target.closest("[data-avatar-idx]");
+      var b = ev.target.closest && ev.target.closest("[data-avatar-src]");
       if (!b) return;
-      var idx = parseInt(b.getAttribute("data-avatar-idx"), 10);
-      var pl = window.__avatarGalleryPool;
-      var u = pl && pl[idx];
+      var u = String(b.getAttribute("data-avatar-src") || "").trim();
+      if (!u) {
+        var imgPick = b.querySelector("img");
+        u = imgPick && imgPick.src ? String(imgPick.src).split("#")[0].trim() : "";
+      }
       if (!u) return;
       if (window.__avatarPickTarget === "coach") {
         var cprev = document.getElementById("coachProfileAvatarPreview");
@@ -8638,6 +8669,20 @@ function openAvatarGallerySheet(target) {
       closeAvatarGallerySheet();
     });
   }
+
+  var highlightUrl = "";
+  if (pick === "coach") {
+    var cpr = document.getElementById("coachProfileAvatarPreview");
+    highlightUrl = cpr && cpr.src && String(cpr.src).indexOf("data:") !== 0 ? String(cpr.src) : "";
+  } else if (pick === "edit") {
+    if (studentEditAvatarState.mode === "preset" && studentEditAvatarState.url) {
+      highlightUrl = studentEditAvatarState.url;
+    }
+  } else if (studentAddAvatarState.mode === "preset" && studentAddAvatarState.url) {
+    highlightUrl = studentAddAvatarState.url;
+  }
+  syncAvatarGallerySelectedCells(grid, highlightUrl);
+
   if (sheet) {
     sheet.hidden = false;
     sheet.setAttribute("aria-hidden", "false");
@@ -10491,11 +10536,12 @@ function editStudent(studentId) {
   var title = document.getElementById("modalStudentTitle");
   if (sub) sub.textContent = "Kayıt güncelleniyor. ID: " + studentId.slice(0, 8) + "…";
   if (title) title.innerHTML = '<i class="fa-solid fa-user-pen"></i> Öğrenci düzenle';
-  var fullNm = ((fn || "") + " " + (ln || "")).trim();
   var av = s.avatarUrl;
   var isData = av && String(av).indexOf("data:") === 0;
-  // Preset avatar artık cinsiyete göre sabit atanıyor.
-  if (!isData) av = getAvatarByGender(g);
+  if (!isData) {
+    var persisted = String(av != null ? av : "").trim();
+    av = persisted || getAvatarByGender(g);
+  }
   setEditStudentAvatarPreview(av, { mode: isData ? "custom" : "preset" });
   openModal("studentModal");
   if (addPane) addPane.hidden = true;
@@ -10598,10 +10644,12 @@ async function submitStudentAddForm(e) {
     var ins = parseInt(data.installmentCount, 10);
     if (!isNaN(ins)) data.installmentCount = Math.min(36, Math.max(1, ins));
   }
-  data.avatarUrl =
-    studentAddAvatarState.mode === "custom" && studentAddAvatarState.customDataUrl
-      ? studentAddAvatarState.customDataUrl
-      : getAvatarByGender(data.gender);
+  if (studentAddAvatarState.mode === "custom" && studentAddAvatarState.customDataUrl) {
+    data.avatarUrl = studentAddAvatarState.customDataUrl;
+  } else {
+    var addPreset = String(studentAddAvatarState.url || "").trim();
+    data.avatarUrl = addPreset || getAvatarByGender(data.gender);
+  }
   data.track = data.examGroup && data.examGroup !== "" ? data.examGroup : "TYT + AYT";
   data.status = data.status || "Aktif";
   sanitizeStudentHedefPayload(data);
@@ -11305,16 +11353,19 @@ async function submitStudentEditForm(e) {
     data.installmentCount = isNaN(ins2) ? null : Math.min(36, Math.max(1, ins2));
   } else data.installmentCount = null;
   data.track = data.examGroup && data.examGroup !== "" ? data.examGroup : "TYT + AYT";
-  data.avatarUrl =
-    studentEditAvatarState.mode === "custom" && studentEditAvatarState.customDataUrl
-      ? studentEditAvatarState.customDataUrl
-      : getAvatarByGender(data.gender || gender);
-  data.updatedAt = serverTimestamp();
-  var btn = document.getElementById("btnStudentEditSubmit");
   var oldStForPortal =
     cachedStudents.find(function (x) {
       return x.id === editId;
     }) || {};
+  if (studentEditAvatarState.mode === "custom" && studentEditAvatarState.customDataUrl) {
+    data.avatarUrl = studentEditAvatarState.customDataUrl;
+  } else {
+    var editPreset = String(studentEditAvatarState.url || "").trim();
+    var prevAv = String(oldStForPortal.avatarUrl || "").trim();
+    data.avatarUrl = editPreset || prevAv || getAvatarByGender(data.gender || gender);
+  }
+  data.updatedAt = serverTimestamp();
+  var btn = document.getElementById("btnStudentEditSubmit");
   await runWithSubmitButtonBusy(btn, async function () {
     try {
       var sync = mergeStudentEditPortalDbFields(oldStForPortal, data, gv);

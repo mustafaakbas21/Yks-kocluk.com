@@ -596,6 +596,8 @@ import { extractTextFromPDF, analyzeExamWithAI } from "./deneme-ai-pdf-matrix.js
     if (!m) return;
     m.classList.add("hidden");
     m.setAttribute("aria-hidden", "true");
+    var twRoot = document.getElementById("karne-modal-tailwind-root");
+    if (twRoot) twRoot.setAttribute("aria-hidden", "true");
     destroyKarneModalChart();
     try {
       document.body.style.overflow = "";
@@ -654,6 +656,8 @@ import { extractTextFromPDF, analyzeExamWithAI } from "./deneme-ai-pdf-matrix.js
 
     m.classList.remove("hidden");
     m.setAttribute("aria-hidden", "false");
+    var twRootOpen = document.getElementById("karne-modal-tailwind-root");
+    if (twRootOpen) twRootOpen.setAttribute("aria-hidden", "false");
     try {
       document.body.style.overflow = "hidden";
     } catch (e3) {}

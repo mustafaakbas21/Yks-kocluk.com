@@ -2,17 +2,15 @@
  * Fasikül / Kitap Üretici — Gemini 1.5 Flash + pdfmake (Matbaa v3.1 Dinamik Prompt)
  * Müfredat: ./yks-mufredat.js
  *
- * Gemini: doğrudan Google Generative Language API (tarayıcı). Anahtar GEMINI_API_KEY veya window.__GEMINI_API_KEY.
+ * Gemini: sunucu proxy POST /api/generate-fasikul (api/generate-fasikul.js).
+ * API anahtarı yalnızca sunucuda (.env / Vercel → GEMINI_API_KEY); tarayıcıya gitmez.
  */
 
+import { showToast } from "./dp-ui-feedback.js";
 import { YKS2026_Mufredat } from "./yks-mufredat.js";
 
-/** Google AI Studio / Cloud API anahtarı (istemcide görünür). Boşsa window.__GEMINI_API_KEY kullanılır. */
-const GEMINI_API_KEY = "";
-
-const GEMINI_MODEL_ID = "gemini-1.5-flash";
-const GEMINI_GENERATE_CONTENT_BASE =
-  "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL_ID + ":generateContent";
+/** Aynı origin üzerinde Vercel serverless uç noktası. */
+const FASIKUL_PROXY_PATH = "/api/generate-fasikul";
 
 const MIN_QUESTIONS = 1;
 const MAX_QUESTIONS = 40;
@@ -21,24 +19,15 @@ const MAX_QUESTIONS = 40;
 const GEMINI_MAX_OUTPUT_TOKENS = 8192;
 const DEFAULT_WATERMARK = "DerecePanel";
 
-function resolveGeminiApiKey() {
-  var fromWindow =
-    typeof window !== "undefined" && window.__GEMINI_API_KEY
-      ? String(window.__GEMINI_API_KEY).trim()
-      : "";
-  var fromConst = String(GEMINI_API_KEY || "").trim();
-  return fromWindow || fromConst;
-}
-
-/** Google resmi endpoint (?key= ile kimlik doğrulama). */
-function getGeminiGenerateContentUrl() {
-  var key = resolveGeminiApiKey();
-  if (!key) {
-    throw new Error(
-      "GEMINI_API_KEY tanımlı değil. js/fasikul-uretici.js içinde GEMINI_API_KEY sabitini doldurun veya window.__GEMINI_API_KEY atayın."
-    );
+function getFasikulGenerateEndpoint() {
+  if (typeof window === "undefined" || !window.location || !window.location.origin) {
+    return FASIKUL_PROXY_PATH;
   }
-  return GEMINI_GENERATE_CONTENT_BASE + "?key=" + encodeURIComponent(key);
+  try {
+    return new URL(FASIKUL_PROXY_PATH, window.location.origin).href;
+  } catch (_e) {
+    return FASIKUL_PROXY_PATH;
+  }
 }
 
 /** Appwrite yerine mock öğrenci listesi */
@@ -370,15 +359,40 @@ function buildGeminiUserPrompt(form) {
 
 function stripJsonCodeFences(raw) {
   var s = String(raw || "").trim();
-  if (s.indexOf("```") === 0) {
-    s = s.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "");
+  s = s.replace(/^```(?:json)?\s*/i, "");
+  s = s.replace(/\s*```\s*$/i, "");
+  s = s.trim();
+  var fi = s.indexOf("```");
+  if (fi !== -1) {
+    var chunk = s.slice(fi).replace(/^```(?:json)?\s*/i, "");
+    var end = chunk.lastIndexOf("```");
+    if (end !== -1) chunk = chunk.slice(0, end).trim();
+    s = (chunk || s).trim();
   }
   return s.trim();
 }
 
+function parseFasikulModelJson(text) {
+  var cleaned = stripJsonCodeFences(text);
+  try {
+    return JSON.parse(cleaned);
+  } catch (_e) {
+    var a = cleaned.indexOf("{");
+    var b = cleaned.lastIndexOf("}");
+    if (a !== -1 && b > a) {
+      try {
+        return JSON.parse(cleaned.slice(a, b + 1));
+      } catch (_e2) {
+        /* fall */
+      }
+    }
+    throw new Error("Model çıktısı geçerli JSON değil (```json veya ek metin olabilir).");
+  }
+}
+
 async function fetchGeminiFasikulJson(form) {
   var n = clampInt(form.questionCount, MIN_QUESTIONS, MAX_QUESTIONS);
-  var url = getGeminiGenerateContentUrl();
+  var url = getFasikulGenerateEndpoint();
   var body = {
     systemInstruction: { parts: [{ text: buildGeminiSystemInstruction(form) }] },
     contents: [{ role: "user", parts: [{ text: buildGeminiUserPrompt(form) }] }],
@@ -407,7 +421,8 @@ async function fetchGeminiFasikulJson(form) {
     });
   } catch (netErr) {
     throw new Error(
-      "Gemini ağ hatası: " + (netErr && netErr.message ? netErr.message : String(netErr))
+      "Sunucuya bağlanılamadı. Sayfayı Vercel / `vercel dev` üzerinden açtığınızdan emin olun. " +
+        (netErr && netErr.message ? netErr.message : String(netErr))
     );
   }
   try {
@@ -419,27 +434,32 @@ async function fetchGeminiFasikulJson(form) {
   try {
     data = JSON.parse(rawText);
   } catch (_parseErr) {
-    throw new Error("Gemini yanıtı geçerli JSON değil: " + String(rawText || "").slice(0, 240));
+    throw new Error("Sunucu yanıtı geçerli JSON değil: " + String(rawText || "").slice(0, 240));
   }
   if (!res.ok) {
     var msg =
       (data.error && (data.error.message || data.error.status)) ||
       (typeof data.error === "string" && data.error) ||
       "HTTP " + res.status;
-    throw new Error("Gemini API: " + msg);
+    if (res.status === 404) {
+      throw new Error(
+        "Fasikül API bulunamadı (404). Projeyi `vercel dev` veya barındırıcıda `/api/generate-fasikul` ile çalıştırın."
+      );
+    }
+    if (res.status === 500 && typeof data.error === "string" && data.error.indexOf("GEMINI_API_KEY") !== -1) {
+      throw new Error(
+        "Sunucuda GEMINI_API_KEY tanımlı değil. Vercel ortam değişkenlerine veya `.env` dosyasına anahtarı ekleyin."
+      );
+    }
+    throw new Error("Fasikül üretimi başarısız: " + msg);
   }
   if (!data || typeof data !== "object") {
-    throw new Error("Gemini yanıtı beklenen nesne biçiminde değil.");
+    throw new Error("Sunucu yanıtı beklenen biçimde değil.");
   }
   var parts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
   var text = parts && parts[0] && parts[0].text;
-  if (!text) throw new Error("Gemini boş veya beklenmeyen yapıda yanıt döndü.");
-  var parsed;
-  try {
-    parsed = JSON.parse(stripJsonCodeFences(text));
-  } catch (_inner) {
-    throw new Error("Model çıktısı JSON olarak çözülemedi: " + String(text).slice(0, 200));
-  }
+  if (!text) throw new Error("Model boş veya beklenmeyen yapıda yanıt döndü.");
+  var parsed = parseFasikulModelJson(text);
   if (!parsed.konuOzeti || !Array.isArray(parsed.sorular)) {
     throw new Error("JSON şeması eksik.");
   }
@@ -744,6 +764,9 @@ function wireForm() {
   var status = document.getElementById("fuStatus");
   if (!form || !btn) return;
 
+  var btnSpan = btn.querySelector("span");
+  var fuSubmitBtnDefaultHtml = btnSpan ? btnSpan.innerHTML : btn.innerHTML;
+
   fillMockStudents();
   wireSmartToggle();
   wireTabs();
@@ -758,37 +781,62 @@ function wireForm() {
     qcInp.addEventListener("blur", syncQc);
   }
 
+  var fuStatusClassIdle = "mt-3 hidden text-center text-sm font-medium text-brand-700";
+
   form.addEventListener("submit", function (e) {
     e.preventDefault();
     var payload = getFormPayload();
 
     btn.disabled = true;
+    btn.setAttribute("aria-busy", "true");
+    if (btnSpan) {
+      btnSpan.innerHTML =
+        '<span class="inline-flex items-center justify-center gap-2"><span aria-hidden="true">⏳</span> Fasikül üretiliyor, lütfen bekleyin…</span>';
+    } else {
+      btn.textContent = "⏳ Fasikül üretiliyor, lütfen bekleyin…";
+    }
     if (status) {
       status.hidden = false;
-      status.classList.remove("text-red-600");
-      status.textContent = "Gemini ile içerik üretiliyor…";
+      status.className = "mt-3 text-center text-sm font-medium text-slate-600";
+      status.textContent = "⏳ Fasikül üretiliyor, lütfen bekleyin…";
     }
 
     generatePDF()
       .then(function () {
         if (status) {
-          status.classList.remove("text-red-600");
-          status.textContent = "PDF indirildi.";
+          status.className = "mt-3 text-center text-sm font-medium text-emerald-700";
+          status.textContent = "PDF hazır ve indirildi.";
           setTimeout(function () {
+            status.className = fuStatusClassIdle;
             status.hidden = true;
-          }, 2500);
+          }, 2800);
         }
       })
       .catch(function (err) {
         console.error(err);
+        var raw = err && err.message ? String(err.message) : "PDF oluşturulamadı.";
+        try {
+          showToast("Yapay zeka sunucusuna ulaşılamadı: " + (raw.length > 200 ? raw.slice(0, 200) + "…" : raw), {
+            variant: "danger",
+          });
+        } catch (_t) {}
         if (status) {
           status.hidden = false;
-          status.textContent = err && err.message ? err.message : "PDF oluşturulamadı.";
-          status.classList.add("text-red-600");
+          status.className =
+            "mt-3 text-center text-sm font-medium rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-800 leading-relaxed";
+          status.textContent =
+            "Üzgünüz, fasikül üretilemedi. " +
+            (raw.length > 280 ? raw.slice(0, 280) + "…" : raw);
         }
       })
       .finally(function () {
         btn.disabled = false;
+        btn.removeAttribute("aria-busy");
+        if (btnSpan) {
+          btnSpan.innerHTML = fuSubmitBtnDefaultHtml;
+        } else {
+          btn.innerHTML = fuSubmitBtnDefaultHtml;
+        }
       });
   });
 }

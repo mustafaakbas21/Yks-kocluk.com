@@ -4,6 +4,7 @@
  * Özel URL: window.__GEMINI_PROXY_URL
  */
 
+import { showToast } from "./dp-ui-feedback.js";
 import {
   YKS_TAKSONOMI_DERSLER,
   getTaksonomiDersById,
@@ -151,22 +152,74 @@ function genId(prefix) {
 
 function stripJsonCodeFences(raw) {
   var s = String(raw || "").trim();
-  if (s.indexOf("```") === 0) {
-    s = s.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "");
+  s = s.replace(/^```(?:json)?\s*/i, "");
+  s = s.replace(/\s*```\s*$/i, "");
+  s = s.trim();
+  var fi = s.indexOf("```");
+  if (fi !== -1) {
+    var chunk = s.slice(fi).replace(/^```(?:json)?\s*/i, "");
+    var end = chunk.lastIndexOf("```");
+    if (end !== -1) chunk = chunk.slice(0, end).trim();
+    s = (chunk || s).trim();
   }
   return s.trim();
 }
 
-function setAiBusy(on) {
-  aiBusy = !!on;
-  var ov = el("tuAiOverlay");
-  if (ov) {
-    ov.hidden = !on;
-    ov.setAttribute("aria-hidden", on ? "false" : "true");
+/**
+ * Model metninden JSON nesnesi — ```json çitleri ve fazla metin toleransı.
+ * @returns {object}
+ */
+function parseModelJsonText(text) {
+  var cleaned = stripJsonCodeFences(text);
+  try {
+    return JSON.parse(cleaned);
+  } catch (_e) {
+    var start = cleaned.indexOf("{");
+    var end = cleaned.lastIndexOf("}");
+    if (start !== -1 && end > start) {
+      var slice = cleaned.slice(start, end + 1);
+      try {
+        return JSON.parse(slice);
+      } catch (_e2) {
+        /* fall */
+      }
+    }
+    throw new Error("Model çıktısı geçerli JSON değil (markdown veya ek metin olabilir).");
   }
-  document.querySelectorAll(".tu-ai-similar, #tuAiFillBtn, #tuPdfBtn").forEach(function (b) {
-    if (b) b.disabled = !!on;
-  });
+}
+
+/** Yükleme overlay’ini ve bayrağı her durumda kapatır; iç hata yüzünden takılı kalmayı önler. */
+function forceHideAiOverlay() {
+  try {
+    aiBusy = false;
+    var ov = el("tuAiOverlay");
+    if (ov) {
+      ov.hidden = true;
+      ov.setAttribute("aria-hidden", "true");
+    }
+    document.querySelectorAll(".tu-ai-similar, #tuAiFillBtn, #tuPdfBtn").forEach(function (b) {
+      if (b) b.disabled = false;
+    });
+  } catch (e) {
+    console.error("[tarama-uretici] forceHideAiOverlay", e);
+  }
+}
+
+function setAiBusy(on) {
+  try {
+    aiBusy = !!on;
+    var ov = el("tuAiOverlay");
+    if (ov) {
+      ov.hidden = !on;
+      ov.setAttribute("aria-hidden", on ? "false" : "true");
+    }
+    document.querySelectorAll(".tu-ai-similar, #tuAiFillBtn, #tuPdfBtn").forEach(function (b) {
+      if (b) b.disabled = !!on;
+    });
+  } catch (e) {
+    console.error("[tarama-uretici] setAiBusy", e);
+    forceHideAiOverlay();
+  }
 }
 
 function setAiStatus(msg, isErr) {
@@ -177,37 +230,70 @@ function setAiStatus(msg, isErr) {
   p.classList.toggle("text-slate-600", !isErr);
 }
 
+function geminiHttpErrorMessage(data, status) {
+  if (!data || typeof data !== "object") return "HTTP " + status;
+  if (typeof data.error === "string") return data.error;
+  if (data.error && typeof data.error === "object") {
+    return String(data.error.message || data.error.status || "").trim() || "HTTP " + status;
+  }
+  return "HTTP " + status;
+}
+
 /**
  * @param {object} payload — Gemini generateContent gövdesi
  * @returns {Promise<object>}
  */
 async function fetchGeminiGenerateContent(payload) {
-  var res = await fetch(getGeminiProxyUrl(), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  var rawText = await res.text();
+  var url = getGeminiProxyUrl();
+  var res;
+  var rawText = "";
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (netErr) {
+    throw new Error(
+      "Ağ: " + (netErr && netErr.message ? netErr.message : String(netErr))
+    );
+  }
+  try {
+    rawText = await res.text();
+  } catch (_read) {
+    throw new Error("Sunucu yanıtı okunamadı.");
+  }
   var data;
   try {
     data = JSON.parse(rawText);
   } catch (_e) {
-    throw new Error("Gemini yanıtı JSON değil: " + rawText.slice(0, 180));
+    throw new Error("Sunucu yanıtı JSON değil: " + String(rawText).slice(0, 180));
   }
   if (!res.ok) {
-    var msg =
-      (data.error && (data.error.message || data.error)) ||
-      (typeof data.error === "string" && data.error) ||
-      "HTTP " + res.status;
-    if (res.status === 500 && data.error && String(data.error).indexOf("GEMINI_API_KEY") !== -1) {
+    var msg = geminiHttpErrorMessage(data, res.status);
+    if (res.status === 500 && data && String(msg).indexOf("GEMINI_API_KEY") !== -1) {
       msg = "Sunucuda GEMINI_API_KEY tanımlı değil (Vercel ortam değişkeni veya vercel dev + .env).";
     }
     throw new Error(msg);
   }
   var parts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
   var text = parts && parts[0] && parts[0].text;
-  if (!text) throw new Error("Gemini boş yanıt döndü.");
-  return JSON.parse(stripJsonCodeFences(text));
+  if (text == null || String(text).trim() === "") {
+    throw new Error("Model boş yanıt döndü.");
+  }
+  return parseModelJsonText(text);
+}
+
+function notifyAiError(err) {
+  var msg = err && err.message ? String(err.message) : String(err || "Bilinmeyen hata");
+  console.error("[tarama-uretici] AI hatası:", err);
+  try {
+    showToast("Yapay zeka sunucusuna ulaşılamadı: " + msg, { variant: "danger" });
+  } catch (_t) {
+    try {
+      if (typeof window !== "undefined" && window.alert) window.alert("Yapay zeka sunucusuna ulaşılamadı:\n" + msg);
+    } catch (_a) {}
+  }
 }
 
 function getFilterContext() {
@@ -462,10 +548,10 @@ async function runBenzerUret(q) {
     renderSepet();
     setAiStatus("Yeni soru havuza eklendi ve sepete kondu.", false);
   } catch (e) {
-    console.warn("[tarama-uretici] benzer", e);
+    notifyAiError(e);
     setAiStatus(String(e && e.message ? e.message : e), true);
   } finally {
-    setAiBusy(false);
+    forceHideAiOverlay();
   }
 }
 
@@ -705,10 +791,10 @@ function bindForm() {
         renderSepet();
         setAiStatus(need + " soru üretildi, havuza ve sepete eklendi.", false);
       } catch (e) {
-        console.warn("[tarama-uretici] eksik", e);
+        notifyAiError(e);
         setAiStatus(String(e && e.message ? e.message : e), true);
       } finally {
-        setAiBusy(false);
+        forceHideAiOverlay();
       }
     });
   }
