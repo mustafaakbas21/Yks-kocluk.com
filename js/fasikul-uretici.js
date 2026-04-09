@@ -2,7 +2,7 @@
  * Fasikül / Kitap Üretici — Gemini 1.5 Flash + pdfmake (Matbaa v3.1 Dinamik Prompt)
  * Müfredat: ./yks-mufredat.js
  *
- * Gemini: sunucu proxy POST /api/generate-fasikul (api/generate-fasikul.js).
+ * Gemini: sunucu proxy POST /api/ai (api/ai.js).
  * API anahtarı yalnızca sunucuda (.env / Vercel → GEMINI_API_KEY); tarayıcıya gitmez.
  * Özel URL: window.__FASIKUL_PROXY_URL
  */
@@ -10,7 +10,7 @@
 import { showToast } from "./dp-ui-feedback.js";
 import { YKS2026_Mufredat } from "./yks-mufredat.js";
 
-const FASIKUL_PROXY_PATH = "/api/generate-fasikul";
+const FASIKUL_PROXY_PATH = "/api/ai";
 
 const MIN_QUESTIONS = 1;
 const MAX_QUESTIONS = 40;
@@ -452,7 +452,7 @@ async function fetchGeminiFasikulJson(form) {
       "HTTP " + res.status;
     if (res.status === 404) {
       throw new Error(
-        "Fasikül API bulunamadı (404). Vercel’de `api/generate-fasikul.js` deploy edildiğinden ve redeploy yaptığınızdan emin olun."
+        "Fasikül API bulunamadı (404). Vercel’de `api/ai.js` deploy edildiğinden ve redeploy yaptığınızdan emin olun."
       );
     }
     if (res.status === 500 && typeof data.error === "string" && data.error.indexOf("GEMINI_API_KEY") !== -1) {

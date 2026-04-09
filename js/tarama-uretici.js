@@ -1,6 +1,6 @@
 /**
  * Tarama (Soru Arşivi) — filtreler, mock havuz, sepet, PDF stub, Hibrit Zeka V4.1 (Gemini).
- * API: POST /api/generate-fasikul (anahtar yalnızca sunucuda GEMINI_API_KEY).
+ * API: POST /api/ai (anahtar yalnızca sunucuda GEMINI_API_KEY).
  * Özel URL: window.__GEMINI_PROXY_URL
  */
 
@@ -18,7 +18,7 @@ function getGeminiProxyUrl() {
   if (typeof window !== "undefined" && window.__GEMINI_PROXY_URL) {
     return String(window.__GEMINI_PROXY_URL).replace(/\/?$/, "");
   }
-  return "/api/generate-fasikul";
+  return "/api/ai";
 }
 
 var GEMINI_MAX_OUTPUT_TOKENS = 8192;
