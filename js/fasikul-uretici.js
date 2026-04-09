@@ -4,12 +4,12 @@
  *
  * Gemini: sunucu proxy POST /api/generate-fasikul (api/generate-fasikul.js).
  * API anahtarı yalnızca sunucuda (.env / Vercel → GEMINI_API_KEY); tarayıcıya gitmez.
+ * Özel URL: window.__FASIKUL_PROXY_URL
  */
 
 import { showToast } from "./dp-ui-feedback.js";
 import { YKS2026_Mufredat } from "./yks-mufredat.js";
 
-/** Aynı origin üzerinde Vercel serverless uç noktası. */
 const FASIKUL_PROXY_PATH = "/api/generate-fasikul";
 
 const MIN_QUESTIONS = 1;
@@ -20,12 +20,21 @@ const GEMINI_MAX_OUTPUT_TOKENS = 8192;
 const DEFAULT_WATERMARK = "DerecePanel";
 
 function getFasikulGenerateEndpoint() {
+  if (typeof window !== "undefined" && window.__FASIKUL_PROXY_URL) {
+    var u = String(window.__FASIKUL_PROXY_URL).trim().replace(/\/?$/, "");
+    try {
+      if (window.location && window.location.origin && u.indexOf("http") !== 0) {
+        return new URL(u, window.location.origin).href;
+      }
+    } catch (_e) {}
+    return u;
+  }
   if (typeof window === "undefined" || !window.location || !window.location.origin) {
     return FASIKUL_PROXY_PATH;
   }
   try {
     return new URL(FASIKUL_PROXY_PATH, window.location.origin).href;
-  } catch (_e) {
+  } catch (_e2) {
     return FASIKUL_PROXY_PATH;
   }
 }
@@ -392,7 +401,6 @@ function parseFasikulModelJson(text) {
 
 async function fetchGeminiFasikulJson(form) {
   var n = clampInt(form.questionCount, MIN_QUESTIONS, MAX_QUESTIONS);
-  var url = getFasikulGenerateEndpoint();
   var body = {
     systemInstruction: { parts: [{ text: buildGeminiSystemInstruction(form) }] },
     contents: [{ role: "user", parts: [{ text: buildGeminiUserPrompt(form) }] }],
@@ -411,6 +419,7 @@ async function fetchGeminiFasikulJson(form) {
       responseJsonSchema: FASIKUL_RESPONSE_JSON_SCHEMA,
     },
   };
+  var url = getFasikulGenerateEndpoint();
   var res;
   var rawText = "";
   try {
@@ -443,7 +452,7 @@ async function fetchGeminiFasikulJson(form) {
       "HTTP " + res.status;
     if (res.status === 404) {
       throw new Error(
-        "Fasikül API bulunamadı (404). Projeyi `vercel dev` veya barındırıcıda `/api/generate-fasikul` ile çalıştırın."
+        "Fasikül API bulunamadı (404). Vercel’de `api/generate-fasikul.js` deploy edildiğinden ve redeploy yaptığınızdan emin olun."
       );
     }
     if (res.status === 500 && typeof data.error === "string" && data.error.indexOf("GEMINI_API_KEY") !== -1) {
