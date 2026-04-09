@@ -31,6 +31,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.2/dist/apexcharts.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" crossorigin="anonymous" />
@@ -214,7 +215,6 @@
     .dashboard-kpi-trend--skeleton { color: transparent !important; user-select: none; }
     .dashboard-elite-charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin: 0 1.5rem 1.5rem; max-width: calc(100% - 3rem); align-items: stretch; }
     @media (max-width: 900px) { .dashboard-elite-charts-row { grid-template-columns: 1fr; } }
-    .dashboard-analytics-card--elite-chart .dashboard-elite-chart__sub { margin: -0.5rem 0 1rem; font-size: 0.8rem; color: #64748b; font-weight: 600; line-height: 1.45; }
     .dashboard-elite-chart-wrap { position: relative; min-height: 280px; height: 300px; width: 100%; }
     .dashboard-elite-chart-wrap canvas { max-height: 300px !important; }
     .dashboard-insight-section { margin: 0 1.5rem 2rem; max-width: calc(100% - 3rem); }
@@ -247,6 +247,37 @@
     .dash-meeting-chart-wrap canvas { max-height: 280px; }
     .dashboard-empty-hint { margin: 0; padding: 1.5rem 1rem; text-align: center; font-size: 0.88rem; color: #64748b; font-weight: 600; }
     .dashboard-empty-hint--error { color: #b91c1c; font-weight: 600; }
+    .dashboard-chart-empty {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      padding: 1.5rem 1.25rem;
+      text-align: center;
+      pointer-events: none;
+    }
+    .dashboard-chart-empty__icon {
+      width: 2.75rem;
+      height: 2.75rem;
+      border-radius: 14px;
+      background: #f1f5f9;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+    .dashboard-chart-empty__msg {
+      margin: 0;
+      max-width: 17rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
     .dashboard-kpi-row--loading .dashboard-kpi-card__val,
     .dashboard-kpi-row--loading .dashboard-kpi-card__trend {
       min-height: 1.35em;
@@ -3007,49 +3038,6 @@
     }
     .dana-takvim-empty__title { margin: 0 0 0.45rem; font-size: 1.08rem; font-weight: 800; color: #312e81; letter-spacing: -0.02em; }
     .dana-takvim-empty__hint { margin: 0; font-size: 0.88rem; color: #64748b; line-height: 1.55; max-width: 38ch; margin-left: auto; margin-right: auto; }
-    /* Global deneme planlama modalı */
-    .modal--dana-gd-plan .modal__head {
-      background: linear-gradient(180deg, var(--purple-100) 0%, var(--purple-50) 45%, #ffffff 100%);
-      border-bottom: 1px solid rgba(var(--accent-rgb), 0.2);
-    }
-    .modal--dana-gd-plan .modal__title { color: #4c1d95; font-weight: 800; letter-spacing: -0.02em; }
-    .dana-gd-form-grid { gap: 1rem 1.25rem; }
-    .dana-gd-uploads {
-      margin-top: 1.35rem; padding-top: 1.25rem;
-      border-top: 1px solid rgba(var(--accent-rgb), 0.12);
-    }
-    .dana-gd-uploads__lead {
-      margin: 0 0 0.85rem; font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.08em; color: var(--purple-600);
-    }
-    .dana-gd-upload-row {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
-    }
-    @media (max-width: 720px) { .dana-gd-upload-row { grid-template-columns: 1fr; } }
-    .dana-gd-drop {
-      border: 2px dashed rgba(var(--accent-rgb), 0.35); border-radius: 16px; padding: 1.15rem 1rem;
-      background: linear-gradient(180deg, var(--purple-50), #ffffff); cursor: pointer; text-align: center;
-      transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s; min-height: 118px;
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.35rem;
-    }
-    .dana-gd-drop:hover { border-color: rgba(var(--accent-rgb), 0.55); box-shadow: 0 8px 28px rgba(var(--accent-rgb), 0.12); }
-    .dana-gd-drop.is-dragover {
-      border-color: var(--purple-600); background: var(--purple-50); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.22);
-      transform: scale(1.01);
-    }
-    .dana-gd-drop__icon { font-size: 1.55rem; line-height: 1; }
-    .dana-gd-drop__title { margin: 0; font-size: 0.88rem; font-weight: 800; color: #312e81; }
-    .dana-gd-drop__hint { margin: 0; font-size: 0.75rem; color: #64748b; line-height: 1.45; max-width: 22ch; }
-    .dana-gd-drop__file {
-      margin: 0.25rem 0 0; font-size: 0.72rem; font-weight: 700; color: #047857;
-      max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 0.25rem;
-    }
-    .dana-gd-drop__file:empty { display: none; }
-    #danaGdPlanFormErr {
-      margin: 1rem 0 0; padding: 0.65rem 0.85rem; border-radius: 12px; background: #fef2f2;
-      color: #b91c1c; font-size: 0.85rem; font-weight: 600; border: 1px solid #fecaca;
-    }
-    #danaGdPlanFormErr[hidden] { display: none !important; }
     .dana-skel-root { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
     .dana-skel-card {
       border-radius: 20px; border: 1px dashed rgba(var(--accent-rgb), 0.28); background: linear-gradient(180deg, var(--purple-50), #fff);
@@ -3792,8 +3780,8 @@
               <span class="sidebar__tm-chevron" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
             </button>
             <div class="sidebar__submenu sidebar__submenu--dana-nested" id="sidebarDanaSubmenu" role="group" aria-label="Deneme Analizi alt menü">
-              <button type="button" class="sidebar__sublink" data-nav="deneme-analiz-denemeler" title="Koç denemeleri ve cevap anahtarı">
-                <i class="fa-solid fa-table-list"></i><span>Denemeler</span>
+              <button type="button" class="sidebar__sublink" data-nav="deneme-analiz-denemeler" title="Planlı denemeler ve sonuç özeti">
+                <i class="fa-solid fa-table-list"></i><span>Deneme Sonuçları</span>
               </button>
               <button type="button" class="sidebar__sublink" data-nav="deneme-analiz-takvim" title="Türkiye geneli deneme takvimi">
                 <i class="fa-solid fa-earth-americas"></i><span>Global Deneme Takvimi</span>
@@ -4043,18 +4031,22 @@
           <div class="dashboard-elite-charts-row" aria-label="Kurumsal analiz grafikleri">
             <div class="dashboard-analytics-card dashboard-analytics-card--elite-chart">
               <h3 class="dashboard-analytics-card__title"><i class="fa-solid fa-chart-line"></i> Kurum geneli TYT / AYT net trendi</h3>
-              <p class="dashboard-elite-chart__sub">Appwrite <strong>exams</strong> verisinden — son 9 haftanın haftalık ortalama netleri (çizgi: eksik hafta boş).</p>
               <div class="dashboard-elite-chart-wrap">
                 <canvas id="dashboardNetTrendChart" aria-label="TYT ve AYT net trendi"></canvas>
-                <p id="dashboardNetTrendEmpty" class="dashboard-empty-hint" hidden></p>
+                <div id="dashboardNetTrendEmpty" class="dashboard-chart-empty" hidden role="status">
+                  <div class="dashboard-chart-empty__icon" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></div>
+                  <p class="dashboard-chart-empty__msg">Henüz yeterli deneme verisi bulunmuyor.</p>
+                </div>
               </div>
             </div>
             <div class="dashboard-analytics-card dashboard-analytics-card--elite-chart">
               <h3 class="dashboard-analytics-card__title"><i class="fa-solid fa-chart-column"></i> Randevu yoğunluğu</h3>
-              <p class="dashboard-elite-chart__sub">Panele senkron <strong>appointments</strong> listesi — bugünden itibaren 7 gün.</p>
               <div class="dashboard-elite-chart-wrap">
                 <canvas id="dashboardApptIntensityChart" aria-label="Haftalık randevu adetleri"></canvas>
-                <p id="dashboardApptIntensityEmpty" class="dashboard-empty-hint" hidden></p>
+                <div id="dashboardApptIntensityEmpty" class="dashboard-chart-empty" hidden role="status">
+                  <div class="dashboard-chart-empty__icon" aria-hidden="true"><i class="fa-solid fa-calendar-week"></i></div>
+                  <p class="dashboard-chart-empty__msg">Bu hafta için planlanmış randevu bulunmuyor.</p>
+                </div>
               </div>
             </div>
           </div>
@@ -5216,8 +5208,8 @@
           <div class="dnm-root">
             <div class="dnm-hero">
               <div>
-                <h1 class="page-head__title dnm-hero__title">Denemeler</h1>
-                <p class="dnm-hero__sub">Appwrite <code class="dnm-code">Exams</code> · Ders/konu matrisi ile cevap anahtarı · Rota: <code class="dnm-code">?view=deneme-analiz-denemeler</code></p>
+                <h1 class="page-head__title dnm-hero__title">Deneme Sonuçları</h1>
+                <p class="dnm-hero__sub">Planlanan denemelerinizi yönetin; kurum ve öğrenci sonuçlarını tek ekrandan takip edin.</p>
               </div>
               <div class="dnm-hero__actions">
                 <button type="button" class="dnm-btn dnm-btn--excel-outline" id="btnDnmExcelImport" aria-haspopup="dialog" aria-controls="dnmExcelImportModal">
@@ -5239,6 +5231,7 @@
                   <table class="dnm-table" aria-label="Deneme listesi">
                     <thead>
                       <tr>
+                        <th class="dnm-th-chev" aria-label="Aç / kapat"></th>
                         <th>Deneme adı</th>
                         <th>Sınav türü</th>
                         <th>Yayın evi</th>
@@ -5332,59 +5325,97 @@
                 </div>
               </div>
 
-              <div id="dnmAiUploadSection" class="dnm-ai-uploads" hidden>
-                <div class="dnm-ai-uploads__head">
-                  <p class="dnm-ai-uploads__eyebrow">Yapay zeka / otomasyon</p>
-                  <h3 class="dnm-ai-uploads__title">PDF ile kazanım önerisi</h3>
-                  <p class="dnm-ai-uploads__sub">
-                    Deneme ve cevap anahtarını yükleyin; sistem (şimdilik simülasyon) satırları doldurur. Çıkan ders/konu/şıkkı aşağıdan düzenleyebilirsiniz.
-                  </p>
+              <div class="tw-important-root rounded-xl border border-slate-200 bg-slate-50/90 p-4 mb-4 space-y-2">
+                <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Materyaller</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <label class="block">
+                    <span class="block text-sm font-semibold text-slate-700 mb-1.5">Deneme kitapçığı (PDF)</span>
+                    <input type="file" id="dnmFileBookletPdf" accept="application/pdf,.pdf" class="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-violet-100 file:text-violet-800 hover:file:bg-violet-200" />
+                    <span class="text-xs text-slate-500 mt-1 block" id="dnmFileBookletPdfLabel"></span>
+                    <button type="button" class="dnm-btn dnm-btn--ai-pdf-matrix mt-2 w-full sm:w-auto" id="btnDnmAiPdfMatrix" disabled title="Önce geçerli bir kitapçık PDF dosyası seçin">
+                      ✨ Yapay Zeka ile Matrisi Otomatik Çıkar
+                    </button>
+                  </label>
+                  <label class="block">
+                    <span class="block text-sm font-semibold text-slate-700 mb-1.5">Cevap anahtarı (PDF)</span>
+                    <input type="file" id="dnmFileAnswerKeyPdf" accept="application/pdf,.pdf" class="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-violet-100 file:text-violet-800 hover:file:bg-violet-200" />
+                    <span class="text-xs text-slate-500 mt-1 block" id="dnmFileAnswerKeyPdfLabel"></span>
+                  </label>
                 </div>
-                <div class="dnm-ai-drop-row">
-                  <div class="dnm-ai-drop" id="dnmAiDropExam" tabindex="0" role="button" aria-label="Deneme PDF yükle">
-                    <span class="dnm-ai-drop__icon" aria-hidden="true">📄</span>
-                    <p class="dnm-ai-drop__title">Deneme PDF ekle</p>
-                    <p class="dnm-ai-drop__hint">Sürükleyip bırakın veya tıklayın · PDF</p>
-                    <p class="dnm-ai-drop__file" id="dnmAiExamFileLabel"></p>
-                    <input type="file" id="dnmAiFileExam" accept=".pdf,application/pdf" hidden />
+                <p class="text-xs text-slate-500" id="dnmStoredPdfHint" hidden></p>
+                <div class="dnm-ai-drop-row dnm-ai-drop-row--compact" aria-hidden="true">
+                  <input type="file" id="dnmAiFileExam" accept=".pdf,application/pdf" hidden tabindex="-1" />
+                  <input type="file" id="dnmAiFileKey" accept=".pdf,application/pdf" hidden tabindex="-1" />
+                </div>
+              </div>
+
+              <div class="tw-important-root rounded-xl border border-slate-200 bg-white p-4 mb-4">
+                <p class="text-xs font-bold uppercase tracking-wide text-slate-500 mb-3">Kitapçık türleri</p>
+                <div class="flex flex-wrap gap-5">
+                  <label class="inline-flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer"><input type="checkbox" id="dnmBookletA" class="rounded border-slate-300 text-violet-600 focus:ring-violet-500" value="A" /> A</label>
+                  <label class="inline-flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer"><input type="checkbox" id="dnmBookletB" class="rounded border-slate-300 text-violet-600 focus:ring-violet-500" value="B" /> B</label>
+                  <label class="inline-flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer"><input type="checkbox" id="dnmBookletC" class="rounded border-slate-300 text-violet-600 focus:ring-violet-500" value="C" /> C</label>
+                  <label class="inline-flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer"><input type="checkbox" id="dnmBookletD" class="rounded border-slate-300 text-violet-600 focus:ring-violet-500" value="D" /> D</label>
+                  <label class="inline-flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer"><input type="checkbox" id="dnmBookletE" class="rounded border-slate-300 text-violet-600 focus:ring-violet-500" value="E" /> E</label>
+                </div>
+              </div>
+
+              <div class="tw-important-root rounded-xl border border-violet-100 bg-gradient-to-b from-white to-slate-50/80 p-4 mb-4 shadow-sm">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
+                  <div>
+                    <p class="text-xs font-bold uppercase tracking-wide text-violet-600 mb-0.5">Soru eşlemesi</p>
+                    <span class="dnm-section-title !mb-0">Soru–konu matrisi</span>
                   </div>
-                  <div class="dnm-ai-drop" id="dnmAiDropKey" tabindex="0" role="button" aria-label="Cevap anahtarı yükle">
-                    <span class="dnm-ai-drop__icon" aria-hidden="true">🔑</span>
-                    <p class="dnm-ai-drop__title">Cevap anahtarı PDF veya görsel</p>
-                    <p class="dnm-ai-drop__hint">PDF, PNG, JPG · Anahtar dosyası</p>
-                    <p class="dnm-ai-drop__file" id="dnmAiKeyFileLabel"></p>
-                    <input type="file" id="dnmAiFileKey" accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/*" hidden />
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button" class="dnm-btn dnm-btn--primary" id="btnDnmInitMatrix"><i class="fa-solid fa-table-cells" aria-hidden="true"></i> Soru–konu matrisi oluştur</button>
+                    <button type="button" class="dnm-btn dnm-btn--secondary" id="btnDnmAddMatrixRow" title="Satır ekle"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
                   </div>
+                </div>
+                <p class="text-sm text-slate-600 mb-3 leading-relaxed">Sınav türünü seçtikten sonra matrisi başlatın. Her satırda <strong>ders</strong>, <strong>soru numarası (1–40)</strong>, <strong>konu</strong> ve YKS’ye uygun <strong>doğru şık (A–E)</strong> seçimini yapın; yeni soru için «+» kullanın.</p>
+                <div class="dnm-matrix-scroll">
+                  <table class="dnm-matrix-table" id="dnmMatrixTable" hidden>
+                    <thead>
+                      <tr>
+                        <th>Ders</th>
+                        <th class="dnm-col-n">Soru no</th>
+                        <th>Konu</th>
+                        <th class="dnm-col-ans">Doğru şık (A–E)</th>
+                        <th class="dnm-col-rm" aria-label="Sil"></th>
+                      </tr>
+                    </thead>
+                    <tbody id="dnmMatrixBody"></tbody>
+                  </table>
                 </div>
               </div>
 
               <details class="dnm-details-advanced" id="dnmDetailsAdvanced">
-                <summary class="dnm-details-advanced__summary">İleri düzey — cevap anahtarı matrisi (isteğe bağlı)</summary>
+                <summary class="dnm-details-advanced__summary">İsteğe bağlı — toplu şablon ve PDF önizleme</summary>
+                <p id="dnmMatrixHint" class="dnm-hint text-sm">
+                  Belirttiğiniz soru sayısı kadar varsayılan satır eklenir; ardından ders ve konuları düzenleyebilirsiniz. İki PDF dosyası seçiliyken örnek matris doldurma simülasyonu da çalışır.
+                </p>
                 <div class="dnm-matrix-head">
-                  <span class="dnm-section-title">Cevap anahtarı ve kazanım eşlemesi</span>
+                  <span class="dnm-section-title">Toplu şablon</span>
                   <div class="dnm-matrix-controls">
                     <label class="dnm-field dnm-field--inline">
                       <span class="dnm-label">Soru sayısı</span>
                       <input type="number" id="dnmQCount" class="dnm-input dnm-input--sm" min="1" max="200" step="1" placeholder="40" value="40" />
                     </label>
-                    <button type="button" class="dnm-btn dnm-btn--secondary" id="btnDnmBuildMatrix">Matrisi oluştur</button>
+                    <button type="button" class="dnm-btn dnm-btn--secondary" id="btnDnmBuildMatrixBulk">Şablon satırları oluştur</button>
                   </div>
                 </div>
-                <p id="dnmMatrixHint" class="dnm-hint">
-                  PDF yüklemeden de “Matrisi oluştur” ile boş şablon açabilirsiniz. İki dosya yüklendiğinde analiz otomatik başlar (şimdilik örnek veri).
-                </p>
-                <div class="dnm-matrix-scroll">
-                  <table class="dnm-matrix-table" id="dnmMatrixTable" hidden>
-                    <thead>
-                      <tr>
-                        <th class="dnm-col-n">Soru</th>
-                        <th>Ders</th>
-                        <th>Konu / kazanım</th>
-                        <th class="dnm-col-ans">Doğru cevap</th>
-                      </tr>
-                    </thead>
-                    <tbody id="dnmMatrixBody"></tbody>
-                  </table>
+                <div class="dnm-ai-drop-row mt-3">
+                  <div class="dnm-ai-drop" id="dnmAiDropExam" tabindex="0" role="button" aria-label="Deneme PDF sürükle-bırak">
+                    <span class="dnm-ai-drop__icon" aria-hidden="true">📄</span>
+                    <p class="dnm-ai-drop__title">Kitapçık PDF (sürükle-bırak)</p>
+                    <p class="dnm-ai-drop__hint">Üstteki dosya seçicisi ile aynı dosyayı paylaşır</p>
+                    <p class="dnm-ai-drop__file" id="dnmAiExamFileLabel"></p>
+                  </div>
+                  <div class="dnm-ai-drop" id="dnmAiDropKey" tabindex="0" role="button" aria-label="Cevap anahtarı sürükle-bırak">
+                    <span class="dnm-ai-drop__icon" aria-hidden="true">🔑</span>
+                    <p class="dnm-ai-drop__title">Cevap anahtarı PDF</p>
+                    <p class="dnm-ai-drop__hint">Üstteki dosya seçicisi ile aynı dosyayı paylaşır</p>
+                    <p class="dnm-ai-drop__file" id="dnmAiKeyFileLabel"></p>
+                  </div>
                 </div>
               </details>
             </div>
@@ -5399,8 +5430,8 @@
             <div id="dnmPdfAnalyzingOverlay" class="dnm-analyzing-overlay" hidden aria-live="polite" aria-busy="true">
               <div class="dnm-analyzing-box">
                 <div class="dnm-analyzing-spinner" aria-hidden="true"></div>
-                <p class="dnm-analyzing-title">PDF’ler analiz ediliyor…</p>
-                <p class="dnm-analyzing-sub">Kazanımlar çıkarılıyor; satırlar birazdan listelenecek.</p>
+                <p class="dnm-analyzing-title" id="dnmPdfAnalyzingTitle">PDF’ler analiz ediliyor…</p>
+                <p class="dnm-analyzing-sub" id="dnmPdfAnalyzingSub">Kazanımlar çıkarılıyor; satırlar birazdan listelenecek.</p>
               </div>
             </div>
           </div>
@@ -5458,9 +5489,8 @@
             <div class="dana-deneme-hero">
               <div class="dana-deneme-hero__titles">
                 <h1>Global Deneme Takvimi</h1>
-                <p>Koç denemeleriniz Appwrite <strong>Exams</strong> koleksiyonundan yüklenir; takvim ve ajanda canlı veridir.</p>
+                <p>Türkiye geneli deneme tarihleri kurucu tarafından senkronize edilir; liste ve takvim <strong>salt okunur</strong>dur (Appwrite <code>global_denemeler</code>).</p>
               </div>
-              <button type="button" class="btn--dana-cta" id="btnOpenDenemeModal" aria-haspopup="dialog" aria-controls="denemePlanlaModal"><i class="fa-solid fa-plus"></i> Yeni Deneme Planla</button>
             </div>
             <div class="dana-takvim-layout">
               <div class="dana-takvim-main">
@@ -5468,6 +5498,30 @@
                   <button type="button" class="dana-takvim-tab" id="danaTabFilterTyt" data-dana-takvim-filter="TYT" role="tab" aria-selected="false">TYT</button>
                   <button type="button" class="dana-takvim-tab" id="danaTabFilterAyt" data-dana-takvim-filter="AYT" role="tab" aria-selected="false">AYT</button>
                   <button type="button" class="dana-takvim-tab is-active" id="danaTabFilterYks" data-dana-takvim-filter="YKS" role="tab" aria-selected="true">YKS (Tümü)</button>
+                </div>
+                <div class="tw-important-root mt-2 mb-8 overflow-hidden rounded-2xl border border-violet-200/90 bg-white shadow-md shadow-violet-100/40 ring-1 ring-violet-100/60">
+                  <div class="border-b border-violet-100 bg-gradient-to-r from-violet-50/90 to-fuchsia-50/50 px-4 py-3">
+                    <h2 class="m-0 text-base font-extrabold tracking-tight text-violet-950">Merkezi sınav listesi</h2>
+                    <p class="mt-1 mb-0 text-xs font-medium text-slate-500">Tarihe göre sıralı (eskiden yeniye). Durum yerel takvim gününe göre güncellenir.</p>
+                  </div>
+                  <div class="overflow-x-auto">
+                    <table class="w-full min-w-[720px] text-left text-sm text-slate-700">
+                      <thead class="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
+                        <tr>
+                          <th class="px-4 py-3">Sınav adı</th>
+                          <th class="px-4 py-3">Yayınevi</th>
+                          <th class="px-4 py-3 whitespace-nowrap">Tarih</th>
+                          <th class="px-4 py-3 whitespace-nowrap">Tür</th>
+                          <th class="px-4 py-3 whitespace-nowrap">Durum</th>
+                        </tr>
+                      </thead>
+                      <tbody id="gdtMainTableBody" class="divide-y divide-violet-100/70 bg-white">
+                        <tr>
+                          <td colspan="5" class="px-4 py-6 text-center text-sm text-slate-500">Yükleniyor…</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
                 <h2 class="page-head__title" style="margin:0 0 1rem;font-size:1.05rem;font-weight:800;color:#4c1d95">Yaklaşan denemeler</h2>
                 <p class="dana-takvim-upcoming-lead" style="margin:-0.5rem 0 1rem;font-size:0.82rem;color:#64748b;font-weight:600">Bugünden sonraki ilk 3 deneme (Exams)</p>
@@ -5609,17 +5663,162 @@
 
         <div class="main-view" data-view="deneme-analiz-karne" id="view-deneme-analiz-karne" hidden>
           <div class="page-head">
-            <h1 class="page-head__title">Deneme Karnesi</h1>
+            <h1 class="page-head__title">Sınav Sonuçları ve Karne</h1>
             <p class="page-head__subtitle" style="margin:0.35rem 0 0;font-size:0.95rem;color:#64748b;font-weight:500;">
-              Branş analizi, konu uyarıları ve grafikler — Appwrite üzerinden öğrencinin gerçek deneme kayıtlarıyla dolar.
+              Kurum sıralaması, öğrenci karnesi önizlemesi ve PDF çıktı — veriler Appwrite deneme kayıtlarınızdan üretilir.
             </p>
           </div>
+
+          <div class="tw-important-root max-w-7xl mx-auto px-3 sm:px-4 pb-6 space-y-6">
+            <div class="rounded-xl border border-slate-200/90 bg-white shadow-sm overflow-hidden">
+              <div class="px-4 sm:px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 class="text-base sm:text-lg font-bold text-slate-800 tracking-tight">Kurum sıralı liste</h2>
+                  <p class="text-xs text-slate-500 mt-0.5">Son TYT / AYT netlerine göre sıralama · Karneyi PDF olarak indirin</p>
+                </div>
+                <button type="button" id="karneKurumRefreshBtn" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors">
+                  <i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Yenile
+                </button>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-700" id="karneKurumTable">
+                  <thead>
+                    <tr class="border-b border-slate-100 bg-slate-50/90 text-xs font-bold uppercase tracking-wide text-slate-500">
+                      <th class="px-4 py-3 whitespace-nowrap">Öğrenci adı</th>
+                      <th class="px-3 py-3 whitespace-nowrap">Şube</th>
+                      <th class="px-3 py-3 whitespace-nowrap text-center" title="Doğru / Yanlış / Boş">TYT Türkçe (D/Y/B)</th>
+                      <th class="px-3 py-3 whitespace-nowrap text-center" title="Doğru / Yanlış / Boş">TYT Mat (D/Y/B)</th>
+                      <th class="px-3 py-3 whitespace-nowrap text-center">TYT toplam net</th>
+                      <th class="px-3 py-3 whitespace-nowrap text-center">AYT toplam net</th>
+                      <th class="px-3 py-3 whitespace-nowrap text-center">Puan</th>
+                      <th class="px-3 py-3 whitespace-nowrap text-center">Sıralama</th>
+                      <th class="px-4 py-3 whitespace-nowrap text-right">İşlemler</th>
+                    </tr>
+                  </thead>
+                  <tbody id="karneKurumTableBody" class="divide-y divide-slate-100">
+                    <tr id="karneKurumTablePlaceholder">
+                      <td colspan="9" class="px-4 py-10 text-center text-slate-500 text-sm">Liste yükleniyor…</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div id="karne-modal" class="fixed inset-0 z-[320] hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="karne-modal-title">
+            <div class="absolute inset-0 bg-slate-900/55 backdrop-blur-[2px]" data-karne-close tabindex="-1"></div>
+            <div class="relative z-10 flex min-h-full items-center justify-center p-3 sm:p-6 pointer-events-none">
+              <div class="pointer-events-auto w-full max-w-5xl max-h-[94vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-slate-200/80 overflow-hidden">
+                <header class="flex flex-wrap items-start justify-between gap-3 px-4 sm:px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-violet-50/40 shrink-0">
+                  <div class="min-w-0">
+                    <h2 id="karne-modal-title" class="text-lg font-bold text-slate-900 truncate" data-karne-student-name>—</h2>
+                    <p class="text-sm font-semibold text-violet-700 mt-0.5" data-karne-exam-name>—</p>
+                    <p class="text-xs text-slate-500 mt-1" data-karne-exam-date>—</p>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-2 shrink-0">
+                    <button type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors" data-karne-close>Kapat</button>
+                    <button type="button" id="karne-btn-pdf-download" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-sm font-bold shadow-md shadow-emerald-600/25 transition-colors">
+                      <span aria-hidden="true">📥</span> PDF olarak indir
+                    </button>
+                  </div>
+                </header>
+                <div class="flex-1 overflow-y-auto overscroll-contain px-3 sm:px-6 py-4 bg-slate-100/60">
+                  <div id="pdf-content" class="mx-auto bg-white text-slate-800 rounded-xl border border-slate-200 shadow-sm p-5 sm:p-8" style="width: 210mm; max-width: 100%; min-height: 297mm; box-sizing: border-box;">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                      <div class="rounded-xl border border-slate-100 bg-slate-50/80 p-4">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Puan ve sıralama</h3>
+                        <table class="w-full text-sm">
+                          <tbody class="divide-y divide-slate-200">
+                            <tr><td class="py-2 text-slate-600">Toplam puan (özet)</td><td class="py-2 text-right font-bold text-slate-900" data-karne-pdf-puan>—</td></tr>
+                            <tr><td class="py-2 text-slate-600">TYT toplam net</td><td class="py-2 text-right font-semibold" data-karne-pdf-tytnet>—</td></tr>
+                            <tr><td class="py-2 text-slate-600">AYT toplam net</td><td class="py-2 text-right font-semibold" data-karne-pdf-aynet>—</td></tr>
+                            <tr><td class="py-2 text-slate-600">Kurum sıralaması</td><td class="py-2 text-right font-semibold" data-karne-pdf-kurumsira>—</td></tr>
+                            <tr><td class="py-2 text-slate-600">Genel sıralama</td><td class="py-2 text-right font-semibold text-violet-700" data-karne-pdf-genelsira>—</td></tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div class="rounded-xl border border-slate-100 bg-white p-4 shadow-inner">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Son 6 sınav net trendi</h3>
+                        <p class="text-[11px] text-slate-400 mb-3">TYT denemeleri (tarih sırası · veri yoksa örnek eğilim gösterilir)</p>
+                        <div class="h-52 sm:h-56 relative">
+                          <canvas id="karnePdfChartCanvas" aria-label="Son 6 sınav net grafiği"></canvas>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="space-y-6 mb-8">
+                      <div data-karne-section-tyt>
+                        <h3 class="text-sm font-bold text-slate-800 border-b border-violet-200 pb-2 mb-3">TYT ders analizi</h3>
+                        <div class="overflow-x-auto rounded-lg border border-slate-100">
+                          <table class="w-full text-xs sm:text-sm">
+                            <thead class="bg-slate-50 text-slate-600 font-semibold">
+                              <tr>
+                                <th class="text-left px-3 py-2">Ders</th>
+                                <th class="text-center px-2 py-2">Soru</th>
+                                <th class="text-center px-2 py-2">Doğru</th>
+                                <th class="text-center px-2 py-2">Yanlış</th>
+                                <th class="text-center px-2 py-2">Boş</th>
+                                <th class="text-center px-2 py-2">Net</th>
+                              </tr>
+                            </thead>
+                            <tbody id="karnePdfTytBody" class="divide-y divide-slate-100"></tbody>
+                          </table>
+                        </div>
+                      </div>
+                      <div data-karne-section-ayt hidden>
+                        <h3 class="text-sm font-bold text-slate-800 border-b border-indigo-200 pb-2 mb-3">AYT ders analizi</h3>
+                        <div class="overflow-x-auto rounded-lg border border-slate-100">
+                          <table class="w-full text-xs sm:text-sm">
+                            <thead class="bg-slate-50 text-slate-600 font-semibold">
+                              <tr>
+                                <th class="text-left px-3 py-2">Ders</th>
+                                <th class="text-center px-2 py-2">Soru</th>
+                                <th class="text-center px-2 py-2">Doğru</th>
+                                <th class="text-center px-2 py-2">Yanlış</th>
+                                <th class="text-center px-2 py-2">Boş</th>
+                                <th class="text-center px-2 py-2">Net</th>
+                              </tr>
+                            </thead>
+                            <tbody id="karnePdfAytBody" class="divide-y divide-slate-100"></tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <h3 class="text-sm font-bold text-slate-800 border-b border-emerald-200/80 pb-2 mb-3">Konu analizi (matris özeti)</h3>
+                      <p class="text-xs text-slate-500 mb-3">Branş bazlı performans · doğrular yeşil, eksikler kırmızı</p>
+                      <div class="overflow-x-auto rounded-lg border border-slate-100">
+                        <table class="w-full text-xs sm:text-sm">
+                          <thead class="bg-emerald-50/90 text-slate-700 font-semibold">
+                            <tr>
+                              <th class="text-left px-3 py-2">Konu / ders</th>
+                              <th class="text-center px-2 py-2">Doğru cevap özeti</th>
+                              <th class="text-center px-2 py-2">Öğrenci performansı</th>
+                            </tr>
+                          </thead>
+                          <tbody id="karnePdfTopicBody" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <details class="tw-important-root max-w-7xl mx-auto px-3 sm:px-4 pb-8">
+            <summary class="cursor-pointer text-sm font-semibold text-slate-600 hover:text-violet-700 list-none flex items-center gap-2 py-2 karne-advanced-details__summary">
+              <i class="fa-solid fa-chevron-right text-xs opacity-70" aria-hidden="true"></i>
+              Gelişmiş branş analizi (radar / kurum ortalaması)
+            </summary>
+            <div class="mt-3 rounded-xl border border-slate-200/80 bg-white/80 p-2 shadow-sm">
           <div class="dk-premium dk-premium--shell eds-da" id="denemeAnaliziPremiumRoot">
             <div class="dk-premium__toolbar eds-da__toolbar">
               <div class="dk-premium__toolbar-inner"></div>
             </div>
             <div id="dkPremiumContent" class="dk-premium__content"></div>
           </div>
+            </div>
+          </details>
 
           <div id="danaTelafiConfirmModal" class="dana-telafi-modal" hidden aria-hidden="true">
             <div class="dana-telafi-modal__backdrop" data-dana-telafi-close tabindex="-1" aria-hidden="true"></div>
@@ -7796,11 +7995,14 @@
 
       <div class="panel__card chart-card">
         <h3 class="chart-card__title">Randevu yoğunluğu</h3>
-        <p class="chart-card__subtitle">Bu hafta günlük dağılım (Chart.js)</p>
+        <p class="chart-card__subtitle">Bu haftanın günlük dağılımı</p>
         <div class="chart-card__canvas-wrap">
           <canvas id="randevuChart" aria-label="Haftalık randevu grafiği"></canvas>
+          <div id="randevuChartEmpty" class="dashboard-chart-empty dashboard-chart-empty--in-card" hidden role="status">
+            <div class="dashboard-chart-empty__icon" aria-hidden="true"><i class="fa-solid fa-calendar-week"></i></div>
+            <p class="dashboard-chart-empty__msg">Bu hafta için planlanmış randevu bulunmuyor.</p>
+          </div>
         </div>
-        <p id="randevuChartEmpty" class="dashboard-empty-hint" hidden></p>
         <p id="randevuChartError" class="dashboard-empty-hint dashboard-empty-hint--error" hidden></p>
         <div class="chart-card__legend">
           <span><i class="fa-solid fa-circle" style="color: var(--purple-500)"></i> Randevu adedi</span>
@@ -8574,89 +8776,6 @@
       </div>
     </div>
 
-    <!-- Global deneme takvimi — yeni plan (Appwrite DB + Storage) -->
-    <div class="modal modal--xl modal--dana-gd-plan" id="danaGlobalDenemePlanModal" role="dialog" aria-labelledby="danaGdPlanTitle" hidden>
-      <div class="modal__head">
-        <div>
-          <h2 class="modal__title" id="danaGdPlanTitle"><i class="fa-solid fa-earth-europe"></i> Yeni Global Deneme Planla</h2>
-          <p class="modal__subtitle">Türkiye geneli denemeyi kaydedin; geri sayım uygulama tarihi ve saatine göre çalışır. PDF ve cevap anahtarı isteğe bağlıdır.</p>
-        </div>
-        <button type="button" class="modal__close" data-close-modal aria-label="Kapat"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <form class="modal__body" id="formDanaGlobalDenemePlan" autocomplete="on">
-        <div class="form-grid form-grid--2 dana-gd-form-grid">
-          <div class="form-group form-group--full">
-            <label class="form-required" for="danaGdAdi">Deneme adı</label>
-            <input id="danaGdAdi" name="adi" type="text" required maxlength="500" placeholder="Örn. 3D Türkiye Geneli-1" />
-          </div>
-          <div class="form-group form-group--full">
-            <label class="form-required" for="danaGdYayinevi">Yayınevi / kurum adı</label>
-            <input id="danaGdYayinevi" name="yayinevi" type="text" required maxlength="300" placeholder="Örn. 3D Yayınları, Özdebir" />
-          </div>
-          <div class="form-group">
-            <label class="form-required" for="danaGdSinavTuru">Sınav türü</label>
-            <select id="danaGdSinavTuru" name="sinavTuru" required>
-              <option value="">— Seçin —</option>
-              <option value="TYT">TYT</option>
-              <option value="AYT">AYT</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-required" for="danaGdUygulamaTarih">Uygulama tarihi</label>
-            <input id="danaGdUygulamaTarih" name="uygulamaTarih" type="date" required />
-          </div>
-          <div class="form-group">
-            <label class="form-required" for="danaGdUygulamaSaat">Uygulama saati</label>
-            <input id="danaGdUygulamaSaat" name="uygulamaSaat" type="time" required step="60" />
-          </div>
-          <div class="form-group">
-            <label for="danaGdSonucTarih">Sonuç açıklama tarihi <span style="font-weight:600;color:#94a3b8">(opsiyonel)</span></label>
-            <input id="danaGdSonucTarih" name="sonucTarih" type="date" />
-          </div>
-        </div>
-        <div class="dana-gd-uploads">
-          <p class="dana-gd-uploads__lead">Dosya ekleri · İsteğe bağlı</p>
-          <div class="dana-gd-upload-row">
-            <div class="dana-gd-upload-cell">
-              <div
-                class="dana-gd-drop"
-                id="danaGdDropPdf"
-                tabindex="0"
-                role="button"
-                aria-label="Deneme PDF yükle"
-              >
-                <span class="dana-gd-drop__icon" aria-hidden="true">📄</span>
-                <p class="dana-gd-drop__title">Deneme sınavı PDF’i</p>
-                <p class="dana-gd-drop__hint">Sürükleyip bırakın veya tıklayın · Yalnızca PDF</p>
-                <p class="dana-gd-drop__file" id="danaGdPdfLabel"></p>
-              </div>
-              <input type="file" id="danaGdFilePdf" accept=".pdf,application/pdf" hidden />
-            </div>
-            <div class="dana-gd-upload-cell">
-              <div
-                class="dana-gd-drop"
-                id="danaGdDropCevap"
-                tabindex="0"
-                role="button"
-                aria-label="Cevap anahtarı yükle"
-              >
-                <span class="dana-gd-drop__icon" aria-hidden="true">🔑</span>
-                <p class="dana-gd-drop__title">Cevap anahtarı</p>
-                <p class="dana-gd-drop__hint">PDF veya görsel (PNG, JPEG…) · İsteğe bağlı</p>
-                <p class="dana-gd-drop__file" id="danaGdCevapLabel"></p>
-              </div>
-              <input type="file" id="danaGdFileCevap" accept=".pdf,image/*,application/pdf" hidden />
-            </div>
-          </div>
-        </div>
-        <p id="danaGdPlanFormErr" hidden></p>
-        <div class="modal__foot" style="margin: 1.25rem -1.5rem -1.5rem;">
-          <button type="button" class="btn-modal-secondary" data-close-modal>Vazgeç</button>
-          <button type="submit" class="btn-modal-primary" id="btnDanaGdPlanSubmit"><i class="fa-solid fa-rocket"></i> Planı kaydet</button>
-        </div>
-      </form>
-    </div>
-
     <!-- Yeni kaynak ata — Appwrite kütüphanesi -->
     <div class="modal modal--lg modal--kk" id="kkModalAta" role="dialog" aria-labelledby="kkModalAtaTitle" hidden>
       <div class="modal__head">
@@ -9056,7 +9175,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5/dist/iro.min.js" crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js" crossorigin="anonymous"></script>
   <!-- PDF indir: global html2canvas (bundle sonrası; sayfa başına yakalama) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js" crossorigin="anonymous"></script>
@@ -9112,6 +9230,7 @@
   <script type="module" src="../js/sorun-bildir.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
   <script type="module" src="../js/deneme-analizi.js"></script>
+  <script type="module" src="../js/global-deneme-takvim-koc.js?v=20260408-gdt"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous"></script>
   <script>
     (function () {

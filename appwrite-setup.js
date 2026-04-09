@@ -3,6 +3,8 @@
  * Sessiz ve kusursuz modül şeması — MR, Görüşme Odası, Haftalık Program, ExamResults, messages (sohbet) tamamlayıcı sütunlar.
  * Mevcut koleksiyon/attribute varsa atlanır; yoksa oluşturulur (.env → APPWRITE_*).
  *
+ * Buldozer: APPWRITE_ATTR_SKIP_WAIT=1 → available beklemeden devam; aksi halde zaman aşımında throw yerine uyarı + devam.
+ *
  * Çalıştırma: node appwrite-setup.js
  */
 "use strict";
@@ -53,6 +55,8 @@ const COLLECTION_COACH_TASKS = "coach_tasks";
 const COLLECTION_SUBJECT_PROGRESS = "subject_progress";
 const COLLECTION_EXAM_RESULTS = trimEnv("APPWRITE_COLLECTION_EXAM_RESULTS") || "ExamResults";
 const COLLECTION_MR_PROFILES = trimEnv("APPWRITE_COLLECTION_MR_PROFILES") || "mr_student_profiles";
+const COLLECTION_MR_EXAM_DEFICIENCIES =
+  trimEnv("APPWRITE_COLLECTION_MR_EXAM_DEFICIENCIES") || "mr_exam_deficiencies";
 const COLLECTION_BOARDS = "boards";
 const COLLECTION_MESSAGES = trimEnv("APPWRITE_COLLECTION_MESSAGES") || "messages";
 
@@ -60,6 +64,8 @@ const ATTR_POLL_MS = Math.max(500, parseInt(process.env.APPWRITE_ATTR_POLL_MS ||
 const ATTR_MAX_ATTEMPTS = Math.max(30, parseInt(process.env.APPWRITE_ATTR_MAX_ATTEMPTS || "120", 10) || 120);
 const INDEX_POLL_MS = ATTR_POLL_MS;
 const INDEX_MAX_ATTEMPTS = Math.max(20, parseInt(process.env.APPWRITE_INDEX_MAX_ATTEMPTS || "80", 10) || 80);
+/** 1: attribute/index available polling tamamen atlanır (Buldozer). setup-appwrite ile aynı anahtar. */
+const ATTR_SKIP_WAIT = String(process.env.APPWRITE_ATTR_SKIP_WAIT || "").trim() === "1";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -102,34 +108,90 @@ function examResultsCollectionPermissions() {
   ];
 }
 
+/**
+ * @returns {Promise<boolean>} true = available; false = skip/timeout/stuck (kurulum devam)
+ */
 async function waitForAttribute(databases, collectionId, key) {
+  if (ATTR_SKIP_WAIT) {
+    console.warn(
+      "[appwrite-setup] ⚠️ [UYARI]: APPWRITE_ATTR_SKIP_WAIT=1 → '" +
+        collectionId +
+        "." +
+        key +
+        "' için available beklenmiyor; Appwrite arka planda işlesin, kuruluma devam ediliyor."
+    );
+    return false;
+  }
   for (let i = 0; i < ATTR_MAX_ATTEMPTS; i++) {
-    const attr = await databases.getAttribute({
-      databaseId: DATABASE_ID,
-      collectionId: collectionId,
-      key: key,
-    });
-    const st = (attr && attr.status) || "";
-    if (st === "available") return;
-    if (st === "failed") throw new Error("Attribute '" + key + "' failed.");
+    try {
+      const attr = await databases.getAttribute({
+        databaseId: DATABASE_ID,
+        collectionId: collectionId,
+        key: key,
+      });
+      const st = (attr && attr.status) || "";
+      if (st === "available") return true;
+      if (st === "failed") throw new Error("Attribute '" + key + "' failed.");
+      if (st === "stuck") {
+        console.warn(
+          "[appwrite-setup] ⚠️ [UYARI]: Attribute '" +
+            key +
+            "' (" +
+            collectionId +
+            ") «stuck» göründü; kuruluma devam ediliyor (Console’da gerekiyorsa silin)."
+        );
+        return false;
+      }
+    } catch (e) {
+      if (!isNotFound(e)) throw e;
+    }
     await sleep(ATTR_POLL_MS);
   }
-  throw new Error("Attribute '" + key + "' timeout.");
+  console.warn(
+    "[appwrite-setup] ⚠️ [UYARI]: Attribute '" +
+      key +
+      "' (" +
+      collectionId +
+      ") processing / zaman aşımı; kuruluma devam ediliyor..."
+  );
+  return false;
 }
 
+/**
+ * @returns {Promise<boolean>} true = available; false = skip/timeout
+ */
 async function waitForIndex(databases, collectionId, indexKey) {
+  if (ATTR_SKIP_WAIT) {
+    console.warn(
+      "[appwrite-setup] ⚠️ [UYARI]: APPWRITE_ATTR_SKIP_WAIT=1 → index '" +
+        indexKey +
+        "' available beklenmiyor; kuruluma devam ediliyor."
+    );
+    return false;
+  }
   for (let i = 0; i < INDEX_MAX_ATTEMPTS; i++) {
-    const idx = await databases.getIndex({
-      databaseId: DATABASE_ID,
-      collectionId: collectionId,
-      key: indexKey,
-    });
-    const st = (idx && idx.status) || "";
-    if (st === "available") return;
-    if (st === "failed") throw new Error("Index '" + indexKey + "' failed.");
+    try {
+      const idx = await databases.getIndex({
+        databaseId: DATABASE_ID,
+        collectionId: collectionId,
+        key: indexKey,
+      });
+      const st = (idx && idx.status) || "";
+      if (st === "available") return true;
+      if (st === "failed") throw new Error("Index '" + indexKey + "' failed.");
+    } catch (e) {
+      if (!isNotFound(e)) throw e;
+    }
     await sleep(INDEX_POLL_MS);
   }
-  throw new Error("Index '" + indexKey + "' timeout.");
+  console.warn(
+    "[appwrite-setup] ⚠️ [UYARI]: Index '" +
+      indexKey +
+      "' (" +
+      collectionId +
+      ") processing / zaman aşımı; kuruluma devam ediliyor..."
+  );
+  return false;
 }
 
 async function listAttributeKeySet(databases, collectionId) {
@@ -187,9 +249,9 @@ async function ensureStringAttr(databases, collectionId, key, size, required, ex
       required: required,
       array: false,
     });
-    await waitForAttribute(databases, collectionId, key);
-    existingKeys.add(key);
-    log("  + string: " + key);
+    const attrReady = await waitForAttribute(databases, collectionId, key);
+    if (attrReady) existingKeys.add(key);
+    log(attrReady ? "  + string: " + key : "  ~ string (bekleme atlandı/timeout): " + key);
   } catch (e) {
     if (isConflict(e)) existingKeys.add(key);
     else if (isAttributeLimitExceeded(e)) log("  ! kota: " + key);
@@ -207,9 +269,9 @@ async function ensureTextAttr(databases, collectionId, key, required, existingKe
       required: required,
       array: false,
     });
-    await waitForAttribute(databases, collectionId, key);
-    existingKeys.add(key);
-    log("  + text: " + key);
+    const attrReady = await waitForAttribute(databases, collectionId, key);
+    if (attrReady) existingKeys.add(key);
+    log(attrReady ? "  + text: " + key : "  ~ text (bekleme atlandı/timeout): " + key);
   } catch (e) {
     if (isConflict(e)) existingKeys.add(key);
     else if (isAttributeLimitExceeded(e)) log("  ! kota: " + key);
@@ -227,9 +289,9 @@ async function ensureDatetimeAttr(databases, collectionId, key, required, existi
       required: required,
       array: false,
     });
-    await waitForAttribute(databases, collectionId, key);
-    existingKeys.add(key);
-    log("  + datetime: " + key);
+    const attrReady = await waitForAttribute(databases, collectionId, key);
+    if (attrReady) existingKeys.add(key);
+    log(attrReady ? "  + datetime: " + key : "  ~ datetime (bekleme atlandı/timeout): " + key);
   } catch (e) {
     if (isConflict(e)) existingKeys.add(key);
     else if (isAttributeLimitExceeded(e)) log("  ! kota: " + key);
@@ -249,9 +311,9 @@ async function ensureIntegerAttr(databases, collectionId, key, required, min, ma
       max: max != null ? max : 2147483647,
       array: false,
     });
-    await waitForAttribute(databases, collectionId, key);
-    existingKeys.add(key);
-    log("  + integer: " + key);
+    const attrReady = await waitForAttribute(databases, collectionId, key);
+    if (attrReady) existingKeys.add(key);
+    log(attrReady ? "  + integer: " + key : "  ~ integer (bekleme atlandı/timeout): " + key);
   } catch (e) {
     if (isConflict(e)) existingKeys.add(key);
     else if (isAttributeLimitExceeded(e)) log("  ! kota: " + key);
@@ -269,9 +331,9 @@ async function ensureBooleanAttr(databases, collectionId, key, required, existin
       required: required,
       array: false,
     });
-    await waitForAttribute(databases, collectionId, key);
-    existingKeys.add(key);
-    log("  + boolean: " + key);
+    const attrReady = await waitForAttribute(databases, collectionId, key);
+    if (attrReady) existingKeys.add(key);
+    log(attrReady ? "  + boolean: " + key : "  ~ boolean (bekleme atlandı/timeout): " + key);
   } catch (e) {
     if (isConflict(e)) existingKeys.add(key);
     else if (isAttributeLimitExceeded(e)) log("  ! kota: " + key);
@@ -279,18 +341,20 @@ async function ensureBooleanAttr(databases, collectionId, key, required, existin
   }
 }
 
-async function ensureKeyIndex(databases, collectionId, indexKey, attributes, orders) {
+async function ensureKeyIndex(databases, collectionId, indexKey, attributes, orders, lengths) {
   try {
-    await databases.createIndex({
+    var payload = {
       databaseId: DATABASE_ID,
       collectionId: collectionId,
       key: indexKey,
       type: IndexType.Key,
       attributes: attributes,
       orders: orders,
-    });
-    await waitForIndex(databases, collectionId, indexKey);
-    log("  + index: " + indexKey);
+    };
+    if (lengths != null && lengths.length) payload.lengths = lengths;
+    await databases.createIndex(payload);
+    const indexReady = await waitForIndex(databases, collectionId, indexKey);
+    log(indexReady ? "  + index: " + indexKey : "  ~ index (bekleme atlandı/timeout): " + indexKey);
   } catch (e) {
     if (isConflict(e)) return;
     throw e;
@@ -310,7 +374,7 @@ async function setupMeetingLogs(databases) {
   await ensureStringAttr(databases, COLLECTION_MEETING_LOGS, "notes", 5000, false, keys);
   keys = await listAttributeKeySet(databases, COLLECTION_MEETING_LOGS);
   if (keys.has("student_id")) {
-    await ensureKeyIndex(databases, COLLECTION_MEETING_LOGS, "idx_meeting_student", ["student_id"], ["ASC"]);
+    await ensureKeyIndex(databases, COLLECTION_MEETING_LOGS, "idx_meeting_student", ["student_id"], ["ASC"], [128]);
   }
   if (keys.has("coach_id")) {
     await ensureKeyIndex(databases, COLLECTION_MEETING_LOGS, "idx_meeting_coach", ["coach_id"], ["ASC"]);
@@ -342,7 +406,7 @@ async function setupCoachTasks(databases) {
   await ensureDatetimeAttr(databases, COLLECTION_COACH_TASKS, "date", false, keys);
   keys = await listAttributeKeySet(databases, COLLECTION_COACH_TASKS);
   if (keys.has("studentId")) {
-    await ensureKeyIndex(databases, COLLECTION_COACH_TASKS, "idx_ctasks_studentId", ["studentId"], ["ASC"]);
+    await ensureKeyIndex(databases, COLLECTION_COACH_TASKS, "idx_ctasks_studentId", ["studentId"], ["ASC"], [128]);
   }
 }
 
@@ -359,7 +423,7 @@ async function setupSubjectProgress(databases) {
   await ensureDatetimeAttr(databases, COLLECTION_SUBJECT_PROGRESS, "updatedAt", false, keys);
   keys = await listAttributeKeySet(databases, COLLECTION_SUBJECT_PROGRESS);
   if (keys.has("student_id")) {
-    await ensureKeyIndex(databases, COLLECTION_SUBJECT_PROGRESS, "idx_sp_student", ["student_id"], ["ASC"]);
+    await ensureKeyIndex(databases, COLLECTION_SUBJECT_PROGRESS, "idx_sp_student", ["student_id"], ["ASC"], [128]);
   }
 }
 
@@ -374,7 +438,37 @@ async function setupMrProfiles(databases) {
   await ensureDatetimeAttr(databases, COLLECTION_MR_PROFILES, "updatedAt", false, keys);
   keys = await listAttributeKeySet(databases, COLLECTION_MR_PROFILES);
   if (keys.has("student_id")) {
-    await ensureKeyIndex(databases, COLLECTION_MR_PROFILES, "idx_mr_student", ["student_id"], ["ASC"]);
+    await ensureKeyIndex(databases, COLLECTION_MR_PROFILES, "idx_mr_student", ["student_id"], ["ASC"], [128]);
+  }
+}
+
+async function setupMrExamDeficiencies(databases) {
+  log("mr_exam_deficiencies (deneme MR konu satırları) …");
+  await ensureCollection(databases, COLLECTION_MR_EXAM_DEFICIENCIES, "MR deneme konu eksikleri");
+  let keys = await listAttributeKeySet(databases, COLLECTION_MR_EXAM_DEFICIENCIES);
+  await ensureStringAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES, "student_id", 255, true, keys);
+  await ensureStringAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES, "exam_id", 255, true, keys);
+  await ensureStringAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES, "coach_id", 128, false, keys);
+  await ensureStringAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES, "exam_result_id", 255, false, keys);
+  await ensureStringAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES, "subject", 256, false, keys);
+  await ensureStringAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES, "topic", 512, false, keys);
+  await ensureIntegerAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES, "error_count", false, 0, 1000000, keys);
+  await ensureIntegerAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES, "wrong_count", false, 0, 1000000, keys);
+  await ensureIntegerAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES, "empty_count", false, 0, 1000000, keys);
+  await ensureStringAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES, "status", 64, false, keys);
+  await ensureBooleanAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES, "critical", false, keys);
+  await ensureBooleanAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES, "severity_high", false, keys);
+  await ensureDatetimeAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES, "analyzed_at", false, keys);
+  keys = await listAttributeKeySet(databases, COLLECTION_MR_EXAM_DEFICIENCIES);
+  if (keys.has("student_id") && keys.has("exam_id")) {
+    await ensureKeyIndex(
+      databases,
+      COLLECTION_MR_EXAM_DEFICIENCIES,
+      "idx_mr_def_student_exam",
+      ["student_id", "exam_id"],
+      ["ASC", "ASC"],
+      [128, 128]
+    );
   }
 }
 
@@ -398,12 +492,19 @@ async function setupExamResults(databases) {
   await ensureStringAttr(databases, COLLECTION_EXAM_RESULTS, "exam_id", 255, true, keys);
   await ensureStringAttr(databases, COLLECTION_EXAM_RESULTS, "student_id", 255, true, keys);
   await ensureStringAttr(databases, COLLECTION_EXAM_RESULTS, "coach_id", 128, false, keys);
+  await ensureStringAttr(databases, COLLECTION_EXAM_RESULTS, "institutionId", 255, false, keys);
   await ensureStringAttr(databases, COLLECTION_EXAM_RESULTS, "exam_name", 512, false, keys);
   await ensureStringAttr(databases, COLLECTION_EXAM_RESULTS, "detail_json", 5000, true, keys);
   await ensureDatetimeAttr(databases, COLLECTION_EXAM_RESULTS, "saved_at", true, keys);
   keys = await listAttributeKeySet(databases, COLLECTION_EXAM_RESULTS);
   if (keys.has("student_id") && keys.has("saved_at")) {
-    await ensureKeyIndex(databases, COLLECTION_EXAM_RESULTS, "idx_er_student_saved_at", ["student_id", "saved_at"], ["ASC", "DESC"]);
+    await ensureKeyIndex(
+      databases,
+      COLLECTION_EXAM_RESULTS,
+      "idx_er_student_saved_at",
+      ["student_id", "saved_at"],
+      ["ASC", "DESC"]
+    );
   }
   if (keys.has("coach_id") && keys.has("student_id") && keys.has("saved_at")) {
     await ensureKeyIndex(
@@ -445,11 +546,11 @@ async function setupMessages(databases) {
     await ensureKeyIndex(databases, COLLECTION_MESSAGES, "idx_msg_sender_recv", ["sender_id", "receiver_id"], [
       "ASC",
       "ASC",
-    ]);
+    ], [95, 95]);
   }
   keys = await listAttributeKeySet(databases, COLLECTION_MESSAGES);
   if (keys.has("receiver_id")) {
-    await ensureKeyIndex(databases, COLLECTION_MESSAGES, "idx_messages_receiver", ["receiver_id"], ["ASC"]);
+    await ensureKeyIndex(databases, COLLECTION_MESSAGES, "idx_messages_receiver", ["receiver_id"], ["ASC"], [128]);
   }
 }
 
@@ -472,6 +573,7 @@ async function main() {
   await setupCoachTasks(databases);
   await setupSubjectProgress(databases);
   await setupMrProfiles(databases);
+  await setupMrExamDeficiencies(databases);
   await setupExamResults(databases);
   await setupBoards(databases);
   await setupMessages(databases);

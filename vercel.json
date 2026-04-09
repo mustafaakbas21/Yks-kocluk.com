@@ -1,6 +1,12 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
+  "rewrites": [
+    { "source": "/data/yks-data.json", "destination": "/src/data/yks-data.json" },
+    { "source": "/data/yok-atlas.json", "destination": "/src/data/yok-atlas.json" },
+    { "source": "/data/yok-atlas-lisans.json", "destination": "/src/data/yok-atlas-lisans.json" },
+    { "source": "/data/yok-atlas-onlisans.json", "destination": "/src/data/yok-atlas-onlisans.json" }
+  ],
   "redirects": [
     { "source": "/login", "destination": "/pages/login.html", "permanent": true },
     { "source": "/login.html", "destination": "/pages/login.html", "permanent": true },
@@ -27,6 +33,8 @@
     { "source": "/tercih-sihirbazi", "destination": "/pages/tercih-sihirbazi.html", "permanent": true },
     { "source": "/tercih-sihirbazi.html", "destination": "/pages/tercih-sihirbazi.html", "permanent": true },
     { "source": "/fasikul-uretici", "destination": "/pages/fasikul-uretici.html", "permanent": true },
-    { "source": "/fasikul-uretici.html", "destination": "/pages/fasikul-uretici.html", "permanent": true }
+    { "source": "/fasikul-uretici.html", "destination": "/pages/fasikul-uretici.html", "permanent": true },
+    { "source": "/optik-okuma", "destination": "/pages/optik-okuma.html", "permanent": true },
+    { "source": "/optik-okuma.html", "destination": "/pages/optik-okuma.html", "permanent": true }
   ]
 }

@@ -24,8 +24,12 @@
  *   APPWRITE_PROJECT_ID=...
  *   APPWRITE_API_KEY=...   (API Keys → Scopes: databases.write vb.)
  *   APPWRITE_DATABASE_ID=...  (opsiyonel; yoksa aşağıdaki varsayılan)
- *   APPWRITE_ATTR_MAX_ATTEMPTS — attribute/index available bekleme denemesi (varsayılan 150)
- *   APPWRITE_ATTR_POLL_MS — denemeler arası ms (varsayılan 2000; bulut yavaşsa 3000 deneyin)
+ *   APPWRITE_ATTR_MAX_ATTEMPTS — 1. faz deneme sayısı (varsayılan 600)
+ *   APPWRITE_ATTR_POLL_MS — 1. faz denemeler arası ms (varsayılan 4000)
+ *   APPWRITE_ATTR_PROCESSING_GRACE_ATTEMPTS — süre dolunca hâlâ «processing» ise 2. faz denemesi (varsayılan 360; 0=kapat)
+ *   APPWRITE_ATTR_PROCESSING_GRACE_MS — 2. faz aralığı ms (varsayılan 5000)
+ *   APPWRITE_ATTR_SKIP_WAIT=1 — sadece acil: attribute bekleme döngüsünü atlar (indeks adımında hata riski)
+ *   APPWRITE_DEBUG_ATTR=1 — status boş uyarısında getAttribute yanıtının alan adlarını bir kez loglar
  *
  * String attribute boyutları: Appwrite planında attribute sayısı / toplam boyut sınırına takılmamak için
  * gereksiz yüksek size kullanılmaz (ör. 65k). Kısa ID/isim: 255, kısa metin: ~1000, JSON: 3000–5000,
@@ -131,6 +135,8 @@ const COLLECTION_SORU_HAVUZU_ID = process.env.APPWRITE_COLLECTION_SORU_HAVUZU ||
 const COLLECTION_HATA_BILDIRIMLERI_ID = process.env.APPWRITE_COLLECTION_HATA_BILDIRIMLERI || "hata_bildirimleri";
 const COLLECTION_ATANAN_KAYNAKLAR_ID = process.env.APPWRITE_COLLECTION_ATANAN_KAYNAKLAR || "atanan_kaynaklar";
 const COLLECTION_MR_STUDENT_PROFILES_ID = process.env.APPWRITE_COLLECTION_MR_PROFILES || "mr_student_profiles";
+const COLLECTION_MR_EXAM_DEFICIENCIES_ID =
+  process.env.APPWRITE_COLLECTION_MR_EXAM_DEFICIENCIES || "mr_exam_deficiencies";
 const COLLECTION_GLOBAL_DENEMELER_ID = process.env.APPWRITE_COLLECTION_GLOBAL_DENEMELER || "global_denemeler";
 const COLLECTION_YKS_NET_TARGETS_ID = process.env.APPWRITE_COLLECTION_YKS_NET_TARGETS || "yks_net_sihirbazi_targets";
 const COLLECTION_STUDENT_PORTAL_PLANS_ID = "studentPortalPlans";
@@ -145,9 +151,161 @@ const COLLECTION_STUDENTS_NAME = "Öğrenciler";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** Appwrite Cloud’da attribute bazen 2–5 dk “processing” kalabilir */
-const ATTR_POLL_MS = Math.max(500, parseInt(process.env.APPWRITE_ATTR_POLL_MS || "2000", 10) || 2000);
-const ATTR_MAX_ATTEMPTS = Math.max(20, parseInt(process.env.APPWRITE_ATTR_MAX_ATTEMPTS || "150", 10) || 150);
+/**
+ * node-appwrite / Appwrite REST: `status`, `$status` veya nadir şekil farkları.
+ * Büyük sayıları JSONbig ile parse eden yanıtlarda alan adı varyasyonu olabilir.
+ */
+function readAttributeStatus(attr) {
+  if (!attr || typeof attr !== "object") return "";
+  var s = attr.status != null ? attr.status : attr.$status;
+  if (s == null) {
+    var keys = Object.keys(attr);
+    for (var ki = 0; ki < keys.length; ki++) {
+      if (String(keys[ki]).toLowerCase() === "status") {
+        s = attr[keys[ki]];
+        break;
+      }
+    }
+  }
+  return String(s != null ? s : "")
+    .trim()
+    .toLowerCase();
+}
+
+function appwriteErrBrief(e) {
+  if (!e || typeof e !== "object") return { message: String(e) };
+  return {
+    code: e.code,
+    type: e.type,
+    message: e.message ? String(e.message).slice(0, 220) : undefined,
+  };
+}
+
+function findAttributeInAttributesArray(attrs, key) {
+  if (!Array.isArray(attrs)) return null;
+  for (var i = 0; i < attrs.length; i++) {
+    var a = attrs[i];
+    var k = a && a.key != null ? a.key : "";
+    if (String(k) === String(key)) return a;
+  }
+  return null;
+}
+
+function packAttrResult(status, via, errors, hitObj) {
+  var out = { status: status || "", via: via || "", errors: errors || [] };
+  if (hitObj && typeof hitObj === "object" && !status) {
+    out.attrSampleKeys = Object.keys(hitObj).join(",");
+  }
+  return out;
+}
+
+/**
+ * getAttribute → listAttributes(key) → sorgusuz ilk sayfa → limit/offset sayfalama.
+ * «Bulunamadı» uyarısı çoğu zaman yanlış DB/koleksiyon ID, yetkisiz anahtar veya yanıtta status alanı olmamasıdır; errors[] teşhis için dolu gelir.
+ */
+async function fetchAttributeStatusRobust(databases, databaseId, collectionId, key) {
+  var errors = [];
+  var getBodyNoStatus = null;
+
+  try {
+    var attrGet = await databases.getAttribute({
+      databaseId: databaseId,
+      collectionId: collectionId,
+      key: key,
+    });
+    var stGet = readAttributeStatus(attrGet);
+    if (stGet) return packAttrResult(stGet, "getAttribute", errors, null);
+    getBodyNoStatus = attrGet;
+    errors.push({
+      step: "getAttribute",
+      note: "yanıtta status yok",
+      keys: Object.keys(attrGet || {}).join(","),
+    });
+  } catch (eGet) {
+    errors.push(Object.assign({ step: "getAttribute" }, appwriteErrBrief(eGet)));
+  }
+
+  try {
+    var listEq = await databases.listAttributes({
+      databaseId: databaseId,
+      collectionId: collectionId,
+      queries: [Query.equal("key", key)],
+      total: false,
+    });
+    var hitEq = findAttributeInAttributesArray(listEq && listEq.attributes, key);
+    if (hitEq) {
+      var stEq = readAttributeStatus(hitEq);
+      return packAttrResult(stEq, stEq ? "listAttributes(equal)" : "listAttributes(equal-noStatus)", errors, hitEq);
+    }
+  } catch (eEq) {
+    errors.push(Object.assign({ step: "listAttributes(equal)" }, appwriteErrBrief(eEq)));
+  }
+
+  try {
+    var listPlain = await databases.listAttributes({
+      databaseId: databaseId,
+      collectionId: collectionId,
+      total: true,
+    });
+    var hitPl = findAttributeInAttributesArray(listPlain && listPlain.attributes, key);
+    if (hitPl) {
+      var stPl = readAttributeStatus(hitPl);
+      return packAttrResult(stPl, stPl ? "listAttributes(plain)" : "listAttributes(plain-noStatus)", errors, hitPl);
+    }
+  } catch (ePl) {
+    errors.push(Object.assign({ step: "listAttributes(plain)" }, appwriteErrBrief(ePl)));
+  }
+
+  try {
+    var pageSize = 100;
+    var offset = 0;
+    var totalAttrs = null;
+    var guard = 0;
+    while (guard < 60) {
+      guard++;
+      var listPg = await databases.listAttributes({
+        databaseId: databaseId,
+        collectionId: collectionId,
+        queries: [Query.limit(pageSize), Query.offset(offset)],
+        total: offset === 0,
+      });
+      if (totalAttrs == null && listPg && typeof listPg.total === "number") {
+        totalAttrs = listPg.total;
+      }
+      var attrsPg = (listPg && listPg.attributes) || [];
+      var hitPg = findAttributeInAttributesArray(attrsPg, key);
+      if (hitPg) {
+        var stPg = readAttributeStatus(hitPg);
+        return packAttrResult(stPg, stPg ? "listAttributes(paged)" : "listAttributes(paged-noStatus)", errors, hitPg);
+      }
+      if (attrsPg.length === 0) break;
+      offset += attrsPg.length;
+      if (totalAttrs != null && offset >= totalAttrs) break;
+      if (attrsPg.length < pageSize) break;
+    }
+  } catch (ePg) {
+    errors.push(Object.assign({ step: "listAttributes(paged)" }, appwriteErrBrief(ePg)));
+  }
+
+  if (getBodyNoStatus) {
+    return packAttrResult("", "getAttribute(noStatus)", errors, getBodyNoStatus);
+  }
+
+  return { status: "", via: "", errors: errors };
+}
+
+/** Appwrite Cloud’da attribute bazen 40–60+ dk “processing” kalabilir; 2. faz (grace) bunu karşılar. */
+const ATTR_POLL_MS = Math.max(500, parseInt(process.env.APPWRITE_ATTR_POLL_MS || "4000", 10) || 4000);
+const ATTR_MAX_ATTEMPTS = Math.max(20, parseInt(process.env.APPWRITE_ATTR_MAX_ATTEMPTS || "600", 10) || 600);
+/** 1. faz bittiğinde son durum «processing» ise ek bekleme (toplam ~ek 30 dk @ varsayılan) */
+const ATTR_PROCESSING_GRACE_ATTEMPTS = Math.max(
+  0,
+  parseInt(process.env.APPWRITE_ATTR_PROCESSING_GRACE_ATTEMPTS || "360", 10) || 360
+);
+const ATTR_PROCESSING_GRACE_MS = Math.max(
+  1000,
+  parseInt(process.env.APPWRITE_ATTR_PROCESSING_GRACE_MS || "5000", 10) || 5000
+);
 const INDEX_POLL_MS = Math.max(500, parseInt(process.env.APPWRITE_INDEX_POLL_MS || String(ATTR_POLL_MS), 10) || ATTR_POLL_MS);
 const INDEX_MAX_ATTEMPTS = Math.max(20, parseInt(process.env.APPWRITE_INDEX_MAX_ATTEMPTS || "120", 10) || 120);
 
@@ -165,11 +323,68 @@ function isConflict(err) {
   return c === 409 || String(c) === "409";
 }
 
+var storageBucketLimitWarnPrinted = false;
+
+/** Ücretsiz plan kova kotası (HTTP 403) veya benzeri limit mesajları */
+function isStorageBucketQuotaExceeded(err) {
+  if (!err) return false;
+  var c = Number(err.code);
+  var m = String(err.message || "").toLowerCase();
+  if (m.indexOf("maximum number of buckets") !== -1) return true;
+  if (m.indexOf("buckets allowed") !== -1 && (m.indexOf("plan") !== -1 || m.indexOf("reached") !== -1))
+    return true;
+  if (c === 403 && m.indexOf("bucket") !== -1) return true;
+  return false;
+}
+
 function isAttributeLimitExceeded(err) {
   if (!err) return false;
   if (err.type === "attribute_limit_exceeded") return true;
   var m = String(err.message || "");
   return m.indexOf("attribute_limit") !== -1 || m.indexOf("maximum number") !== -1;
+}
+
+/** Bu process koşusunda kotadan eklenemeyen sütunlar — ensureKeyIndex beklemez / indeks oluşturmaz. */
+var ATTR_SKIPPED_FOR_QUOTA = Object.create(null);
+
+function attrQuotaMapKey(collectionId, key) {
+  return String(collectionId) + "\x00" + String(key);
+}
+
+function markAttributeSkippedForQuota(collectionId, key) {
+  ATTR_SKIPPED_FOR_QUOTA[attrQuotaMapKey(collectionId, key)] = true;
+}
+
+function indexRequiredAttrsAllCreated(collectionId, attributeKeys) {
+  if (!attributeKeys || !attributeKeys.length) return true;
+  for (var i = 0; i < attributeKeys.length; i++) {
+    if (ATTR_SKIPPED_FOR_QUOTA[attrQuotaMapKey(collectionId, attributeKeys[i])]) return false;
+  }
+  return true;
+}
+
+function logAttributeQuotaExceeded(collectionId, key) {
+  markAttributeSkippedForQuota(collectionId, key);
+  log(
+    "   ⚠️  '" +
+      key +
+      "' eklenemedi (attribute kotası). «" +
+      collectionId +
+      "» koleksiyonunda kullanılmayan sütunları silin veya Appwrite planını yükseltin; ardından scripti yeniden çalıştırın."
+  );
+}
+
+function logSetupQuotaSummaryIfAny() {
+  var keys = Object.keys(ATTR_SKIPPED_FOR_QUOTA);
+  if (!keys.length) return;
+  log("");
+  log("——— Attribute kotası: bu koşuda oluşturulamayan sütunlar ———");
+  for (var i = 0; i < keys.length; i++) {
+    var sep = keys[i].indexOf("\x00");
+    var cid = sep === -1 ? keys[i] : keys[i].slice(0, sep);
+    var k = sep === -1 ? "?" : keys[i].slice(sep + 1);
+    log("   • " + cid + " → " + k);
+  }
 }
 
 function isAuthScopeError(err) {
@@ -221,25 +436,91 @@ async function waitForIndex(databases, databaseId, collectionId, indexKey, maxAt
     if (st === "failed") {
       throw new Error("Index '" + indexKey + "' oluşturma başarısız (failed).");
     }
-    if ((i + 1) % 15 === 0) {
-      log("   … Index '" + indexKey + "' bekleniyor (" + (i + 1) + "/" + maxAttempts + ") status=" + (st || "?"));
+    if (i < 6 || (i + 1) % 5 === 0 || i === maxAttempts - 1) {
+      log(
+        "   … Index '" + indexKey + "'  #" + (i + 1) + "/" + maxAttempts + "  status=" + (st || "?")
+      );
     }
     await sleep(INDEX_POLL_MS);
   }
   throw new Error("Index '" + indexKey + "' zaman aşımı (available olmadı).");
 }
 
-async function ensureKeyIndex(databases, collectionId, indexKey, attributes, orders) {
+function throwIfAttributeTerminalError(collectionId, key, st) {
+  if (st === "failed") {
+    throw new Error(
+      "Attribute '" +
+        key +
+        "' (" +
+        collectionId +
+        ") Appwrite'da failed. Console → Databases → " +
+        collectionId +
+        " → ilgili sütunu silin veya düzeltin; sonra scripti tekrar çalıştırın."
+    );
+  }
+  if (st === "stuck") {
+    throw new Error(
+      "Attribute '" +
+        key +
+        "' (" +
+        collectionId +
+        ") Appwrite durumu «stuck» (iş kuyruğu takıldı). Appwrite Console → Databases → " +
+        collectionId +
+        " → bu sütunu silin; gerekirse Appwrite Cloud desteğine yazın. Sonra scripti yeniden çalıştırın."
+    );
+  }
+  if (st === "deleting") {
+    throw new Error(
+      "Attribute '" + key + "' (" + collectionId + ") siliniyor (deleting). Bitene kadar bekleyip scripti yeniden çalıştırın."
+    );
+  }
+}
+
+/** İndeks `lengths` asla attribute size’dan büyük olamaz (Console’da 128 kalan eski studentId vb.). 128: 4×128<767 ve çoğu ID için yeterli. */
+var KEY_INDEX_PREFIX_SHORT_ID = 128;
+
+/**
+ * Appwrite Cloud (MySQL): Key indeks tekil giriş uzunluğu ~767 bayt (utf8mb4).
+ * Uzun string veya bileşik (yalnızca string) indekslerde `lengths` ile önek (767 bayt sınırı).
+ * Appwrite: datetime sütunu indekste varsa `lengths` GÖNDERMEYİN (HTTP 400: Cannot set a length on datetime).
+ */
+async function ensureKeyIndex(databases, collectionId, indexKey, attributes, orders, lengths) {
+  if (attributes && attributes.length && !indexRequiredAttrsAllCreated(collectionId, attributes)) {
+    var miss = [];
+    for (var mi = 0; mi < attributes.length; mi++) {
+      if (ATTR_SKIPPED_FOR_QUOTA[attrQuotaMapKey(collectionId, attributes[mi])]) miss.push(attributes[mi]);
+    }
+    log(
+      "   ⏭️  İndeks «" +
+        indexKey +
+        "» atlandı (" +
+        collectionId +
+        "): kotadan eklenemeyen sütun" +
+        (miss.length > 1 ? "lar: " : ": ") +
+        miss.join(", ") +
+        ". Yer açılınca scripti yeniden çalıştırın."
+    );
+    return;
+  }
+  if (attributes && attributes.length) {
+    for (var ai = 0; ai < attributes.length; ai++) {
+      await waitForAttribute(databases, DATABASE_ID, collectionId, attributes[ai]);
+    }
+  }
   log("⏳ Index '" + indexKey + "' oluşturuluyor… (" + collectionId + ")");
   try {
-    await databases.createIndex({
+    var idxPayload = {
       databaseId: DATABASE_ID,
       collectionId: collectionId,
       key: indexKey,
       type: IndexType.Key,
       attributes: attributes,
       orders: orders,
-    });
+    };
+    if (lengths != null && lengths.length) {
+      idxPayload.lengths = lengths;
+    }
+    await databases.createIndex(idxPayload);
   } catch (e) {
     if (isConflict(e)) {
       log("   ℹ️  Index '" + indexKey + "' zaten vardı; durumu bekleniyor.");
@@ -251,37 +532,209 @@ async function ensureKeyIndex(databases, collectionId, indexKey, attributes, ord
   log("✅ Index '" + indexKey + "' kullanılabilir (" + collectionId + ")");
 }
 
-async function waitForAttribute(databases, databaseId, collectionId, key, maxAttempts) {
+/**
+ * opts.seedStatus: createAttribute yanıtındaki ilk status (ör. «processing»); poll boş dönse bile lastSt korunur, 2. faz açılabilir.
+ */
+async function waitForAttribute(databases, databaseId, collectionId, key, maxAttempts, opts) {
+  if (String(process.env.APPWRITE_ATTR_SKIP_WAIT || "").trim() === "1") {
+    log(
+      "⚠️  APPWRITE_ATTR_SKIP_WAIT=1 → '" +
+        collectionId +
+        "." +
+        key +
+        "' için available beklenmiyor (indeks/400 hatası alırsanız Console’da sütun durumunu kontrol edin)."
+    );
+    return;
+  }
+  opts = opts && typeof opts === "object" ? opts : {};
   maxAttempts = maxAttempts || ATTR_MAX_ATTEMPTS;
+  var maxMin = Math.round((maxAttempts * ATTR_POLL_MS) / 60000);
+  log(
+    "   ⏳ '" +
+      collectionId +
+      "." +
+      key +
+      "' → Appwrite durumu 'available' olana kadar kontrol ediliyor (en fazla ~" +
+      maxMin +
+      " dk; bulutta 'processing' normaldir)."
+  );
+  var seedRaw = opts.seedStatus;
+  var lastSt =
+    seedRaw != null && String(seedRaw).trim() !== ""
+      ? String(seedRaw)
+          .trim()
+          .toLowerCase()
+      : "";
+  if (lastSt === "available") {
+    return;
+  }
+  throwIfAttributeTerminalError(collectionId, key, lastSt);
+  var lastVia = "";
   for (var i = 0; i < maxAttempts; i++) {
-    var attr = await databases.getAttribute({ databaseId: databaseId, collectionId: collectionId, key: key });
-    var st = (attr && attr.status) || "";
-    if (st === "available") return;
-    if (st === "failed") {
-      throw new Error("Attribute '" + key + "' oluşturma başarısız (failed).");
+    var fetched = await fetchAttributeStatusRobust(databases, databaseId, collectionId, key);
+    var st = fetched.status;
+    if (fetched.via) lastVia = fetched.via;
+    lastSt = st || lastSt;
+    if (st === "available") {
+      if (i > 0) {
+        log("   ✅ '" + collectionId + "." + key + "' kullanılabilir (available).");
+      }
+      return;
     }
-    if ((i + 1) % 15 === 0) {
+    throwIfAttributeTerminalError(collectionId, key, st);
+    if (i === 10 && !st) {
+      if (fetched.via && String(fetched.via).indexOf("noStatus") !== -1) {
+        log(
+          "   ⚠️  Sütun bulundu ama «status» alanı boş (kaynak: " +
+            fetched.via +
+            "). Dönen alanlar: " +
+            (fetched.attrSampleKeys || "—") +
+            ". node-appwrite güncelleyin veya APPWRITE_DEBUG_ATTR=1 deneyin."
+        );
+      } else if (!fetched.via) {
+        log(
+          "   ⚠️  «" +
+            key +
+            "» sütunu bu database/koleksiyon için API’de görünmüyor. Kontrol: APPWRITE_DATABASE_ID=" +
+            databaseId +
+            " (Console’daki Database ID ile aynı mı?), koleksiyon ID=" +
+            collectionId +
+            ", sütun adı=" +
+            key +
+            ". Sunucu API anahtarında databases.read (+ write) açık olmalı; yanlış proje/endpoint kullanılmamalı."
+        );
+        if (fetched.errors && fetched.errors.length) {
+          log("   ⚠️  Teknik özet (ilk 4): " + JSON.stringify(fetched.errors.slice(0, 4)));
+        }
+      } else {
+        log(
+          "   ⚠️  Beklenmeyen durum (kaynak: " +
+            fetched.via +
+            ", status boş). APPWRITE_DEBUG_ATTR=1 ile teşhis; node-appwrite / Cloud sürümünü kontrol edin."
+        );
+      }
+      if (String(process.env.APPWRITE_DEBUG_ATTR || "").trim() === "1") {
+        try {
+          var rawDbg = await databases.getAttribute({
+            databaseId: databaseId,
+            collectionId: collectionId,
+            key: key,
+          });
+          log(
+            "   [APPWRITE_DEBUG_ATTR] getAttribute anahtarları: " + Object.keys(rawDbg || {}).join(", ")
+          );
+        } catch (eDbg) {
+          log("   [APPWRITE_DEBUG_ATTR] getAttribute hata: " + ((eDbg && eDbg.message) || eDbg));
+        }
+      }
+    }
+    var loud = i < 8 || (i + 1) % 5 === 0 || i === maxAttempts - 1;
+    if (loud) {
+      var extra = "";
+      if (st === "processing") {
+        extra = " (Cloud’da bazen 10–20+ dk sürebilir)";
+      }
       log(
-        "   … '" +
+        "   … " +
+          collectionId +
+          "." +
           key +
-          "' bekleniyor (" +
+          "  #" +
           (i + 1) +
           "/" +
           maxAttempts +
-          ") status=" +
-          (st || "?") +
-          " — ~" +
+          "  status=" +
+          (st || "(boş)") +
+          extra +
+          "  ~" +
           Math.round(((maxAttempts - i - 1) * ATTR_POLL_MS) / 60000) +
-          " dk kaldı (üst sınır)"
+          " dk üst sınır kaldı"
       );
     }
     await sleep(ATTR_POLL_MS);
   }
+
+  var graceNoStatus =
+    !lastSt &&
+    lastVia &&
+    String(lastVia).indexOf("noStatus") !== -1 &&
+    ATTR_PROCESSING_GRACE_ATTEMPTS > 0;
+  var graceProcessing = lastSt === "processing" && ATTR_PROCESSING_GRACE_ATTEMPTS > 0;
+  if (graceProcessing || graceNoStatus) {
+    var graceMin = Math.round((ATTR_PROCESSING_GRACE_ATTEMPTS * ATTR_PROCESSING_GRACE_MS) / 60000);
+    if (graceNoStatus && !graceProcessing) {
+      log(
+        "   … Sütun bulundu ama status okunamadı — 2. bekleme fazı (~" +
+          graceMin +
+          " dk); ardından tekrar kontrol edilecek."
+      );
+    } else {
+      log(
+        "   … «processing» sürüyor — 2. bekleme fazı (~" +
+          graceMin +
+          " dk). APPWRITE_ATTR_PROCESSING_GRACE_ATTEMPTS=0 ile kapatılabilir."
+      );
+    }
+    for (var g = 0; g < ATTR_PROCESSING_GRACE_ATTEMPTS; g++) {
+      await sleep(ATTR_PROCESSING_GRACE_MS);
+      var fetchedG = await fetchAttributeStatusRobust(databases, databaseId, collectionId, key);
+      var stG = fetchedG.status;
+      if (fetchedG.via) lastVia = fetchedG.via;
+      lastSt = stG || lastSt;
+      if (stG === "available") {
+        log("   ✅ '" + collectionId + "." + key + "' kullanılabilir (available, 2. faz sonrası).");
+        return;
+      }
+      throwIfAttributeTerminalError(collectionId, key, stG);
+      var loudG = g < 4 || (g + 1) % 6 === 0 || g === ATTR_PROCESSING_GRACE_ATTEMPTS - 1;
+      if (loudG) {
+        log(
+          "   … " +
+            collectionId +
+            "." +
+            key +
+            "  (2.faz) #" +
+            (g + 1) +
+            "/" +
+            ATTR_PROCESSING_GRACE_ATTEMPTS +
+            "  status=" +
+            (stG || "(boş)") +
+            "  ~" +
+            Math.round(((ATTR_PROCESSING_GRACE_ATTEMPTS - g - 1) * ATTR_PROCESSING_GRACE_MS) / 60000) +
+            " dk üst sınır"
+        );
+      }
+    }
+  }
+
+  var tail =
+    " .env: APPWRITE_ATTR_MAX_ATTEMPTS / APPWRITE_ATTR_POLL_MS artırın; APPWRITE_ATTR_PROCESSING_GRACE_ATTEMPTS (örn. 500) ve _GRACE_MS (örn. 8000); veya acil APPWRITE_ATTR_SKIP_WAIT=1 (riskli).";
+  var statusHuman = lastSt || "bilinmiyor";
+  if (!lastSt && lastVia) {
+    statusHuman = "bilinmiyor (son API kaynağı: " + lastVia + " — status alanı poll’larda boş kaldı; APPWRITE_DEBUG_ATTR=1)";
+  } else if (!lastSt && !lastVia) {
+    statusHuman =
+      "bilinmiyor (sütun API’de tespit edilemedi — APPWRITE_DATABASE_ID, koleksiyon ID, key ve databases.read doğrulayın)";
+  }
+  if (lastSt === "processing") {
+    tail =
+      " «processing» hâlâ bitmediyse Appwrite Cloud kuyruğu çok yoğun veya sütun takılı; Console’da durumu kontrol edin. «stuck»/«failed» ise sütunu silin." +
+      tail;
+  } else if (!lastSt && lastVia && String(lastVia).indexOf("noStatus") !== -1) {
+    tail =
+      " Sütun var gibi ama yanıtta «status» yok; node-appwrite güncelleyin veya Appwrite Console’da appointments.institutionId durumuna bakın." + tail;
+  } else {
+    tail = " Console’da «stuck»/«failed» ise ilgili sütunu silip scripti yeniden çalıştırın." + tail;
+  }
   throw new Error(
     "Attribute '" +
       key +
-      "' zaman aşımı (available olmadı). Appwrite Console’da Topics → lessonId durumuna bakın; " +
-      "birkaç dakika sonra `node setup-appwrite.js` ile tekrar deneyin veya .env: APPWRITE_ATTR_MAX_ATTEMPTS=250 APPWRITE_ATTR_POLL_MS=3000"
+      "' (" +
+      collectionId +
+      ") zaman aşımı: hâlâ available değil. Son görülen durum: «" +
+      statusHuman +
+      "»." +
+      tail
   );
 }
 
@@ -379,14 +832,28 @@ async function ensureStorageBucket(storage, bucketId, displayName) {
     log("   ℹ️  Storage bucket güncellendi: " + bucketId);
   } catch (e) {
     if (!isNotFound(e)) throw e;
-    await storage.createBucket({
-      bucketId: bucketId,
-      name: displayName,
-      permissions: storageBucketPermissions(),
-      fileSecurity: false,
-      enabled: true,
-    });
-    log("✅ Storage bucket: " + bucketId);
+    try {
+      await storage.createBucket({
+        bucketId: bucketId,
+        name: displayName,
+        permissions: storageBucketPermissions(),
+        fileSecurity: false,
+        enabled: true,
+      });
+      log("✅ Storage bucket: " + bucketId);
+    } catch (ce) {
+      if (isConflict(ce) || isStorageBucketQuotaExceeded(ce)) {
+        if (!storageBucketLimitWarnPrinted) {
+          console.warn(
+            "⚠️ [UYARI]: Kova limiti dolu veya kova zaten mevcut. Kova oluşturma adımı atlanıyor..."
+          );
+          storageBucketLimitWarnPrinted = true;
+        }
+        log("   ⏭️  Atlandı: " + bucketId);
+        return;
+      }
+      throw ce;
+    }
   }
 }
 
@@ -401,8 +868,9 @@ async function ensurePlatformStorageBuckets(storage) {
 
 async function createStringAttr(databases, collectionId, key, size, required) {
   log("⏳ " + key + " sütunu ekleniyor… (" + collectionId + ")");
+  var createdRes = null;
   try {
-    await databases.createStringAttribute({
+    createdRes = await databases.createStringAttribute({
       databaseId: DATABASE_ID,
       collectionId: collectionId,
       key: key,
@@ -412,17 +880,24 @@ async function createStringAttr(databases, collectionId, key, size, required) {
     });
   } catch (e) {
     if (isConflict(e)) {
-      log("   ℹ️  '" + key + "' zaten tanımlı, atlanıyor.");
+      log("   ℹ️  '" + key + "' zaten tanımlı; Appwrite'da 'available' olana kadar bekleniyor.");
+    } else if (isAttributeLimitExceeded(e)) {
+      logAttributeQuotaExceeded(collectionId, key);
       return;
+    } else {
+      throw e;
     }
-    if (isAttributeLimitExceeded(e)) {
-      log("   ⚠️  '" + key + "' eklenemedi (attribute kotası). Console'da " + collectionId + " koleksiyonundan gereksiz sütun silin.");
-      return;
-    }
-    throw e;
   }
-  await waitForAttribute(databases, DATABASE_ID, collectionId, key);
-  log("✅ " + key + " eklendi (" + collectionId + ")");
+  var seed = readAttributeStatus(createdRes);
+  await waitForAttribute(
+    databases,
+    DATABASE_ID,
+    collectionId,
+    key,
+    undefined,
+    seed ? { seedStatus: seed } : undefined
+  );
+  log("✅ " + key + " hazır (" + collectionId + ")");
 }
 
 async function createDatetimeAttr(databases, collectionId, key, required) {
@@ -437,17 +912,16 @@ async function createDatetimeAttr(databases, collectionId, key, required) {
     });
   } catch (e) {
     if (isConflict(e)) {
-      log("   ℹ️  '" + key + "' zaten tanımlı, atlanıyor.");
+      log("   ℹ️  '" + key + "' zaten tanımlı; Appwrite'da 'available' olana kadar bekleniyor.");
+    } else if (isAttributeLimitExceeded(e)) {
+      logAttributeQuotaExceeded(collectionId, key);
       return;
+    } else {
+      throw e;
     }
-    if (isAttributeLimitExceeded(e)) {
-      log("   ⚠️  '" + key + "' eklenemedi (attribute kotası). Console'da " + collectionId + " koleksiyonundan gereksiz sütun silin.");
-      return;
-    }
-    throw e;
   }
   await waitForAttribute(databases, DATABASE_ID, collectionId, key);
-  log("✅ " + key + " eklendi (" + collectionId + ")");
+  log("✅ " + key + " hazır (" + collectionId + ")");
 }
 
 async function createFloatAttr(databases, collectionId, key, required) {
@@ -464,17 +938,16 @@ async function createFloatAttr(databases, collectionId, key, required) {
     });
   } catch (e) {
     if (isConflict(e)) {
-      log("   ℹ️  '" + key + "' zaten tanımlı, atlanıyor.");
+      log("   ℹ️  '" + key + "' zaten tanımlı; Appwrite'da 'available' olana kadar bekleniyor.");
+    } else if (isAttributeLimitExceeded(e)) {
+      logAttributeQuotaExceeded(collectionId, key);
       return;
+    } else {
+      throw e;
     }
-    if (isAttributeLimitExceeded(e)) {
-      log("   ⚠️  '" + key + "' eklenemedi (attribute kotası). Console'da " + collectionId + " koleksiyonundan gereksiz sütun silin.");
-      return;
-    }
-    throw e;
   }
   await waitForAttribute(databases, DATABASE_ID, collectionId, key);
-  log("✅ " + key + " eklendi (" + collectionId + ")");
+  log("✅ " + key + " hazır (" + collectionId + ")");
 }
 
 async function createTextAttr(databases, collectionId, key, required) {
@@ -489,17 +962,16 @@ async function createTextAttr(databases, collectionId, key, required) {
     });
   } catch (e) {
     if (isConflict(e)) {
-      log("   ℹ️  '" + key + "' zaten tanımlı, atlanıyor.");
+      log("   ℹ️  '" + key + "' zaten tanımlı; Appwrite'da 'available' olana kadar bekleniyor.");
+    } else if (isAttributeLimitExceeded(e)) {
+      logAttributeQuotaExceeded(collectionId, key);
       return;
+    } else {
+      throw e;
     }
-    if (isAttributeLimitExceeded(e)) {
-      log("   ⚠️  '" + key + "' eklenemedi (attribute kotası). Console'da " + collectionId + " koleksiyonundan gereksiz sütun silin.");
-      return;
-    }
-    throw e;
   }
   await waitForAttribute(databases, DATABASE_ID, collectionId, key);
-  log("✅ " + key + " eklendi (" + collectionId + ")");
+  log("✅ " + key + " hazır (" + collectionId + ")");
 }
 
 async function createBooleanAttr(databases, collectionId, key, required) {
@@ -514,17 +986,16 @@ async function createBooleanAttr(databases, collectionId, key, required) {
     });
   } catch (e) {
     if (isConflict(e)) {
-      log("   ℹ️  '" + key + "' zaten tanımlı, atlanıyor.");
+      log("   ℹ️  '" + key + "' zaten tanımlı; Appwrite'da 'available' olana kadar bekleniyor.");
+    } else if (isAttributeLimitExceeded(e)) {
+      logAttributeQuotaExceeded(collectionId, key);
       return;
+    } else {
+      throw e;
     }
-    if (isAttributeLimitExceeded(e)) {
-      log("   ⚠️  '" + key + "' eklenemedi (attribute kotası). Console'da " + collectionId + " koleksiyonundan gereksiz sütun silin.");
-      return;
-    }
-    throw e;
   }
   await waitForAttribute(databases, DATABASE_ID, collectionId, key);
-  log("✅ " + key + " eklendi (" + collectionId + ")");
+  log("✅ " + key + " hazır (" + collectionId + ")");
 }
 
 async function createIntegerAttr(databases, collectionId, key, required, min, max) {
@@ -541,17 +1012,16 @@ async function createIntegerAttr(databases, collectionId, key, required, min, ma
     });
   } catch (e) {
     if (isConflict(e)) {
-      log("   ℹ️  '" + key + "' zaten tanımlı, atlanıyor.");
+      log("   ℹ️  '" + key + "' zaten tanımlı; Appwrite'da 'available' olana kadar bekleniyor.");
+    } else if (isAttributeLimitExceeded(e)) {
+      logAttributeQuotaExceeded(collectionId, key);
       return;
+    } else {
+      throw e;
     }
-    if (isAttributeLimitExceeded(e)) {
-      log("   ⚠️  '" + key + "' eklenemedi (attribute kotası). Console'da " + collectionId + " koleksiyonundan gereksiz sütun silin.");
-      return;
-    }
-    throw e;
   }
   await waitForAttribute(databases, DATABASE_ID, collectionId, key);
-  log("✅ " + key + " eklendi (" + collectionId + ")");
+  log("✅ " + key + " hazır (" + collectionId + ")");
 }
 
 /**
@@ -564,7 +1034,7 @@ async function ensureExtendedPlatformSchema(databases) {
 
   await ensureCollection(databases, COLLECTION_INSTITUTIONS_ID, "Kurumlar (tenant)");
   await createStringAttr(databases, COLLECTION_INSTITUTIONS_ID, "name", 512, true);
-  await createStringAttr(databases, COLLECTION_INSTITUTIONS_ID, "logo", 2000, false);
+  /** Logo kaldırıldı (panel yalnızca ad + createdAt gönderir; eski `logo` attribute’u Console’da bırakılabilir) */
   await createDatetimeAttr(databases, COLLECTION_INSTITUTIONS_ID, "createdAt", false);
 
   await ensureCollection(databases, COLLECTION_USERS_ID, "Kullanıcılar (profil)");
@@ -582,6 +1052,8 @@ async function ensureExtendedPlatformSchema(databases) {
   await createDatetimeAttr(databases, COLLECTION_USERS_ID, "createdAt", false);
   await createDatetimeAttr(databases, COLLECTION_USERS_ID, "lastLogin", false);
   await createDatetimeAttr(databases, COLLECTION_USERS_ID, "lastPasswordChangeAt", false);
+  /** Koç paneli profil fotoğrafı (Storage view URL); asıl kaynak ayrıca Account prefs */
+  await createStringAttr(databases, COLLECTION_USERS_ID, "avatarUrl", 2000, false);
   await ensureKeyIndex(databases, COLLECTION_USERS_ID, "idx_users_username", ["username"], ["ASC"]);
   /** `role == coach|student|…` listeleri (kurucu paneli) — indeks yoksa listDocuments 400 / boş dönebilir */
   await ensureKeyIndex(databases, COLLECTION_USERS_ID, "idx_users_role", ["role"], ["ASC"]);
@@ -611,16 +1083,25 @@ async function ensureExtendedPlatformSchema(databases) {
   await createDatetimeAttr(databases, COLLECTION_EXAMS_LEGACY_ID, "examDate", false);
   await createDatetimeAttr(databases, COLLECTION_EXAMS_LEGACY_ID, "createdAt", false);
   await createDatetimeAttr(databases, COLLECTION_EXAMS_LEGACY_ID, "updatedAt", false);
-  await ensureKeyIndex(databases, COLLECTION_EXAMS_LEGACY_ID, "idx_exams_studentId", ["studentId"], ["ASC"]);
+  /** Önek ≤ sütun size (eski şemalar 128); 128 tam indeks de 512 bayt < 767 */
+  await ensureKeyIndex(
+    databases,
+    COLLECTION_EXAMS_LEGACY_ID,
+    "idx_exams_studentId",
+    ["studentId"],
+    ["ASC"],
+    [KEY_INDEX_PREFIX_SHORT_ID]
+  );
   await ensureKeyIndex(
     databases,
     COLLECTION_EXAMS_LEGACY_ID,
     "idx_exams_coach_institution",
     ["coach_id", "institutionId"],
-    ["ASC", "ASC"]
+    ["ASC", "ASC"],
+    [95, 95]
   );
 
-  /** Randevular — 3 attribute (plan kotası); studentId details_json içinde */
+  /** Randevular — scheduledAt + details_json + coach_id + institutionId; kota dolunca sütun atlanır, idx_appointments_* oluşturulmaz */
   await ensureCollection(databases, COLLECTION_APPOINTMENTS_ID, "Randevular");
   await createDatetimeAttr(databases, COLLECTION_APPOINTMENTS_ID, "scheduledAt", false);
   await createStringAttr(databases, COLLECTION_APPOINTMENTS_ID, "details_json", 3000, false);
@@ -631,7 +1112,8 @@ async function ensureExtendedPlatformSchema(databases) {
     COLLECTION_APPOINTMENTS_ID,
     "idx_appointments_coach_institution",
     ["coach_id", "institutionId"],
-    ["ASC", "ASC"]
+    ["ASC", "ASC"],
+    [64, 95]
   );
 
   await ensureCollection(databases, COLLECTION_TESTS_ID, "TestMaker taslakları");
@@ -684,13 +1166,16 @@ async function ensureExtendedPlatformSchema(databases) {
   await createStringAttr(databases, COLLECTION_MEETING_LOGS_ID, "student_name", 512, false);
   await createTextAttr(databases, COLLECTION_MEETING_LOGS_ID, "body_html", false);
   await createDatetimeAttr(databases, COLLECTION_MEETING_LOGS_ID, "saved_at", true);
-  await ensureKeyIndex(databases, COLLECTION_MEETING_LOGS_ID, "idx_meeting_student", ["student_id"], ["ASC"]);
+  await ensureKeyIndex(databases, COLLECTION_MEETING_LOGS_ID, "idx_meeting_student", ["student_id"], ["ASC"], [
+    KEY_INDEX_PREFIX_SHORT_ID,
+  ]);
   await ensureKeyIndex(
     databases,
     COLLECTION_MEETING_LOGS_ID,
     "idx_meeting_coach_institution",
     ["coach_id", "institutionId"],
-    ["ASC", "ASC"]
+    ["ASC", "ASC"],
+    [95, 95]
   );
 
   /** Koç paneli — öğrenci ile iki yönlü sohbet (Gelen Sorular); Console şeması üstteki yorumla aynı */
@@ -700,11 +1185,14 @@ async function ensureExtendedPlatformSchema(databases) {
   await createTextAttr(databases, COLLECTION_MESSAGES_ID, "text", true);
   await createDatetimeAttr(databases, COLLECTION_MESSAGES_ID, "timestamp", true);
   await createDatetimeAttr(databases, COLLECTION_MESSAGES_ID, "read_at", false);
+  /** İki adet 512’lik id birlikte indeks >767 bayt */
   await ensureKeyIndex(databases, COLLECTION_MESSAGES_ID, "idx_msg_sender_recv", ["sender_id", "receiver_id"], [
     "ASC",
     "ASC",
+  ], [95, 95]);
+  await ensureKeyIndex(databases, COLLECTION_MESSAGES_ID, "idx_messages_receiver", ["receiver_id"], ["ASC"], [
+    KEY_INDEX_PREFIX_SHORT_ID,
   ]);
-  await ensureKeyIndex(databases, COLLECTION_MESSAGES_ID, "idx_messages_receiver", ["receiver_id"], ["ASC"]);
 
   await ensureCollection(databases, COLLECTION_KAYNAKLAR_ID, "Kütüphane kaynakları");
   await createStringAttr(databases, COLLECTION_KAYNAKLAR_ID, "coach_id", 128, false);
@@ -766,7 +1254,9 @@ async function ensureExtendedPlatformSchema(databases) {
   await createIntegerAttr(databases, COLLECTION_ATANAN_KAYNAKLAR_ID, "wrongTotal", false, 0, 1000000);
   await createStringAttr(databases, COLLECTION_ATANAN_KAYNAKLAR_ID, "difficulty", 64, false);
   await createDatetimeAttr(databases, COLLECTION_ATANAN_KAYNAKLAR_ID, "assignedAt", false);
-  await ensureKeyIndex(databases, COLLECTION_ATANAN_KAYNAKLAR_ID, "idx_atanan_student", ["student_id"], ["ASC"]);
+  await ensureKeyIndex(databases, COLLECTION_ATANAN_KAYNAKLAR_ID, "idx_atanan_student", ["student_id"], ["ASC"], [
+    KEY_INDEX_PREFIX_SHORT_ID,
+  ]);
 
   await ensureCollection(databases, COLLECTION_MR_STUDENT_PROFILES_ID, "MR (Emar) öğrenci profili");
   await createStringAttr(databases, COLLECTION_MR_STUDENT_PROFILES_ID, "student_id", 255, true);
@@ -774,7 +1264,32 @@ async function ensureExtendedPlatformSchema(databases) {
   await createTextAttr(databases, COLLECTION_MR_STUDENT_PROFILES_ID, "konu_json", false);
   await createTextAttr(databases, COLLECTION_MR_STUDENT_PROFILES_ID, "soru_json", false);
   await createDatetimeAttr(databases, COLLECTION_MR_STUDENT_PROFILES_ID, "updatedAt", false);
-  await ensureKeyIndex(databases, COLLECTION_MR_STUDENT_PROFILES_ID, "idx_mr_student", ["student_id"], ["ASC"]);
+  await ensureKeyIndex(databases, COLLECTION_MR_STUDENT_PROFILES_ID, "idx_mr_student", ["student_id"], ["ASC"], [
+    KEY_INDEX_PREFIX_SHORT_ID,
+  ]);
+
+  await ensureCollection(databases, COLLECTION_MR_EXAM_DEFICIENCIES_ID, "MR deneme konu eksikleri");
+  await createStringAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES_ID, "student_id", 255, true);
+  await createStringAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES_ID, "exam_id", 255, true);
+  await createStringAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES_ID, "coach_id", 128, false);
+  await createStringAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES_ID, "exam_result_id", 255, false);
+  await createStringAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES_ID, "subject", 256, false);
+  await createStringAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES_ID, "topic", 512, false);
+  await createIntegerAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES_ID, "error_count", false, 0, 1000000);
+  await createIntegerAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES_ID, "wrong_count", false, 0, 1000000);
+  await createIntegerAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES_ID, "empty_count", false, 0, 1000000);
+  await createStringAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES_ID, "status", 64, false);
+  await createBooleanAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES_ID, "critical", false);
+  await createBooleanAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES_ID, "severity_high", false);
+  await createDatetimeAttr(databases, COLLECTION_MR_EXAM_DEFICIENCIES_ID, "analyzed_at", false);
+  await ensureKeyIndex(
+    databases,
+    COLLECTION_MR_EXAM_DEFICIENCIES_ID,
+    "idx_mr_def_student_exam",
+    ["student_id", "exam_id"],
+    ["ASC", "ASC"],
+    [KEY_INDEX_PREFIX_SHORT_ID, KEY_INDEX_PREFIX_SHORT_ID]
+  );
 
   await ensureCollection(databases, COLLECTION_GLOBAL_DENEMELER_ID, "Global deneme takvimi");
   await createStringAttr(databases, COLLECTION_GLOBAL_DENEMELER_ID, "adi", 500, false);
@@ -853,7 +1368,8 @@ async function ensureStudentsCoachSchema(databases) {
     COLLECTION_STUDENTS_ID,
     "idx_students_coach_institution",
     ["coach_id", "institutionId"],
-    ["ASC", "ASC"]
+    ["ASC", "ASC"],
+    [95, 95]
   );
 }
 
@@ -892,7 +1408,7 @@ async function ensureExamResultsOnlySchema(databases) {
   await createStringAttr(databases, COLLECTION_EXAM_RESULTS_ID, "exam_id", 255, true);
   await createStringAttr(databases, COLLECTION_EXAM_RESULTS_ID, "student_id", 255, true);
   await createStringAttr(databases, COLLECTION_EXAM_RESULTS_ID, "coach_id", 128, false);
-  await createStringAttr(databases, COLLECTION_EXAM_RESULTS_ID, "institutionId", 128, false);
+  await createStringAttr(databases, COLLECTION_EXAM_RESULTS_ID, "institutionId", 255, false);
   await createStringAttr(databases, COLLECTION_EXAM_RESULTS_ID, "exam_name", 512, false);
   await createStringAttr(databases, COLLECTION_EXAM_RESULTS_ID, "detail_json", 5000, true);
   await createDatetimeAttr(databases, COLLECTION_EXAM_RESULTS_ID, "saved_at", true);
@@ -944,6 +1460,7 @@ async function ensureDenemeExamSchema(databases) {
   await createStringAttr(databases, COLLECTION_EXAM_RESULTS_ID, "exam_id", 255, true);
   await createStringAttr(databases, COLLECTION_EXAM_RESULTS_ID, "student_id", 255, true);
   await createStringAttr(databases, COLLECTION_EXAM_RESULTS_ID, "coach_id", 128, false);
+  await createStringAttr(databases, COLLECTION_EXAM_RESULTS_ID, "institutionId", 255, false);
   /** Karne trend etiketi — Exams join olmadan UI’da kullanılır */
   await createStringAttr(databases, COLLECTION_EXAM_RESULTS_ID, "exam_name", 512, false);
   await createStringAttr(databases, COLLECTION_EXAM_RESULTS_ID, "detail_json", 5000, true);
@@ -1041,10 +1558,22 @@ async function main() {
     }
   }
 
+  logSetupQuotaSummaryIfAny();
   log("");
+  var quotaSkipped = Object.keys(ATTR_SKIPPED_FOR_QUOTA).length > 0;
+  if (quotaSkipped) {
+    log(
+      "⚠️  Kurulum kısmen tamam: attribute kotası — bazı sütunlar eklenemedi, bağlı indeksler atlandı. Console’da yer açıp scripti yeniden çalıştırın veya planı yükseltin."
+    );
+    log("");
+  }
   log("🎉 Kurulum tamamlandı. Appwrite Console → Databases → " + DATABASE_ID + " kontrol edin.");
   log("");
-  log("Patron, statik mimariye geçildi, eksik tablolar ve kovalar kuruldu. Her şey hazır!");
+  if (quotaSkipped) {
+    log("ℹ️  Özet listesi yukarıda; eksikler tamamlanana kadar ilgili özellikler sınırlı kalabilir.");
+  } else {
+    log("Patron, statik mimariye geçildi, eksik tablolar ve kovalar kuruldu. Her şey hazır!");
+  }
 }
 
 main().catch(function (err) {

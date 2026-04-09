@@ -1233,10 +1233,73 @@
   text-align: right;
   width: 4rem;
 }
+.dnm-th-chev {
+  width: 2.25rem;
+  text-align: center;
+}
+.dnm-td--chev {
+  text-align: center;
+  color: #94a3b8;
+  width: 2.25rem;
+}
+.dnm-chevron {
+  transition: transform 0.2s ease;
+  font-size: 0.7rem;
+}
+.dnm-tr--main {
+  cursor: pointer;
+}
+.dnm-tr--main:hover {
+  background: #f5f3ff;
+}
+.dnm-tr--detail td {
+  padding: 0 !important;
+  border-bottom: 1px solid #e5e7eb;
+  background: linear-gradient(180deg, #fafbff 0%, #f8fafc 100%);
+  vertical-align: top;
+}
+
+.dnm-stu-cell {
+  min-width: 0;
+}
+
+.dnm-mr-badge {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  max-width: 100%;
+  margin-top: 0.15rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+  border: 1px solid transparent;
+}
+
+.dnm-mr-badge--warn {
+  color: #9a3412;
+  background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+  border-color: #fdba74;
+}
+
+.dnm-mr-badge--danger {
+  color: #991b1b;
+  background: linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%);
+  border-color: #fca5a5;
+}
+.dnm-col-rm {
+  width: 2.75rem;
+  text-align: center;
+}
+.dnm-ai-drop-row--compact {
+  display: none !important;
+}
 .dnm-tr {
   transition: background 0.12s;
 }
-.dnm-tr:hover {
+.dnm-tr:not(.dnm-tr--main):not(.dnm-tr--detail):hover {
   background: #fafafa;
 }
 .dnm-td {
@@ -2361,6 +2424,46 @@
 .dnm-btn--glow:hover {
   box-shadow: 0 6px 28px rgba(79, 70, 229, 0.45);
 }
+
+/* AI: kitapçık PDF → matris (dikkat çekici, violet–fuchsia) */
+.dnm-btn--ai-pdf-matrix {
+  position: relative;
+  overflow: hidden;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  padding: 0.55rem 1rem;
+  border: none;
+  border-radius: 0.65rem;
+  color: #fff;
+  background: linear-gradient(120deg, #7c3aed 0%, #a855f7 40%, #c026d3 100%);
+  background-size: 200% 100%;
+  box-shadow: 0 4px 18px rgba(124, 58, 237, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  animation: dnm-ai-pdf-shimmer 3.5s ease-in-out infinite;
+}
+.dnm-btn--ai-pdf-matrix:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 26px rgba(168, 85, 247, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+  filter: brightness(1.05);
+}
+.dnm-btn--ai-pdf-matrix:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  animation: none;
+  filter: grayscale(0.35);
+  box-shadow: none;
+}
+@keyframes dnm-ai-pdf-shimmer {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
 .dnm-form-grid--premium {
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 }
@@ -2714,6 +2817,14 @@
 }
 .dnm-matrix-table tbody tr:nth-child(even) {
   background: #fafafa;
+}
+
+/* Sınav sonuçları — gelişmiş analiz <details> oku */
+.karne-advanced-details__summary .fa-chevron-right {
+  transition: transform 0.2s ease;
+}
+details.tw-important-root[open] .karne-advanced-details__summary .fa-chevron-right {
+  transform: rotate(90deg);
 }
 .dnm-matrix-table td {
   vertical-align: middle;
