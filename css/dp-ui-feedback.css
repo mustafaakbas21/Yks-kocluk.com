@@ -15,17 +15,6 @@ textarea.dp-input-invalid {
   box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
 }
 
-[data-theme="dark"] .dp-field-msg {
-  color: #f87171;
-}
-
-[data-theme="dark"] .dp-input-invalid,
-[data-theme="dark"] input.dp-input-invalid,
-[data-theme="dark"] select.dp-input-invalid,
-[data-theme="dark"] textarea.dp-input-invalid {
-  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.15);
-}
-
 /* Toast — ek animasyon ve güçlü danger tonu */
 #panelToast.toast {
   border-radius: 14px;

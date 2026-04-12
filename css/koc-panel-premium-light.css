@@ -1,7 +1,7 @@
 /**
  * DerecePanel — Premium Light overrides
  * koc-panel.html içindeki <style> bloğundan SONRA yüklenir; koyu inline stilleri açık temaya çevirir.
- * --dp-* köprüsü css/koc-panel-themes.css içinde var(--app-bg) vb. ile güncellenir.
+ * --dp-* köprüsü css/koc-panel.css :root ile (turuncu sabit tema) uyumludur.
  */
 :root {
   --dp-bg: #f4f7f6;
@@ -9,8 +9,8 @@
   --dp-border: #eef0f2;
   --dp-text: #1f2937;
   --dp-muted: #64748b;
-  --dp-accent: var(--purple-600, #0284c7);
-  --dp-accent-dark: var(--purple-700, #0369a1);
+  --dp-accent: var(--purple-600, #ea580c);
+  --dp-accent-dark: var(--purple-700, #c2410c);
   --dp-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   --dp-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.06);
 }

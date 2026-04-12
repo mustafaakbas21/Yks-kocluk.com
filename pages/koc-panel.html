@@ -2,21 +2,6 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <script>
-    (function () {
-      try {
-        var k = "derece_theme";
-        var v = localStorage.getItem(k);
-        var t =
-          v === "dark" || v === "emerald" || v === "sunset" || v === "ocean"
-            ? v
-            : "ocean";
-        document.documentElement.setAttribute("data-theme", t);
-      } catch (e) {
-        document.documentElement.setAttribute("data-theme", "ocean");
-      }
-    })();
-  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script type="importmap">
     {
@@ -78,12 +63,12 @@
               700: "var(--purple-700)",
             },
             brand: {
-              50: "#f5f3ff",
-              100: "#ede9fe",
-              500: "#8b5cf6",
-              600: "#7c3aed",
-              700: "#6d28d9",
-              900: "#4c1d95",
+              50: "#fff7ed",
+              100: "#ffedd5",
+              500: "#f97316",
+              600: "#ea580c",
+              700: "#c2410c",
+              900: "#7c2d12",
             },
           },
         },
@@ -95,24 +80,6 @@
   <link rel="stylesheet" href="../css/site-credit.css" />
   <!-- PDF.js: body sonunda yüklü (3.11.x); kırpma + PDF düzenleyici ortak worker -->
   <style>
-    /* Fasikül üretici (gömülü, .tw-important-root) */
-    .tw-important-root .fu-tab-btn[aria-selected="true"] {
-      background: linear-gradient(135deg, #7c3aed, #6d28d9);
-      color: #fff;
-      box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
-    }
-    .tw-important-root .fu-tab-panel[hidden] {
-      display: none !important;
-    }
-    .tw-important-root .fu-seg input:checked + span {
-      background: linear-gradient(135deg, #ede9fe, #f5f3ff);
-      color: #4c1d95;
-      font-weight: 700;
-      box-shadow: inset 0 0 0 1px #c4b5fd;
-    }
-    .tw-important-root .fu-cover-card:has(input:checked) {
-      box-shadow: 0 0 0 3px #7c3aed, 0 10px 40px -10px rgba(124, 58, 237, 0.35);
-    }
     /* Öğrenci ERP modal — sekme + grid (yalnızca bu sayfa) */
     .student-erp-tabs { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 2px solid var(--purple-200); padding: 0 1rem; background: linear-gradient(180deg, var(--purple-50) 0%, var(--purple-100) 100%); flex-shrink: 0; border-radius: 0; }
     .student-erp-tab { flex: 1; min-width: 120px; max-width: 200px; padding: 0.85rem 0.65rem; border: none; background: transparent; font-family: inherit; font-size: 0.8rem; font-weight: 700; color: #64748b; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; transition: color 0.2s, border-color 0.2s, background 0.2s; border-radius: 12px 12px 0 0; }
@@ -697,7 +664,6 @@
     .student-avatar-picker__hint { font-size: 0.72rem; color: #64748b; margin-top: 0.35rem; }
     /* [hidden] UA kuralını ezmeyin: flex toolbar/sheet DOM’da açık kalmasın */
     .avatar-gallery-sheet[hidden],
-    #viewPdfDuzenle[hidden],
     .tm-annotate-view[hidden] {
       display: none !important;
       pointer-events: none !important;
@@ -2388,17 +2354,6 @@
       margin-left: 0.35rem;
       border-left: 2px solid rgba(var(--accent-rgb), 0.2);
     }
-    /* PDF anotasyon — Acrobat tarzı (sadece bu sayfa, üstteki [hidden] kurallarından sonra) */
-    #viewPdfDuzenle:not([hidden]) .tm-annotate-sidebar {
-      flex: 0 0 clamp(380px, 30vw, 460px) !important;
-      width: clamp(380px, 30vw, 460px) !important;
-      max-width: none !important;
-      min-width: 360px !important;
-      padding: 0.75rem 0.9rem !important;
-      background: linear-gradient(180deg, rgba(12, 12, 18, 0.92), rgba(6, 6, 10, 0.88)) !important;
-      border: 1px solid rgba(255, 255, 255, 0.1) !important;
-      box-shadow: -8px 0 28px rgba(0, 0, 0, 0.35);
-    }
     .tm-annotate-sidebar__head {
       margin-bottom: 0.5rem;
       padding-bottom: 0.55rem;
@@ -2418,80 +2373,6 @@
       color: #94a3b8;
       line-height: 1.35;
     }
-    #viewPdfDuzenle:not([hidden]) .tm-editor__thumbs {
-      max-height: min(72vh, 640px) !important;
-      margin-top: 0.75rem !important;
-    }
-    #viewPdfDuzenle:not([hidden]) .tm-editor-thumb {
-      grid-template-columns: 76px 1fr auto !important;
-      padding: 0.5rem 0.45rem !important;
-      border-radius: 12px !important;
-    }
-    #viewPdfDuzenle:not([hidden]) .tm-editor-thumb img {
-      width: 72px !important;
-      height: 92px !important;
-      border-radius: 8px !important;
-    }
-    #viewPdfDuzenle:not([hidden]) .tm-editor-thumb__title {
-      font-size: 0.8rem !important;
-      font-weight: 700;
-    }
-    #viewPdfDuzenle:not([hidden]) .tm-editor-thumb__actions button {
-      width: 30px !important;
-      height: 30px !important;
-    }
-    @media (max-width: 900px) {
-      #viewPdfDuzenle:not([hidden]) .tm-annotate-body {
-        flex-direction: column-reverse;
-      }
-      #viewPdfDuzenle:not([hidden]) .tm-annotate-sidebar {
-        flex: 0 0 auto !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        min-width: 0 !important;
-        max-height: min(42vh, 380px);
-      }
-      #viewPdfDuzenle:not([hidden]) .tm-editor__thumbs {
-        max-height: min(28vh, 240px) !important;
-      }
-    }
-    #viewPdfDuzenle:not([hidden]) .tm-annotate-topbar {
-      padding: 0.65rem 1.15rem !important;
-      gap: 0.75rem 1rem !important;
-      background: linear-gradient(180deg, rgba(22, 22, 28, 0.98), rgba(12, 12, 16, 0.96)) !important;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
-    }
-    #viewPdfDuzenle:not([hidden]) .tm-annotate-tools {
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 0.45rem !important;
-      padding: 0.2rem 0.35rem;
-      border-radius: 12px;
-      background: rgba(0, 0, 0, 0.35);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-    }
-    #viewPdfDuzenle:not([hidden]) .tm-annotate-tool {
-      width: 44px !important;
-      height: 44px !important;
-      border-radius: 11px !important;
-      font-size: 1.05rem !important;
-    }
-    #viewPdfDuzenle:not([hidden]) .tm-annotate-toolbar-sep {
-      width: 1px;
-      height: 28px;
-      background: rgba(255, 255, 255, 0.12);
-      margin: 0 0.15rem;
-      align-self: center;
-    }
-    #viewPdfDuzenle:not([hidden]) .tm-annotate-zoom {
-      display: flex;
-      gap: 0.35rem;
-      align-items: center;
-      padding: 0.2rem 0.35rem;
-      border-radius: 12px;
-      background: rgba(0, 0, 0, 0.35);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-    }
     .avatar-gallery-sheet__backdrop { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(4px); }
     .avatar-gallery-sheet__panel { position: relative; z-index: 1; width: 100%; max-width: 520px; max-height: 85vh; margin: 0 auto; background: linear-gradient(180deg, var(--purple-50), #fff); border-radius: 18px 18px 0 0; box-shadow: 0 -12px 40px rgba(0,0,0,0.25); display: flex; flex-direction: column; pointer-events: auto; border: 1px solid rgba(124,58,237,0.2); }
     .avatar-gallery-sheet__head { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.1rem; border-bottom: 1px solid var(--purple-200); }
@@ -2501,7 +2382,6 @@
     .avatar-gallery__cell:hover, .avatar-gallery__cell:focus-visible { border-color: var(--purple-600); transform: scale(1.04); outline: none; }
     .avatar-gallery__cell.is-selected { border-color: var(--purple-600); box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.45); transform: scale(1.02); }
     .avatar-gallery__cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .tm-pdf-editor-hero { margin-bottom: 1.25rem; }
     .tm-saved-pdf-library.tm-saved-pdf-library--ebook { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.15rem; list-style: none; padding: 0; margin: 0; }
     .tm-saved-pdf-library.tm-saved-pdf-library--ebook .tm-saved-pdf-item { flex-direction: column; align-items: stretch; border-radius: 14px; padding: 0; overflow: visible; background: linear-gradient(180deg, #fff, var(--purple-50)); border: 1px solid rgba(124,58,237,0.18); box-shadow: 0 10px 28px rgba(30,27,75,0.12); min-height: auto; }
     .tm-saved-pdf-library.tm-saved-pdf-library--ebook .tm-saved-pdf-item__name { flex: 1 1 auto; padding: 0.65rem 0.75rem 0.5rem; font-weight: 700; font-size: 0.8rem; line-height: 1.4; color: #0f172a; display: block; white-space: normal; word-break: break-word; overflow-wrap: anywhere; overflow: visible; text-overflow: unset; }
@@ -2550,29 +2430,36 @@
     .sd-fin-kpi { background: linear-gradient(145deg, rgba(49, 46, 129, 0.9), rgba(30, 27, 75, 0.95)); border: 1px solid rgba(var(--accent-rgb), 0.25); border-radius: 12px; padding: 0.85rem 1rem; }
     .sd-fin-kpi__lbl { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--purple-300); font-weight: 700; }
     .sd-fin-kpi__val { font-size: 1.25rem; font-weight: 800; color: #fff; margin-top: 0.25rem; }
-    /* Deneme Analizi modülü — Global Takvim & iskeletler */
+    /* Deneme Analizi modülü — Global Takvim (grid düzeni Tailwind ile koc-panel.html içinde) */
     .dana-deneme-root { padding: 0 0 2rem; margin: 0 auto; }
-    .dana-takvim-layout {
-      display: flex; align-items: flex-start; gap: 1.35rem; max-width: 1480px; margin: 0 auto;
+    .gdt-right-stack { display: flex; flex-direction: column; gap: 1.5rem; }
+    @media (min-width: 1024px) {
+      .gdt-right-stack { position: sticky; top: 1rem; align-self: start; }
     }
-    .dana-takvim-main {
-      flex: 7; min-width: 0;
+    .gdt-filter-card .dana-takvim-tabs {
+      margin-bottom: 0;
+      justify-content: center;
     }
-    .dana-takvim-cal-sidebar {
-      flex: 3; min-width: 0; max-width: 380px;
-      background: #ffffff;
-      border-radius: 20px;
-      border: 1px solid rgba(var(--accent-rgb), 0.12);
-      box-shadow: 0 16px 48px rgba(30, 27, 75, 0.1), 0 4px 14px rgba(var(--accent-rgb), 0.08);
-      padding: 1rem 1rem 1.15rem;
-      position: sticky; top: 0.85rem;
-      align-self: flex-start;
-      overflow: visible;
-      z-index: 2;
+    /* Ajanda slide-over: Tailwind kapsamı dışında — saf CSS boş durum */
+    .gdt-agenda-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 1.5rem 0.75rem;
+      text-align: center;
     }
-    @media (max-width: 1100px) {
-      .dana-takvim-layout { flex-direction: column; align-items: stretch; }
-      .dana-takvim-cal-sidebar { max-width: none; position: static; width: 100%; }
+    .gdt-agenda-empty__icon {
+      font-size: 1.75rem;
+      color: #e2e8f0;
+      line-height: 1;
+    }
+    .gdt-agenda-empty__text {
+      margin: 0;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #9ca3af;
     }
     /* Aylık mini takvim (saf CSS Grid) */
     .dana-cal { display: flex; flex-direction: column; gap: 0.65rem; }
@@ -2894,7 +2781,7 @@
     }
     .dana-takvim-upcoming-list {
       list-style: none;
-      margin: 0 0 1.25rem;
+      margin: 0;
       padding: 0;
       display: flex;
       flex-direction: column;
@@ -3009,14 +2896,22 @@
       box-shadow: 0 2px 12px rgba(var(--accent-rgb), 0.06);
     }
     .dana-takvim-tab {
-      border: 1px solid transparent; background: #fff; color: #64748b;
+      border: 1px solid rgba(148, 163, 184, 0.45); background: rgba(255, 255, 255, 0.65); color: #64748b;
       font-family: inherit; font-size: 0.82rem; font-weight: 800; letter-spacing: 0.02em;
       padding: 0.55rem 1.15rem; border-radius: 11px; cursor: pointer;
       transition: background 0.18s, color 0.18s, border-color 0.18s, box-shadow 0.18s, transform 0.12s;
     }
-    .dana-takvim-tab:hover { color: var(--purple-800); border-color: rgba(var(--accent-rgb), 0.25); box-shadow: 0 2px 10px rgba(var(--accent-rgb), 0.12); }
-    .dana-takvim-tab.is-active {
-      color: #fff;
+    .dana-takvim-tab:hover { color: var(--purple-800); border-color: rgba(var(--accent-rgb), 0.35); box-shadow: 0 2px 10px rgba(var(--accent-rgb), 0.12); background: #fff; }
+    .dana-takvim-tab.is-active { color: #fff; border-color: transparent; box-shadow: 0 6px 20px rgba(15, 23, 42, 0.2); }
+    .dana-takvim-tab[data-dana-takvim-filter="TYT"].is-active {
+      background: linear-gradient(135deg, #1e40af, #2563eb);
+      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+    }
+    .dana-takvim-tab[data-dana-takvim-filter="AYT"].is-active {
+      background: linear-gradient(135deg, #c2410c, #ea580c);
+      box-shadow: 0 6px 20px rgba(234, 88, 12, 0.38);
+    }
+    .dana-takvim-tab[data-dana-takvim-filter="YKS"].is-active {
       background: linear-gradient(135deg, var(--purple-800), var(--purple-600));
       border-color: rgba(196, 181, 253, 0.5);
       box-shadow: 0 6px 20px rgba(var(--accent-rgb), 0.35);
@@ -3024,21 +2919,21 @@
     .dana-takvim-tab:focus-visible { outline: 2px solid var(--purple-400); outline-offset: 2px; }
     .dana-takvim-list-host { min-height: 200px; position: relative; }
     .dana-takvim-empty {
-      text-align: center; padding: 2.75rem 1.5rem 3rem;
-      border-radius: 20px; border: 1px dashed rgba(var(--accent-rgb), 0.28);
-      background: linear-gradient(180deg, var(--purple-50), #ffffff);
-      max-width: 520px; margin: 0 auto;
+      text-align: center; padding: 2.5rem 1.25rem;
+      border-radius: 1rem; border: 1px dashed #e2e8f0;
+      background: #fafafa;
+      margin: 0;
     }
     .dana-takvim-empty[hidden] { display: none !important; }
     .dana-takvim-empty__icon {
-      width: 4rem; height: 4rem; margin: 0 auto 1rem;
-      border-radius: 16px; background: linear-gradient(145deg, var(--purple-100), var(--purple-50));
-      border: 1px solid rgba(var(--accent-rgb), 0.2);
+      width: 3.5rem; height: 3.5rem; margin: 0 auto 0.85rem;
+      border-radius: 999px; background: #f1f5f9;
+      border: none;
       display: flex; align-items: center; justify-content: center;
-      font-size: 1.65rem; color: var(--purple-600);
+      font-size: 1.5rem; color: #cbd5e1;
     }
-    .dana-takvim-empty__title { margin: 0 0 0.45rem; font-size: 1.08rem; font-weight: 800; color: #312e81; letter-spacing: -0.02em; }
-    .dana-takvim-empty__hint { margin: 0; font-size: 0.88rem; color: #64748b; line-height: 1.55; max-width: 38ch; margin-left: auto; margin-right: auto; }
+    .dana-takvim-empty__title { margin: 0 0 0.35rem; font-size: 0.95rem; font-weight: 600; color: #94a3b8; letter-spacing: -0.01em; }
+    .dana-takvim-empty__hint { margin: 0; font-size: 0.8125rem; color: #9ca3af; line-height: 1.55; max-width: 32ch; margin-left: auto; margin-right: auto; }
     .dana-skel-root { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
     .dana-skel-card {
       border-radius: 20px; border: 1px dashed rgba(var(--accent-rgb), 0.28); background: linear-gradient(180deg, var(--purple-50), #fff);
@@ -3593,7 +3488,6 @@
       animation: koc-sidebar-page-refresh-spin 1s linear forwards;
     }
   </style>
-  <link rel="stylesheet" href="../css/koc-panel-themes.css" />
 </head>
 <body class="has-site-credit">
   <script>
@@ -3623,58 +3517,6 @@
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
-
-      <div class="sidebar__theme-swatches" role="group" aria-label="Tema rengi">
-        <button
-          type="button"
-          class="sidebar__theme-swatch sidebar__theme-swatch--ocean"
-          data-theme="ocean"
-          title="Okyanus (varsayılan)"
-          aria-label="Okyanus teması"
-          aria-pressed="false"
-        ></button>
-        <button
-          type="button"
-          class="sidebar__theme-swatch sidebar__theme-swatch--dark"
-          data-theme="dark"
-          title="Gece modu"
-          aria-label="Gece teması"
-          aria-pressed="false"
-        ></button>
-        <button
-          type="button"
-          class="sidebar__theme-swatch sidebar__theme-swatch--emerald"
-          data-theme="emerald"
-          title="Zümrüt"
-          aria-label="Zümrüt teması"
-          aria-pressed="false"
-        ></button>
-        <button
-          type="button"
-          class="sidebar__theme-swatch sidebar__theme-swatch--sunset"
-          data-theme="sunset"
-          title="Günbatımı"
-          aria-label="Günbatımı teması"
-          aria-pressed="false"
-        ></button>
-      </div>
-      <script>
-        (function () {
-          function syncThemeSwatches() {
-            var t = document.documentElement.getAttribute("data-theme") || "ocean";
-            document.querySelectorAll(".sidebar__theme-swatch[data-theme]").forEach(function (el) {
-              var on = el.getAttribute("data-theme") === t;
-              el.classList.toggle("is-active", on);
-              el.setAttribute("aria-pressed", on ? "true" : "false");
-            });
-          }
-          if (document.readyState === "loading") {
-            document.addEventListener("DOMContentLoaded", syncThemeSwatches);
-          } else {
-            syncThemeSwatches();
-          }
-        })();
-      </script>
 
       <nav class="sidebar__nav">
         <p class="sidebar__section-label">Menü</p>
@@ -3876,30 +3718,22 @@
               aria-controls="sidebarTaramalarSubmenu"
               title="Taramalar ve Fasiküller menüsünü aç/kapat"
             >
-              <i class="fa-solid fa-folder-open"></i><span>Taramalar ve Fasiküller</span>
+              <i class="fa-solid fa-book"></i><span>Taramalar ve Fasiküller</span>
               <span class="sidebar__tm-chevron" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
             </button>
             <div class="sidebar__submenu sidebar__submenu--taramalar-nested" id="sidebarTaramalarSubmenu" role="group" aria-label="Taramalar ve Fasiküller alt menü">
-              <button
-                type="button"
-                id="sidebarLinkFasikulUretici"
-                class="sidebar__sublink"
-                data-tm-nav-action="fasikul-uretici"
-                data-testmaker-view="fasikul-uretici-view"
-                title="Matbaa v3 — Fasikül / kitapçık (panel içi)"
-              >
-                <i class="fa-solid fa-book-open"></i><span>Fasikül / Kitap Üretici</span>
-              </button>
-              <button
-                type="button"
-                id="sidebarLinkTaramaUretici"
-                class="sidebar__sublink"
-                data-tm-nav-action="tarama-uretici"
-                data-testmaker-view="tarama-uretici-view"
-                title="Tarama (Soru Arşivi) — filtre ve sepet ile PDF taslak"
-              >
-                <i class="fa-solid fa-layer-group"></i><span>Tarama Oluştur</span>
-              </button>
+              <a class="sidebar__sublink" href="fasikul-olusturucu.html" title="Fasikül Oluşturucu">
+                <i class="fa-solid fa-wand-magic-sparkles"></i><span>Fasikül Oluşturucu</span>
+              </a>
+              <a class="sidebar__sublink" href="fasikul-deposu.html" title="Fasikül Deposu">
+                <i class="fa-solid fa-box-archive"></i><span>Fasikül Deposu</span>
+              </a>
+              <a class="sidebar__sublink" href="tarama-olusturucu.html" title="Tarama Oluşturucu">
+                <i class="fa-solid fa-file-circle-plus"></i><span>Tarama Oluşturucu</span>
+              </a>
+              <a class="sidebar__sublink" href="tarama-deposu.html" title="Tarama Deposu">
+                <i class="fa-solid fa-folder-open"></i><span>Tarama Deposu</span>
+              </a>
             </div>
           </li>
           <li class="sidebar__item--testmaker has-submenu">
@@ -3909,10 +3743,7 @@
             </button>
             <div class="sidebar__submenu sidebar__submenu--tm-nested" id="sidebarTmSubmenu" role="group" aria-label="TestMaker alt menü">
               <button type="button" class="sidebar__sublink" data-tm-nav-action="creator" data-testmaker-view="view-testmaker" title="Test Oluşturucu"><i class="fa-solid fa-pen-ruler"></i><span>Test Oluşturucu</span></button>
-              <button type="button" class="sidebar__sublink" data-tm-nav-action="auto-test" data-testmaker-view="view-auto-test" title="Yapay Zeka Destekli Otomatik Soru Hazırlayıcı"><i class="fa-solid fa-wand-magic-sparkles"></i><span>AI Test Üretici</span></button>
               <button type="button" class="sidebar__sublink" data-tm-nav-action="auto-cropper" data-testmaker-view="view-auto-cropper" title="PDF üzerinden otomatik soru kırpma"><i class="fa-solid fa-scissors"></i><span>Otomatik Soru Kırpıcı</span></button>
-              <button type="button" class="sidebar__sublink" data-tm-nav-action="library" data-testmaker-view="view-library" title="Hazır Testler"><i class="fa-solid fa-layer-group"></i><span>Hazır Testler</span></button>
-              <button type="button" class="sidebar__sublink" data-tm-nav-action="pdf-editor" data-testmaker-view="view-pdf-editor" title="PDF Düzenleyici"><i class="fa-solid fa-file-pen"></i><span>PDF Düzenleyici</span></button>
               <button type="button" class="sidebar__sublink" data-tm-nav-action="pdf-cropper" data-testmaker-view="view-pdf-cropper" data-target="view-pdf-cropper" title="PDF’den manuel soru kırp ve havuza ekle"><i class="fas fa-cut"></i><span>Soru Kırpma</span></button>
               <button type="button" class="sidebar__sublink" data-tm-nav-action="soru-arsivi" data-testmaker-view="view-soru-arsivi" data-target="view-soru-arsivi" title="Kesilen sorular — yerel arşiv"><i class="fa-solid fa-book"></i><span>Soru Havuzu Arşivi</span></button>
             </div>
@@ -5487,72 +5318,78 @@
 
         <div class="main-view" data-view="deneme-analiz-takvim" id="view-deneme-analiz-takvim" hidden>
           <div class="dana-deneme-root" id="denemeAnalizTakvimRoot">
-            <div class="dana-deneme-hero">
+            <div class="dana-deneme-hero tw-important-root max-w-[1480px] mx-auto">
               <div class="dana-deneme-hero__titles">
                 <h1>Global Deneme Takvimi</h1>
                 <p>Türkiye geneli deneme tarihleri kurucu tarafından senkronize edilir; liste ve takvim <strong>salt okunur</strong>dur (Appwrite <code>global_denemeler</code>).</p>
               </div>
             </div>
-            <div class="dana-takvim-layout">
-              <div class="dana-takvim-main">
-                <div class="dana-takvim-tabs" role="tablist" aria-label="Sınav türü filtresi">
-                  <button type="button" class="dana-takvim-tab" id="danaTabFilterTyt" data-dana-takvim-filter="TYT" role="tab" aria-selected="false">TYT</button>
-                  <button type="button" class="dana-takvim-tab" id="danaTabFilterAyt" data-dana-takvim-filter="AYT" role="tab" aria-selected="false">AYT</button>
-                  <button type="button" class="dana-takvim-tab is-active" id="danaTabFilterYks" data-dana-takvim-filter="YKS" role="tab" aria-selected="true">YKS (Tümü)</button>
+            <div class="tw-important-root grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8 max-w-[1480px] mx-auto">
+              <div class="flex flex-col gap-6 lg:col-span-8">
+                <div class="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm gdt-filter-card">
+                  <div class="dana-takvim-tabs" role="tablist" aria-label="Sınav türü filtresi">
+                    <button type="button" class="dana-takvim-tab" id="danaTabFilterTyt" data-dana-takvim-filter="TYT" role="tab" aria-selected="false">TYT</button>
+                    <button type="button" class="dana-takvim-tab" id="danaTabFilterAyt" data-dana-takvim-filter="AYT" role="tab" aria-selected="false">AYT</button>
+                    <button type="button" class="dana-takvim-tab is-active" id="danaTabFilterYks" data-dana-takvim-filter="YKS" role="tab" aria-selected="true">YKS (Tümü)</button>
+                  </div>
                 </div>
-                <div class="tw-important-root mt-2 mb-8 overflow-hidden rounded-2xl border border-violet-200/90 bg-white shadow-md shadow-violet-100/40 ring-1 ring-violet-100/60">
-                  <div class="border-b border-violet-100 bg-gradient-to-r from-violet-50/90 to-fuchsia-50/50 px-4 py-3">
-                    <h2 class="m-0 text-base font-extrabold tracking-tight text-violet-950">Merkezi sınav listesi</h2>
+                <div class="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
+                  <div class="border-b border-slate-100 bg-slate-50/90 px-5 py-4">
+                    <h2 class="m-0 text-base font-extrabold tracking-tight text-slate-900">Merkezi sınav listesi</h2>
                     <p class="mt-1 mb-0 text-xs font-medium text-slate-500">Tarihe göre sıralı (eskiden yeniye). Durum yerel takvim gününe göre güncellenir.</p>
                   </div>
                   <div class="overflow-x-auto">
                     <table class="w-full min-w-[720px] text-left text-sm text-slate-700">
-                      <thead class="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
+                      <thead class="border-b border-slate-100 bg-white text-xs font-bold uppercase tracking-wide text-slate-500">
                         <tr>
-                          <th class="px-4 py-3">Sınav adı</th>
-                          <th class="px-4 py-3">Yayınevi</th>
-                          <th class="px-4 py-3 whitespace-nowrap">Tarih</th>
-                          <th class="px-4 py-3 whitespace-nowrap">Tür</th>
-                          <th class="px-4 py-3 whitespace-nowrap">Durum</th>
+                          <th class="px-5 py-4">Sınav adı</th>
+                          <th class="px-5 py-4">Yayınevi</th>
+                          <th class="px-5 py-4 whitespace-nowrap">Tarih</th>
+                          <th class="px-5 py-4 whitespace-nowrap">Tür</th>
+                          <th class="px-5 py-4 whitespace-nowrap">Durum</th>
                         </tr>
                       </thead>
-                      <tbody id="gdtMainTableBody" class="divide-y divide-violet-100/70 bg-white">
+                      <tbody id="gdtMainTableBody" class="divide-y divide-slate-100 bg-white">
                         <tr>
-                          <td colspan="5" class="px-4 py-6 text-center text-sm text-slate-500">Yükleniyor…</td>
+                          <td colspan="5" class="px-5 py-8 text-center text-sm text-slate-500">Yükleniyor…</td>
                         </tr>
                       </tbody>
                     </table>
                   </div>
                 </div>
-                <h2 class="page-head__title" style="margin:0 0 1rem;font-size:1.05rem;font-weight:800;color:#4c1d95">Yaklaşan denemeler</h2>
-                <p class="dana-takvim-upcoming-lead" style="margin:-0.5rem 0 1rem;font-size:0.82rem;color:#64748b;font-weight:600">Bugünden sonraki ilk 3 deneme (Exams)</p>
-                <div id="danaTakvimUpcomingSkeleton" class="dana-takvim-upcoming-skel" hidden aria-hidden="true">
-                  <div class="dana-takvim-upcoming-skel__row"></div>
-                  <div class="dana-takvim-upcoming-skel__row"></div>
-                  <div class="dana-takvim-upcoming-skel__row"></div>
+              </div>
+              <div class="gdt-right-stack lg:col-span-4">
+                <div class="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm" aria-label="Aylık takvim">
+                  <div class="dana-cal dana-cal--v2" id="danaMonthlyCalRoot">
+                    <h3 class="dana-cal-v2-selected-title" id="danaCalSelectedDayTitle">Seçili gün: —</h3>
+                    <div class="dana-cal__head">
+                      <button type="button" class="dana-cal__nav" id="danaCalPrev" aria-label="Önceki ay"><i class="fa-solid fa-chevron-left"></i></button>
+                      <h3 class="dana-cal__title" id="danaCalTitle">—</h3>
+                      <button type="button" class="dana-cal__nav" id="danaCalNext" aria-label="Sonraki ay"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                    <div class="dana-cal__dow" aria-hidden="true">
+                      <span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span>
+                    </div>
+                    <div class="dana-cal__grid dana-cal__grid--v2" id="danaCalGrid" role="grid" aria-label="Ay günleri"></div>
+                  </div>
                 </div>
-                <ul id="danaTakvimUpcomingList" class="dana-takvim-upcoming-list" aria-label="Yaklaşan üç deneme"></ul>
-                <div id="danaTakvimCardsGrid" class="dana-tg-grid" hidden aria-hidden="true"></div>
-                <div id="danaTakvimEmpty" class="dana-takvim-empty" hidden>
-                  <div class="dana-takvim-empty__icon" aria-hidden="true"><i class="fa-solid fa-calendar-plus"></i></div>
-                  <p id="danaTakvimEmptyTitle" class="dana-takvim-empty__title">Henüz Planlanmış Deneme Yok</p>
-                  <p id="danaTakvimEmptyHint" class="dana-takvim-empty__hint">Türkiye geneli denemeler eklendiğinde burada görünecek.</p>
+                <div class="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm">
+                  <h2 class="m-0 text-base font-extrabold tracking-tight text-slate-900">Yaklaşan denemeler</h2>
+                  <p class="dana-takvim-upcoming-lead mt-2 mb-4 text-sm font-medium text-slate-500">Bugünden sonraki ilk 3 deneme (Exams)</p>
+                  <div id="danaTakvimUpcomingSkeleton" class="dana-takvim-upcoming-skel" hidden aria-hidden="true">
+                    <div class="dana-takvim-upcoming-skel__row"></div>
+                    <div class="dana-takvim-upcoming-skel__row"></div>
+                    <div class="dana-takvim-upcoming-skel__row"></div>
+                  </div>
+                  <ul id="danaTakvimUpcomingList" class="dana-takvim-upcoming-list" aria-label="Yaklaşan üç deneme"></ul>
+                  <div id="danaTakvimCardsGrid" class="dana-tg-grid" hidden aria-hidden="true"></div>
+                  <div id="danaTakvimEmpty" class="dana-takvim-empty" hidden>
+                    <div class="dana-takvim-empty__icon" aria-hidden="true"><i class="fa-regular fa-calendar"></i></div>
+                    <p id="danaTakvimEmptyTitle" class="dana-takvim-empty__title">Henüz Planlanmış Deneme Yok</p>
+                    <p id="danaTakvimEmptyHint" class="dana-takvim-empty__hint">Türkiye geneli denemeler eklendiğinde burada görünecek.</p>
+                  </div>
                 </div>
               </div>
-              <aside class="dana-takvim-cal-sidebar" aria-label="Aylık takvim">
-                <div class="dana-cal dana-cal--v2" id="danaMonthlyCalRoot">
-                  <h3 class="dana-cal-v2-selected-title" id="danaCalSelectedDayTitle">Seçili gün: —</h3>
-                  <div class="dana-cal__head">
-                    <button type="button" class="dana-cal__nav" id="danaCalPrev" aria-label="Önceki ay"><i class="fa-solid fa-chevron-left"></i></button>
-                    <h3 class="dana-cal__title" id="danaCalTitle">—</h3>
-                    <button type="button" class="dana-cal__nav" id="danaCalNext" aria-label="Sonraki ay"><i class="fa-solid fa-chevron-right"></i></button>
-                  </div>
-                  <div class="dana-cal__dow" aria-hidden="true">
-                    <span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span>
-                  </div>
-                  <div class="dana-cal__grid dana-cal__grid--v2" id="danaCalGrid" role="grid" aria-label="Ay günleri"></div>
-                </div>
-              </aside>
             </div>
             <!-- Günlük ajanda (slide-over) -->
             <div class="dana-agenda" id="danaAgendaPanel" hidden aria-hidden="true">
@@ -5749,25 +5586,14 @@
 
         <div class="main-view tm-workspace-view" data-view="testmaker" id="view-testmaker" hidden>
           <div id="tmWorkspaceRoot" class="tm-workspace">
-            <header class="tm-workspace__header tm-workspace__header--ribbon">
+            <header class="tm-workspace__header">
               <div class="tm-workspace__header-row">
                 <button type="button" class="tm-back-dashboard" data-nav="dashboard" title="Ana panele dön">
                   <i class="fa-solid fa-arrow-left"></i> Panele dön
                 </button>
-                <span class="tm-workspace__brand"><i class="fa-solid fa-wand-magic-sparkles"></i> TestMaker Pro</span>
+                <span class="tm-workspace__brand"><i class="fa-solid fa-pen-ruler"></i> Test Oluşturucu</span>
               </div>
-              <nav class="tm-word-ribbon" aria-label="Üst menü">
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard" title="Ana panel"><i class="fa-solid fa-house"></i> Giriş</button>
-                <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="testmaker" title="Test oluştur"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test" title="AI Test Üretici"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-cropper" title="PDF üzerinden otomatik soru kırpma"><i class="fa-solid fa-scissors"></i> Otomatik Kırpıcı</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library" title="Kütüphane"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor" title="PDF işaretleme"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper" title="Manuel soru kırpma"><i class="fas fa-cut"></i> Soru Kırpma</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="soru-arsivi" title="Soru arşivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="deneme-analiz-karne" title="Analiz"><i class="fa-solid fa-chart-line"></i> Analiz</button>
-              </nav>
-            </header>
+              </header>
 
             <div id="tmViewCreator" class="tm-view-creator tm-view-creator--word-stack">
               <div class="tm-top-meta-ribbon tm-top-meta-ribbon--word" aria-label="Test bilgileri ve dışa aktar (Word şeridi)">
@@ -6154,101 +5980,16 @@
           </div>
         </div>
 
-        <div class="main-view tm-workspace-view" data-view="auto-test" id="view-auto-test" hidden>
-          <div class="tm-workspace tm-workspace--ai-wizard">
-            <header class="tm-workspace__header tm-workspace__header--ribbon">
-              <div class="tm-workspace__header-row">
-                <button type="button" class="tm-back-dashboard" data-nav="dashboard" title="Ana panele dön">
-                  <i class="fa-solid fa-arrow-left"></i> Panele dön
-                </button>
-                <span class="tm-workspace__brand"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Test Üretici</span>
-              </div>
-              <nav class="tm-word-ribbon" aria-label="Üst menü">
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
-                <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-cropper" title="PDF üzerinden otomatik soru kırpma"><i class="fa-solid fa-scissors"></i> Otomatik Kırpıcı</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fas fa-cut"></i> Soru Kırpma</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="soru-arsivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="deneme-analiz-karne"><i class="fa-solid fa-chart-line"></i> Analiz</button>
-              </nav>
-            </header>
-            <div class="tm-ai-wizard-shell">
-              <div id="tmAiGenOverlay" class="tm-ai-gen-overlay" hidden aria-hidden="true">
-                <div class="tm-ai-gen-overlay__card">
-                  <div class="tm-ai-gen-spinner" aria-hidden="true"></div>
-                  <p class="tm-ai-gen-overlay__title" id="tmAiGenOverlayTitle">Yapay Zeka havuzdan en uygun soruları seçiyor…</p>
-                  <p class="tm-ai-gen-overlay__sub" id="tmAiGenOverlaySub">Filtrelerinize uygun adaylar taranıyor</p>
-                </div>
-              </div>
-              <section class="tm-ai-wizard-card" aria-labelledby="tmAiWizardTitle">
-                <p class="tm-ai-wizard__kicker"><i class="fa-solid fa-robot"></i> Yapay Zeka Destekli Otomatik Soru Hazırlayıcı</p>
-                <h1 id="tmAiWizardTitle" class="tm-ai-wizard__title">Test parametrelerinizi seçin</h1>
-                <p class="tm-ai-wizard__lead">Üretim sonrası mevcut A4 tasarım ekranına geçilir; PDF ve şablon akışı aynen korunur.</p>
-                <form class="tm-ai-wizard-form" id="formAiTestGen" autocomplete="off">
-                  <label class="tm-ai-field">
-                    <span>Sınav tipi</span>
-                    <select id="aiExamType" required>
-                      <option value="TYT">TYT</option>
-                      <option value="AYT">AYT</option>
-                    </select>
-                  </label>
-                  <label class="tm-ai-field">
-                    <span>Ders</span>
-                    <select id="aiSubject" required></select>
-                  </label>
-                  <label class="tm-ai-field">
-                    <span>Konu</span>
-                    <select id="aiTopic" required></select>
-                  </label>
-                  <label class="tm-ai-field tm-ai-field--narrow">
-                    <span>Soru sayısı</span>
-                    <input type="number" id="aiQuestionCount" min="1" max="80" value="40" inputmode="numeric" required />
-                  </label>
-                  <label class="tm-ai-field">
-                    <span>Zorluk</span>
-                    <select id="aiDifficulty" required>
-                      <option value="Kolay">Kolay</option>
-                      <option value="Orta" selected>Orta</option>
-                      <option value="Zor">Zor</option>
-                      <option value="Karma">Karma</option>
-                    </select>
-                  </label>
-                  <div class="tm-ai-wizard__actions">
-                    <button type="submit" class="tm-ai-gen-btn" id="btnAiGenerateTest">
-                      <span class="tm-ai-gen-btn__glow" aria-hidden="true"></span>
-                      <i class="fa-solid fa-bolt"></i> Yapay Zeka ile Testi Üret
-                    </button>
-                  </div>
-                </form>
-              </section>
-            </div>
-          </div>
-        </div>
-
         <div class="main-view tm-workspace-view" data-view="auto-cropper" id="view-auto-cropper" hidden>
           <div class="tm-workspace tm-workspace--ai-wizard">
-            <header class="tm-workspace__header tm-workspace__header--ribbon">
+            <header class="tm-workspace__header">
               <div class="tm-workspace__header-row">
                 <button type="button" class="tm-back-dashboard" data-nav="dashboard" title="Ana panele dön">
                   <i class="fa-solid fa-arrow-left"></i> Panele dön
                 </button>
                 <span class="tm-workspace__brand"><i class="fa-solid fa-scissors"></i> Otomatik Soru Kırpıcı</span>
               </div>
-              <nav class="tm-word-ribbon" aria-label="Üst menü">
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
-                <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="auto-cropper"><i class="fa-solid fa-scissors"></i> Otomatik Kırpıcı</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fas fa-cut"></i> Soru Kırpma</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="soru-arsivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="deneme-analiz-karne"><i class="fa-solid fa-chart-line"></i> Analiz</button>
-              </nav>
-            </header>
+              </header>
             <div class="tw-important-root tm-auto-cropper-root">
               <div class="flex flex-col lg:flex-row gap-4 px-4 pt-3 pb-2 lg:px-6 lg:pt-4 lg:items-start">
                 <div class="flex flex-col gap-4 min-w-0 flex-1 order-1">
@@ -6398,95 +6139,15 @@
           </div>
         </div>
 
-        <div class="main-view tm-workspace-view" data-view="library" id="view-library" hidden>
-          <header class="tm-workspace__header tm-workspace__header--ribbon">
-            <div class="tm-workspace__header-row">
-              <button type="button" class="tm-back-dashboard" data-nav="dashboard" title="Ana panele dön">
-                <i class="fa-solid fa-arrow-left"></i> Panele dön
-              </button>
-              <span class="tm-workspace__brand"><i class="fa-solid fa-layer-group"></i> E-Kitap Kütüphanesi</span>
-            </div>
-            <nav class="tm-word-ribbon" aria-label="Üst menü">
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-cropper" title="PDF üzerinden otomatik soru kırpma"><i class="fa-solid fa-scissors"></i> Otomatik Kırpıcı</button>
-              <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fas fa-cut"></i> Soru Kırpma</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="soru-arsivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="deneme-analiz-karne"><i class="fa-solid fa-chart-line"></i> Analiz</button>
-            </nav>
-          </header>
-          <div class="tm-library-page">
-            <p class="tm-library-page__ribbon-hint">Appwrite taslaklarınız ve cihazınızdaki PDF / mizanpaj taslakları aşağıda. <strong>Düzenle</strong> — PDF için anotasyon editörü (canvas).</p>
-            <div class="tm-library-hero">
-              <h2 class="tm-library-hero__title">Hazır Testler <span class="tm-library-hero__tag">Kütüphane</span></h2>
-              <p class="tm-library-hero__desc">Kart görünümü — her öğede Düzenle veya Sil.</p>
-            </div>
-            <div id="tmTestsGrid" class="tm-tests-grid" aria-live="polite"></div>
-            <table class="visually-hidden" aria-hidden="true"><tbody id="testsTableBody"></tbody></table>
-            <section class="tm-local-pdf-zone">
-              <h3 class="tm-local-pdf-zone__title"><i class="fa-solid fa-hard-drive"></i> Yerel arşiv (IndexedDB)</h3>
-              <p class="tm-local-pdf-zone__hint">PDF: düzenleme canvas ile açılır · Mizanpaj: Test Tasarımı’nda yüklenir</p>
-              <ul class="tm-saved-pdf-library" id="tmSavedPdfLibrary"></ul>
-            </section>
-          </div>
-        </div>
-
-        <div class="main-view tm-workspace-view" data-view="pdf-editor" id="view-pdf-editor" hidden>
-          <header class="tm-workspace__header tm-workspace__header--ribbon">
-            <div class="tm-workspace__header-row">
-              <button type="button" class="tm-back-dashboard" data-nav="dashboard" title="Ana panele dön">
-                <i class="fa-solid fa-arrow-left"></i> Panele dön
-              </button>
-              <span class="tm-workspace__brand"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</span>
-            </div>
-            <nav class="tm-word-ribbon" aria-label="Üst menü">
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-cropper" title="PDF üzerinden otomatik soru kırpma"><i class="fa-solid fa-scissors"></i> Otomatik Kırpıcı</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
-              <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fas fa-cut"></i> Soru Kırpma</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="soru-arsivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="deneme-analiz-karne"><i class="fa-solid fa-chart-line"></i> Analiz</button>
-            </nav>
-          </header>
-          <div class="tm-library-page">
-            <div class="tm-pdf-editor-hero tm-library-hero">
-              <h2 class="tm-library-hero__title">PDF arşivi <span class="tm-library-hero__tag">İşaretleme</span></h2>
-              <p class="tm-library-hero__desc">Kalem, silgi ve metin araçlarıyla not alın. Her kartta <strong>Düzenle</strong> ve <strong>Sil</strong> yer alır.</p>
-              <div class="tm-source-panel__lib-row" style="margin-top:0.75rem">
-                <button type="button" class="tm-lib-upload tm-lib-upload--inline" id="tmPdfEditorLibUploadBtn"><i class="fa-solid fa-plus"></i> PDF yükle</button>
-                <input type="file" id="tmPdfEditorLibFileInput" accept="application/pdf" hidden />
-              </div>
-            </div>
-            <ul class="tm-saved-pdf-library tm-saved-pdf-library--ebook" id="tmPdfEditorSavedList" aria-label="Yerel PDF kartları"></ul>
-          </div>
-        </div>
-
         <div class="main-view tm-workspace-view" data-view="pdf-cropper" id="view-pdf-cropper" hidden>
-          <header class="tm-workspace__header tm-workspace__header--ribbon">
+          <header class="tm-workspace__header">
             <div class="tm-workspace__header-row">
               <button type="button" class="tm-back-dashboard" data-nav="dashboard" title="Ana panele dön">
                 <i class="fa-solid fa-arrow-left"></i> Panele dön
               </button>
               <span class="tm-workspace__brand"><i class="fas fa-cut"></i> Soru Kırpma</span>
             </div>
-            <nav class="tm-word-ribbon" aria-label="Üst menü">
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-cropper" title="PDF üzerinden otomatik soru kırpma"><i class="fa-solid fa-scissors"></i> Otomatik Kırpıcı</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
-              <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="pdf-cropper"><i class="fas fa-cut"></i> Soru Kırpma</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="soru-arsivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="deneme-analiz-karne"><i class="fa-solid fa-chart-line"></i> Analiz</button>
-            </nav>
-          </header>
+            </header>
           <div class="tm-pdf-cropper-page">
             <header class="tm-pdf-cropper-hero">
               <div class="tm-pdf-cropper-hero__text">
@@ -6610,25 +6271,14 @@
         </div>
 
         <div class="main-view tm-workspace-view" data-view="soru-arsivi" id="view-soru-arsivi" hidden>
-          <header class="tm-workspace__header tm-workspace__header--ribbon">
+          <header class="tm-workspace__header">
             <div class="tm-workspace__header-row">
               <button type="button" class="tm-back-dashboard" data-nav="dashboard" title="Ana panele dön">
                 <i class="fa-solid fa-arrow-left"></i> Panele dön
               </button>
               <span class="tm-workspace__brand"><i class="fa-solid fa-book"></i> Soru Havuzu Arşivi</span>
             </div>
-            <nav class="tm-word-ribbon" aria-label="Üst menü">
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-cropper" title="PDF üzerinden otomatik soru kırpma"><i class="fa-solid fa-scissors"></i> Otomatik Kırpıcı</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane Yönetimi</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fas fa-cut"></i> Soru Kırpma</button>
-              <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="soru-arsivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
-              <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="deneme-analiz-karne"><i class="fa-solid fa-chart-line"></i> Analiz</button>
-            </nav>
-          </header>
+            </header>
           <div class="soru-arsivi-page">
             <form class="soru-arsivi-filters soru-arsivi-upload-panel" id="soruArsiviUploadForm" autocomplete="off" onsubmit="return false;">
               <div class="soru-arsivi-upload-head">
@@ -6757,372 +6407,6 @@
             </form>
             <p id="arsivPoolStat" class="soru-arsivi-pool-stat" aria-live="polite" hidden></p>
             <div id="havuz-galeri-grid" aria-live="polite"></div>
-          </div>
-        </div>
-
-        <div class="main-view tm-workspace-view" data-view="fasikul-uretici" id="fasikul-uretici-view" hidden>
-          <div class="tm-workspace tm-workspace--ai-wizard" style="min-height: 0; flex: 1; display: flex; flex-direction: column">
-            <header class="tm-workspace__header tm-workspace__header--ribbon">
-              <div class="tm-workspace__header-row">
-                <button type="button" class="tm-back-dashboard" data-nav="dashboard" title="Ana panele dön">
-                  <i class="fa-solid fa-arrow-left"></i> Panele dön
-                </button>
-                <span class="tm-workspace__brand"><i class="fa-solid fa-file-pdf"></i> Fasikül / Kitap Üretici</span>
-              </div>
-              <nav class="tm-word-ribbon" aria-label="TestMaker alt menü">
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="dashboard"><i class="fa-solid fa-house"></i> Giriş</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="testmaker"><i class="fa-solid fa-pen-ruler"></i> Test Tasarımı</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-test"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Üretici</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="auto-cropper"><i class="fa-solid fa-scissors"></i> Otomatik Kırpıcı</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="library"><i class="fa-solid fa-layer-group"></i> Kütüphane</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-editor"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</button>
-                <button type="button" class="tm-word-ribbon__tab is-active" data-tm-ribbon-nav="fasikul-uretici"><i class="fa-solid fa-file-pdf"></i> Fasikül Üretici</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="pdf-cropper"><i class="fas fa-cut"></i> Soru Kırpma</button>
-                <button type="button" class="tm-word-ribbon__tab" data-tm-ribbon-nav="soru-arsivi"><i class="fa-solid fa-book"></i> Soru Arşivi</button>
-              </nav>
-            </header>
-            <div class="tw-important-root" style="flex: 1; overflow: auto; padding: 0.75rem 1rem 1.5rem">
-              <div class="mx-auto max-w-7xl px-2 py-4 sm:px-4 lg:px-6">
-                <div class="grid gap-8 lg:grid-cols-2 lg:items-start lg:gap-10">
-                  <section class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xl shadow-slate-200/50 sm:p-8">
-                    <h2 class="text-lg font-bold text-slate-900">Kitapçık ayarları</h2>
-                    <p class="mt-1 text-sm text-slate-500">
-                      İçerik <strong class="text-slate-700">Google Gemini 1.5 Flash</strong> ile üretilir; PDF <strong class="text-slate-700">pdfmake</strong> ile dizilir. Tek tıkla indir.
-                    </p>
-                    <form id="fuForm" class="mt-6 space-y-5">
-                      <div class="rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50/90 to-white p-4">
-                        <div class="flex flex-wrap items-center justify-between gap-3">
-                          <div>
-                            <p class="text-sm font-bold text-slate-900">Akıllı üretim (öğrenciye özel)</p>
-                            <p class="text-xs text-slate-500">Açıkken seçilen öğrenci adı prompta eklenir (örnek liste).</p>
-                          </div>
-                          <label class="relative inline-flex cursor-pointer items-center">
-                            <input type="checkbox" id="fuSmartMode" name="smartMode" value="on" class="peer sr-only" />
-                            <span class="h-7 w-12 rounded-full bg-slate-200 transition peer-checked:bg-brand-600 peer-focus:ring-2 peer-focus:ring-brand-400"></span>
-                            <span class="absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow transition peer-checked:translate-x-5"></span>
-                          </label>
-                        </div>
-                        <div id="fuStudentWrap" class="mt-3 hidden">
-                          <label for="fuStudentId" class="text-sm font-semibold text-slate-700">Öğrenci</label>
-                          <select id="fuStudentId" name="studentId" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20">
-                            <option value="">— Seçin —</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div class="rounded-2xl border border-slate-200 bg-slate-50/50 p-1">
-                        <div class="flex gap-1 rounded-xl bg-slate-100/80 p-1" role="tablist">
-                          <button type="button" role="tab" id="fuTabBasic" data-fu-tab="basic" aria-selected="true" class="fu-tab-btn flex-1 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-600 transition">Temel ayarlar</button>
-                          <button type="button" role="tab" id="fuTabAdv" data-fu-tab="advanced" aria-selected="false" class="fu-tab-btn flex-1 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-600 transition">Gelişmiş ayarlar</button>
-                        </div>
-                        <div id="fuPanelBasic" data-fu-panel="basic" class="fu-tab-panel mt-4 space-y-5 px-1 pb-1 pt-2">
-                          <div class="grid gap-2">
-                            <label for="fuExamType" class="text-sm font-semibold text-slate-700">Sınav tipi</label>
-                            <select id="fuExamType" name="examType" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20">
-                              <option value="TYT">TYT</option>
-                              <option value="AYT">AYT</option>
-                              <option value="YDT">YDT (İngilizce)</option>
-                              <option value="TYT_AYT">TYT + AYT (birlikte)</option>
-                            </select>
-                            <p class="text-xs text-slate-500">Müfredat: <code class="rounded bg-slate-100 px-1">yks-mufredat.js</code></p>
-                          </div>
-                          <div class="grid gap-2">
-                            <label for="fuSubject" class="text-sm font-semibold text-slate-700">Ders</label>
-                            <select id="fuSubject" name="subject" required class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20">
-                              <option value="" disabled selected>Önce sınav tipini seçin</option>
-                            </select>
-                          </div>
-                          <div class="grid gap-2">
-                            <label for="fuTopic" class="text-sm font-semibold text-slate-700">Konu</label>
-                            <select id="fuTopic" name="topic" required class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20">
-                              <option value="" disabled selected>Önce ders seçin</option>
-                            </select>
-                          </div>
-                          <div class="grid gap-4 sm:grid-cols-2">
-                            <div class="grid gap-2">
-                              <label for="fuQuestionCount" class="text-sm font-semibold text-slate-700">Soru adedi</label>
-                              <input id="fuQuestionCount" name="questionCount" type="number" min="1" max="40" step="1" value="10" inputmode="numeric" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 tabular-nums outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20" />
-                              <p class="text-xs text-slate-500">1–40 arası</p>
-                            </div>
-                            <div class="grid gap-2">
-                              <label for="fuDifficulty" class="text-sm font-semibold text-slate-700">Zorluk</label>
-                              <select id="fuDifficulty" name="difficulty" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20">
-                                <option value="Kolay">Kolay</option>
-                                <option value="Orta">Orta</option>
-                                <option value="Zor">Zor</option>
-                                <option value="Karma">Karma</option>
-                              </select>
-                            </div>
-                          </div>
-                          <div class="rounded-xl border border-slate-200 bg-white p-4">
-                            <p class="text-sm font-bold text-slate-900">Konu anlatım yoğunluğu</p>
-                            <p class="mt-0.5 text-xs text-slate-500">Konu özeti uzunluğu ve detayı.</p>
-                            <div class="fu-seg mt-3 flex flex-col gap-1 rounded-xl border border-slate-200 p-1 sm:flex-row sm:gap-0">
-                              <label class="flex flex-1 cursor-pointer">
-                                <input type="radio" name="topicNarration" value="low" class="peer sr-only" />
-                                <span class="block w-full rounded-lg py-2.5 text-center text-sm text-slate-600 transition">Özet geç (Az)</span>
-                              </label>
-                              <label class="flex flex-1 cursor-pointer">
-                                <input type="radio" name="topicNarration" value="medium" class="peer sr-only" checked />
-                                <span class="block w-full rounded-lg py-2.5 text-center text-sm text-slate-600 transition">Standart (Orta)</span>
-                              </label>
-                              <label class="flex flex-1 cursor-pointer">
-                                <input type="radio" name="topicNarration" value="high" class="peer sr-only" />
-                                <span class="block w-full rounded-lg py-2.5 text-center text-sm text-slate-600 transition">Detaylı (Çok)</span>
-                              </label>
-                            </div>
-                          </div>
-                          <div class="rounded-xl border border-slate-200 bg-white p-4">
-                            <p class="text-sm font-bold text-slate-900">Soru tarzı</p>
-                            <p class="mt-0.5 text-xs text-slate-500">Yeni nesil: uzun metin, ÖSYM tipi.</p>
-                            <div class="fu-seg mt-3 flex rounded-xl border border-slate-200 p-1">
-                              <label class="flex flex-1 cursor-pointer">
-                                <input type="radio" name="questionStyle" value="classic" class="peer sr-only" checked />
-                                <span class="block w-full rounded-lg py-2.5 text-center text-sm text-slate-600 transition">Klasik</span>
-                              </label>
-                              <label class="flex flex-1 cursor-pointer">
-                                <input type="radio" name="questionStyle" value="newgen" class="peer sr-only" />
-                                <span class="block w-full rounded-lg py-2.5 text-center text-sm text-slate-600 transition">Yeni nesil (ÖSYM)</span>
-                              </label>
-                            </div>
-                          </div>
-                        </div>
-                        <div id="fuPanelAdvanced" data-fu-panel="advanced" class="fu-tab-panel mt-4 hidden space-y-4 px-1 pb-1 pt-2">
-                          <div class="rounded-xl border border-slate-200 bg-white p-4">
-                            <p class="text-sm font-bold text-slate-900">Kurumsal ayarlar</p>
-                            <p class="mt-1 text-xs text-slate-500">PDF alt bilgisi ve filigran.</p>
-                            <div class="mt-3 grid gap-3">
-                              <div class="grid gap-1.5">
-                                <label for="fuFooterText" class="text-xs font-semibold uppercase tracking-wide text-slate-600">Sayfa alt bilgisi (footer)</label>
-                                <input id="fuFooterText" name="footerText" type="text" placeholder="Örn: Kurum adı veya öğrenci notu" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/20" />
-                              </div>
-                              <div class="grid gap-1.5">
-                                <label for="fuWatermarkText" class="text-xs font-semibold uppercase tracking-wide text-slate-600">Filigran (watermark)</label>
-                                <input id="fuWatermarkText" name="watermarkText" type="text" placeholder="Boş: DerecePanel" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/20" />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="pt-1">
-                        <button type="submit" id="fuSubmitBtn" class="group relative w-full overflow-hidden rounded-2xl bg-gradient-to-r from-brand-600 to-brand-700 px-6 py-4 text-sm font-bold text-white shadow-lg shadow-brand-500/30 transition hover:from-brand-500 hover:to-brand-600 disabled:cursor-not-allowed disabled:opacity-60">
-                          <span class="relative z-10 flex items-center justify-center gap-2">
-                            <i class="fa-solid fa-file-pdf" aria-hidden="true"></i>
-                            Kitapçığı üret
-                          </span>
-                        </button>
-                        <p id="fuStatus" class="mt-3 hidden text-center text-sm font-medium text-brand-700" role="status"></p>
-                      </div>
-                    </form>
-                  </section>
-                  <section class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xl shadow-slate-200/50 sm:p-8">
-                    <h2 class="text-lg font-bold text-slate-900">Kapak şablonu</h2>
-                    <p class="mt-1 text-sm text-slate-500">İlk PDF sayfası.</p>
-                    <fieldset class="mt-6">
-                      <legend class="sr-only">Kapak şablonu</legend>
-                      <div id="fuCoverGrid" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 lg:gap-4">
-                        <label class="fu-cover-card group relative cursor-pointer overflow-hidden rounded-xl border-2 border-transparent bg-slate-100 transition hover:border-brand-300">
-                          <input type="radio" name="coverId" value="1" class="peer sr-only" checked />
-                          <span class="block aspect-[3/4] bg-gradient-to-br from-violet-600 to-indigo-800 peer-checked:ring-2 peer-checked:ring-brand-500 peer-checked:ring-offset-2"></span>
-                          <span class="absolute bottom-2 left-2 right-2 rounded-lg bg-black/30 px-2 py-1 text-center text-xs font-bold text-white backdrop-blur-sm">Mor Gece</span>
-                        </label>
-                        <label class="fu-cover-card group relative cursor-pointer overflow-hidden rounded-xl border-2 border-transparent bg-slate-100 transition hover:border-brand-300">
-                          <input type="radio" name="coverId" value="2" class="peer sr-only" />
-                          <span class="block aspect-[3/4] bg-gradient-to-br from-emerald-500 to-teal-800 peer-checked:ring-2 peer-checked:ring-brand-500 peer-checked:ring-offset-2"></span>
-                          <span class="absolute bottom-2 left-2 right-2 rounded-lg bg-black/30 px-2 py-1 text-center text-xs font-bold text-white backdrop-blur-sm">Yeşil Okul</span>
-                        </label>
-                        <label class="fu-cover-card group relative cursor-pointer overflow-hidden rounded-xl border-2 border-transparent bg-slate-100 transition hover:border-brand-300">
-                          <input type="radio" name="coverId" value="3" class="peer sr-only" />
-                          <span class="block aspect-[3/4] bg-gradient-to-br from-amber-500 to-rose-700 peer-checked:ring-2 peer-checked:ring-brand-500 peer-checked:ring-offset-2"></span>
-                          <span class="absolute bottom-2 left-2 right-2 rounded-lg bg-black/30 px-2 py-1 text-center text-xs font-bold text-white backdrop-blur-sm">Gün Batımı</span>
-                        </label>
-                        <label class="fu-cover-card group relative cursor-pointer overflow-hidden rounded-xl border-2 border-transparent bg-slate-100 transition hover:border-brand-300">
-                          <input type="radio" name="coverId" value="4" class="peer sr-only" />
-                          <span class="block aspect-[3/4] bg-gradient-to-br from-slate-700 to-slate-900 peer-checked:ring-2 peer-checked:ring-brand-500 peer-checked:ring-offset-2"></span>
-                          <span class="absolute bottom-2 left-2 right-2 rounded-lg bg-black/30 px-2 py-1 text-center text-xs font-bold text-white backdrop-blur-sm">Minimal</span>
-                        </label>
-                        <label class="fu-cover-card group relative cursor-pointer overflow-hidden rounded-xl border-2 border-transparent bg-slate-100 transition hover:border-brand-300">
-                          <input type="radio" name="coverId" value="5" class="peer sr-only" />
-                          <span class="block aspect-[3/4] bg-gradient-to-br from-sky-500 to-blue-900 peer-checked:ring-2 peer-checked:ring-brand-500 peer-checked:ring-offset-2"></span>
-                          <span class="absolute bottom-2 left-2 right-2 rounded-lg bg-black/30 px-2 py-1 text-center text-xs font-bold text-white backdrop-blur-sm">Gökyüzü</span>
-                        </label>
-                      </div>
-                    </fieldset>
-                  </section>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="main-view tm-workspace-view" data-view="tarama-uretici" id="tarama-uretici-view" hidden>
-          <div class="tm-workspace tm-workspace--ai-wizard" style="min-height: 0; flex: 1; display: flex; flex-direction: column">
-            <header class="tm-workspace__header tm-workspace__header--ribbon">
-              <div class="tm-workspace__header-row">
-                <button type="button" class="tm-back-dashboard" data-nav="dashboard" title="Ana panele dön">
-                  <i class="fa-solid fa-arrow-left"></i> Panele dön
-                </button>
-                <span class="tm-workspace__brand"><i class="fa-solid fa-magnifying-glass-chart"></i> Tarama (Soru Arşivi)</span>
-              </div>
-            </header>
-            <div class="tw-important-root" style="flex: 1; overflow: auto; padding: 0.75rem 1rem 1.5rem">
-              <div class="mx-auto max-w-[1600px] px-2 py-3 sm:px-4">
-                <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-                  <p class="text-sm text-slate-600">
-                    Müfredat, soru tipi ipuçları ve AI sistem talimatları <code class="rounded bg-slate-100 px-1 text-xs">src/data/yks-taksonomi.js</code> üzerinden gelir. API anahtarı yalnızca sunucuda (<code class="rounded bg-slate-100 px-1 text-xs">GEMINI_API_KEY</code>) tutulur.
-                  </p>
-                  <span class="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-1 text-xs font-bold text-white shadow-md shadow-violet-500/25">
-                    <i class="fa-solid fa-bolt" aria-hidden="true"></i> Hibrit Zeka V4.1
-                  </span>
-                </div>
-                <div class="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
-                  <aside class="lg:col-span-3">
-                    <div class="sticky top-2 space-y-4 rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/80 p-4 shadow-lg shadow-slate-200/40">
-                      <h2 class="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-800">
-                        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-100 text-brand-700"><i class="fa-solid fa-filter"></i></span>
-                        Akıllı filtreler
-                      </h2>
-                      <div class="space-y-3">
-                        <div>
-                          <label for="tuDersSelect" class="text-xs font-semibold text-slate-600">Ders</label>
-                          <select id="tuDersSelect" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20">
-                            <option value="">— Ders seçin —</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label for="tuKonuSelect" class="text-xs font-semibold text-slate-600">Konu</label>
-                          <select id="tuKonuSelect" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20">
-                            <option value="">— Önce ders seçin —</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label for="tuKazanimSelect" class="text-xs font-semibold text-slate-600">Kazanım</label>
-                          <select id="tuKazanimSelect" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20">
-                            <option value="">— Konu seçin —</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label for="tuTaramaHedef" class="text-xs font-semibold text-slate-600">Tarama hedef soru sayısı</label>
-                          <input
-                            id="tuTaramaHedef"
-                            type="number"
-                            min="1"
-                            max="60"
-                            value="20"
-                            inputmode="numeric"
-                            class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 tabular-nums outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
-                          />
-                          <p class="mt-1 text-[11px] text-slate-500">“Eksikleri tamamla” bu hedefe göre çalışır.</p>
-                        </div>
-                      </div>
-                      <div class="border-t border-slate-200 pt-3">
-                        <p class="mb-2 text-xs font-bold text-slate-700">Soru tipi (derse özel)</p>
-                        <div id="tuSoruTipiList" class="max-h-56 space-y-1 overflow-y-auto pr-1"></div>
-                      </div>
-                    </div>
-                  </aside>
-                  <section class="lg:col-span-6">
-                    <div class="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xl shadow-slate-200/50 sm:p-5">
-                      <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-                        <h2 class="text-lg font-bold text-slate-900">Soru havuzu</h2>
-                        <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">Mock + AI üretimi</span>
-                      </div>
-                      <div id="tuHavuzGrid" class="grid gap-3 sm:grid-cols-1"></div>
-                    </div>
-                  </section>
-                  <aside class="lg:col-span-3">
-                    <div class="sticky top-2 flex flex-col rounded-2xl border border-slate-200/90 bg-white p-4 shadow-lg shadow-slate-200/40">
-                      <div class="mb-3 flex items-center justify-between">
-                        <h2 class="text-sm font-bold text-slate-900">Tarama sepeti</h2>
-                        <span id="tuSepetCount" class="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-bold text-brand-800">0</span>
-                      </div>
-                      <p id="tuSepetEmpty" class="mb-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-6 text-center text-xs text-slate-500">Sepet boş. Havuzdan soru ekleyin.</p>
-                      <div id="tuSepetList" class="mb-3 max-h-[min(40vh,320px)] space-y-2 overflow-y-auto pr-1"></div>
-                      <p id="tuAiStatus" class="mb-3 min-h-[1rem] text-xs text-slate-600" role="status" aria-live="polite"></p>
-                      <button
-                        type="button"
-                        id="tuAiFillBtn"
-                        class="mb-4 w-full rounded-xl border border-violet-200 bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-3 text-xs font-bold text-white shadow-md shadow-violet-500/25 transition hover:from-violet-500 hover:to-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <i class="fa-solid fa-wand-magic-sparkles mr-1.5" aria-hidden="true"></i>
-                        AI ile eksikleri tamamla
-                      </button>
-                      <p class="mb-4 text-[11px] leading-relaxed text-slate-500">
-                        Sepetteki ders/konu/tip dağılımına göre eksik adet kadar üretir; seçili soru tipi kutularına ve hedef sayıya uyar.
-                      </p>
-                      <div class="mt-auto space-y-3 border-t border-slate-100 pt-4">
-                        <div>
-                          <label for="tuSablonSelect" class="text-xs font-semibold text-slate-600">Şablon</label>
-                          <select id="tuSablonSelect" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20">
-                            <option value="1">1 sütunlu</option>
-                            <option value="2">2 sütunlu</option>
-                          </select>
-                        </div>
-                        <button type="button" id="tuPdfBtn" class="w-full rounded-2xl bg-gradient-to-r from-slate-900 to-slate-800 px-4 py-4 text-sm font-bold text-white shadow-lg shadow-slate-900/25 transition hover:from-brand-600 hover:to-brand-700 hover:shadow-brand-500/30">
-                          <i class="fa-solid fa-file-pdf mr-2" aria-hidden="true"></i>
-                          PDF taramayı oluştur
-                        </button>
-                      </div>
-                    </div>
-                  </aside>
-                </div>
-              </div>
-              <div
-                id="tuAiOverlay"
-                class="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[1px]"
-                hidden
-                aria-hidden="true"
-              >
-                <div class="flex flex-col items-center gap-3 rounded-2xl border border-white/20 bg-white px-8 py-6 shadow-2xl">
-                  <div class="h-10 w-10 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600" aria-hidden="true"></div>
-                  <p class="text-sm font-semibold text-slate-800">Gemini ile üretiliyor…</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div id="viewPdfDuzenle" class="tm-annotate-view tm-annotate-view--overlay" hidden>
-          <header class="tm-annotate-topbar">
-            <span class="tm-annotate-topbar__title"><i class="fa-solid fa-file-pen"></i> PDF Düzenleyici</span>
-            <div class="tm-annotate-tools" role="toolbar" aria-label="Anotasyon araçları">
-              <button type="button" class="tm-annotate-tool is-active" data-tm-annot="draw" title="Kalem"><i class="fa-solid fa-pen"></i></button>
-              <button type="button" class="tm-annotate-tool" data-tm-annot="highlight" title="Fosforlu kalem"><i class="fa-solid fa-highlighter"></i></button>
-              <button type="button" class="tm-annotate-tool" data-tm-annot="text" title="Metin"><i class="fa-solid fa-font"></i></button>
-              <span class="tm-annotate-toolbar-sep" aria-hidden="true"></span>
-              <button type="button" class="tm-annotate-tool" data-tm-annot="rect" title="Dikdörtgen"><i class="fa-solid fa-square"></i></button>
-              <button type="button" class="tm-annotate-tool" data-tm-annot="circle" title="Daire / elips"><i class="fa-solid fa-circle"></i></button>
-              <button type="button" class="tm-annotate-tool" data-tm-annot="erase" title="Silgi"><i class="fa-solid fa-eraser"></i></button>
-              <span class="tm-annotate-toolbar-sep" aria-hidden="true"></span>
-              <button type="button" class="tm-annotate-tool" id="tmAnnotUndoTool" title="Geri al"><i class="fa-solid fa-rotate-left"></i></button>
-              <button type="button" class="tm-annotate-tool" id="tmAnnotRedoTool" title="İleri al"><i class="fa-solid fa-rotate-right"></i></button>
-              <span class="tm-annotate-toolbar-sep" aria-hidden="true"></span>
-              <div class="tm-annotate-zoom" role="group" aria-label="Yakınlaştırma">
-                <button type="button" class="tm-annotate-tool" id="tmAnnotZoomOut" title="Uzaklaştır"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
-                <button type="button" class="tm-annotate-tool" id="tmAnnotZoomIn" title="Yakınlaştır"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
-              </div>
-            </div>
-            <div class="tm-annotate-topbar__actions">
-              <button type="button" class="tm-annotate-action" id="tmAnnotUndo"><i class="fa-solid fa-rotate-left"></i> Geri al</button>
-              <button type="button" class="tm-annotate-action" id="tmAnnotRedo"><i class="fa-solid fa-rotate-right"></i> İleri al</button>
-              <button type="button" class="tm-annotate-action tm-annotate-action--primary" id="tmEditorExportPdf"><i class="fa-solid fa-download"></i> Dışa Aktar</button>
-              <button type="button" class="tm-annotate-action" id="tmAnnotClose" data-tm-annot-close><i class="fa-solid fa-xmark"></i></button>
-            </div>
-          </header>
-          <div class="tm-annotate-body">
-            <div class="tm-annotate-stage">
-              <div class="tm-editor__canvas-wrap tm-editor__canvas-wrap--large" id="tmEditorCanvasWrap">
-                <canvas id="tmEditorBaseCanvas"></canvas>
-                <canvas id="tmEditorOverlayCanvas"></canvas>
-              </div>
-            </div>
-            <aside class="tm-annotate-sidebar">
-              <div class="tm-annotate-sidebar__head">
-                <h3 class="tm-annotate-sidebar__title">Sayfalar</h3>
-                <p class="tm-annotate-sidebar__hint">Önizleme · Oklarla sıra · Çöp ile kaldır</p>
-              </div>
-              <button type="button" class="tm-annotate-sidebtn" id="tmEditorClearCurrent"><i class="fa-solid fa-broom"></i> Sayfayı temizle</button>
-              <div class="tm-editor__thumbs" id="tmEditorThumbs"></div>
-            </aside>
           </div>
         </div>
 
@@ -9208,11 +8492,6 @@
           sh.hidden = true;
           sh.setAttribute("aria-hidden", "true");
         }
-        var ann = document.getElementById("viewPdfDuzenle");
-        if (ann) {
-          ann.hidden = true;
-          ann.setAttribute("hidden", "");
-        }
         var app = document.querySelector(".app");
         if (app) app.classList.remove("app--testmaker-workspace");
         document.querySelectorAll(".main-view").forEach(function (el) {
@@ -9263,8 +8542,6 @@
   <script src="https://code.jquery.com/jquery-3.7.1.min.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" crossorigin="anonymous" />
   <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js" crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js" crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js" crossorigin="anonymous"></script>
   <script type="module" src="../js/koc-panel.js"></script>
   <script type="module" src="../js/derece-board.js"></script>
 </body>

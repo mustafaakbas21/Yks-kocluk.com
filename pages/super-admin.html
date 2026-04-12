@@ -2131,10 +2131,22 @@
           autocomplete="off"
         />
         <div class="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between mb-6">
-          <button type="button" id="saGdBtnSync" class="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-600 px-6 py-4 text-base font-bold text-slate-950 shadow-lg shadow-teal-500/25 hover:from-teal-400 hover:to-cyan-500 transition min-h-[3.25rem]">
-            <span class="text-2xl leading-none" aria-hidden="true">🌐</span>
-            Verileri Çek
-          </button>
+          <div class="flex flex-wrap items-center gap-3">
+            <button type="button" id="saGdBtnSync" class="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-600 px-6 py-4 text-base font-bold text-slate-950 shadow-lg shadow-teal-500/25 hover:from-teal-400 hover:to-cyan-500 transition min-h-[3.25rem]">
+              <span class="text-2xl leading-none" aria-hidden="true">🌐</span>
+              Verileri Çek
+            </button>
+            <button
+              type="button"
+              id="saGdBtnBulkDelete"
+              disabled
+              class="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/40 bg-red-600/90 px-5 py-3 text-sm font-bold text-white shadow-md shadow-red-900/30 transition hover:bg-red-500 disabled:pointer-events-none disabled:opacity-35 min-h-[3.25rem]"
+              title="Yalnızca veritabanındaki seçili satırlar silinir"
+            >
+              <span id="saGdBulkDeleteIdle" class="inline-flex items-center gap-2"><i class="fa-solid fa-trash-can" aria-hidden="true"></i> Seçilenleri Sil</span>
+              <span id="saGdBulkDeleteBusy" class="hidden items-center gap-2" hidden><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Siliniyor…</span>
+            </button>
+          </div>
           <p id="saGdBusy" class="text-sm text-slate-400 hidden" aria-live="polite">İşleniyor…</p>
         </div>
         <p id="saGdErr" class="text-sm text-red-400 mb-4 hidden" role="alert"></p>
@@ -2146,11 +2158,13 @@
                 <th class="px-4 py-3">Yayın</th>
                 <th class="px-4 py-3">Sınav adı</th>
                 <th class="px-4 py-3 whitespace-nowrap">Tarih</th>
+                <th class="px-4 py-3 whitespace-nowrap">Tür</th>
+                <th class="px-4 py-3 text-center whitespace-nowrap w-[7rem]">İşlemler</th>
               </tr>
             </thead>
             <tbody id="saGdTableBody" class="divide-y divide-white/5 bg-slate-900/60">
               <tr>
-                <td colspan="4" class="px-4 py-6 text-center text-slate-500 text-sm">Önce takvimi senkronize edin.</td>
+                <td colspan="6" class="px-4 py-6 text-center text-slate-500 text-sm">Yükleniyor…</td>
               </tr>
             </tbody>
           </table>
@@ -2211,6 +2225,47 @@
   </main>
     </div>
   </div>
+  </div>
+
+  <!-- Global deneme — kayıt düzenleme (Appwrite global_denemeler) -->
+  <div id="saGdEditModal" class="sa-modal" hidden aria-modal="true" aria-labelledby="saGdEditModalTitle">
+    <div class="sa-modal__backdrop" data-sa-gd-edit-close aria-label="Kapat"></div>
+    <div class="sa-modal__panel" role="dialog" style="max-width: 520px">
+      <div class="sa-modal__head">
+        <h3 id="saGdEditModalTitle">Denemeyi düzenle</h3>
+        <button type="button" class="sa-modal__x" data-sa-gd-edit-close aria-label="Kapat">&times;</button>
+      </div>
+      <div class="sa-modal__body">
+        <input type="hidden" id="saGdEditDocId" value="" autocomplete="off" />
+        <div class="form-grid">
+          <div class="form-group form-group--full">
+            <label for="saGdEditAdi">Sınav adı</label>
+            <input id="saGdEditAdi" type="text" maxlength="500" autocomplete="off" />
+          </div>
+          <div class="form-group form-group--full">
+            <label for="saGdEditYayinevi">Yayınevi</label>
+            <input id="saGdEditYayinevi" type="text" maxlength="300" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="saGdEditTarih">Tarih</label>
+            <input id="saGdEditTarih" type="date" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="saGdEditTur">Tür</label>
+            <select id="saGdEditTur">
+              <option value="TYT">TYT</option>
+              <option value="AYT">AYT</option>
+              <option value="YKS">YKS</option>
+            </select>
+          </div>
+        </div>
+        <div id="saGdEditMsg" class="sa-modal__msg" hidden></div>
+      </div>
+      <div class="sa-modal__foot">
+        <button type="button" class="btn-ghost" data-sa-gd-edit-close>İptal</button>
+        <button type="button" class="btn-create" id="saGdEditSave">Kaydet</button>
+      </div>
+    </div>
   </div>
 
   <div id="saModalStudent" class="sa-modal" hidden aria-modal="true" aria-labelledby="saModalStudentTitle">

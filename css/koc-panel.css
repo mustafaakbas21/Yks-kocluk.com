@@ -8,19 +8,19 @@
   --border-subtle: #eef0f2;
   --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.05);
   --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.04);
-  /* Okyanus (ocean) — varsayılan kurumsal mavi ölçeği */
-  --purple-950: #082f49;
-  --purple-900: #0c4a6e;
-  --purple-800: #075985;
-  --purple-700: #0369a1;
-  --purple-600: #0284c7;
-  --purple-500: #0ea5e9;
-  --purple-400: #38bdf8;
-  --purple-300: #7dd3fc;
-  --purple-200: #bae6fd;
-  --purple-100: #e0f2fe;
-  --purple-50: #f0f9ff;
-  --accent-rgb: 2, 132, 199;
+  /* Sabit turuncu tema (eski “sunset” paleti) */
+  --purple-950: #431407;
+  --purple-900: #7c2d12;
+  --purple-800: #9a3412;
+  --purple-700: #c2410c;
+  --purple-600: #ea580c;
+  --purple-500: #f97316;
+  --purple-400: #fb923c;
+  --purple-300: #fdba74;
+  --purple-200: #fed7aa;
+  --purple-100: #ffedd5;
+  --purple-50: #fff7ed;
+  --accent-rgb: 234, 88, 12;
   --primary: var(--purple-600);
   --primary-light: var(--purple-500);
   --primary-dark: var(--purple-700);
@@ -41,6 +41,14 @@
   --sidebar-w: 260px;
   --panel-w: 300px;
   --font: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  /* dp-* köprüsü (premium light / geri bildirim bileşenleri) */
+  --dp-bg: var(--app-bg);
+  --dp-surface: var(--white);
+  --dp-border: var(--border-subtle);
+  --dp-text: var(--gray-900);
+  --dp-muted: var(--gray-500);
+  --dp-accent: var(--purple-600);
+  --dp-accent-dark: var(--purple-700);
 }
 
 *,
@@ -110,71 +118,6 @@ ul {
   padding: 0.5rem 0.5rem 1.5rem;
   border-bottom: 1px solid var(--border-subtle);
   margin-bottom: 1rem;
-}
-
-.sidebar__theme-swatches {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0 0.5rem 1rem;
-  margin: -0.35rem 0 0.85rem;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.sidebar__theme-swatch {
-  width: 1.65rem;
-  height: 1.65rem;
-  border-radius: 50%;
-  padding: 0;
-  border: 2px solid transparent;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
-  cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-  flex-shrink: 0;
-}
-
-.sidebar__theme-swatch:hover {
-  transform: scale(1.08);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
-}
-
-.sidebar__theme-swatch:focus-visible {
-  outline: 2px solid var(--purple-500);
-  outline-offset: 2px;
-}
-
-.sidebar__theme-swatch.is-active {
-  border-color: var(--gray-900);
-  box-shadow:
-    0 0 0 2px var(--white),
-    0 0 0 4px var(--purple-400),
-    0 2px 10px rgba(var(--accent-rgb), 0.35);
-}
-
-.sidebar__theme-swatch--ocean {
-  background: linear-gradient(145deg, #0ea5e9, #0369a1);
-}
-
-.sidebar__theme-swatch--dark {
-  background: linear-gradient(145deg, #22d3ee, #6366f1);
-}
-
-.sidebar__theme-swatch--emerald {
-  background: linear-gradient(145deg, #34d399, #059669);
-}
-
-.sidebar__theme-swatch--sunset {
-  background: linear-gradient(145deg, #fb923c, #ea580c);
-}
-
-[data-theme="dark"] .sidebar__theme-swatch.is-active {
-  border-color: var(--purple-300);
-  box-shadow:
-    0 0 0 2px var(--app-bg),
-    0 0 0 4px var(--purple-500),
-    0 2px 12px rgba(var(--accent-rgb), 0.45);
 }
 
 .sidebar__logo {

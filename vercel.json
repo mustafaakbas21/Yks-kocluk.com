@@ -32,8 +32,16 @@
     { "source": "/hedef-simulatoru.html", "destination": "/pages/hedef-simulatoru.html", "permanent": true },
     { "source": "/tercih-sihirbazi", "destination": "/pages/tercih-sihirbazi.html", "permanent": true },
     { "source": "/tercih-sihirbazi.html", "destination": "/pages/tercih-sihirbazi.html", "permanent": true },
-    { "source": "/fasikul-uretici", "destination": "/pages/fasikul-uretici.html", "permanent": true },
-    { "source": "/fasikul-uretici.html", "destination": "/pages/fasikul-uretici.html", "permanent": true },
+    { "source": "/fasikul-uretici", "destination": "/pages/fasikul-olusturucu.html", "permanent": true },
+    { "source": "/fasikul-uretici.html", "destination": "/pages/fasikul-olusturucu.html", "permanent": true },
+    { "source": "/fasikul-olusturucu", "destination": "/pages/fasikul-olusturucu.html", "permanent": true },
+    { "source": "/fasikul-olusturucu.html", "destination": "/pages/fasikul-olusturucu.html", "permanent": true },
+    { "source": "/fasikul-deposu", "destination": "/pages/fasikul-deposu.html", "permanent": true },
+    { "source": "/fasikul-deposu.html", "destination": "/pages/fasikul-deposu.html", "permanent": true },
+    { "source": "/tarama-olusturucu", "destination": "/pages/tarama-olusturucu.html", "permanent": true },
+    { "source": "/tarama-olusturucu.html", "destination": "/pages/tarama-olusturucu.html", "permanent": true },
+    { "source": "/tarama-deposu", "destination": "/pages/tarama-deposu.html", "permanent": true },
+    { "source": "/tarama-deposu.html", "destination": "/pages/tarama-deposu.html", "permanent": true },
     { "source": "/optik-okuma", "destination": "/pages/optik-okuma.html", "permanent": true },
     { "source": "/optik-okuma.html", "destination": "/pages/optik-okuma.html", "permanent": true }
   ]
