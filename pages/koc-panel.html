@@ -2432,9 +2432,8 @@
     .sd-fin-kpi__val { font-size: 1.25rem; font-weight: 800; color: #fff; margin-top: 0.25rem; }
     /* Deneme Analizi modülü — Global Takvim (grid düzeni Tailwind ile koc-panel.html içinde) */
     .dana-deneme-root { padding: 0 0 2rem; margin: 0 auto; }
-    .gdt-right-stack { display: flex; flex-direction: column; gap: 1.5rem; }
     @media (min-width: 1024px) {
-      .gdt-right-stack { position: sticky; top: 1rem; align-self: start; }
+      .gdt-right-stack { position: sticky; top: 5rem; align-self: start; z-index: 5; }
     }
     .gdt-filter-card .dana-takvim-tabs {
       margin-bottom: 0;
@@ -5325,28 +5324,39 @@
               </div>
             </div>
             <div class="tw-important-root grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8 max-w-[1480px] mx-auto">
-              <div class="flex flex-col gap-6 lg:col-span-8">
-                <div class="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm gdt-filter-card">
-                  <div class="dana-takvim-tabs" role="tablist" aria-label="Sınav türü filtresi">
-                    <button type="button" class="dana-takvim-tab" id="danaTabFilterTyt" data-dana-takvim-filter="TYT" role="tab" aria-selected="false">TYT</button>
-                    <button type="button" class="dana-takvim-tab" id="danaTabFilterAyt" data-dana-takvim-filter="AYT" role="tab" aria-selected="false">AYT</button>
-                    <button type="button" class="dana-takvim-tab is-active" id="danaTabFilterYks" data-dana-takvim-filter="YKS" role="tab" aria-selected="true">YKS (Tümü)</button>
+              <div class="flex flex-col gap-6 lg:col-span-8 min-w-0">
+                <div class="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-sm gdt-filter-card">
+                  <div class="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between">
+                    <div class="flex min-w-0 flex-1 flex-col gap-2">
+                      <span class="text-[11px] font-bold uppercase tracking-wide text-slate-500">Sınav türü</span>
+                      <div class="dana-takvim-tabs" role="tablist" aria-label="Sınav türü filtresi">
+                        <button type="button" class="dana-takvim-tab" id="danaTabFilterTyt" data-dana-takvim-filter="TYT" role="tab" aria-selected="false">TYT</button>
+                        <button type="button" class="dana-takvim-tab" id="danaTabFilterAyt" data-dana-takvim-filter="AYT" role="tab" aria-selected="false">AYT</button>
+                        <button type="button" class="dana-takvim-tab is-active" id="danaTabFilterYks" data-dana-takvim-filter="YKS" role="tab" aria-selected="true">YKS (Tümü)</button>
+                      </div>
+                    </div>
+                    <div class="flex w-full min-w-[200px] max-w-sm flex-col gap-1.5 lg:w-auto lg:max-w-[240px]">
+                      <label for="gdtMonthFilter" class="text-[11px] font-bold uppercase tracking-wide text-slate-500">Ay filtresi</label>
+                      <select id="gdtMonthFilter" class="gdt-select w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm ring-1 ring-slate-200/80 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30">
+                        <option value="">Tüm Aylar</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
-                <div class="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
-                  <div class="border-b border-slate-100 bg-slate-50/90 px-5 py-4">
+                <div class="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm flex flex-col max-h-[min(72vh,720px)]">
+                  <div class="border-b border-slate-100 bg-slate-50/90 px-5 py-4 shrink-0">
                     <h2 class="m-0 text-base font-extrabold tracking-tight text-slate-900">Merkezi sınav listesi</h2>
-                    <p class="mt-1 mb-0 text-xs font-medium text-slate-500">Tarihe göre sıralı (eskiden yeniye). Durum yerel takvim gününe göre güncellenir.</p>
+                    <p class="mt-1 mb-0 text-xs font-medium text-slate-500">Tarihe göre sıralı (eskiden yeniye). Tür ve ay ile süzülür; sayfa başına 10/20/50 kayıt.</p>
                   </div>
-                  <div class="overflow-x-auto">
+                  <div class="overflow-x-auto overflow-y-auto min-h-0 flex-1">
                     <table class="w-full min-w-[720px] text-left text-sm text-slate-700">
-                      <thead class="border-b border-slate-100 bg-white text-xs font-bold uppercase tracking-wide text-slate-500">
+                      <thead class="sticky top-0 z-[1] border-b border-slate-100 bg-slate-50/95 backdrop-blur text-xs font-bold uppercase tracking-wide text-slate-500">
                         <tr>
-                          <th class="px-5 py-4">Sınav adı</th>
-                          <th class="px-5 py-4">Yayınevi</th>
-                          <th class="px-5 py-4 whitespace-nowrap">Tarih</th>
-                          <th class="px-5 py-4 whitespace-nowrap">Tür</th>
-                          <th class="px-5 py-4 whitespace-nowrap">Durum</th>
+                          <th class="px-5 py-3">Sınav adı</th>
+                          <th class="px-5 py-3">Yayınevi</th>
+                          <th class="px-5 py-3 whitespace-nowrap">Tarih</th>
+                          <th class="px-5 py-3 whitespace-nowrap">Tür</th>
+                          <th class="px-5 py-3 whitespace-nowrap">Durum</th>
                         </tr>
                       </thead>
                       <tbody id="gdtMainTableBody" class="divide-y divide-slate-100 bg-white">
@@ -5356,24 +5366,47 @@
                       </tbody>
                     </table>
                   </div>
-                </div>
-              </div>
-              <div class="gdt-right-stack lg:col-span-4">
-                <div class="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm" aria-label="Aylık takvim">
-                  <div class="dana-cal dana-cal--v2" id="danaMonthlyCalRoot">
-                    <h3 class="dana-cal-v2-selected-title" id="danaCalSelectedDayTitle">Seçili gün: —</h3>
-                    <div class="dana-cal__head">
-                      <button type="button" class="dana-cal__nav" id="danaCalPrev" aria-label="Önceki ay"><i class="fa-solid fa-chevron-left"></i></button>
-                      <h3 class="dana-cal__title" id="danaCalTitle">—</h3>
-                      <button type="button" class="dana-cal__nav" id="danaCalNext" aria-label="Sonraki ay"><i class="fa-solid fa-chevron-right"></i></button>
+                  <div class="border-t border-slate-100 bg-slate-50/80 px-4 py-3 shrink-0">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-xs font-semibold text-slate-600">Sayfa başına göster:</span>
+                        <select id="gdtPageSize" class="gdt-select rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-slate-800 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30">
+                          <option value="10" selected>10</option>
+                          <option value="20">20</option>
+                          <option value="50">50</option>
+                        </select>
+                      </div>
+                      <div class="flex flex-wrap items-center justify-end gap-2">
+                        <button type="button" id="gdtPrevPage" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40" disabled aria-label="Önceki sayfa">
+                          <i class="fa-solid fa-chevron-left text-[10px]" aria-hidden="true"></i> Önceki
+                        </button>
+                        <span id="gdtPageInfo" class="min-w-[10rem] text-center text-xs font-semibold tabular-nums text-slate-600" aria-live="polite">—</span>
+                        <button type="button" id="gdtNextPage" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40" disabled aria-label="Sonraki sayfa">
+                          Sonraki <i class="fa-solid fa-chevron-right text-[10px]" aria-hidden="true"></i>
+                        </button>
+                      </div>
                     </div>
-                    <div class="dana-cal__dow" aria-hidden="true">
-                      <span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span>
-                    </div>
-                    <div class="dana-cal__grid dana-cal__grid--v2" id="danaCalGrid" role="grid" aria-label="Ay günleri"></div>
                   </div>
                 </div>
-                <div class="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm">
+              </div>
+              <div class="gdt-right-stack flex flex-col gap-4 lg:col-span-4 lg:self-start">
+                <div class="rounded-2xl border border-slate-200/90 bg-white p-3 shadow-sm" aria-label="Mini takvim" id="danaMonthlyCalRoot">
+                  <p class="mb-2 truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500" id="danaCalSelectedDayTitle">Seçili gün: —</p>
+                  <div class="mb-2 flex items-center justify-between gap-1">
+                    <button type="button" id="danaCalPrev" class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-purple-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500" aria-label="Önceki ay">
+                      <i class="fa-solid fa-chevron-left text-[11px]" aria-hidden="true"></i>
+                    </button>
+                    <h3 class="min-w-0 flex-1 truncate text-center text-xs font-extrabold text-slate-800" id="danaCalTitle">—</h3>
+                    <button type="button" id="danaCalNext" class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-purple-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500" aria-label="Sonraki ay">
+                      <i class="fa-solid fa-chevron-right text-[11px]" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                  <div class="mb-1 grid grid-cols-7 gap-0.5 text-center text-[9px] font-bold uppercase tracking-tight text-slate-400" aria-hidden="true">
+                    <span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span>
+                  </div>
+                  <div id="danaCalGrid" class="grid grid-cols-7 gap-0.5" role="grid" aria-label="Ay günleri"></div>
+                </div>
+                <div class="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm">
                   <h2 class="m-0 text-base font-extrabold tracking-tight text-slate-900">Yaklaşan denemeler</h2>
                   <p class="dana-takvim-upcoming-lead mt-2 mb-4 text-sm font-medium text-slate-500">Bugünden sonraki ilk 3 deneme (Exams)</p>
                   <div id="danaTakvimUpcomingSkeleton" class="dana-takvim-upcoming-skel" hidden aria-hidden="true">

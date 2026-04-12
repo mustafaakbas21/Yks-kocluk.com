@@ -32,6 +32,10 @@ var TR_MONTH_NAMES = [
 /** @type {{ id: string, adi: string, yayinevi: string, sinavTuru: string, tarihSaat: string }[]} */
 var allExams = [];
 var gdtFilter = "YKS";
+/** Tablo ay filtresi: "" = tüm aylar, aksi "YYYY-MM". */
+var gdtMonthKey = "";
+var gdtPageSize = 10;
+var gdtPageIndex = 0;
 var gdtViewY = new Date().getFullYear();
 var gdtViewM = new Date().getMonth();
 var gdtSelectedKey = "";
@@ -77,9 +81,86 @@ function gdtRowMatchesFilter(row) {
   return true;
 }
 
-/** Filtrelenmiş sınavlar — tablo ve takvim bu listeyi kullanır. */
+/** Filtrelenmiş sınavlar — takvim / yaklaşanlar (tür filtresi). */
 function gdtFiltered() {
   return allExams.filter(gdtRowMatchesFilter);
+}
+
+function gdtRowMatchesMonth(row) {
+  if (!gdtMonthKey) return true;
+  var k = gdtExamDateKey(row);
+  return k.length >= 7 && k.slice(0, 7) === gdtMonthKey;
+}
+
+/** Tablo: tür + ay; tarihe göre sıralı tam liste (sayfalama öncesi). */
+function gdtFilteredForTable() {
+  return gdtFiltered()
+    .filter(gdtRowMatchesMonth)
+    .slice()
+    .sort(gdtSortByDate);
+}
+
+function gdtBuildMonthOptions() {
+  var sel = document.getElementById("gdtMonthFilter");
+  if (!sel) return;
+  var prev = gdtMonthKey;
+  var seen = {};
+  for (var i = 0; i < allExams.length; i++) {
+    var k = gdtExamDateKey(allExams[i]);
+    if (k.length >= 7) seen[k.slice(0, 7)] = true;
+  }
+  var keys = Object.keys(seen).sort();
+  sel.innerHTML = "";
+  var optAll = document.createElement("option");
+  optAll.value = "";
+  optAll.textContent = "Tüm Aylar";
+  sel.appendChild(optAll);
+  for (var j = 0; j < keys.length; j++) {
+    var key = keys[j];
+    var y = parseInt(key.slice(0, 4), 10);
+    var m = parseInt(key.slice(5, 7), 10) - 1;
+    var opt = document.createElement("option");
+    opt.value = key;
+    opt.textContent = TR_MONTH_NAMES[m] + " " + y;
+    sel.appendChild(opt);
+  }
+  if (prev && seen[prev]) sel.value = prev;
+  else {
+    sel.value = "";
+    gdtMonthKey = "";
+  }
+}
+
+function gdtUpdatePaginationUi(total, pageCount) {
+  var info = document.getElementById("gdtPageInfo");
+  var prev = document.getElementById("gdtPrevPage");
+  var next = document.getElementById("gdtNextPage");
+  var ps = gdtPageSize;
+  if (info) {
+    if (total === 0) {
+      info.textContent = "0 kayıt";
+    } else {
+      var from = gdtPageIndex * ps + 1;
+      var to = Math.min((gdtPageIndex + 1) * ps, total);
+      info.textContent =
+        from + "–" + to + " / " + total + " · Sayfa " + (gdtPageIndex + 1) + "/" + pageCount;
+    }
+  }
+  if (prev) prev.disabled = gdtPageIndex <= 0 || total === 0;
+  if (next) next.disabled = gdtPageIndex >= pageCount - 1 || total === 0;
+}
+
+function gdtRefreshMainTable() {
+  var fullList = gdtFilteredForTable();
+  var total = fullList.length;
+  var pageCount = total === 0 ? 1 : Math.ceil(total / gdtPageSize);
+  if (gdtPageIndex >= pageCount) gdtPageIndex = Math.max(0, pageCount - 1);
+  var start = gdtPageIndex * gdtPageSize;
+  var pageRows = fullList.slice(start, start + gdtPageSize);
+  if (typeof window.renderGlobalDenemeTakvimDataTable === "function") {
+    window.renderGlobalDenemeTakvimDataTable(pageRows);
+  }
+  gdtUpdatePaginationUi(total, pageCount);
 }
 
 function gdtSortByDate(a, b) {
@@ -162,6 +243,11 @@ function gdtRenderUpcoming() {
   });
 }
 
+var GDT_MINI_GHOST =
+  "aspect-square min-h-[1.65rem] rounded p-0.5 opacity-0 pointer-events-none select-none";
+var GDT_MINI_BTN_BASE =
+  "relative flex aspect-square min-h-[1.65rem] flex-col items-center justify-center gap-0 rounded-md border border-transparent p-0.5 text-[11px] font-semibold leading-none text-slate-700 transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-0";
+
 function gdtRenderCalendar() {
   var grid = document.getElementById("danaCalGrid");
   var title = document.getElementById("danaCalTitle");
@@ -177,7 +263,7 @@ function gdtRenderCalendar() {
   var cellCount = 0;
   for (var p = 0; p < startPad; p++) {
     var ghost = document.createElement("div");
-    ghost.className = "dana-cal__cell dana-cal__cell--muted dana-cal__cell--empty";
+    ghost.className = GDT_MINI_GHOST;
     ghost.setAttribute("aria-hidden", "true");
     grid.appendChild(ghost);
     cellCount++;
@@ -187,26 +273,29 @@ function gdtRenderCalendar() {
     var key = gdtDayKey(gdtViewY, gdtViewM, d);
     var btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "dana-cal__cell dana-cal__cell--v2 dana-cal__cell--selectable";
-    if (key === gdtSelectedKey) btn.classList.add("dana-cal__cell--selected");
-    if (key === todayKey) btn.classList.add("dana-cal__cell--today");
+    btn.className = GDT_MINI_BTN_BASE;
+    if (key === gdtSelectedKey) {
+      btn.className +=
+        " border-violet-300 bg-violet-50 ring-2 ring-purple-500 ring-offset-0";
+    }
+    if (key === todayKey) btn.className += " bg-slate-100 font-bold text-slate-900";
     btn.setAttribute("data-gdt-day", key);
     var dots = "";
     var nDot = Math.min(exams.length, 3);
     for (var di = 0; di < nDot; di++) {
-      dots += '<span class="dana-cal-dot dana-cal-dot--gen" aria-hidden="true"></span>';
+      dots += '<span class="h-1 w-1 shrink-0 rounded-full bg-slate-400" aria-hidden="true"></span>';
     }
     btn.innerHTML =
-      '<span class="dana-cal__num">' +
+      '<span class="tabular-nums">' +
       d +
       "</span>" +
-      (dots ? '<div class="dana-cal-dots">' + dots + "</div>" : "");
+      (dots ? '<div class="flex h-2.5 w-full items-end justify-center gap-px">' + dots + "</div>" : "");
     grid.appendChild(btn);
     cellCount++;
   }
   while (cellCount % 7 !== 0) {
     var g2 = document.createElement("div");
-    g2.className = "dana-cal__cell dana-cal__cell--muted dana-cal__cell--empty";
+    g2.className = GDT_MINI_GHOST;
     g2.setAttribute("aria-hidden", "true");
     grid.appendChild(g2);
     cellCount++;
@@ -268,6 +357,7 @@ function gdtCloseAgenda() {
 
 function gdtSetFilter(f) {
   gdtFilter = f || "YKS";
+  gdtPageIndex = 0;
   document.querySelectorAll("[data-dana-takvim-filter]").forEach(function (b) {
     var on = b.getAttribute("data-dana-takvim-filter") === gdtFilter;
     b.classList.toggle("is-active", on);
@@ -276,9 +366,7 @@ function gdtSetFilter(f) {
   gdtRenderUpcoming();
   gdtRenderCalendar();
   if (gdtSelectedKey) gdtOpenAgendaForKey(gdtSelectedKey);
-  if (typeof window.renderGlobalDenemeTakvimDataTable === "function") {
-    window.renderGlobalDenemeTakvimDataTable(gdtFiltered());
-  }
+  gdtRefreshMainTable();
 }
 
 function gdtBindOnce() {
@@ -312,6 +400,41 @@ function gdtBindOnce() {
       if (f) gdtSetFilter(f);
     });
   });
+  var monthSel = document.getElementById("gdtMonthFilter");
+  if (monthSel) {
+    monthSel.addEventListener("change", function () {
+      gdtMonthKey = String(monthSel.value || "");
+      gdtPageIndex = 0;
+      gdtRefreshMainTable();
+    });
+  }
+  var pageSizeSel = document.getElementById("gdtPageSize");
+  if (pageSizeSel) {
+    pageSizeSel.addEventListener("change", function () {
+      var n = parseInt(String(pageSizeSel.value), 10);
+      gdtPageSize = n === 20 || n === 50 ? n : 10;
+      gdtPageIndex = 0;
+      gdtRefreshMainTable();
+    });
+  }
+  var prevPg = document.getElementById("gdtPrevPage");
+  var nextPg = document.getElementById("gdtNextPage");
+  if (prevPg) {
+    prevPg.addEventListener("click", function () {
+      if (gdtPageIndex <= 0) return;
+      gdtPageIndex--;
+      gdtRefreshMainTable();
+    });
+  }
+  if (nextPg) {
+    nextPg.addEventListener("click", function () {
+      var total = gdtFilteredForTable().length;
+      var pageCount = total === 0 ? 1 : Math.ceil(total / gdtPageSize);
+      if (gdtPageIndex >= pageCount - 1) return;
+      gdtPageIndex++;
+      gdtRefreshMainTable();
+    });
+  }
   var grid = document.getElementById("danaCalGrid");
   if (grid) {
     grid.addEventListener("click", function (ev) {
@@ -355,6 +478,13 @@ export async function initGlobalDenemeTakvimReadonly() {
       if (h) h.textContent = "Kurucu panelinden denemeler.net verisini içe aktarın.";
     }
   } else if (empty) empty.hidden = true;
+  gdtBuildMonthOptions();
+  var psEl = document.getElementById("gdtPageSize");
+  if (psEl) {
+    gdtPageSize = parseInt(String(psEl.value), 10);
+    if (gdtPageSize !== 20 && gdtPageSize !== 50) gdtPageSize = 10;
+  }
+  gdtPageIndex = 0;
   gdtSetFilter(gdtFilter);
 }
 
