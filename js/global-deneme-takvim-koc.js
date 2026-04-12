@@ -28,8 +28,9 @@ var TR_MONTH_NAMES = [
   "Aralık",
 ];
 
+/** Appwrite’dan gelen tam liste; filtreler bunun üzerinde çalışır. */
 /** @type {{ id: string, adi: string, yayinevi: string, sinavTuru: string, tarihSaat: string }[]} */
-var gdtRows = [];
+var allExams = [];
 var gdtFilter = "YKS";
 var gdtViewY = new Date().getFullYear();
 var gdtViewM = new Date().getMonth();
@@ -62,15 +63,23 @@ function gdtExamDateKey(row) {
 }
 
 function gdtRowMatchesFilter(row) {
-  var t = String(row.sinavTuru || "").toUpperCase();
   if (gdtFilter === "YKS") return true;
-  if (gdtFilter === "TYT") return t === "TYT" || t === "YKS";
-  if (gdtFilter === "AYT") return t === "AYT" || t === "YKS";
+  var t = String(row.sinavTuru || "").toUpperCase().trim();
+  var ad = String(row.adi || "").toUpperCase();
+  if (gdtFilter === "TYT") {
+    if (t === "AYT") return false;
+    return t === "TYT" || ad.includes("TYT");
+  }
+  if (gdtFilter === "AYT") {
+    if (t === "TYT") return false;
+    return t === "AYT" || ad.includes("AYT");
+  }
   return true;
 }
 
+/** Filtrelenmiş sınavlar — tablo ve takvim bu listeyi kullanır. */
 function gdtFiltered() {
-  return gdtRows.filter(gdtRowMatchesFilter);
+  return allExams.filter(gdtRowMatchesFilter);
 }
 
 function gdtSortByDate(a, b) {
@@ -87,10 +96,10 @@ async function gdtLoad() {
     queries: [Query.limit(2500)],
   });
   var docs = res.documents || [];
-  gdtRows = docs.map(gdtParseDoc).filter(function (r) {
+  allExams = docs.map(gdtParseDoc).filter(function (r) {
     return r.adi && gdtExamDateKey(r);
   });
-  gdtRows.sort(gdtSortByDate);
+  allExams.sort(gdtSortByDate);
 }
 
 function gdtExamsOnDay(y, m, day) {
@@ -225,7 +234,9 @@ function gdtOpenAgendaForKey(dayKey) {
   exams.sort(gdtSortByDate);
   if (!exams.length) {
     body.innerHTML =
-      '<p class="dana-agenda-empty" style="margin:0;color:#64748b;font-size:0.9rem">Bu gün için kayıtlı deneme yok.</p>';
+      '<div class="gdt-agenda-empty">' +
+      '<span class="gdt-agenda-empty__icon" aria-hidden="true"><i class="fa-regular fa-calendar-xmark"></i></span>' +
+      '<p class="gdt-agenda-empty__text">Bu gün için kayıtlı deneme yok.</p></div>';
   } else {
     body.innerHTML = exams
       .map(function (r) {

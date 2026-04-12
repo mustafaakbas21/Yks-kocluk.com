@@ -579,8 +579,7 @@ function applyZohoPendingChrome(detail) {
     document.body.setAttribute("data-zoho-mail-status", "pending");
     var nav = document.querySelector('[data-nav="gelen-kutusu"]');
     if (nav) {
-      var li = nav.closest("li");
-      if (li) li.classList.add("sidebar__sublink--zoho-pending");
+      nav.classList.add("sidebar__sublink--zoho-pending");
       nav.setAttribute(
         "title",
         detail ? String(detail).slice(0, 220) : "Zoho Mail API kurulumu bekleniyor."

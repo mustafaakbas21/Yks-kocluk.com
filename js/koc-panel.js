@@ -15,8 +15,6 @@ import {
   clampDy,
   yksMufredatDatasi,
 } from "./yks-mufredat.js";
-import { initFasikulUreticiModule } from "./fasikul-uretici.js";
-import { initTaramaUreticiModule } from "./tarama-uretici.js";
 import { initExamDefinitionProfessionalUI } from "./exam-definition-module.js";
 import { initOptikAdvancedBindings } from "./optik-advanced-module.js";
 import { findAtlasProgramById } from "./yok-atlas-data.js";
@@ -224,11 +222,6 @@ let kocPanelBootstrapped = false;
     if (sh) {
       sh.hidden = true;
       sh.setAttribute("aria-hidden", "true");
-    }
-    var ann = document.getElementById("viewPdfDuzenle");
-    if (ann) {
-      ann.hidden = true;
-      ann.setAttribute("hidden", "");
     }
   } catch (e) {}
 })();
@@ -500,17 +493,9 @@ let tmSat = 85;
 let tmVal = 42;
 let tmHeaderLogoDataUrl = "";
 let tmWsPdfBytes = null;
-let tmEditorPageOrder = [];
-let tmEditorCurrentIdx = 0;
-let tmEditorTool = "draw";
-let tmEditorDrawing = false;
-let tmEditorPdfScale = 1.45;
-let tmEditorShapeDraft = null;
-let tmEditorDirty = false;
-let tmEditorTempPoint = null;
-let tmEditorAnnotations = {};
-let tmEditorRedoStack = [];
-let tmAnnotReturnSubView = "testmaker";
+var tmEditorPageOrder = [];
+var tmEditorAnnotations = {};
+function tmEditorClearRedo() {}
 const TM_TEMPLATE_IDS = ["osym", "vip", "foy", "t01", "t02", "t03", "t04", "t05", "t06", "t07"];
 const TM_TEMPLATE_LEGACY_MAP = { t08: "t07", t09: "t07", t10: "t07" };
 function tmNormalizeTemplateMode(m) {
@@ -761,54 +746,16 @@ function tmRenderSavedPdfLibrary(items) {
   }
 }
 
-function tmAnnotatorOpen() {
-  var ann = document.getElementById("viewPdfDuzenle");
-  var lib = document.getElementById("view-library");
-  var cre = document.getElementById("tmViewCreator");
-  var headTest = document.querySelector("#tmWorkspaceRoot .tm-workspace__header");
-  var headLib = document.querySelector("#view-library .tm-workspace__header");
-  var headPdf = document.querySelector("#view-pdf-editor .tm-workspace__header");
-  var headAuto = document.querySelector("#view-auto-test .tm-workspace__header");
-  var headCrop = document.querySelector("#view-pdf-cropper .tm-workspace__header");
-  if (currentView === "library") tmAnnotReturnSubView = "library";
-  else if (currentView === "pdf-editor") tmAnnotReturnSubView = "pdf-editor";
-  else if (currentView === "auto-test") tmAnnotReturnSubView = "auto-test";
-  else if (currentView === "pdf-cropper") tmAnnotReturnSubView = "pdf-cropper";
-  else tmAnnotReturnSubView = "testmaker";
-  if (ann) ann.hidden = false;
-  document.body.classList.add("tm-annotate-open");
-  if (lib) lib.hidden = true;
-  if (cre) cre.hidden = true;
-  if (headTest) headTest.hidden = true;
-  if (headLib) headLib.hidden = true;
-  if (headPdf) headPdf.hidden = true;
-  if (headAuto) headAuto.hidden = true;
-  if (headCrop) headCrop.hidden = true;
-  tmAnnotToolSync();
-  tmEditorBindCanvas();
-}
+function tmAnnotatorOpen() {}
 
 function tmAnnotatorClose() {
-  var ann = document.getElementById("viewPdfDuzenle");
-  if (ann) ann.hidden = true;
-  document.body.classList.remove("tm-annotate-open");
-  var ret = tmAnnotReturnSubView;
-  if (ret === "library") navigateTo("library");
-  else if (ret === "pdf-editor") navigateTo("pdf-editor");
-  else if (ret === "auto-test") navigateTo("auto-test");
-  else if (ret === "pdf-cropper") navigateTo("pdf-cropper");
-  else navigateTo("testmaker");
+  try {
+    document.body.classList.remove("tm-annotate-open");
+  } catch (_e) {}
 }
 
-function testmakerSetSubView(mode) {
-  navigateTo(mode === "library" ? "library" : "testmaker");
-}
-
-function tmSyncRibbonActive(view) {
-  document.querySelectorAll("[data-tm-ribbon-nav]").forEach(function (btn) {
-    var v = btn.getAttribute("data-tm-ribbon-nav");
-    btn.classList.toggle("is-active", v === view);
-  });
+function testmakerSetSubView() {
+  navigateTo("testmaker");
 }
 
 /** TYT/AYT müfredat — `js/yks-mufredat.js` → yksMufredatDatasi */
@@ -817,7 +764,6 @@ try {
   window.yksMufredatDatasi = yksMufredatDatasi;
 } catch (e) {}
 
-var tmAiGenWizardBound = false;
 var tmAiAppendModalBound = false;
 
 /** Test tasarımı: havuz soruları — F5 sonrası geri yükleme (sessionStorage ile uyumlu) */
@@ -1503,167 +1449,6 @@ function initTmAiAppendModal() {
   });
 }
 
-function initAiTestGenWizard() {
-  if (tmAiGenWizardBound) return;
-  var form = document.getElementById("formAiTestGen");
-  var exam = document.getElementById("aiExamType");
-  var subj = document.getElementById("aiSubject");
-  var topic = document.getElementById("aiTopic");
-  if (!form || !exam || !subj || !topic) return;
-  tmAiGenWizardBound = true;
-
-  function fillSubjects() {
-    var key = exam.value || "TYT";
-    var data = yksAiCurriculum[key] || {};
-    subj.innerHTML = "";
-    Object.keys(data).forEach(function (name) {
-      var o = document.createElement("option");
-      o.value = name;
-      o.textContent = name;
-      subj.appendChild(o);
-    });
-    fillTopics();
-  }
-
-  function fillTopics() {
-    var key = exam.value || "TYT";
-    var course = subj.value;
-    var list = (yksAiCurriculum[key] && yksAiCurriculum[key][course]) || [];
-    topic.innerHTML = "";
-    list.forEach(function (t) {
-      var o = document.createElement("option");
-      o.value = t;
-      o.textContent = t;
-      topic.appendChild(o);
-    });
-  }
-
-  exam.addEventListener("change", fillSubjects);
-  subj.addEventListener("change", fillTopics);
-  fillSubjects();
-
-  var btnAi = document.getElementById("btnAiGenerateTest");
-
-  form.addEventListener("submit", async function (e) {
-    e.preventDefault();
-    if (btnAi && btnAi.disabled) return;
-    var n = parseInt(document.getElementById("aiQuestionCount") && document.getElementById("aiQuestionCount").value, 10);
-    if (isNaN(n)) n = 10;
-    n = Math.max(1, Math.min(80, n));
-    var diffEl = document.getElementById("aiDifficulty");
-    var payload = {
-      exam: exam.value,
-      subject: subj.value,
-      topic: topic.value,
-      count: n,
-      diff: diffEl ? diffEl.value : "Orta",
-    };
-    if (btnAi) btnAi.disabled = true;
-    if (tmAiGenNavigateTimer != null) {
-      clearTimeout(tmAiGenNavigateTimer);
-      tmAiGenNavigateTimer = null;
-    }
-    tmSetAiGenOverlayOpen(true);
-    tmStartAiOverlayRotation();
-
-    try {
-      await new Promise(function (resolve) {
-        window.setTimeout(resolve, 1500 + Math.floor(Math.random() * 501));
-      });
-    } catch (_d0) {}
-
-    var selectedQuestionIds = new Set();
-    var selectedNewQuestions = [];
-    var attempts = 0;
-    var maxAttempts = 2;
-    try {
-      while (selectedNewQuestions.length < n && attempts < maxAttempts) {
-        attempts++;
-        var remaining = n - selectedNewQuestions.length;
-        var fetchCount =
-          attempts === 1 ? Math.min(n + 8, 80) : Math.min(Math.max(remaining + 4, remaining), 80);
-
-        var payloadAttempt = Object.assign({}, payload, {
-          count: fetchCount,
-          excludeIds: Array.from(selectedQuestionIds),
-        });
-
-        var result = await fetchAIGeneratedQuestions(payloadAttempt);
-        var questions = result && result.questions ? result.questions : [];
-        if (!questions.length) break;
-
-        var incomingSeen = new Set();
-        for (var i = 0; i < questions.length; i++) {
-          var q = questions[i];
-          var qid = tmGetAiQuestionId(q);
-          if (qid) {
-            if (selectedQuestionIds.has(qid)) continue;
-            if (incomingSeen.has(qid)) continue;
-            incomingSeen.add(qid);
-            selectedQuestionIds.add(qid);
-          }
-          selectedNewQuestions.push(q);
-          if (selectedNewQuestions.length >= n) break;
-        }
-      }
-
-      tmStopAiOverlayRotation();
-      tmSetAiGenOverlayOpen(false);
-
-      if (!selectedNewQuestions.length) {
-        showToast("Belirtilen kriterlerde soru havuzunda soru bulunamadı.");
-        if (btnAi) btnAi.disabled = false;
-        return;
-      }
-
-      if (selectedNewQuestions.length < n) {
-        showToast("Havuzda yeterli benzersiz soru yok; sadece " + selectedNewQuestions.length + " adet eklendi.");
-      }
-
-      try {
-        sessionStorage.setItem("currentTestQuestions", JSON.stringify(selectedNewQuestions));
-        sessionStorage.setItem("currentTestAiPayload", JSON.stringify(payload));
-        localStorage.setItem(KOC_LS_CURRENT_TEST_QUESTIONS, JSON.stringify(selectedNewQuestions));
-        localStorage.setItem(KOC_LS_CURRENT_TEST_AI_PAYLOAD, JSON.stringify(payload));
-      } catch (se) {
-        console.warn("[ai-test] storage:", se);
-      }
-
-      try {
-        navigateTo("testmaker");
-        window.requestAnimationFrame(function () {
-          window.requestAnimationFrame(function () {
-            try {
-              tmApplyAiGenerationToTestmaker(payload, selectedNewQuestions);
-            } catch (eApply) {
-              console.error("[ai-test] tmApplyAiGenerationToTestmaker:", eApply);
-              try {
-                tmConsumeStoredAiTestDesign();
-              } catch (_e2) {}
-            }
-          });
-        });
-      } catch (eNav) {
-        console.error("[ai-test] navigate:", eNav);
-        try {
-          window.location.href = "/pages/test-tasarimi.html";
-        } catch (_e3) {}
-      }
-      if (btnAi) btnAi.disabled = false;
-    } catch (errFetch) {
-      tmStopAiOverlayRotation();
-      tmSetAiGenOverlayOpen(false);
-      console.error("fetchAIGeneratedQuestions:", errFetch);
-      showToast(
-        errFetch && errFetch.message
-          ? errFetch.message
-          : "Havuz soruları yüklenemedi. Oturum veya ağ bağlantısını kontrol edin."
-      );
-      if (btnAi) btnAi.disabled = false;
-    }
-  });
-}
-
 /** Hazır optik formu — OMR benzeri tek sayfa A4 (jsPDF vektör; PDF indirme aynı) */
 function tmDownloadOptikTemplatePdf() {
   if (!(window.jspdf && window.jspdf.jsPDF)) {
@@ -2026,9 +1811,9 @@ async function tmOpenFirestoreTestInAnnotator(testId) {
       }
     }
     var buf = doc.output("arraybuffer");
+    if (currentView !== "testmaker") navigateTo("testmaker");
     await tmWsLoadPdfFromBuffer(buf);
-    tmAnnotatorOpen();
-    showToast("Test PDF anotasyon editöründe açıldı.");
+    showToast("Test PDF Test Oluşturucu’da açıldı.");
   } catch (err) {
     console.error(err);
     showToast("Test PDF oluşturulamadı.");
@@ -2157,9 +1942,9 @@ function tmOpenPdfEditorFromLib(lid) {
       showToast("PDF bulunamadı.");
       return;
     }
+    if (currentView !== "testmaker") navigateTo("testmaker");
     tmWsLoadPdfFromBuffer(rec.buffer).then(function () {
-      tmAnnotatorOpen();
-      showToast("PDF anotasyon editöründe açıldı.");
+      showToast("PDF Test Oluşturucu’da açıldı.");
     });
   });
 }
@@ -3463,8 +3248,6 @@ let searchQuery = "";
 const navigateCallbacks = [];
 
 let currentView = "dashboard";
-/** AI Test Üretici: gezincede iptal / yedek zamanlayıcı (legacy) */
-let tmAiGenNavigateTimer = null;
 
 function dispatchGoCockpitRefresh() {
   try {
@@ -3472,45 +3255,62 @@ function dispatchGoCockpitRefresh() {
   } catch (e) {}
 }
 
-/** Görüşme Odası → AI Test Üretici: sınav/ders/konu ön dolumu */
+/** Görüşme Odası → Test Oluşturucu: ders/konu ön dolumu */
 function tmApplyGorusmeOdasiAiPrefill() {
   try {
     var raw = sessionStorage.getItem("gorusmeOdasiAiPrefill");
     if (!raw) return;
     sessionStorage.removeItem("gorusmeOdasiAiPrefill");
     var o = JSON.parse(raw);
-    var ex = document.getElementById("aiExamType");
-    var sub = document.getElementById("aiSubject");
-    var top = document.getElementById("aiTopic");
-    if (!ex || !sub || !top) return;
-    if (o.exam) ex.value = o.exam;
-    ex.dispatchEvent(new Event("change", { bubbles: true }));
-    window.setTimeout(function () {
-      if (o.subject) {
-        sub.value = o.subject;
-        sub.dispatchEvent(new Event("change", { bubbles: true }));
+    var courseEl = document.getElementById("tmWsCourse");
+    var topicEl = document.getElementById("tmWsTopic");
+    var titleEl = document.getElementById("tmWsTitle");
+    var subjEl = document.getElementById("tmWsSubject");
+    if (courseEl && o.subject) courseEl.value = String(o.subject);
+    if (topicEl && (o.topic != null || o.display != null)) {
+      topicEl.value = String(o.topic != null && o.topic !== "" ? o.topic : o.display || "");
+    }
+    if (titleEl && !String(titleEl.value || "").trim() && (o.display || o.topic)) {
+      var examPart = o.exam ? String(o.exam) + " — " : "";
+      titleEl.value = (examPart + (o.display || o.topic || "")).slice(0, 200);
+    }
+    if (subjEl && o.subject) {
+      var sv = String(o.subject).trim();
+      var opts = subjEl.options;
+      var found = false;
+      for (var i = 0; i < opts.length; i++) {
+        if (opts[i].value === sv || String(opts[i].textContent || "").trim() === sv) {
+          subjEl.selectedIndex = i;
+          found = true;
+          break;
+        }
       }
-      window.setTimeout(function () {
-        if (o.topic) {
-          top.value = o.topic;
-          top.dispatchEvent(new Event("change", { bubbles: true }));
+      if (!found) {
+        for (var j = 0; j < opts.length; j++) {
+          if (opts[j].value === "Diğer") {
+            subjEl.selectedIndex = j;
+            break;
+          }
         }
-        if (Array.isArray(o.allTopics) && o.allTopics.length > 1) {
-          try {
-            sessionStorage.setItem("gorusmeOdasiAiPrefillQueue", JSON.stringify(o.allTopics.slice(1)));
-          } catch (e2) {}
-          showToast(
-            "Kanayan " +
-              o.allTopics.length +
-              " konu için sırayla üretim: önce «" +
-              (o.display || o.topic || "") +
-              "» seçildi; diğerleri kuyrukta."
-          );
-        }
-      }, 50);
-    }, 50);
+      }
+    }
+    if (typeof tmSyncPaperHeaders === "function") tmSyncPaperHeaders();
+    if (Array.isArray(o.allTopics) && o.allTopics.length > 1) {
+      try {
+        sessionStorage.setItem("gorusmeOdasiAiPrefillQueue", JSON.stringify(o.allTopics.slice(1)));
+      } catch (e2) {}
+      showToast(
+        "Kanayan " +
+          o.allTopics.length +
+          " konu için sırayla: önce «" +
+          (o.display || o.topic || "") +
+          "» alanlara yazıldı; diğerleri kuyrukta."
+      );
+    } else {
+      showToast("Görüşme odasından ders/konu Test Oluşturucu’ya aktarıldı.");
+    }
   } catch (e) {
-    console.warn("[gorusme-odasi] AI prefill:", e);
+    console.warn("[gorusme-odasi] prefill:", e);
   }
 }
 
@@ -3632,13 +3432,47 @@ function sortGlobalExamRowsByDateAsc(rows) {
   return copy;
 }
 
+/** global_denemeler satırı için görünen tür: TYT / AYT / YKS (filtre mantığıyla uyumlu). */
+function deriveGlobalExamKindForRow(r) {
+  var t = String(r.sinavTuru || "").toUpperCase().trim();
+  var ad = String(r.adi || "").toUpperCase();
+  if (t === "TYT") return "TYT";
+  if (t === "AYT") return "AYT";
+  var hasT = ad.indexOf("TYT") !== -1;
+  var hasA = ad.indexOf("AYT") !== -1;
+  if (hasT && hasA) return "YKS";
+  if (hasA) return "AYT";
+  if (hasT) return "TYT";
+  return "YKS";
+}
+
+function globalExamTypePillHtml(kind) {
+  var cls =
+    kind === "TYT"
+      ? "bg-blue-100 text-blue-800"
+      : kind === "AYT"
+        ? "bg-orange-100 text-orange-800"
+        : "bg-purple-100 text-purple-800";
+  return (
+    '<span class="' +
+    cls +
+    ' inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap">' +
+    escapeHtml(kind) +
+    "</span>"
+  );
+}
+
 function renderGlobalDenemeTakvimDataTable(rows) {
   var tbody = document.getElementById("gdtMainTableBody");
   if (!tbody) return;
   var sorted = sortGlobalExamRowsByDateAsc(rows);
   if (!sorted.length) {
     tbody.innerHTML =
-      '<tr><td colspan="5" class="px-4 py-8 text-center text-sm text-slate-500">Bu filtre için kayıt yok.</td></tr>';
+      '<tr><td colspan="5" class="px-5 py-16 text-center">' +
+      '<div class="flex flex-col items-center justify-center gap-3">' +
+      '<span class="text-4xl text-gray-200" aria-hidden="true"><i class="fa-regular fa-file-lines"></i></span>' +
+      '<p class="m-0 text-sm font-medium text-gray-400">Merkezi takvimde kayıt yok</p>' +
+      "</div></td></tr>";
     return;
   }
   tbody.innerHTML = sorted
@@ -3649,21 +3483,28 @@ function renderGlobalDenemeTakvimDataTable(rows) {
         : escapeHtml(String(r.tarihSaat || "—").slice(0, 16));
       var status = examDay ? getGlobalExamCalendarStatus(examDay) : "past";
       var badge = globalExamStatusBadgeHtml(status);
+      var kind = deriveGlobalExamKindForRow(r);
+      var typePill = globalExamTypePillHtml(kind);
       return (
-        '<tr class="border-b border-violet-100/80 hover:bg-violet-50/60 transition-colors">' +
-        '<td class="px-4 py-3 text-sm font-semibold text-slate-800">' +
+        '<tr class="border-b border-slate-100/90 hover:bg-slate-50/80 transition-colors">' +
+        '<td class="px-5 py-4">' +
+        '<div class="flex flex-col gap-1.5 min-[480px]:flex-row min-[480px]:flex-wrap min-[480px]:items-start min-[480px]:gap-2">' +
+        '<span class="text-sm font-semibold text-slate-800 leading-snug">' +
         escapeHtml(r.adi || "—") +
-        "</td>" +
-        '<td class="px-4 py-3 text-sm text-slate-600">' +
+        "</span>" +
+        '<span class="shrink-0 min-[480px]:mt-0.5">' +
+        typePill +
+        "</span></div></td>" +
+        '<td class="px-5 py-4 text-sm text-slate-600">' +
         escapeHtml(r.yayinevi || "—") +
         "</td>" +
-        '<td class="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">' +
+        '<td class="px-5 py-4 text-sm text-slate-700 whitespace-nowrap">' +
         dateCell +
         "</td>" +
-        '<td class="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">' +
-        escapeHtml(r.sinavTuru || "YKS") +
+        '<td class="px-5 py-4 text-sm text-slate-600 whitespace-nowrap align-middle">' +
+        escapeHtml(kind) +
         "</td>" +
-        '<td class="px-4 py-3">' +
+        '<td class="px-5 py-4">' +
         badge +
         "</td></tr>"
       );
@@ -8547,11 +8388,6 @@ function closeAvatarGallerySheet() {
 function applySpaInitialShellState() {
   closeAvatarGallerySheet();
   document.body.classList.remove("tm-annotate-open");
-  var ann = document.getElementById("viewPdfDuzenle");
-  if (ann) {
-    ann.hidden = true;
-    ann.setAttribute("hidden", "");
-  }
   var app = document.querySelector(".app");
   if (app) app.classList.remove("app--testmaker-workspace");
   currentView = "dashboard";
@@ -12621,18 +12457,10 @@ function destroyTmWsCropper() {
 function testmakerWorkspaceLeave() {
   var app = document.querySelector(".app");
   if (app) app.classList.remove("app--testmaker-workspace");
-  var ann = document.getElementById("viewPdfDuzenle");
   var head = document.querySelector("#tmWorkspaceRoot .tm-workspace__header");
-  var headLib = document.querySelector("#view-library .tm-workspace__header");
-  var headPdf = document.querySelector("#view-pdf-editor .tm-workspace__header");
-  var headAuto = document.querySelector("#view-auto-test .tm-workspace__header");
   var headCrop = document.querySelector("#view-pdf-cropper .tm-workspace__header");
   document.body.classList.remove("tm-annotate-open");
-  if (ann) ann.hidden = true;
   if (head) head.hidden = false;
-  if (headLib) headLib.hidden = false;
-  if (headPdf) headPdf.hidden = false;
-  if (headAuto) headAuto.hidden = false;
   if (headCrop) headCrop.hidden = false;
   destroyTmWsCropper();
   tmWsPdfDoc = null;
@@ -13292,8 +13120,6 @@ function renderPDFPage(pageNum) {
   var total = tmWsPdfDoc.numPages || 1;
   var n = Math.max(1, Math.min(total, parseInt(pageNum, 10) || 1));
   tmWsCurrentPdfPage = n;
-  var orderIdx = tmEditorPageOrder.indexOf(n);
-  if (orderIdx >= 0) tmEditorCurrentIdx = orderIdx;
   var inp = document.getElementById("pdfPageInput");
   if (inp) inp.value = String(n);
   tmPdfNavUpdateDisabled();
@@ -13316,8 +13142,6 @@ function renderPDFPage(pageNum) {
       if (addBtn) addBtn.disabled = false;
       tmWsPdfRendering = false;
       tmPdfNavUpdateDisabled();
-      tmEditorRenderThumbs();
-      tmEditorRenderCurrentPage();
     })
     .catch(function (e) {
       console.error(e);
@@ -13326,329 +13150,6 @@ function renderPDFPage(pageNum) {
       tmPdfNavUpdateDisabled();
       showToast("PDF önizlemesi açılamadı.");
     });
-}
-
-function tmEditorGetPageState(pageNo) {
-  if (!tmEditorAnnotations[pageNo]) {
-    tmEditorAnnotations[pageNo] = { actions: [] };
-  }
-  return tmEditorAnnotations[pageNo];
-}
-
-function tmEditorGetCurrentPageNo() {
-  return tmEditorPageOrder[tmEditorCurrentIdx] || 1;
-}
-
-function tmAnnotToolSync() {
-  var b = document.querySelector("[data-tm-annot].is-active");
-  tmEditorTool = b ? b.getAttribute("data-tm-annot") || "draw" : "draw";
-}
-
-function tmEditorReplayActions(ctx, actions, scale) {
-  var s = scale == null ? 1 : scale;
-  ctx.save();
-  ctx.lineJoin = "round";
-  ctx.lineCap = "round";
-  actions.forEach(function (a) {
-    if (!a) return;
-    if (a.type === "text") {
-      ctx.save();
-      ctx.font = "600 18px Inter, system-ui, sans-serif";
-      ctx.fillStyle = "#0f172a";
-      ctx.fillText(String(a.text || ""), (a.x || 0) * s, (a.y || 0) * s);
-      ctx.restore();
-      return;
-    }
-    if (a.type === "rect") {
-      ctx.save();
-      ctx.strokeStyle = "#22d3ee";
-      ctx.lineWidth = 2.4 * s;
-      ctx.strokeRect((a.x || 0) * s, (a.y || 0) * s, (a.w || 0) * s, (a.h || 0) * s);
-      ctx.restore();
-      return;
-    }
-    if (a.type === "circle") {
-      ctx.save();
-      ctx.strokeStyle = "#22d3ee";
-      ctx.lineWidth = 2.4 * s;
-      ctx.beginPath();
-      ctx.ellipse(
-        (a.cx || 0) * s,
-        (a.cy || 0) * s,
-        Math.max((a.rx || 0) * s, 0.5),
-        Math.max((a.ry || 0) * s, 0.5),
-        0,
-        0,
-        Math.PI * 2
-      );
-      ctx.stroke();
-      ctx.restore();
-      return;
-    }
-    var pts = a.points;
-    if (!pts || pts.length < 2) return;
-    ctx.beginPath();
-    ctx.moveTo(pts[0].x * s, pts[0].y * s);
-    for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x * s, pts[i].y * s);
-    if (a.type === "erase") {
-      ctx.save();
-      ctx.globalCompositeOperation = "destination-out";
-      ctx.strokeStyle = "rgba(0,0,0,1)";
-      ctx.lineWidth = 22 * s;
-      ctx.stroke();
-      ctx.restore();
-    } else if (a.type === "hi") {
-      ctx.strokeStyle = "rgba(253, 224, 71, 0.55)";
-      ctx.lineWidth = 14 * s;
-      ctx.stroke();
-    } else {
-      ctx.strokeStyle = "#22d3ee";
-      ctx.lineWidth = 2.4 * s;
-      ctx.stroke();
-    }
-  });
-  ctx.restore();
-}
-
-function tmEditorDrawOverlay() {
-  var canvas = document.getElementById("tmEditorOverlayCanvas");
-  if (!canvas) return;
-  var ctx = canvas.getContext("2d");
-  var pageNo = tmEditorGetCurrentPageNo();
-  var st = tmEditorGetPageState(pageNo);
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  tmEditorReplayActions(ctx, st.actions, 1);
-  if (tmEditorShapeDraft) {
-    var d = tmEditorShapeDraft;
-    ctx.save();
-    ctx.setLineDash([6, 4]);
-    ctx.strokeStyle = "rgba(34, 211, 238, 0.9)";
-    ctx.lineWidth = 2;
-    if (d.type === "rect") {
-      var rx = Math.min(d.x, d.x2);
-      var ry = Math.min(d.y, d.y2);
-      var rw = Math.abs(d.x2 - d.x);
-      var rh = Math.abs(d.y2 - d.y);
-      ctx.strokeRect(rx, ry, rw, rh);
-    } else if (d.type === "circle") {
-      var cx = (d.x + d.x2) / 2;
-      var cy = (d.y + d.y2) / 2;
-      var rxx = Math.abs(d.x2 - d.x) / 2;
-      var ryy = Math.abs(d.y2 - d.y) / 2;
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, Math.max(rxx, 2), Math.max(ryy, 2), 0, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-}
-
-function tmEditorClearRedo() {
-  tmEditorRedoStack = [];
-}
-
-function tmEditorUndoLast() {
-  if (!tmWsPdfDoc) return;
-  var st = tmEditorGetPageState(tmEditorGetCurrentPageNo());
-  if (st.actions && st.actions.length) {
-    var last = st.actions.pop();
-    if (last) tmEditorRedoStack.push(last);
-    tmEditorDirty = true;
-    tmEditorDrawOverlay();
-  }
-}
-
-function tmEditorRedoLast() {
-  if (!tmWsPdfDoc || !tmEditorRedoStack.length) return;
-  var st = tmEditorGetPageState(tmEditorGetCurrentPageNo());
-  st.actions.push(tmEditorRedoStack.pop());
-  tmEditorDirty = true;
-  tmEditorDrawOverlay();
-}
-
-function tmEditorCanvasPoint(ev, canvas) {
-  var r = canvas.getBoundingClientRect();
-  var x = ((ev.clientX - r.left) / Math.max(1, r.width)) * canvas.width;
-  var y = ((ev.clientY - r.top) / Math.max(1, r.height)) * canvas.height;
-  return { x: x, y: y };
-}
-
-function tmEditorBindCanvas() {
-  var ov = document.getElementById("tmEditorOverlayCanvas");
-  if (!ov || ov._tmBound) return;
-  ov._tmBound = true;
-  ov.addEventListener("pointerdown", function (ev) {
-    if (!tmWsPdfDoc) return;
-    tmAnnotToolSync();
-    var pageNo = tmEditorGetCurrentPageNo();
-    var st = tmEditorGetPageState(pageNo);
-    var p = tmEditorCanvasPoint(ev, ov);
-    if (tmEditorTool === "text") {
-      var txt = window.prompt("Metin girin:", "Not");
-      if (txt && String(txt).trim()) {
-        tmEditorClearRedo();
-        st.actions.push({ type: "text", x: p.x, y: p.y, text: String(txt).trim().slice(0, 280) });
-      }
-      tmEditorDirty = true;
-      tmEditorDrawOverlay();
-      return;
-    }
-    if (tmEditorTool === "rect" || tmEditorTool === "circle") {
-      tmEditorDrawing = true;
-      tmEditorClearRedo();
-      tmEditorShapeDraft = { type: tmEditorTool === "rect" ? "rect" : "circle", x: p.x, y: p.y, x2: p.x, y2: p.y };
-      tmEditorDrawOverlay();
-      return;
-    }
-    tmEditorDrawing = true;
-    var kind = tmEditorTool === "highlight" ? "hi" : tmEditorTool === "erase" ? "erase" : "draw";
-    tmEditorClearRedo();
-    st.actions.push({ type: kind, points: [p] });
-  });
-  ov.addEventListener("pointermove", function (ev) {
-    if (!tmWsPdfDoc) return;
-    if (tmEditorShapeDraft && tmEditorDrawing) {
-      var p = tmEditorCanvasPoint(ev, ov);
-      tmEditorShapeDraft.x2 = p.x;
-      tmEditorShapeDraft.y2 = p.y;
-      tmEditorDrawOverlay();
-      return;
-    }
-    if (!tmEditorDrawing) return;
-    var st = tmEditorGetPageState(tmEditorGetCurrentPageNo());
-    var cur = st.actions[st.actions.length - 1];
-    if (!cur || !cur.points) return;
-    var p2 = tmEditorCanvasPoint(ev, ov);
-    cur.points.push(p2);
-    tmEditorDrawOverlay();
-  });
-  ov.addEventListener("pointerup", function () {
-    if (!tmWsPdfDoc) return;
-    if (tmEditorShapeDraft && tmEditorDrawing) {
-      var st2 = tmEditorGetPageState(tmEditorGetCurrentPageNo());
-      var d = tmEditorShapeDraft;
-      tmEditorShapeDraft = null;
-      tmEditorDrawing = false;
-      var x0 = Math.min(d.x, d.x2);
-      var y0 = Math.min(d.y, d.y2);
-      var ww = Math.abs(d.x2 - d.x);
-      var hh = Math.abs(d.y2 - d.y);
-      if (ww >= 3 && hh >= 3) {
-        tmEditorClearRedo();
-        if (d.type === "rect") {
-          st2.actions.push({ type: "rect", x: x0, y: y0, w: ww, h: hh });
-        } else {
-          st2.actions.push({
-            type: "circle",
-            cx: (d.x + d.x2) / 2,
-            cy: (d.y + d.y2) / 2,
-            rx: ww / 2,
-            ry: hh / 2,
-          });
-        }
-        tmEditorDirty = true;
-      }
-      tmEditorDrawOverlay();
-      return;
-    }
-    if (!tmEditorDrawing) return;
-    tmEditorDrawing = false;
-    tmEditorTempPoint = null;
-    tmEditorDirty = true;
-    tmEditorDrawOverlay();
-  });
-}
-
-async function tmEditorRenderCurrentPage() {
-  if (!tmWsPdfDoc) return;
-  var pageNo = tmEditorGetCurrentPageNo();
-  var page = await tmWsPdfDoc.getPage(pageNo);
-  var vp = page.getViewport({ scale: tmEditorPdfScale });
-  var base = document.getElementById("tmEditorBaseCanvas");
-  var ov = document.getElementById("tmEditorOverlayCanvas");
-  if (!base || !ov) return;
-  base.width = vp.width;
-  base.height = vp.height;
-  ov.width = vp.width;
-  ov.height = vp.height;
-  await page.render({ canvasContext: base.getContext("2d"), viewport: vp }).promise;
-  tmEditorDrawOverlay();
-}
-
-async function tmEditorRenderThumbs() {
-  var host = document.getElementById("tmEditorThumbs");
-  if (!host) return;
-  host.innerHTML = "";
-  if (!tmWsPdfDoc || !tmEditorPageOrder.length) return;
-  for (var i = 0; i < tmEditorPageOrder.length; i++) {
-    var pno = tmEditorPageOrder[i];
-    var page = await tmWsPdfDoc.getPage(pno);
-    var vp = page.getViewport({ scale: 0.2 });
-    var c = document.createElement("canvas");
-    c.width = vp.width;
-    c.height = vp.height;
-    await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
-    var row = document.createElement("div");
-    row.className = "tm-editor-thumb" + (i === tmEditorCurrentIdx ? " is-active" : "");
-    row.setAttribute("data-idx", String(i));
-    row.innerHTML =
-      '<img alt="Sayfa önizleme" src="' +
-      c.toDataURL("image/jpeg", 0.72) +
-      '"><div class="tm-editor-thumb__title">Sayfa ' +
-      pno +
-      '</div><div class="tm-editor-thumb__actions"><button type="button" title="Yukarı" data-tm-thumb-up="' +
-      i +
-      '"><i class="fa-solid fa-arrow-up"></i></button><button type="button" title="Aşağı" data-tm-thumb-down="' +
-      i +
-      '"><i class="fa-solid fa-arrow-down"></i></button><button type="button" title="Sil" data-tm-thumb-del="' +
-      i +
-      '"><i class="fa-solid fa-trash"></i></button></div>';
-    host.appendChild(row);
-  }
-}
-
-function tmEditorInitFromPdf() {
-  if (!tmWsPdfDoc) return;
-  tmEditorPageOrder = [];
-  tmEditorAnnotations = {};
-  tmEditorClearRedo();
-  for (var i = 1; i <= (tmWsPdfDoc.numPages || 1); i++) tmEditorPageOrder.push(i);
-  tmEditorCurrentIdx = 0;
-  tmEditorRenderThumbs();
-  tmEditorRenderCurrentPage();
-}
-
-async function tmEditorExportPdf() {
-  if (!tmWsPdfDoc || !tmEditorPageOrder.length) {
-    showToast("Önce bir PDF yükleyin.");
-    return;
-  }
-  if (!(window.jspdf && window.jspdf.jsPDF)) {
-    showToast("PDF export kütüphanesi yüklenemedi.");
-    return;
-  }
-  var jsPDFCtor = window.jspdf.jsPDF;
-  var docOut = null;
-  for (var i = 0; i < tmEditorPageOrder.length; i++) {
-    var pno = tmEditorPageOrder[i];
-    var page = await tmWsPdfDoc.getPage(pno);
-    var vp = page.getViewport({ scale: 2 });
-    var c = document.createElement("canvas");
-    c.width = vp.width;
-    c.height = vp.height;
-    var ctx = c.getContext("2d");
-    await page.render({ canvasContext: ctx, viewport: vp }).promise;
-    var st = tmEditorGetPageState(pno);
-    tmEditorReplayActions(ctx, st.actions || [], 2 / tmEditorPdfScale);
-    var wmm = (c.width * 25.4) / 96;
-    var hmm = (c.height * 25.4) / 96;
-    if (!docOut) docOut = new jsPDFCtor({ orientation: wmm > hmm ? "landscape" : "portrait", unit: "mm", format: [wmm, hmm] });
-    else docOut.addPage([wmm, hmm], wmm > hmm ? "landscape" : "portrait");
-    docOut.addImage(c.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, wmm, hmm);
-  }
-  var fn = ((document.getElementById("tmWsTitle") || {}).value || "duzenlenmis_pdf").trim().replace(/[\\/:*?"<>|]/g, "-");
-  docOut.save((fn || "duzenlenmis_pdf") + "_v2.pdf");
-  showToast("Düzenlenmiş PDF indirildi.");
 }
 
 function tmWsLoadImageFile(file) {
@@ -13664,8 +13165,6 @@ function tmWsLoadImageFile(file) {
   tmEditorPageOrder = [];
   tmEditorAnnotations = {};
   tmEditorClearRedo();
-  var th = document.getElementById("tmEditorThumbs");
-  if (th) th.innerHTML = "";
   destroyTmWsCropper();
   tmWsManualCropBindOnce();
   tmWsCurrentPdfPage = 1;
@@ -13763,9 +13262,7 @@ function tmWsLoadPdfFromBuffer(buf) {
         pin.max = String(Math.max(1, doc.numPages));
         pin.value = "1";
       }
-      return renderPDFPage(1).then(function () {
-        tmEditorInitFromPdf();
-      });
+      return renderPDFPage(1);
         })
         .catch(function (e) {
           console.error(e);
@@ -16464,28 +15961,6 @@ function bindTestMakerWorkspace() {
       else pdfInp.value = String(tmWsCurrentPdfPage);
     });
   }
-  tmEditorBindCanvas();
-  document.querySelectorAll("[data-tm-tool]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      tmEditorTool = btn.getAttribute("data-tm-tool") || "draw";
-      document.querySelectorAll("[data-tm-tool]").forEach(function (b2) {
-        b2.classList.toggle("is-active", b2 === btn);
-      });
-    });
-  });
-  document.querySelectorAll("[data-tm-annot]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      document.querySelectorAll("[data-tm-annot]").forEach(function (b2) {
-        b2.classList.toggle("is-active", b2 === btn);
-      });
-      tmAnnotToolSync();
-    });
-  });
-  var annotClose = document.getElementById("tmAnnotClose");
-  if (annotClose)
-    annotClose.addEventListener("click", function () {
-      tmAnnotatorClose();
-    });
   var saveLib = document.getElementById("tmBtnSaveToLibrary");
   if (saveLib) saveLib.addEventListener("click", tmSaveLayoutToLocalLibrary);
   var railT = document.getElementById("tmRailBtnTemplate");
@@ -16558,87 +16033,6 @@ function bindTestMakerWorkspace() {
   }
   if (railTxt) railTxt.addEventListener("click", tmAddFreeTextBoxToA4);
   if (railOpt) railOpt.addEventListener("click", tmDownloadOptikTemplatePdf);
-  var undoBtn = document.getElementById("tmAnnotUndo");
-  if (undoBtn) undoBtn.addEventListener("click", tmEditorUndoLast);
-  var undoTool = document.getElementById("tmAnnotUndoTool");
-  if (undoTool) undoTool.addEventListener("click", tmEditorUndoLast);
-  var redoBtn = document.getElementById("tmAnnotRedo");
-  if (redoBtn) redoBtn.addEventListener("click", tmEditorRedoLast);
-  var redoTool = document.getElementById("tmAnnotRedoTool");
-  if (redoTool) redoTool.addEventListener("click", tmEditorRedoLast);
-  var zIn = document.getElementById("tmAnnotZoomIn");
-  var zOut = document.getElementById("tmAnnotZoomOut");
-  if (zIn)
-    zIn.addEventListener("click", function () {
-      tmEditorPdfScale = Math.min(2.35, Math.round((tmEditorPdfScale + 0.12) * 100) / 100);
-      tmEditorRenderCurrentPage();
-    });
-  if (zOut)
-    zOut.addEventListener("click", function () {
-      tmEditorPdfScale = Math.max(0.82, Math.round((tmEditorPdfScale - 0.12) * 100) / 100);
-      tmEditorRenderCurrentPage();
-    });
-  var thumbHost = document.getElementById("tmEditorThumbs");
-  if (thumbHost)
-    thumbHost.addEventListener("click", function (ev) {
-      var row = ev.target.closest && ev.target.closest(".tm-editor-thumb");
-      if (row && row.hasAttribute("data-idx")) {
-        tmEditorCurrentIdx = Math.max(0, Math.min(tmEditorPageOrder.length - 1, parseInt(row.getAttribute("data-idx"), 10) || 0));
-        tmEditorClearRedo();
-        tmEditorRenderThumbs();
-        tmEditorRenderCurrentPage();
-      }
-      var up = ev.target.closest && ev.target.closest("[data-tm-thumb-up]");
-      var down = ev.target.closest && ev.target.closest("[data-tm-thumb-down]");
-      var del = ev.target.closest && ev.target.closest("[data-tm-thumb-del]");
-      if (up) {
-        var ui = parseInt(up.getAttribute("data-tm-thumb-up"), 10);
-        if (ui > 0) {
-          var t = tmEditorPageOrder[ui - 1];
-          tmEditorPageOrder[ui - 1] = tmEditorPageOrder[ui];
-          tmEditorPageOrder[ui] = t;
-          tmEditorCurrentIdx = ui - 1;
-          tmEditorClearRedo();
-          tmEditorRenderThumbs();
-          tmEditorRenderCurrentPage();
-        }
-      } else if (down) {
-        var di = parseInt(down.getAttribute("data-tm-thumb-down"), 10);
-        if (di >= 0 && di < tmEditorPageOrder.length - 1) {
-          var t2 = tmEditorPageOrder[di + 1];
-          tmEditorPageOrder[di + 1] = tmEditorPageOrder[di];
-          tmEditorPageOrder[di] = t2;
-          tmEditorCurrentIdx = di + 1;
-          tmEditorClearRedo();
-          tmEditorRenderThumbs();
-          tmEditorRenderCurrentPage();
-        }
-      } else if (del) {
-        var ri = parseInt(del.getAttribute("data-tm-thumb-del"), 10);
-        if (tmEditorPageOrder.length <= 1) {
-          showToast("Son sayfa silinemez.");
-          return;
-        }
-        if (ri >= 0 && ri < tmEditorPageOrder.length) {
-          tmEditorPageOrder.splice(ri, 1);
-          if (tmEditorCurrentIdx >= tmEditorPageOrder.length) tmEditorCurrentIdx = tmEditorPageOrder.length - 1;
-          tmEditorClearRedo();
-          tmEditorRenderThumbs();
-          tmEditorRenderCurrentPage();
-        }
-      }
-    });
-  var clrBtn = document.getElementById("tmEditorClearCurrent");
-  if (clrBtn)
-    clrBtn.addEventListener("click", function () {
-      if (!tmWsPdfDoc) return;
-      var pageNo = tmEditorGetCurrentPageNo();
-      tmEditorAnnotations[pageNo] = { actions: [] };
-      tmEditorClearRedo();
-      tmEditorDrawOverlay();
-    });
-  var expBtn = document.getElementById("tmEditorExportPdf");
-  if (expBtn) expBtn.addEventListener("click", tmEditorExportPdf);
 
   var akRow = document.getElementById("tmWsAnswerKeyRow");
   if (akRow) {
@@ -16955,33 +16349,16 @@ function navigateTo(view) {
       destroyCoachInboxChatView();
     } catch (_ch) {}
   }
-  if (tmAiGenNavigateTimer != null && previous === "auto-test" && view !== "auto-test") {
-    clearTimeout(tmAiGenNavigateTimer);
-    tmAiGenNavigateTimer = null;
-    tmSetAiGenOverlayOpen(false);
-    var btnCancelAi = document.getElementById("btnAiGenerateTest");
-    if (btnCancelAi) btnCancelAi.disabled = false;
-  }
   var wasTm =
     previous === "testmaker" ||
-    previous === "library" ||
-    previous === "pdf-editor" ||
-    previous === "auto-test" ||
     previous === "auto-cropper" ||
     previous === "pdf-cropper" ||
-    previous === "soru-arsivi" ||
-    previous === "fasikul-uretici" ||
-    previous === "tarama-uretici";
+    previous === "soru-arsivi";
   var nowTm =
     view === "testmaker" ||
-    view === "library" ||
-    view === "pdf-editor" ||
-    view === "auto-test" ||
     view === "auto-cropper" ||
     view === "pdf-cropper" ||
-    view === "soru-arsivi" ||
-    view === "fasikul-uretici" ||
-    view === "tarama-uretici";
+    view === "soru-arsivi";
   if (wasTm && !nowTm) testmakerWorkspaceLeave();
   try {
   document.querySelectorAll(".main-view").forEach(function (el) {
@@ -17011,9 +16388,6 @@ function navigateTo(view) {
       (nv === "ogrenciler" && view === "ogrenci-detay") ||
       (nv === "testmaker" &&
         (view === "testmaker" ||
-          view === "library" ||
-          view === "pdf-editor" ||
-          view === "auto-test" ||
           view === "auto-cropper" ||
           view === "pdf-cropper" ||
           view === "soru-arsivi"));
@@ -17097,9 +16471,6 @@ function navigateTo(view) {
   if (tmLiNav && tmAccNav) {
     var inTmNav =
       view === "testmaker" ||
-      view === "library" ||
-      view === "pdf-editor" ||
-      view === "auto-test" ||
       view === "auto-cropper" ||
       view === "pdf-cropper" ||
       view === "soru-arsivi";
@@ -17107,30 +16478,16 @@ function navigateTo(view) {
     tmAccNav.setAttribute("aria-expanded", inTmNav ? "true" : "false");
     tmAccNav.classList.toggle("sidebar__link--active", inTmNav);
   }
-  var taramalarLiNav = document.querySelector(".sidebar__item--taramalar");
-  var taramalarAccNav = document.getElementById("sidebarTaramalarToggle");
-  if (taramalarLiNav && taramalarAccNav) {
-    var inTaramalarNav = view === "fasikul-uretici" || view === "tarama-uretici";
-    taramalarLiNav.classList.toggle("sidebar__item--taramalar-open", inTaramalarNav);
-    taramalarAccNav.setAttribute("aria-expanded", inTaramalarNav ? "true" : "false");
-    taramalarAccNav.classList.toggle("sidebar__link--active", inTaramalarNav);
-  }
   document.querySelectorAll("[data-tm-nav-action]").forEach(function (btn) {
     var a = btn.getAttribute("data-tm-nav-action");
     btn.classList.toggle(
       "is-active",
-      (a === "library" && view === "library") ||
-        (a === "creator" && view === "testmaker") ||
-        (a === "pdf-editor" && view === "pdf-editor") ||
-        (a === "auto-test" && view === "auto-test") ||
+      (a === "creator" && view === "testmaker") ||
         (a === "auto-cropper" && view === "auto-cropper") ||
         (a === "pdf-cropper" && view === "pdf-cropper") ||
-        (a === "soru-arsivi" && view === "soru-arsivi") ||
-        (a === "fasikul-uretici" && view === "fasikul-uretici") ||
-        (a === "tarama-uretici" && view === "tarama-uretici")
+        (a === "soru-arsivi" && view === "soru-arsivi")
     );
   });
-  tmSyncRibbonActive(view);
   var brand = document.querySelector(".sidebar__brand-btn");
   if (brand) brand.classList.toggle("sidebar__brand-btn--active", view === "dashboard");
   navigateCallbacks.forEach(function (fn) {
@@ -17218,49 +16575,22 @@ function navigateTo(view) {
   if (view === "kocluk-gorusmeleri") refreshKoclukGorusmeList();
   if (
     view === "testmaker" ||
-    view === "library" ||
-    view === "pdf-editor" ||
-    view === "auto-test" ||
     view === "auto-cropper" ||
     view === "pdf-cropper" ||
-    view === "soru-arsivi" ||
-    view === "fasikul-uretici" ||
-    view === "tarama-uretici"
+    view === "soru-arsivi"
   ) {
     testmakerWorkspaceEnter();
     renderTestsTable();
     tmLibraryRenderList();
   }
-  if (view === "fasikul-uretici") {
-    try {
-      initFasikulUreticiModule();
-    } catch (e) {
-      console.warn("[fasikul-uretici]", e);
-    }
-  }
-  if (view === "tarama-uretici") {
-    try {
-      initTaramaUreticiModule();
-    } catch (e) {
-      console.warn("[tarama-uretici]", e);
-    }
-  }
   if (view === "testmaker") {
     requestAnimationFrame(function () {
       try {
+        tmApplyGorusmeOdasiAiPrefill();
         tmConsumeStoredAiTestDesign();
         tmTryRehydrateQuestionsFromLocalStorage();
       } catch (e) {
-        console.error("[ai-test] consume:", e);
-      }
-    });
-  }
-  if (view === "auto-test") {
-    requestAnimationFrame(function () {
-      try {
-        tmApplyGorusmeOdasiAiPrefill();
-      } catch (e) {
-        console.error("[gorusme-odasi] prefill:", e);
+        console.error("[testmaker] init:", e);
       }
     });
   }
@@ -17351,14 +16681,9 @@ function displayTestmakerView(viewDomId) {
   }
   var map = {
     "view-testmaker": "testmaker",
-    "view-auto-test": "auto-test",
     "view-auto-cropper": "auto-cropper",
-    "view-library": "library",
-    "view-pdf-editor": "pdf-editor",
     "view-pdf-cropper": "pdf-cropper",
     "view-soru-arsivi": "soru-arsivi",
-    "fasikul-uretici-view": "fasikul-uretici",
-    "tarama-uretici-view": "tarama-uretici",
   };
   var route = map[viewDomId];
   if (route) {
@@ -18167,45 +17492,6 @@ function initTmAutoCropperModule() {
   tmAutoCropRenderGrid();
 }
 
-function initDereceThemePicker() {
-  var root = document.documentElement;
-  var storageKey = "derece_theme";
-  var valid = { ocean: true, dark: true, emerald: true, sunset: true };
-
-  function normalizeTheme(name) {
-    return name && valid[name] ? name : "ocean";
-  }
-
-  function applyTheme(name) {
-    var t = normalizeTheme(name);
-    root.setAttribute("data-theme", t);
-    try {
-      localStorage.setItem(storageKey, t);
-    } catch (e) {
-      /* ignore */
-    }
-    document.querySelectorAll(".sidebar__theme-swatch[data-theme]").forEach(function (el) {
-      var on = el.getAttribute("data-theme") === t;
-      el.classList.toggle("is-active", on);
-      el.setAttribute("aria-pressed", on ? "true" : "false");
-    });
-  }
-
-  var stored = null;
-  try {
-    stored = localStorage.getItem(storageKey);
-  } catch (e) {
-    /* ignore */
-  }
-  applyTheme(normalizeTheme(stored));
-
-  document.querySelectorAll(".sidebar__theme-swatch[data-theme]").forEach(function (el) {
-    el.addEventListener("click", function () {
-      applyTheme(el.getAttribute("data-theme"));
-    });
-  });
-}
-
 function initSidebar() {
   const sidebar = document.getElementById("sidebar");
   const overlay = document.getElementById("sidebarOverlay");
@@ -18252,35 +17538,7 @@ function closeSidebarAccordionsExcept(exceptLi) {
   });
 }
 
-/**
- * TestMaker alt menüsüne Fasikül sayfası linkini garanti eder (tek kaynak: koc-panel.html;
- * eski önbellek veya kısmi senkron için DOM’da yoksa enjekte edilir).
- */
-function ensureFasikulSidebarLink() {
-  var sub = document.getElementById("sidebarTaramalarSubmenu");
-  if (!sub) return;
-  if (sub.querySelector('[data-tm-nav-action="fasikul-uretici"]')) return;
-  var btn = document.createElement("button");
-  btn.type = "button";
-  btn.id = "sidebarLinkFasikulUretici";
-  btn.className = "sidebar__sublink";
-  btn.setAttribute("data-tm-nav-action", "fasikul-uretici");
-  btn.setAttribute("data-testmaker-view", "fasikul-uretici-view");
-  btn.title = "Matbaa v3 — Fasikül / kitapçık (panel içi)";
-  btn.innerHTML = '<i class="fa-solid fa-book-open"></i><span>Fasikül / Kitap Üretici</span>';
-  sub.appendChild(btn);
-}
-
 function initNavigation() {
-  ensureFasikulSidebarLink();
-
-  document.body.addEventListener("click", function (ev) {
-    var rib = ev.target.closest && ev.target.closest("[data-tm-ribbon-nav]");
-    if (!rib) return;
-    ev.preventDefault();
-    var m = rib.getAttribute("data-tm-ribbon-nav");
-    if (m) navigateTo(m);
-  });
   document.querySelectorAll("[data-nav]").forEach(function (el) {
     el.addEventListener("click", function () {
       navigateTo(el.getAttribute("data-nav"));
@@ -18299,19 +17557,13 @@ function initNavigation() {
         return;
       }
       var action = el.getAttribute("data-tm-nav-action");
-      if (action === "library") navigateTo("library");
-      else if (action === "pdf-editor") navigateTo("pdf-editor");
-      else if (action === "auto-test") navigateTo("auto-test");
-      else if (action === "auto-cropper") navigateTo("auto-cropper");
+      if (action === "auto-cropper") navigateTo("auto-cropper");
       else if (action === "pdf-cropper" || action === "ai-parser") navigateTo("pdf-cropper");
       else if (action === "soru-arsivi") navigateTo("soru-arsivi");
-      else if (action === "fasikul-uretici") navigateTo("fasikul-uretici");
-      else if (action === "tarama-uretici") navigateTo("tarama-uretici");
       else navigateTo("testmaker");
     });
   }
   bindSidebarTmNavClicks(document.getElementById("sidebarTmSubmenu"));
-  bindSidebarTmNavClicks(document.getElementById("sidebarTaramalarSubmenu"));
 
   /* Yan menü akordeonları: tek açık + aria-expanded */
   (function initSidebarAccordions() {
@@ -20644,11 +19896,9 @@ function bootstrapKocPanelAfterAuth() {
     APPWRITE_COLLECTION_MEETING_LOGS: APPWRITE_COLLECTION_MEETING_LOGS,
     APPWRITE_COLLECTION_EXAM_RESULTS: APPWRITE_COLLECTION_EXAM_RESULTS,
   });
-  initDereceThemePicker();
   initSidebar();
   initNavigation();
   initModals();
-  initAiTestGenWizard();
   initTmAiAppendModal();
   initAllButtons();
   initYksFeaturePages();

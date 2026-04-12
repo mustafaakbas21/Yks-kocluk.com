@@ -1839,6 +1839,9 @@ function saApplyRoute() {
 var saGdTakvimWired = false;
 /** @type {{ name: string, publisher: string, date: string, examType?: string }[]} */
 var saGdTakvimRows = [];
+/** Appwrite belgeleri ($id → ham doc) — düzenleme için önbellek */
+var saGdDocById = {};
+var saGdEditModalWired = false;
 
 function saGdNormKey(adi, dateIso) {
   return String(adi || "")
@@ -1869,11 +1872,163 @@ async function saGdLoadExistingKeys() {
   return set;
 }
 
+function saGdSortDocsByDateAsc(docs) {
+  var copy = (docs || []).slice();
+  copy.sort(function (a, b) {
+    var ta = a.tarihSaat != null ? String(a.tarihSaat) : "";
+    var tb = b.tarihSaat != null ? String(b.tarihSaat) : "";
+    if (ta !== tb) return ta < tb ? -1 : 1;
+    var na = a.adi != null ? String(a.adi) : "";
+    var nb = b.adi != null ? String(b.adi) : "";
+    return na.localeCompare(nb, "tr");
+  });
+  return copy;
+}
+
+function saGdUpdateBulkDeleteState() {
+  var tbody = document.getElementById("saGdTableBody");
+  var bulkBtn = document.getElementById("saGdBtnBulkDelete");
+  if (!tbody || !bulkBtn) return;
+  var n = tbody.querySelectorAll('input.sa-gd-row-cb[data-sa-gd-doc-id]:checked').length;
+  bulkBtn.disabled = n === 0;
+}
+
+function saGdSetBulkDeleteLoading(on) {
+  var bulkBtn = document.getElementById("saGdBtnBulkDelete");
+  var idle = document.getElementById("saGdBulkDeleteIdle");
+  var bsy = document.getElementById("saGdBulkDeleteBusy");
+  if (!bulkBtn) return;
+  if (idle) {
+    idle.classList.toggle("hidden", !!on);
+    idle.classList.toggle("inline-flex", !on);
+  }
+  if (bsy) {
+    bsy.hidden = !on;
+    bsy.classList.toggle("hidden", !on);
+    bsy.classList.toggle("inline-flex", !!on);
+  }
+  if (on) {
+    bulkBtn.disabled = true;
+  } else {
+    saGdUpdateBulkDeleteState();
+  }
+}
+
+async function saGdLoadDbTable() {
+  var tbody = document.getElementById("saGdTableBody");
+  if (!tbody) return;
+  saGdDocById = {};
+  tbody.innerHTML =
+    '<tr><td colspan="6" class="px-4 py-6 text-center text-slate-500 text-sm">Yükleniyor…</td></tr>';
+  try {
+    var res = await databasesListDocumentsOrSoft({
+      databaseId: APPWRITE_DATABASE_ID,
+      collectionId: APPWRITE_COLLECTION_GLOBAL_EXAMS,
+      queries: [Query.limit(5000)],
+    });
+    var docs = saGdSortDocsByDateAsc(res.documents || []);
+    docs.forEach(function (d) {
+      var id = d.$id != null ? d.$id : d.id;
+      if (id) saGdDocById[String(id)] = d;
+    });
+    if (!docs.length) {
+      tbody.innerHTML =
+        '<tr><td colspan="6" class="px-4 py-8 text-center"><div class="flex flex-col items-center gap-2 text-slate-500"><i class="fa-regular fa-folder-open text-2xl text-slate-600" aria-hidden="true"></i><span class="text-sm">Veritabanında henüz kayıt yok. «Verileri Çek» ile içe aktarın.</span></div></td></tr>';
+      saGdUpdateBulkDeleteState();
+      return;
+    }
+    tbody.innerHTML = docs
+      .map(function (d) {
+        var id = String(d.$id != null ? d.$id : d.id || "");
+        var adi = d.adi != null ? String(d.adi) : "";
+        var pub = d.yayinevi != null ? String(d.yayinevi) : "";
+        var ts = d.tarihSaat != null ? String(d.tarihSaat) : "";
+        var day = ts.length >= 10 ? ts.slice(0, 10) : "—";
+        var tur = d.sinavTuru != null ? String(d.sinavTuru).toUpperCase().slice(0, 16) : "YKS";
+        return (
+          '<tr class="border-b border-slate-100/80 hover:bg-slate-800/40" data-sa-gd-db-row="' +
+          escapeHtml(id) +
+          '">' +
+          '<td class="px-4 py-3 align-middle"><input type="checkbox" class="sa-gd-row-cb rounded border-slate-500 bg-slate-900 text-teal-400 focus:ring-teal-500" data-sa-gd-doc-id="' +
+          escapeHtml(id) +
+          '" /></td>' +
+          '<td class="px-4 py-3 text-sm text-slate-200">' +
+          escapeHtml(pub || "—") +
+          "</td>" +
+          '<td class="px-4 py-3 text-sm font-medium text-white">' +
+          escapeHtml(adi || "—") +
+          "</td>" +
+          '<td class="px-4 py-3 text-sm text-slate-300 whitespace-nowrap">' +
+          escapeHtml(day) +
+          "</td>" +
+          '<td class="px-4 py-3 text-sm text-slate-300 whitespace-nowrap">' +
+          escapeHtml(tur) +
+          "</td>" +
+          '<td class="px-4 py-3 text-center whitespace-nowrap">' +
+          '<div class="inline-flex items-center justify-center gap-1.5">' +
+          '<button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-500/35 bg-amber-500/15 text-amber-300 transition hover:bg-amber-500/25" data-sa-gd-edit="' +
+          escapeHtml(id) +
+          '" title="Düzenle" aria-label="Düzenle"><i class="fa-solid fa-pen text-sm"></i></button>' +
+          '<button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-500/35 bg-red-600/20 text-red-300 transition hover:bg-red-600/35" data-sa-gd-delete="' +
+          escapeHtml(id) +
+          '" title="Sil" aria-label="Sil"><i class="fa-solid fa-trash text-sm"></i></button>' +
+          "</div></td></tr>"
+        );
+      })
+      .join("");
+    saGdUpdateBulkDeleteState();
+  } catch (e) {
+    console.warn("[sa-gd-takvim] loadDb", e);
+    tbody.innerHTML =
+      '<tr><td colspan="6" class="px-4 py-6 text-center text-red-400 text-sm">Liste yüklenemedi: ' +
+      escapeHtml((e && e.message) || String(e)) +
+      "</td></tr>";
+  }
+}
+
+function saGdRenderScrapedTable(rows) {
+  saGdTakvimRows = rows || [];
+  var tbody = document.getElementById("saGdTableBody");
+  if (!tbody) return;
+  if (!saGdTakvimRows.length) {
+    tbody.innerHTML =
+      '<tr><td colspan="6" class="px-4 py-6 text-center text-slate-500 text-sm">Önce takvimi senkronize edin.</td></tr>';
+    saGdUpdateBulkDeleteState();
+    return;
+  }
+  tbody.innerHTML = saGdTakvimRows
+    .map(function (r, i) {
+      var tur = String(r.examType || "YKS").toUpperCase().slice(0, 16);
+      return (
+        "<tr class=\"border-b border-slate-100/80 hover:bg-slate-800/40\">" +
+        '<td class="px-4 py-3 align-middle"><input type="checkbox" class="sa-gd-row-cb rounded border-slate-500 bg-slate-900 text-teal-400 focus:ring-teal-500" data-sa-gd-i="' +
+        i +
+        '" checked /></td>' +
+        '<td class="px-4 py-3 text-sm text-slate-200">' +
+        escapeHtml(r.publisher || "—") +
+        "</td>" +
+        '<td class="px-4 py-3 text-sm font-medium text-white">' +
+        escapeHtml(r.name || "—") +
+        "</td>" +
+        '<td class="px-4 py-3 text-sm text-slate-300 whitespace-nowrap">' +
+        escapeHtml(r.date || "—") +
+        "</td>" +
+        '<td class="px-4 py-3 text-sm text-slate-400">' +
+        escapeHtml(tur) +
+        "</td>" +
+        '<td class="px-4 py-3 text-center text-xs text-slate-500">—</td></tr>'
+      );
+    })
+    .join("");
+  saGdUpdateBulkDeleteState();
+}
+
 function wireSaGlobalDenemeTakvimOnce() {
   if (saGdTakvimWired) return;
   saGdTakvimWired = true;
   var syncBtn = document.getElementById("saGdBtnSync");
   var saveBtn = document.getElementById("saGdBtnSave");
+  var bulkDelBtn = document.getElementById("saGdBtnBulkDelete");
   var tbody = document.getElementById("saGdTableBody");
   var errEl = document.getElementById("saGdErr");
   var busy = document.getElementById("saGdBusy");
@@ -1889,40 +2044,109 @@ function wireSaGlobalDenemeTakvimOnce() {
     errEl.textContent = msg;
   }
 
+  function saGdBulkDeleteLoadingActive() {
+    var b = document.getElementById("saGdBulkDeleteBusy");
+    return b && !b.hidden;
+  }
+
   function setBusy(on) {
     if (busy) busy.hidden = !on;
     if (syncBtn) syncBtn.disabled = !!on;
     if (saveBtn) saveBtn.disabled = !!on;
+    if (bulkDelBtn) {
+      if (on) bulkDelBtn.disabled = true;
+      else if (!saGdBulkDeleteLoadingActive()) saGdUpdateBulkDeleteState();
+    }
   }
 
-  function renderTable(rows) {
-    saGdTakvimRows = rows || [];
-    if (!tbody) return;
-    if (!saGdTakvimRows.length) {
-      tbody.innerHTML =
-        '<tr><td colspan="4" class="px-4 py-6 text-center text-slate-500 text-sm">Önce takvimi senkronize edin.</td></tr>';
-      return;
-    }
-    tbody.innerHTML = saGdTakvimRows
-      .map(function (r, i) {
-        return (
-          "<tr class=\"border-b border-slate-100/80 hover:bg-slate-800/40\">" +
-          '<td class="px-4 py-3"><input type="checkbox" class="sa-gd-row-cb rounded border-slate-500 bg-slate-900 text-teal-400 focus:ring-teal-500" data-sa-gd-i="' +
-          i +
-          '" checked /></td>' +
-          '<td class="px-4 py-3 text-sm text-slate-200">' +
-          escapeHtml(r.publisher || "—") +
-          "</td>" +
-          '<td class="px-4 py-3 text-sm font-medium text-white">' +
-          escapeHtml(r.name || "—") +
-          "</td>" +
-          '<td class="px-4 py-3 text-sm text-slate-300 whitespace-nowrap">' +
-          escapeHtml(r.date || "—") +
-          "</td>" +
-          "</tr>"
-        );
-      })
-      .join("");
+  if (tbody) {
+    tbody.addEventListener("change", function (ev) {
+      var t = ev.target;
+      if (t && t.matches && t.matches("input.sa-gd-row-cb")) saGdUpdateBulkDeleteState();
+    });
+    tbody.addEventListener("click", function (ev) {
+      var delBtn = ev.target.closest && ev.target.closest("[data-sa-gd-delete]");
+      if (delBtn && tbody.contains(delBtn)) {
+        ev.preventDefault();
+        var docId = delBtn.getAttribute("data-sa-gd-delete");
+        if (!docId) return;
+        if (!confirm("Bu kayıt kalıcı olarak silinsin mi?")) return;
+        void (async function () {
+          setBusy(true);
+          try {
+            var dr = await databasesDeleteDocumentOrSoft(
+              APPWRITE_DATABASE_ID,
+              APPWRITE_COLLECTION_GLOBAL_EXAMS,
+              docId
+            );
+            if (dr && dr.__softFail) {
+              saToast(false, "Silinemedi (izin veya ağ).");
+              return;
+            }
+            delete saGdDocById[docId];
+            saToast(true, "Kayıt silindi.");
+            await saGdLoadDbTable();
+          } catch (e) {
+            console.error(e);
+            saToast(false, (e && e.message) || String(e));
+          } finally {
+            setBusy(false);
+          }
+        })();
+        return;
+      }
+      var edBtn = ev.target.closest && ev.target.closest("[data-sa-gd-edit]");
+      if (edBtn && tbody.contains(edBtn)) {
+        ev.preventDefault();
+        var eid = edBtn.getAttribute("data-sa-gd-edit");
+        saGdOpenEditModal(eid);
+      }
+    });
+  }
+
+  if (bulkDelBtn) {
+    bulkDelBtn.addEventListener("click", function () {
+      if (!tbody) return;
+      var ids = [];
+      tbody.querySelectorAll("input.sa-gd-row-cb[data-sa-gd-doc-id]:checked").forEach(function (cb) {
+        var id = cb.getAttribute("data-sa-gd-doc-id");
+        if (id) ids.push(id);
+      });
+      if (!ids.length) {
+        saToast(false, "Silinecek satır seçin (veritabanı kayıtları).");
+        return;
+      }
+      if (!confirm("Seçili " + ids.length + " kayıt kalıcı olarak silinsin mi?")) return;
+      void (async function () {
+        saGdSetBulkDeleteLoading(true);
+        bulkDelBtn.disabled = true;
+        var ok = 0;
+        var soft = 0;
+        try {
+          for (var i = 0; i < ids.length; i++) {
+            var dr = await databasesDeleteDocumentOrSoft(
+              APPWRITE_DATABASE_ID,
+              APPWRITE_COLLECTION_GLOBAL_EXAMS,
+              ids[i]
+            );
+            if (dr && dr.__softFail) soft++;
+            else ok++;
+          }
+          if (soft && !ok) {
+            saToast(false, "Silme başarısız (izin veya ağ).");
+          } else {
+            saToast(true, ok + " kayıt silindi" + (soft ? " · " + soft + " atlandı" : "") + ".");
+            await saGdLoadDbTable();
+          }
+        } catch (e) {
+          console.error(e);
+          saToast(false, (e && e.message) || String(e));
+        } finally {
+          saGdSetBulkDeleteLoading(false);
+          saGdUpdateBulkDeleteState();
+        }
+      })();
+    });
   }
 
   if (syncBtn) {
@@ -1946,18 +2170,18 @@ function wireSaGlobalDenemeTakvimOnce() {
           var body = pack.body || {};
           if (!pack.ok || !body.ok) {
             setErr((body && body.error) || "Senkronizasyon başarısız.");
-            renderTable([]);
+            saGdRenderScrapedTable([]);
             return;
           }
           var exams = body.exams || [];
           var src = (body && body.source) || "";
           saToast(true, String(exams.length) + " kayıt çekildi" + (src ? " · " + src : "") + ".");
-          renderTable(exams);
+          saGdRenderScrapedTable(exams);
         })
         .catch(function (e) {
           console.error(e);
           setErr((e && e.message) || String(e));
-          renderTable([]);
+          saGdRenderScrapedTable([]);
         })
         .finally(function () {
           setBusy(false);
@@ -2025,12 +2249,113 @@ function wireSaGlobalDenemeTakvimOnce() {
           saToast(false, "Kayıt başarısız.");
         } else {
           saToast(true, saved + " kaydedildi · " + skipped + " zaten vardı" + (failed ? " · " + failed + " hata" : ""));
+          await saGdLoadDbTable();
         }
       })();
     });
   }
 
-  renderTable([]);
+  void saGdLoadDbTable();
+  saGdWireEditModalOnce();
+}
+
+function saGdOpenEditModal(docId) {
+  var modal = document.getElementById("saGdEditModal");
+  var d = saGdDocById[docId];
+  if (!modal || !d) {
+    saToast(false, "Kayıt bulunamadı.");
+    return;
+  }
+  var hid = document.getElementById("saGdEditDocId");
+  var adi = document.getElementById("saGdEditAdi");
+  var yay = document.getElementById("saGdEditYayinevi");
+  var dt = document.getElementById("saGdEditTarih");
+  var tur = document.getElementById("saGdEditTur");
+  var msg = document.getElementById("saGdEditMsg");
+  if (hid) hid.value = docId;
+  if (adi) adi.value = d.adi != null ? String(d.adi) : "";
+  if (yay) yay.value = d.yayinevi != null ? String(d.yayinevi) : "";
+  var ts = d.tarihSaat != null ? String(d.tarihSaat) : "";
+  if (dt) dt.value = ts.length >= 10 ? ts.slice(0, 10) : "";
+  var tv = (d.sinavTuru != null ? String(d.sinavTuru) : "YKS").toUpperCase();
+  if (tur) {
+    tur.value = ["TYT", "AYT", "YKS"].indexOf(tv) >= 0 ? tv : "YKS";
+  }
+  if (msg) {
+    msg.hidden = true;
+    msg.textContent = "";
+    msg.className = "sa-modal__msg";
+  }
+  modal.hidden = false;
+}
+
+function saGdCloseEditModal() {
+  var modal = document.getElementById("saGdEditModal");
+  if (modal) modal.hidden = true;
+}
+
+function saGdWireEditModalOnce() {
+  if (saGdEditModalWired) return;
+  saGdEditModalWired = true;
+  var modal = document.getElementById("saGdEditModal");
+  var saveBtn = document.getElementById("saGdEditSave");
+  if (modal) {
+    modal.querySelectorAll("[data-sa-gd-edit-close]").forEach(function (el) {
+      el.addEventListener("click", function (e) {
+        e.preventDefault();
+        saGdCloseEditModal();
+      });
+    });
+  }
+  if (saveBtn) {
+    saveBtn.addEventListener("click", function () {
+      void (async function () {
+        var docId = document.getElementById("saGdEditDocId") && document.getElementById("saGdEditDocId").value;
+        if (!docId) return;
+        var raw = saGdDocById[docId];
+        var adiEl = document.getElementById("saGdEditAdi");
+        var yayEl = document.getElementById("saGdEditYayinevi");
+        var dtEl = document.getElementById("saGdEditTarih");
+        var turEl = document.getElementById("saGdEditTur");
+        var msg = document.getElementById("saGdEditMsg");
+        var adi = adiEl ? String(adiEl.value || "").trim() : "";
+        var yay = yayEl ? String(yayEl.value || "").trim() : "";
+        var day = dtEl ? String(dtEl.value || "").trim() : "";
+        var tur = turEl ? String(turEl.value || "YKS").toUpperCase().slice(0, 16) : "YKS";
+        if (!adi || !yay || !day) {
+          if (msg) {
+            msg.hidden = false;
+            msg.textContent = "Sınav adı, yayınevi ve tarih zorunludur.";
+            msg.className = "sa-modal__msg is-err";
+          }
+          return;
+        }
+        var iso = day.slice(0, 10) + "T09:00:00.000+00:00";
+        saveBtn.disabled = true;
+        try {
+          var ur = await databasesUpdateDocumentOrSoft(APPWRITE_DATABASE_ID, APPWRITE_COLLECTION_GLOBAL_EXAMS, docId, {
+            adi: adi.slice(0, 500),
+            yayinevi: yay.slice(0, 300),
+            sinavTuru: tur,
+            tarihSaat: iso,
+            coach_id: raw && raw.coach_id != null ? String(raw.coach_id) : "",
+          });
+          if (ur && ur.__softFail) {
+            saToast(false, "Güncellenemedi (izin veya şema).");
+            return;
+          }
+          saGdCloseEditModal();
+          saToast(true, "Kayıt güncellendi.");
+          await saGdLoadDbTable();
+        } catch (e) {
+          console.error(e);
+          saToast(false, (e && e.message) || String(e));
+        } finally {
+          saveBtn.disabled = false;
+        }
+      })();
+    });
+  }
 }
 
 var saAdminsCache = [];

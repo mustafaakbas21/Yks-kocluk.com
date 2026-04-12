@@ -802,8 +802,8 @@ export function initGorusmeOdasiCockpit() {
     try {
       sessionStorage.setItem("gorusmeOdasiAiPrefill", JSON.stringify(payload));
     } catch (e) {}
-    panel.navigate("auto-test");
-    toast("TestMaker AI ekranına yönlendirildi; ilk zayıf konu seçildi.");
+    panel.navigate("testmaker");
+    toast("Test Oluşturucu’ya yönlendirildi; ilk zayıf konu alanlara yazıldı.");
   });
 
   panel.onNavigate(function (view) {
