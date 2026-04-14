@@ -243,10 +243,9 @@ function gdtRenderUpcoming() {
   });
 }
 
-var GDT_MINI_GHOST =
-  "aspect-square min-h-[1.65rem] rounded p-0.5 opacity-0 pointer-events-none select-none";
-var GDT_MINI_BTN_BASE =
-  "relative flex aspect-square min-h-[1.65rem] flex-col items-center justify-center gap-0 rounded-md border border-transparent p-0.5 text-[11px] font-semibold leading-none text-slate-700 transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-0";
+/** Figma tarzı date picker: turuncu tema, önceki/sonraki ay günleri soluk. */
+var GDT_CAL_OUT_DAY =
+  "flex h-8 w-8 select-none items-center justify-center rounded-lg text-sm font-medium text-gray-300 pointer-events-none tabular-nums";
 
 function gdtRenderCalendar() {
   var grid = document.getElementById("danaCalGrid");
@@ -254,50 +253,78 @@ function gdtRenderCalendar() {
   if (!grid || !title) return;
   title.textContent = TR_MONTH_NAMES[gdtViewM] + " " + gdtViewY;
   grid.innerHTML = "";
+
   var today = new Date();
   today.setHours(0, 0, 0, 0);
   var todayKey = gdtDayKey(today.getFullYear(), today.getMonth(), today.getDate());
-  var first = new Date(gdtViewY, gdtViewM, 1);
+
+  var y = gdtViewY;
+  var m = gdtViewM;
+  var first = new Date(y, m, 1);
   var startPad = (first.getDay() + 6) % 7;
-  var lastDay = new Date(gdtViewY, gdtViewM + 1, 0).getDate();
+  var lastDay = new Date(y, m + 1, 0).getDate();
+  var prevM = m === 0 ? 11 : m - 1;
+  var prevY = m === 0 ? y - 1 : y;
+  var daysInPrevMonth = new Date(prevY, prevM + 1, 0).getDate();
+
   var cellCount = 0;
-  for (var p = 0; p < startPad; p++) {
-    var ghost = document.createElement("div");
-    ghost.className = GDT_MINI_GHOST;
-    ghost.setAttribute("aria-hidden", "true");
-    grid.appendChild(ghost);
+  var p;
+  for (p = 0; p < startPad; p++) {
+    var leadDay = daysInPrevMonth - startPad + p + 1;
+    var outLead = document.createElement("div");
+    outLead.className = GDT_CAL_OUT_DAY;
+    outLead.textContent = String(leadDay);
+    outLead.setAttribute("aria-hidden", "true");
+    grid.appendChild(outLead);
     cellCount++;
   }
+
   for (var d = 1; d <= lastDay; d++) {
-    var exams = gdtExamsOnDay(gdtViewY, gdtViewM, d);
-    var key = gdtDayKey(gdtViewY, gdtViewM, d);
+    var key = gdtDayKey(y, m, d);
+    var exams = gdtExamsOnDay(y, m, d);
+    var hasExam = exams.length > 0;
+    var isSel = key === gdtSelectedKey;
+    var isToday = key === todayKey;
+
     var btn = document.createElement("button");
     btn.type = "button";
-    btn.className = GDT_MINI_BTN_BASE;
-    if (key === gdtSelectedKey) {
-      btn.className +=
-        " border-violet-300 bg-violet-50 ring-2 ring-purple-500 ring-offset-0";
-    }
-    if (key === todayKey) btn.className += " bg-slate-100 font-bold text-slate-900";
     btn.setAttribute("data-gdt-day", key);
-    var dots = "";
-    var nDot = Math.min(exams.length, 3);
-    for (var di = 0; di < nDot; di++) {
-      dots += '<span class="h-1 w-1 shrink-0 rounded-full bg-slate-400" aria-hidden="true"></span>';
+
+    var base =
+      "relative flex h-8 w-8 cursor-pointer flex-col items-center justify-center rounded-lg text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-0 tabular-nums ";
+    if (isSel) {
+      btn.className =
+        base +
+        "bg-orange-500 text-white shadow-md hover:bg-orange-600";
+    } else if (isToday) {
+      btn.className =
+        base + "bg-orange-100 text-orange-700 hover:bg-orange-200";
+    } else {
+      btn.className = base + "text-gray-800 hover:bg-gray-100";
     }
+
+    var dotClass = isSel ? "bg-white" : "bg-orange-400";
     btn.innerHTML =
-      '<span class="tabular-nums">' +
+      '<span class="leading-none">' +
       d +
       "</span>" +
-      (dots ? '<div class="flex h-2.5 w-full items-end justify-center gap-px">' + dots + "</div>" : "");
+      (hasExam
+        ? '<span class="' +
+          dotClass +
+          ' absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full opacity-95" aria-hidden="true"></span>'
+        : "");
     grid.appendChild(btn);
     cellCount++;
   }
+
+  var trail = 1;
   while (cellCount % 7 !== 0) {
-    var g2 = document.createElement("div");
-    g2.className = GDT_MINI_GHOST;
-    g2.setAttribute("aria-hidden", "true");
-    grid.appendChild(g2);
+    var outTrail = document.createElement("div");
+    outTrail.className = GDT_CAL_OUT_DAY;
+    outTrail.textContent = String(trail);
+    outTrail.setAttribute("aria-hidden", "true");
+    grid.appendChild(outTrail);
+    trail++;
     cellCount++;
   }
 }

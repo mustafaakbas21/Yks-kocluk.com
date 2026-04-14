@@ -22,8 +22,6 @@ function getInitialKocViewFromUrl() {
     if (h === "gorusme-odasi" || h === "view=gorusme-odasi") return "gorusme-odasi";
     var t = (p.get("tool") || "").trim();
     if (t === "net-sihirbazi" || t === "yks-puan" || t === "tercih-sihirbazi") return t;
-    var tm = (p.get("tmOpen") || "").trim();
-    if (tm === "testmaker") return "testmaker";
   } catch (e) {}
   return "";
 }

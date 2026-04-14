@@ -802,8 +802,12 @@ export function initGorusmeOdasiCockpit() {
     try {
       sessionStorage.setItem("gorusmeOdasiAiPrefill", JSON.stringify(payload));
     } catch (e) {}
-    panel.navigate("testmaker");
-    toast("Test Oluşturucu’ya yönlendirildi; ilk zayıf konu alanlara yazıldı.");
+    toast("Test Oluşturucu sayfasına yönlendiriliyor; ilk zayıf konu alanlara yazıldı.");
+    try {
+      window.location.assign("/pages/test-olusturucu.html");
+    } catch (e) {
+      window.location.href = "/pages/test-olusturucu.html";
+    }
   });
 
   panel.onNavigate(function (view) {

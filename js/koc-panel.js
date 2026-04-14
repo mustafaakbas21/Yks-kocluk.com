@@ -324,8 +324,6 @@ function getInitialKocViewFromUrl() {
     if (h === "gorusme-odasi" || h === "view=gorusme-odasi") return "gorusme-odasi";
     var t = (p.get("tool") || "").trim();
     if (t === "net-sihirbazi" || t === "yks-puan" || t === "tercih-sihirbazi") return t;
-    var tm = (p.get("tmOpen") || "").trim();
-    if (tm === "testmaker") return "testmaker";
   } catch (e) {}
   return "";
 }
@@ -4384,9 +4382,18 @@ function renderStudentDetailMuhasebeTab(studentId) {
   }
 }
 
-function buildStudentCardArticleHtml(s) {
+/** Öğrenci listesi satırı — sınava dair net / deneme özeti göstermez (yalnızca rehberlik alanı). */
+function studentListMetaLine(s) {
+  var grade = String((s && s.classGrade) || "").trim();
+  var track = String((s && (s.examGroup || s.track || s.paket)) || "").trim();
+  if (grade && track) return grade + " · " + track;
+  if (grade) return grade;
+  return track || "TYT + AYT";
+}
+
+function buildStudentListRowHtml(s) {
   var name = s.name || s.studentName || "Öğrenci";
-  var track = s.examGroup || s.track || s.paket || "TYT + AYT";
+  var meta = studentListMetaLine(s);
   var sid = escapeHtml(s.id);
   var rawAv = s.avatarUrl;
   var src =
@@ -4394,28 +4401,39 @@ function buildStudentCardArticleHtml(s) {
       ? String(rawAv).trim()
       : buildStudentAvatarUrl(name, s.gender);
   return (
-    '<article class="student-card" data-student-id="' +
+    '<article class="student-list-row" data-student-id="' +
     sid +
-    '">' +
-    '<img src="' +
+    '" role="listitem">' +
+    '<div class="student-list-row__main">' +
+    '<img class="student-list-row__avatar" src="' +
     escapeHtml(src) +
-    '" alt="" width="80" height="80" loading="lazy" />' +
-    "<h3>" +
+    '" alt="" width="44" height="44" loading="lazy" />' +
+    '<div class="student-list-row__text">' +
+    '<div class="student-list-row__name">' +
     escapeHtml(name) +
-    "</h3>" +
-    "<p>" +
-    escapeHtml(track) +
-    '</p><div class="student-card__crud">' +
-    '<button type="button" class="btn-crud btn-crud--detail" data-student-detail="' +
+    '</div><div class="student-list-row__meta">' +
+    escapeHtml(meta) +
+    '</div></div></div>' +
+    '<div class="student-list-row__actions">' +
+    '<button type="button" class="student-list-row__btn student-list-row__btn--detail" data-student-detail="' +
     sid +
-    '"><i class="fa-solid fa-id-card"></i> Detay</button>' +
-    '<button type="button" class="btn-crud btn-crud--edit" data-edit-student="' +
+    '" title="Detay" aria-label="Öğrenci detayı"><i class="fa-solid fa-id-card" aria-hidden="true"></i></button>' +
+    '<button type="button" class="student-list-row__btn student-list-row__btn--edit" data-edit-student="' +
     sid +
-    '"><i class="fa-solid fa-pen"></i> Düzenle</button>' +
-    '<button type="button" class="btn-crud btn-crud--del" data-del-student="' +
+    '" title="Düzenle" aria-label="Öğrenciyi düzenle"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>' +
+    '<button type="button" class="student-list-row__btn student-list-row__btn--del" data-del-student="' +
     sid +
-    '"><i class="fa-solid fa-trash"></i> Sil</button></div></article>'
+    '" title="Sil" aria-label="Öğrenciyi sil"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>' +
+    "</div></article>"
   );
+}
+
+function sortStudentsAlphabeticallyTr(arr) {
+  return (arr || []).slice().sort(function (a, b) {
+    var na = String((a && (a.name || a.studentName)) || "").trim();
+    var nb = String((b && (b.name || b.studentName)) || "").trim();
+    return na.localeCompare(nb, "tr", { sensitivity: "base" });
+  });
 }
 
 function renderStudentsPage() {
@@ -4423,10 +4441,11 @@ function renderStudentsPage() {
   if (!root) return;
   if (cachedStudents.length === 0) {
     root.innerHTML =
-      '<p class="table-empty" style="grid-column:1/-1;margin:0">Henüz öğrenci yok. <strong>Yeni Öğrenci</strong> ile ekleyin.</p>';
+      '<p class="table-empty student-list-view__empty">Henüz öğrenci yok. <strong>Yeni Öğrenci</strong> ile ekleyin.</p>';
     return;
   }
-  root.innerHTML = cachedStudents.map(buildStudentCardArticleHtml).join("");
+  var sorted = sortStudentsAlphabeticallyTr(cachedStudents);
+  root.innerHTML = sorted.map(buildStudentListRowHtml).join("");
 }
 
 function renderMuhasebeStudentLedger() {
@@ -8155,7 +8174,7 @@ function finalizeStudentRemovedFromPanel(docId) {
     var buttons = root.querySelectorAll("[data-del-student]");
     for (var i = 0; i < buttons.length; i++) {
       if (buttons[i].getAttribute("data-del-student") === docId) {
-        var card = buttons[i].closest(".student-card");
+        var card = buttons[i].closest(".student-list-row");
         if (card && card.remove) card.remove();
         break;
       }
@@ -11837,22 +11856,8 @@ function panelMergePlainFromPayload(payload) {
 }
 
 function panelUpsertStudentCardInDom(s) {
-  var root = document.getElementById("studentsCardsRoot");
-  if (!root || !s || !s.id) return;
-  var html = buildStudentCardArticleHtml(s);
-  var wrap = document.createElement("div");
-  wrap.innerHTML = html.trim();
-  var art = wrap.firstElementChild;
-  if (!art) return;
-  var empty = root.querySelector(".table-empty");
-  if (empty) root.innerHTML = "";
-  art.classList.add("yks-row-enter");
-  var old = root.querySelector('[data-student-id="' + escapeHtml(String(s.id)) + '"]');
-  if (old) old.replaceWith(art);
-  else root.appendChild(art);
-  setTimeout(function () {
-    art.classList.remove("yks-row-enter");
-  }, 620);
+  if (!s || !s.id) return;
+  renderStudentsPage();
 }
 
 function trimExamTbodyToMaxRows(tbody, maxRows) {
@@ -19853,6 +19858,13 @@ function showLoadTimeoutWarning() {
 }
 
 function bootstrapKocPanelAfterAuth() {
+  try {
+    var tmQ = (new URLSearchParams(window.location.search).get("tmOpen") || "").trim();
+    if (tmQ === "testmaker") {
+      window.location.replace("/pages/test-olusturucu.html");
+      return;
+    }
+  } catch (e) {}
   if (kocPanelBootstrapped) return;
   kocPanelBootstrapped = true;
   try {
