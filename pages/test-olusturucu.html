@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Test Tasarım Stüdyosu — DerecePanel</title>
+  <script type="importmap">
+    {
+      "imports": {
+        "appwrite": "https://esm.sh/appwrite@23.0.0?bundle"
+      }
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/appwrite@23.0.0/dist/iife/sdk.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/koc-panel.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      important: ".tw-important-root",
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ["Plus Jakarta Sans", "system-ui", "sans-serif"],
+            studio: ["Plus Jakarta Sans", "system-ui", "sans-serif"],
+          },
+          boxShadow: {
+            paper: "0 25px 80px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.06)",
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    /* —— A4 önizleme temel —— */
+    .studio-paper {
+      width: 794px;
+      min-height: 1123px;
+      box-sizing: border-box;
+      background: #fff;
+      color: #0f172a;
+      font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.45;
+      padding: 36px 44px 40px;
+      box-shadow: 0 25px 80px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.06);
+    }
+
+    .paper-brand-block {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      height: 72px;
+      margin-bottom: 1rem;
+      border-radius: 14px;
+      border: 2px dashed #c4b5fd;
+      background: linear-gradient(135deg, #faf5ff 0%, #f8fafc 100%);
+      color: #6b21a8;
+      font-weight: 700;
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .paper-masthead {
+      text-align: center;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 0.85rem;
+      margin-bottom: 1rem;
+    }
+
+    #previewKurum {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #64748b;
+      margin: 0 0 0.35rem;
+    }
+
+    #previewBaslik {
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin: 0 0 0.35rem;
+      color: #0f172a;
+    }
+
+    #previewSlogan {
+      margin: 0;
+      font-size: 0.82rem;
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    .paper-questions {
+      min-height: 200px;
+    }
+
+    .studio-q {
+      break-inside: avoid;
+      margin-bottom: 1rem;
+      position: relative;
+      cursor: grab;
+    }
+    .studio-q:active {
+      cursor: grabbing;
+    }
+
+    .studio-q__main {
+      display: flex;
+      gap: 0.5rem;
+      align-items: flex-start;
+    }
+
+    .studio-q__badge {
+      flex-shrink: 0;
+      width: 1.5rem;
+      height: 1.5rem;
+      border-radius: 8px;
+      background: #f1f5f9;
+      color: #475569;
+      font-size: 0.72rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .studio-q__body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .studio-q__stem {
+      margin: 0 0 0.4rem;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .studio-q__opts {
+      margin: 0;
+      padding-left: 1.1rem;
+      list-style-type: upper-alpha;
+    }
+
+    .studio-q-opt {
+      margin: 0.15rem 0;
+      padding-left: 0.25rem;
+      color: #334155;
+      font-size: 0.92em;
+    }
+
+    .studio-solution {
+      margin-top: 0.5rem;
+      padding: 0.5rem 0.65rem;
+      border-radius: 10px;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      font-size: 0.85em;
+      color: #475569;
+    }
+
+    .studio-solution__lbl {
+      display: block;
+      font-size: 0.65rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #94a3b8;
+      margin-bottom: 0.25rem;
+    }
+
+    .studio-solution p {
+      margin: 0;
+    }
+
+    .studio-note-rail {
+      display: none;
+      min-height: 4.5rem;
+      border-radius: 10px;
+      border: 1px dashed #cbd5e1;
+      background: repeating-linear-gradient(
+        transparent,
+        transparent 7px,
+        #f1f5f9 7px,
+        #f1f5f9 8px
+      );
+    }
+
+    .paper-answer-key {
+      display: none;
+      margin-top: 1.25rem;
+      padding-top: 0.85rem;
+      border-top: 2px solid #0f172a;
+    }
+
+    .paper-answer-key__title {
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #64748b;
+      margin: 0 0 0.5rem;
+    }
+
+    .paper-answer-key__grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.35rem;
+    }
+
+    .paper-answer-key__cell {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 0.35rem 0.45rem;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-align: center;
+      background: #f8fafc;
+    }
+
+    /* Şablon 1 — Standart sınav */
+    #studioPaper[data-template="1"] .paper-questions {
+      column-count: 2;
+      column-gap: 2rem;
+      column-rule: 1px solid #cbd5e1;
+    }
+
+    /* Şablon 2 — Modern fasikül */
+    #studioPaper[data-template="2"] {
+      font-family: "DM Sans", system-ui, sans-serif;
+    }
+    #studioPaper[data-template="2"] .paper-questions {
+      column-count: 2;
+      column-gap: 2.75rem;
+      column-rule: none;
+    }
+    #studioPaper[data-template="2"] .studio-q {
+      margin-bottom: 1.35rem;
+    }
+    #studioPaper[data-template="2"] .studio-q__stem {
+      font-weight: 500;
+      line-height: 1.55;
+    }
+    #studioPaper[data-template="2"] .studio-q__badge {
+      background: linear-gradient(135deg, #ede9fe, #e0e7ff);
+      color: #5b21b6;
+    }
+
+    /* Şablon 3 — Çalışma yaprağı */
+    #studioPaper[data-template="3"] .paper-questions {
+      column-count: 1;
+    }
+    #studioPaper[data-template="3"] .studio-q {
+      display: grid;
+      grid-template-columns: 1fr 5.75rem;
+      gap: 0.65rem;
+      align-items: start;
+    }
+    #studioPaper[data-template="3"] .studio-q__main {
+      grid-column: 1;
+    }
+    #studioPaper[data-template="3"] .studio-note-rail {
+      display: block;
+      grid-column: 2;
+    }
+
+    /* Şablon 4 — Kurumsal */
+    #studioPaper[data-template="4"] .paper-brand-block {
+      display: flex;
+    }
+    #studioPaper[data-template="4"] .paper-masthead {
+      border-bottom: 2px solid #4c1d95;
+      padding-bottom: 1rem;
+    }
+    #studioPaper[data-template="4"] #previewKurum {
+      color: #4c1d95;
+      font-size: 0.8rem;
+    }
+    #studioPaper[data-template="4"] .paper-questions {
+      column-count: 2;
+      column-gap: 1.75rem;
+    }
+
+    /* Şablon 5 — Kompakt */
+    #studioPaper[data-template="5"] {
+      font-size: 9pt;
+      padding: 28px 36px 32px;
+    }
+    #studioPaper[data-template="5"] .paper-questions {
+      column-count: 2;
+      column-gap: 1.25rem;
+      column-rule: 1px solid #e2e8f0;
+    }
+    #studioPaper[data-template="5"] .studio-q {
+      margin-bottom: 0.65rem;
+    }
+    #studioPaper[data-template="5"] #previewBaslik {
+      font-size: 1.1rem;
+    }
+
+    /* Şablon 6 — Quiz */
+    #studioPaper[data-template="6"] .paper-questions {
+      column-count: 1;
+    }
+    #studioPaper[data-template="6"] .studio-q {
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 0.75rem 0.85rem;
+      background: linear-gradient(180deg, #f8fafc 0%, #fff 40%);
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+    }
+    #studioPaper[data-template="6"] .studio-q__badge {
+      background: #0f172a;
+      color: #fff;
+    }
+
+    /* Şablon 7 — Çözümlü rehber */
+    #studioPaper[data-template="7"] .paper-questions {
+      column-count: 1;
+    }
+    #studioPaper[data-template="7"] .studio-solution {
+      display: block !important;
+      background: #e2e8f0;
+      border-color: #cbd5e1;
+    }
+
+    /* Şablon 8 — Dijital odaklı */
+    #studioPaper[data-template="8"] .paper-questions {
+      column-count: 1;
+    }
+    #studioPaper[data-template="8"] {
+      font-size: 12pt;
+      line-height: 1.65;
+      padding: 48px 56px 52px;
+    }
+    #studioPaper[data-template="8"] .studio-q {
+      margin-bottom: 1.75rem;
+    }
+    #studioPaper[data-template="8"] .studio-q__stem {
+      font-weight: 500;
+      font-size: 1.05em;
+    }
+    #studioPaper[data-template="8"] #previewBaslik {
+      font-size: 1.6rem;
+    }
+
+    /* Şablon 9 — Sözel odaklı */
+    #studioPaper[data-template="9"] {
+      font-family: "Source Serif 4", Georgia, serif;
+      font-size: 11pt;
+      line-height: 1.65;
+    }
+    #studioPaper[data-template="9"] .paper-questions {
+      column-count: 1;
+      max-width: 36rem;
+      margin: 0 auto;
+    }
+    #studioPaper[data-template="9"] .studio-q__stem {
+      font-weight: 600;
+    }
+    #studioPaper[data-template="9"] .studio-q__badge {
+      font-family: "Plus Jakarta Sans", sans-serif;
+    }
+
+    /* Şablon 10 — Deneme */
+    #studioPaper[data-template="10"] .paper-questions {
+      column-count: 2;
+      column-gap: 1.5rem;
+    }
+    #studioPaper[data-template="10"] .paper-answer-key {
+      display: block;
+    }
+
+    /* Çözüm alanı yalnız şablon 7 */
+    #studioPaper:not([data-template="7"]) .studio-solution {
+      display: none !important;
+    }
+
+    .studio-q--dragging {
+      opacity: 0.55;
+      outline: 2px dashed #8b5cf6;
+      outline-offset: 2px;
+    }
+
+    @media (max-width: 900px) {
+      .studio-paper {
+        width: 100%;
+        max-width: 794px;
+        min-height: auto;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-[#f2f4f7] font-sans text-slate-800 antialiased">
+  <div class="tw-important-root min-h-screen flex flex-col">
+    <!-- Üst kontrol merkezi -->
+    <header class="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl supports-[backdrop-filter]:bg-white/70 shadow-sm shadow-slate-900/5">
+      <div class="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-3 sm:px-6 lg:flex-row lg:items-end lg:justify-between lg:gap-6">
+        <div class="flex flex-1 flex-col gap-3 min-w-0">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-violet-600">DerecePanel</p>
+              <h1 class="text-lg font-extrabold tracking-tight text-slate-900 sm:text-xl">Test Tasarım Stüdyosu</h1>
+            </div>
+            <a href="koc-panel.html" class="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-800">← Panele dön</a>
+          </div>
+          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <label class="block">
+              <span class="mb-1 block text-[0.7rem] font-bold uppercase tracking-wide text-slate-500">Kurum adı</span>
+              <input id="fieldKurum" type="text" placeholder="Örn. Derece Koleji" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-inner shadow-slate-900/5 outline-none ring-violet-500/0 transition placeholder:text-slate-400 focus:border-violet-300 focus:ring-2 focus:ring-violet-500/20" />
+            </label>
+            <label class="block">
+              <span class="mb-1 block text-[0.7rem] font-bold uppercase tracking-wide text-slate-500">Test başlığı</span>
+              <input id="fieldBaslik" type="text" placeholder="Örn. TYT Deneme — 3" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-inner shadow-slate-900/5 outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-500/20" />
+            </label>
+            <label class="block sm:col-span-2 lg:col-span-2">
+              <span class="mb-1 block text-[0.7rem] font-bold uppercase tracking-wide text-slate-500">Alt bilgi / slogan</span>
+              <input id="fieldSlogan" type="text" placeholder="Örn. Başarılar dileriz." class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-inner shadow-slate-900/5 outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-500/20" />
+            </label>
+          </div>
+          <div class="relative max-w-xl">
+            <span class="mb-1 block text-[0.7rem] font-bold uppercase tracking-wide text-slate-500">Şablon</span>
+            <button type="button" id="templateTrigger" class="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-sm font-semibold text-slate-800 shadow-sm transition hover:border-violet-200 hover:bg-slate-50/80">
+              <span class="flex items-center gap-2 min-w-0">
+                <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 text-xs font-black text-white">Aa</span>
+                <span class="truncate" id="templateTriggerLabel">Standart Sınav</span>
+              </span>
+              <svg class="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            <div id="templatePanel" class="absolute left-0 right-0 top-full z-50 mt-1 hidden max-h-[min(70vh,420px)] overflow-y-auto rounded-2xl border border-slate-200/80 bg-white p-2 shadow-paper">
+              <div class="grid gap-1 sm:grid-cols-2">
+                <button type="button" data-template-id="1" class="flex gap-3 rounded-xl p-2.5 text-left transition hover:bg-slate-50">
+                  <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-black text-slate-600">1</span>
+                  <span><span class="block text-sm font-bold text-slate-900">Standart Sınav</span><span class="block text-xs text-slate-500">Çift sütun, ince orta çizgi</span></span>
+                </button>
+                <button type="button" data-template-id="2" class="flex gap-3 rounded-xl p-2.5 text-left transition hover:bg-slate-50">
+                  <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-sm font-black text-violet-700">2</span>
+                  <span><span class="block text-sm font-bold text-slate-900">Modern Fasikül</span><span class="block text-xs text-slate-500">Ferah aralık, modern tipografi</span></span>
+                </button>
+                <button type="button" data-template-id="3" class="flex gap-3 rounded-xl p-2.5 text-left transition hover:bg-slate-50">
+                  <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-sm font-black text-amber-800">3</span>
+                  <span><span class="block text-sm font-bold text-slate-900">Çalışma Yaprağı</span><span class="block text-xs text-slate-500">Yanında not alanı</span></span>
+                </button>
+                <button type="button" data-template-id="4" class="flex gap-3 rounded-xl p-2.5 text-left transition hover:bg-slate-50">
+                  <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-sm font-black text-indigo-800">4</span>
+                  <span><span class="block text-sm font-bold text-slate-900">Kurumsal</span><span class="block text-xs text-slate-500">Logo ve antet alanı</span></span>
+                </button>
+                <button type="button" data-template-id="5" class="flex gap-3 rounded-xl p-2.5 text-left transition hover:bg-slate-50">
+                  <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-200 text-sm font-black text-slate-700">5</span>
+                  <span><span class="block text-sm font-bold text-slate-900">Kompakt</span><span class="block text-xs text-slate-500">Yoğun, okunaklı</span></span>
+                </button>
+                <button type="button" data-template-id="6" class="flex gap-3 rounded-xl p-2.5 text-left transition hover:bg-slate-50">
+                  <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-fuchsia-100 text-sm font-black text-fuchsia-800">6</span>
+                  <span><span class="block text-sm font-bold text-slate-900">Quiz Modu</span><span class="block text-xs text-slate-500">Kutu içi sorular</span></span>
+                </button>
+                <button type="button" data-template-id="7" class="flex gap-3 rounded-xl p-2.5 text-left transition hover:bg-slate-50">
+                  <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-300 text-sm font-black text-slate-800">7</span>
+                  <span><span class="block text-sm font-bold text-slate-900">Çözümlü Rehber</span><span class="block text-xs text-slate-500">Gri çözüm alanı</span></span>
+                </button>
+                <button type="button" data-template-id="8" class="flex gap-3 rounded-xl p-2.5 text-left transition hover:bg-slate-50">
+                  <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sm font-black text-sky-800">8</span>
+                  <span><span class="block text-sm font-bold text-slate-900">Dijital Odaklı</span><span class="block text-xs text-slate-500">Büyük puntolu, ferah</span></span>
+                </button>
+                <button type="button" data-template-id="9" class="flex gap-3 rounded-xl p-2.5 text-left transition hover:bg-slate-50">
+                  <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-sm font-black text-emerald-900">9</span>
+                  <span><span class="block text-sm font-bold text-slate-900">Sözel Odaklı</span><span class="block text-xs text-slate-500">Tek sütun paragraf</span></span>
+                </button>
+                <button type="button" data-template-id="10" class="flex gap-3 rounded-xl p-2.5 text-left transition hover:bg-slate-50 sm:col-span-2">
+                  <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-sm font-black text-orange-900">10</span>
+                  <span><span class="block text-sm font-bold text-slate-900">Deneme Modu</span><span class="block text-xs text-slate-500">Alt cevap anahtarı kutusu</span></span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="flex shrink-0 flex-col gap-2 sm:flex-row lg:flex-col lg:items-stretch">
+          <button type="button" id="btnTaslakKaydet" class="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:from-violet-500 hover:to-indigo-500 active:scale-[0.98]">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+            PDF Taslağı Kaydet
+          </button>
+          <button type="button" id="btnPdfIndir" class="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-orange-500/30 transition hover:from-amber-400 hover:to-orange-400 active:scale-[0.98]">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            PDF Olarak İndir
+          </button>
+        </div>
+      </div>
+      <p class="border-t border-slate-100 px-4 py-2 text-center text-[0.7rem] text-slate-500 sm:text-left sm:px-6">Soruları sürükleyerek sırayı değiştirebilirsiniz. Önizleme canlı güncellenir.</p>
+    </header>
+
+    <!-- Kanvas alanı -->
+    <main class="flex flex-1 justify-center overflow-x-auto px-4 py-10 sm:px-6">
+      <div class="flex flex-col items-center gap-4">
+        <p class="text-xs font-medium text-slate-500">A4 canlı önizleme · 794 × 1123 px</p>
+        <div id="studioPaper" class="studio-paper" data-template="1">
+          <div class="paper-brand-block" aria-hidden="true">Kurum logosu — PNG/SVG alanı</div>
+          <header class="paper-masthead">
+            <p id="previewKurum">Kurum Adı</p>
+            <h1 id="previewBaslik">Test Başlığı</h1>
+            <p id="previewSlogan">Alt bilgi veya slogan burada görünür.</p>
+          </header>
+          <div id="questionsList" class="paper-questions" aria-label="Soru listesi"></div>
+          <footer class="paper-answer-key" id="paperAnswerKey">
+            <p class="paper-answer-key__title">Cevap anahtarı</p>
+            <div class="paper-answer-key__grid">
+              <div class="paper-answer-key__cell">1 — B</div>
+              <div class="paper-answer-key__cell">2 — B</div>
+              <div class="paper-answer-key__cell">3 — A</div>
+              <div class="paper-answer-key__cell">4 — C</div>
+              <div class="paper-answer-key__cell">5 — B</div>
+            </div>
+          </footer>
+        </div>
+      </div>
+    </main>
+
+    <div id="studioToast" class="pointer-events-none fixed bottom-6 left-1/2 z-[100] max-w-sm -translate-x-1/2 translate-y-2 rounded-2xl px-4 py-3 text-center text-sm font-semibold text-white opacity-0 shadow-lg transition duration-300 bg-slate-900" role="status"></div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
+  <script src="../js/test-olusturucu-studio.js"></script>
+  <script type="module">
+    import { getCoachPanelGate } from "../js/coach-auth-session.js";
+    await getCoachPanelGate();
+  </script>
+</body>
+</html>

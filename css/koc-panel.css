@@ -1512,37 +1512,151 @@ a.sidebar__sublink.is-active > i:first-of-type {
   background: var(--purple-50);
 }
 
-.student-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
-}
-
-.student-card {
+/* Öğrencilerim — dikey liste (kart grid kaldırıldı) */
+.student-list-view {
+  display: flex;
+  flex-direction: column;
   background: var(--white);
   border: 1px solid var(--border-subtle);
-  box-shadow: var(--shadow-card);
   border-radius: var(--radius-lg);
-  padding: 1.25rem;
-  text-align: center;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
 }
 
-.student-card img {
+.student-list-view__empty {
+  margin: 0;
+  padding: 1.25rem 1.1rem;
+}
+
+.student-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid #f3f4f6;
+  background: var(--white);
+  transition: background 0.15s ease;
+}
+
+.student-list-row:last-child {
+  border-bottom: none;
+}
+
+.student-list-row:hover {
+  background: #f9fafb;
+}
+
+.student-list-row__main {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.student-list-row__avatar {
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  display: block;
-  margin: 0 auto 0.75rem;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--gray-100);
 }
 
-.student-card h3 {
-  margin: 0 0 0.35rem;
-  font-size: 1rem;
+.student-list-row__text {
+  min-width: 0;
+}
+
+.student-list-row__name {
   font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--gray-900);
+  line-height: 1.25;
 }
 
-.student-card p {
-  margin: 0 0 0.75rem;
+.student-list-row__meta {
   font-size: 0.82rem;
   color: var(--gray-500);
+  margin-top: 0.12rem;
+  line-height: 1.35;
+}
+
+.student-list-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.student-list-row__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: var(--gray-50);
+  color: var(--gray-600);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.student-list-row__btn:hover {
+  background: var(--gray-100);
+  color: var(--gray-800);
+}
+
+.student-list-row__btn--detail {
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+  color: var(--purple-700);
+  border-color: #ddd6fe;
+}
+
+.student-list-row__btn--detail:hover {
+  background: #ede9fe;
+  color: var(--purple-800);
+  border-color: #c4b5fd;
+}
+
+.student-list-row__btn--edit {
+  background: var(--gray-50);
+  border-color: var(--gray-200);
+}
+
+.student-list-row__btn--edit:hover {
+  background: #e0e7ff;
+  color: #4338ca;
+  border-color: #a5b4fc;
+}
+
+.student-list-row__btn--del {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.student-list-row__btn--del:hover {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #f87171;
+}
+
+@media (max-width: 640px) {
+  .student-list-row {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .student-list-row__actions {
+    width: 100%;
+    justify-content: flex-end;
+    padding-top: 0.15rem;
+  }
 }
 
 .cards-row--wide {
